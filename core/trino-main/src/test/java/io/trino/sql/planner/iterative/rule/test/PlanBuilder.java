@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.FunctionResolver;
@@ -1183,7 +1184,7 @@ public class PlanBuilder
             Expression filter,
             Optional<Symbol> leftPartitionSymbol,
             Optional<Symbol> rightPartitionSymbol,
-            Optional<String> kdbTree)
+            Optional<Slice> kdbTree)
     {
         return new SpatialJoinNode(
                 idAllocator.getNextId(),

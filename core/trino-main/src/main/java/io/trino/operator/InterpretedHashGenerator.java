@@ -20,7 +20,6 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
-import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
 import jakarta.annotation.Nullable;
 
 import java.lang.invoke.MethodHandle;
@@ -79,7 +78,7 @@ public class InterpretedHashGenerator
     public long hashPosition(int position, Page page)
     {
         // Note: this code is duplicated for performance but must logically match hashPosition(position, IntFunction<Block> blockProvider)
-        long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
+        long result = INITIAL_HASH_VALUE;
         for (int i = 0; i < hashCodeOperators.length; i++) {
             Block block = page.getBlock(hashChannels == null ? i : hashChannels[i]);
             result = CombineHashFunction.getHash(result, nullSafeHash(i, block, position));
@@ -90,7 +89,7 @@ public class InterpretedHashGenerator
     public long hashPosition(int position, IntFunction<Block> blockProvider)
     {
         // Note: this code is duplicated for performance but must logically match hashPosition(position, Page page)
-        long result = HashGenerationOptimizer.INITIAL_HASH_VALUE;
+        long result = INITIAL_HASH_VALUE;
         for (int i = 0; i < hashCodeOperators.length; i++) {
             Block block = blockProvider.apply(hashChannels == null ? i : hashChannels[i]);
             result = CombineHashFunction.getHash(result, nullSafeHash(i, block, position));

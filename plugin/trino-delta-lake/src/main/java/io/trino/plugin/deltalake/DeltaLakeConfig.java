@@ -50,6 +50,7 @@ public class DeltaLakeConfig
 {
     public static final String EXTENDED_STATISTICS_ENABLED = "delta.extended-statistics.enabled";
     public static final String VACUUM_MIN_RETENTION = "delta.vacuum.min-retention";
+    public static final DataSize DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE = DataSize.of(16, MEGABYTE);
 
     // Runtime.getRuntime().maxMemory() is not 100% stable and may return slightly different value over JVM lifetime. We use
     // constant so default configuration for cache size is stable.
@@ -60,6 +61,7 @@ public class DeltaLakeConfig
 
     private Duration metadataCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private DataSize metadataCacheMaxRetainedSize = DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE;
+    private DataSize transactionLogMaxCachedFileSize = DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
     private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
     private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private int domainCompactionThreshold = 1000;
@@ -78,7 +80,7 @@ public class DeltaLakeConfig
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
-    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
+    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.ZSTD;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean storeTableMetadataEnabled;
     private int storeTableMetadataThreads = 5;
@@ -118,6 +120,19 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setMetadataCacheMaxRetainedSize(DataSize metadataCacheMaxRetainedSize)
     {
         this.metadataCacheMaxRetainedSize = metadataCacheMaxRetainedSize;
+        return this;
+    }
+
+    public DataSize getTransactionLogMaxCachedFileSize()
+    {
+        return transactionLogMaxCachedFileSize;
+    }
+
+    @Config("delta.transaction-log.max-cached-file-size")
+    @ConfigDescription("Maximum size of delta transaction log file that will be cached in memory")
+    public DeltaLakeConfig setTransactionLogMaxCachedFileSize(DataSize transactionLogMaxCachedFileSize)
+    {
+        this.transactionLogMaxCachedFileSize = transactionLogMaxCachedFileSize;
         return this;
     }
 

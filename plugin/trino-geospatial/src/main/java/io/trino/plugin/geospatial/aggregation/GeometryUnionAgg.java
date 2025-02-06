@@ -24,9 +24,9 @@ import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 
 /**
  * Aggregate form of ST_Union which takes a set of geometries and unions them into a single geometry using an iterative approach,
@@ -39,7 +39,7 @@ public final class GeometryUnionAgg
     private GeometryUnionAgg() {}
 
     @InputFunction
-    public static void input(@AggregationState GeometryState state, @SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    public static void input(@AggregationState GeometryState state, @SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         OGCGeometry geometry = GeometrySerde.deserialize(input);
         if (state.getGeometry() == null) {
@@ -61,7 +61,7 @@ public final class GeometryUnionAgg
         }
     }
 
-    @OutputFunction(GEOMETRY_TYPE_NAME)
+    @OutputFunction(StandardTypes.GEOMETRY)
     public static void output(@AggregationState GeometryState state, BlockBuilder out)
     {
         if (state.getGeometry() == null) {

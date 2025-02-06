@@ -74,7 +74,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
         Request request = new Request.Builder().url("https://localhost:" + hydraIdP.getAuthPort() + "/userinfo").addHeader(AUTHORIZATION, "Bearer " + cookieValue).build();
         try (Response response = httpClient.newCall(request).execute()) {
             assertThat(response.body()).isNotNull();
-            DefaultClaims claims = new DefaultClaims(JsonCodec.mapJsonCodec(String.class, Object.class).fromJson(response.body().bytes()));
+            DefaultClaims claims = new DefaultClaims(JsonCodec.mapJsonCodec(String.class, Object.class).fromJson(response.body().byteStream()));
             assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
             assertThat(claims.get("aud")).isEqualTo(Set.of(TRINO_CLIENT_ID));
         }

@@ -30,11 +30,13 @@ import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.hdfs.s3.HiveS3Config;
 import io.trino.hdfs.s3.TrinoS3ConfigurationInitializer;
+import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
+import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
@@ -50,6 +52,10 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.TestingTypeManager;
+import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -64,9 +70,10 @@ import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
@@ -75,7 +82,10 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -87,17 +97,23 @@ public class TestTrinoHiveCatalogWithHiveMetastore
 {
     private static final Logger LOG = Logger.get(TestTrinoHiveCatalogWithHiveMetastore.class);
 
-    private AutoCloseableCloser closer = AutoCloseableCloser.create();
+    private final AutoCloseableCloser closer = AutoCloseableCloser.create();
     // Use MinIO for storage, since HDFS is hard to get working in a unit test
     private HiveMinioDataLake dataLake;
     private TrinoFileSystem fileSystem;
-    private String bucketName;
+    private CachingHiveMetastore metastore;
+    protected String bucketName;
+
+    HiveMinioDataLake hiveMinioDataLake()
+    {
+        return new Hive3MinioDataLake(bucketName, HIVE3_IMAGE);
+    }
 
     @BeforeAll
     public void setUp()
     {
         bucketName = "test-hive-catalog-with-hms-" + randomNameSuffix();
-        dataLake = closer.register(new HiveMinioDataLake(bucketName, HIVE3_IMAGE));
+        dataLake = closer.register(hiveMinioDataLake());
         dataLake.start();
     }
 
@@ -130,9 +146,9 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 .thriftMetastoreConfig(new ThriftMetastoreConfig()
                         // Read timed out sometimes happens with the default timeout
                         .setReadTimeout(new Duration(1, MINUTES)))
-                .metastoreClient(dataLake.getHiveHadoop().getHiveMetastoreEndpoint())
+                .metastoreClient(dataLake.getHiveMetastoreEndpoint())
                 .build(closer::register);
-        CachingHiveMetastore metastore = createPerTransactionCache(new BridgingHiveMetastore(thriftMetastore), 1000);
+        metastore = createPerTransactionCache(new BridgingHiveMetastore(thriftMetastore), 1000);
         fileSystem = fileSystemFactory.create(SESSION);
 
         return new TrinoHiveCatalog(
@@ -227,6 +243,48 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
+    }
+
+    @Override
+    protected Optional<SchemaTableName> createExternalIcebergTable(TrinoCatalog catalog, String namespace, AutoCloseableCloser closer)
+            throws Exception
+    {
+        // simulate iceberg table created by spark with lowercase table type
+        return createTableWithTableType(catalog, namespace, closer, "lowercase_type", Optional.of(ICEBERG_TABLE_TYPE_VALUE.toLowerCase(ENGLISH)));
+    }
+
+    @Override
+    protected Optional<SchemaTableName> createExternalNonIcebergTable(TrinoCatalog catalog, String namespace, AutoCloseableCloser closer)
+            throws Exception
+    {
+        return createTableWithTableType(catalog, namespace, closer, "non_iceberg_table", Optional.empty());
+    }
+
+    private Optional<SchemaTableName> createTableWithTableType(TrinoCatalog catalog, String namespace, AutoCloseableCloser closer, String tableName, Optional<String> tableType)
+            throws Exception
+    {
+        SchemaTableName lowerCaseTableTypeTable = new SchemaTableName(namespace, tableName);
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        lowerCaseTableTypeTable,
+                        new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        arbitraryTableLocation(catalog, SESSION, lowerCaseTableTypeTable),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        Table metastoreTable = metastore.getTable(namespace, tableName).get();
+
+        metastore.replaceTable(
+                namespace,
+                tableName,
+                Table.builder(metastoreTable)
+                        .setParameter(TABLE_TYPE_PROP, tableType)
+                        .build(),
+                NO_PRIVILEGES);
+        closer.register(() -> metastore.dropTable(namespace, tableName, true));
+        return Optional.of(lowerCaseTableTypeTable);
     }
 
     @Override

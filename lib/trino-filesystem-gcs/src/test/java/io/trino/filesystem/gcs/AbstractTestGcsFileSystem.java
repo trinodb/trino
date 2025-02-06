@@ -35,7 +35,6 @@ import java.util.Base64;
 import static com.google.cloud.storage.Storage.BlobTargetOption.doesNotExist;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -47,11 +46,6 @@ public abstract class AbstractTestGcsFileSystem
     private Location rootLocation;
     private Storage storage;
     private GcsFileSystemFactory gcsFileSystemFactory;
-
-    protected static String getRequiredEnvironmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
-    }
 
     protected void initialize(String gcpCredentialKey)
             throws IOException

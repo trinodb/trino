@@ -13,8 +13,6 @@
  */
 package io.trino.spi.type;
 
-import com.fasterxml.jackson.annotation.JsonValue;
-
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Objects;
@@ -149,7 +147,6 @@ public final class SqlTimestamp
         return Objects.hash(epochMicros, picosOfMicros, precision);
     }
 
-    @JsonValue
     @Override
     public String toString()
     {

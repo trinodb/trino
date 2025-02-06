@@ -107,7 +107,7 @@ public class TestDeltaLakeSystemTables
     @Test
     void testTransactionsTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_transactions", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_transactions", "(col int)")) {
             assertThat((String) computeScalar("SELECT transaction FROM \"" + table.getName() + "$transactions\""))
                     .contains("commitInfo", "protocol", "metaData");
         }
@@ -116,7 +116,7 @@ public class TestDeltaLakeSystemTables
     @Test
     void testTransactionsTableAccessControl()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_transactions", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_transactions", "(col int)")) {
             // TODO Disallow access to transactions table when the user can't access the base table
             assertAccessAllowed(
                     "SELECT * FROM \"" + table.getName() + "$transactions\"",

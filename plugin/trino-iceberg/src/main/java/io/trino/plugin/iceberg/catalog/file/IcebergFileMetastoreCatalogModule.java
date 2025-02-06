@@ -19,12 +19,11 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
+import io.trino.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.metastore.CachingHiveMetastoreModule;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
-import io.trino.plugin.iceberg.catalog.MetastoreValidator;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
 import io.trino.plugin.iceberg.procedure.MigrateProcedure;
@@ -45,9 +44,8 @@ public class IcebergFileMetastoreCatalogModule
         install(new FileMetastoreModule());
         binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
-        binder.bind(MetastoreValidator.class).asEagerSingleton();
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(HIDE_DELTA_LAKE_TABLES_IN_ICEBERG);
-        install(new CachingHiveMetastoreModule(false));
+        install(new CachingHiveMetastoreModule());
 
         configBinder(binder).bindConfigDefaults(CachingHiveMetastoreConfig.class, config -> {
             // ensure caching metastore wrapper isn't created, as it's not leveraged by Iceberg

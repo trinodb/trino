@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg.catalog.hms;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
 import io.trino.cache.EvictableCacheBuilder;
@@ -27,10 +28,10 @@ import io.trino.metastore.Database;
 import io.trino.metastore.HivePrincipal;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.TableInfo;
+import io.trino.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.HiveSchemaProperties;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.iceberg.IcebergTableName;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
@@ -364,6 +365,28 @@ public class TrinoHiveCatalog
     {
         List<Callable<List<TableInfo>>> tasks = listNamespaces(session, namespace).stream()
                 .map(schema -> (Callable<List<TableInfo>>) () -> metastore.getTables(schema))
+                .collect(toImmutableList());
+        try {
+            return processWithAdditionalThreads(tasks, metadataFetchingExecutor).stream()
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableList());
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
+    }
+
+    @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        List<Callable<List<SchemaTableName>>> tasks = listNamespaces(session, namespace).stream()
+                .map(schema -> (Callable<List<SchemaTableName>>) () -> metastore.getTableNamesWithParameters(schema, TABLE_TYPE_PROP, ImmutableSet.of(
+                                // Get tables with parameter table_type set to  "ICEBERG" or "iceberg". This is required because
+                                // Trino uses lowercase value whereas Spark and Flink use uppercase.
+                                ICEBERG_TABLE_TYPE_VALUE.toLowerCase(ENGLISH),
+                                ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))).stream()
+                        .map(tableName -> new SchemaTableName(schema, tableName))
+                        .collect(toImmutableList()))
                 .collect(toImmutableList());
         try {
             return processWithAdditionalThreads(tasks, metadataFetchingExecutor).stream()

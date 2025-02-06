@@ -31,6 +31,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -1208,10 +1209,15 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
         verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
-        addColumn(session, handle.asPlainTable().getRemoteTableName(), column);
+
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> addColumn(session, handle.asPlainTable().getRemoteTableName(), column);
+        }
     }
 
     private void addColumn(ConnectorSession session, RemoteTableName table, ColumnMetadata column)

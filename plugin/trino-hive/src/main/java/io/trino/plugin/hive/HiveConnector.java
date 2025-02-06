@@ -29,8 +29,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.TableProcedureMetadata;
-import io.trino.spi.function.FunctionProvider;
-import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
@@ -62,14 +60,11 @@ public class HiveConnector
     private final List<PropertyMetadata<?>> viewProperties;
     private final List<PropertyMetadata<?>> columnProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
-    private final List<PropertyMetadata<?>> materializedViewProperties;
 
     private final Optional<ConnectorAccessControl> accessControl;
     private final ClassLoader classLoader;
 
     private final HiveTransactionManager transactionManager;
-    private final Set<ConnectorTableFunction> connectorTableFunctions;
-    private final FunctionProvider functionProvider;
     private final boolean singleStatementWritesOnly;
 
     public HiveConnector(
@@ -88,10 +83,7 @@ public class HiveConnector
             List<PropertyMetadata<?>> viewProperties,
             List<PropertyMetadata<?>> columnProperties,
             List<PropertyMetadata<?>> analyzeProperties,
-            List<PropertyMetadata<?>> materializedViewProperties,
             Optional<ConnectorAccessControl> accessControl,
-            Set<ConnectorTableFunction> connectorTableFunctions,
-            FunctionProvider functionProvider,
             boolean singleStatementWritesOnly,
             ClassLoader classLoader)
     {
@@ -112,10 +104,7 @@ public class HiveConnector
         this.viewProperties = ImmutableList.copyOf(requireNonNull(viewProperties, "viewProperties is null"));
         this.columnProperties = ImmutableList.copyOf(requireNonNull(columnProperties, "columnProperties is null"));
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
-        this.materializedViewProperties = requireNonNull(materializedViewProperties, "materializedViewProperties is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.connectorTableFunctions = ImmutableSet.copyOf(requireNonNull(connectorTableFunctions, "connectorTableFunctions is null"));
-        this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
         this.singleStatementWritesOnly = singleStatementWritesOnly;
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
@@ -195,12 +184,6 @@ public class HiveConnector
     }
 
     @Override
-    public List<PropertyMetadata<?>> getMaterializedViewProperties()
-    {
-        return materializedViewProperties;
-    }
-
-    @Override
     public ConnectorAccessControl getAccessControl()
     {
         return accessControl.orElseThrow(UnsupportedOperationException::new);
@@ -237,18 +220,6 @@ public class HiveConnector
     public final void shutdown()
     {
         lifeCycleManager.stop();
-    }
-
-    @Override
-    public Optional<FunctionProvider> getFunctionProvider()
-    {
-        return Optional.of(functionProvider);
-    }
-
-    @Override
-    public Set<ConnectorTableFunction> getTableFunctions()
-    {
-        return connectorTableFunctions;
     }
 
     @Override

@@ -59,7 +59,8 @@ public class TestKuduConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_ARRAY,
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_ARRAY,
                  SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_COMMENT_ON_TABLE,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
@@ -92,6 +93,33 @@ public class TestKuduConnectorTest
 
         return createTable.replaceFirst(",", " WITH (primary_key=true),") +
                 format("WITH (partition_by_hash_columns = ARRAY['%s'], partition_by_hash_buckets = 2)", column);
+    }
+
+    @Test
+    public void testUnpartitionedTable()
+    {
+        String tableName = "test_unpartitioned_table" + randomNameSuffix();
+        // success create the table without partition keys
+        assertUpdate("CREATE TABLE " + tableName + " (id int WITH (primary_key=true), val varchar)");
+
+        assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 0");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'hello'), (2, 'world')", 2);
+        assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 2");
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE id = 1", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (2, 'world')");
+
+        assertThat(computeScalar("SHOW CREATE TABLE " + tableName))
+                .isEqualTo(format("CREATE TABLE kudu.default.%s (\n" +
+                        "   id integer COMMENT '' WITH (primary_key = true),\n" +
+                        "   val varchar COMMENT ''\n" +
+                        ")\n" +
+                        "WITH (\n" +
+                        "   number_of_replicas = 1,\n" +
+                        "   range_partitions = '[]'\n" +
+                        ")", tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -300,7 +328,7 @@ public class TestKuduConnectorTest
     {
         // TODO: Enable this test
         assertThatThrownBy(super::testAddNotNullColumnToEmptyTable)
-                .hasMessage("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+                .hasMessage("must specify at least one key column");
         abort("TODO");
     }
 
@@ -349,7 +377,7 @@ public class TestKuduConnectorTest
                 "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertTableColumnNames(tableName, "id", "a", "b", "c");
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isNull();
+        assertThat(getTableComment(tableName)).isNull();
 
         assertUpdate("DROP TABLE " + tableName);
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
@@ -523,8 +551,7 @@ public class TestKuduConnectorTest
     public void testAddColumnWithCommentSpecialCharacter(String comment)
     {
         // Override because Kudu connector doesn't support creating a new table without partition columns
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_add_col_",
                 "(id INT WITH (primary_key=true), a_varchar varchar) WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)")) {
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b_varchar varchar COMMENT " + varcharLiteral(comment));
@@ -557,7 +584,7 @@ public class TestKuduConnectorTest
     @Test
     public void testInsertIntoTableHavingRowUuid()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", " AS SELECT * FROM region WITH NO DATA")) {
+        try (TestTable table = newTrinoTable("test_insert_", " AS SELECT * FROM region WITH NO DATA")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM region", 5);
 
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -570,7 +597,7 @@ public class TestKuduConnectorTest
     public void testInsertUnicode()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+        try (TestTable table = newTrinoTable("test_insert_unicode_",
                 "(test varchar(50) WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5world\\7F16\\7801' ", 2);
@@ -578,7 +605,7 @@ public class TestKuduConnectorTest
                     .containsExactlyInAnyOrder("Hello", "hello测试world编码");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+        try (TestTable table = newTrinoTable("test_insert_unicode_",
                 "(test varchar(50) WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'aa', 'bé'", 2);
@@ -589,7 +616,7 @@ public class TestKuduConnectorTest
             assertQueryReturnsEmptyResult("SELECT test FROM " + table.getName() + " WHERE test = 'ba'");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+        try (TestTable table = newTrinoTable("test_insert_unicode_",
                 "(test varchar(50) WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'a', 'é'", 2);
@@ -606,7 +633,7 @@ public class TestKuduConnectorTest
     public void testInsertHighestUnicodeCharacter()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_unicode_",
+        try (TestTable table = newTrinoTable("test_insert_unicode_",
                 "(test varchar(50) WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['test'], partition_by_hash_buckets = 2)")) {
             assertUpdate("INSERT INTO " + table.getName() + "(test) VALUES 'Hello', U&'hello\\6d4B\\8Bd5\\+10FFFFworld\\7F16\\7801' ", 2);
@@ -620,7 +647,7 @@ public class TestKuduConnectorTest
     public void testInsertNegativeDate()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date",
+        try (TestTable table = newTrinoTable("insert_date",
                 "(dt DATE WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['dt'], partition_by_hash_buckets = 2)")) {
             assertQueryFails(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), errorMessageForInsertNegativeDate("-0001-01-01"));
@@ -695,7 +722,7 @@ public class TestKuduConnectorTest
     protected TestTable createTableWithOneIntegerColumn(String namePrefix)
     {
         // TODO Remove this overriding method once kudu connector can create tables with default partitions
-        return new TestTable(getQueryRunner()::execute, namePrefix,
+        return newTrinoTable(namePrefix,
                 "(col integer WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['col'], partition_by_hash_buckets = 2)");
     }
@@ -751,7 +778,7 @@ public class TestKuduConnectorTest
     public void testVarcharCastToDateInPredicate()
     {
         assertThatThrownBy(super::testVarcharCastToDateInPredicate)
-                .hasStackTraceContaining("Table partitioning must be specified using setRangePartitionColumns or addHashPartitions");
+                .hasStackTraceContaining("must specify at least one key column");
 
         abort("TODO: implement the test for Kudu");
     }
@@ -927,19 +954,19 @@ public class TestKuduConnectorTest
     }
 
     /**
-     * This test fails intermittently because Kudu doesn't have strong enough
-     * semantics to support writing from multiple threads.
+     * createTableForWrites will create the table using the first column as the primary key.
+     * Attempting to update the primary key (`nationkey` in this case) caused a failure due to duplicate values.
+     * This override modifies the test to focus on updating the `regionkey` instead.
      */
     @Test
-    @Disabled
     @Override
     public void testUpdate()
     {
         withTableName("test_update", tableName -> {
             createTableForWrites("CREATE TABLE %s " + NATION_COLUMNS, tableName, Optional.empty());
             assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
-            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 WHERE regionkey = 2", 5);
-            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nationkey = 100", "VALUES 5");
+            assertUpdate("UPDATE " + tableName + " SET regionkey = 100 WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE regionkey = 100", "VALUES 5");
         });
     }
 
@@ -951,6 +978,30 @@ public class TestKuduConnectorTest
     @Disabled
     @Override
     public void testUpdateMultipleCondition() {}
+
+    /**
+     * The test is overridden because Kudu requires nullable columns to be explicitly specified in the creation statement using `WITH (nullable=true)`.
+     * Additionally, the first column will be the primary key in the table, override to use `regionkey` to test.
+     */
+    @Test
+    @Override
+    public void testUpdateWithNullValues()
+    {
+        withTableName("test_update_nulls", tableName -> {
+            assertUpdate(createKuduTableForWrites("CREATE TABLE %s (nationkey bigint, name varchar(25), regionkey bigint WITH (nullable=true), comment varchar(152))".formatted(tableName)));
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM nation", 25);
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE regionkey IS NULL", "VALUES 0");
+            assertUpdate("UPDATE " + tableName + " SET regionkey = NULL WHERE nationkey > 20", 4);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE regionkey IS NULL", "VALUES 4");
+
+            // Kudu connector does not have ConnectorCapabilities with `SUPPORTS_NOT_NULL_CONSTRAINT`, but column definition not null by default
+            // Here verify set null to the not null column will fail in Kudu
+            assertThatThrownBy(() -> getQueryRunner().execute("UPDATE " + tableName + " SET nationkey = NULL WHERE nationkey > 20"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("nationkey cannot be set to null");
+        });
+    }
 
     /**
      * This test fails intermittently because Kudu doesn't have strong enough
@@ -997,6 +1048,20 @@ public class TestKuduConnectorTest
 
     @Test
     @Override
+    protected void testUpdateWithSubquery()
+    {
+        withTableName("test_update_with_subquery", tableName -> {
+            createTableForWrites("CREATE TABLE %s " + ORDER_COLUMNS, tableName, Optional.empty());
+            assertUpdate("INSERT INTO " + tableName + " SELECT * FROM orders", 15000);
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE shippriority = 101 AND custkey = (SELECT min(custkey) FROM customer)", "VALUES 0");
+            assertUpdate("UPDATE " + tableName + " SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)", 9);
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE shippriority = 101 AND custkey = (SELECT min(custkey) FROM customer)", "VALUES 9");
+        });
+    }
+
+    @Test
+    @Override
     public void testCreateTableWithTableComment()
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
@@ -1004,7 +1069,7 @@ public class TestKuduConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (a bigint WITH (primary_key=true)) COMMENT 'test comment' " +
                 "WITH (partition_by_hash_columns = ARRAY['a'], partition_by_hash_buckets = 2)");
-        assertThat(getTableComment("kudu", "default", tableName)).isEqualTo("test comment");
+        assertThat(getTableComment(tableName)).isEqualTo("test comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1013,11 +1078,11 @@ public class TestKuduConnectorTest
     protected void testCreateTableWithTableCommentSpecialCharacter(String comment)
     {
         // TODO Remove this overriding test once kudu connector can create tables with default partitions
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_",
                 "(a bigint WITH (primary_key=true)) COMMENT " + varcharLiteral(comment) +
                         "WITH (partition_by_hash_columns = ARRAY['a'], partition_by_hash_buckets = 2)")) {
-            assertThat(getTableComment("kudu", "default", table.getName())).isEqualTo(comment);
+            assertThat(getTableComment(table.getName())).isEqualTo(comment);
         }
     }
 
@@ -1047,7 +1112,6 @@ public class TestKuduConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test
     @Override
     protected TestTable createTableWithDefaultColumns()
     {

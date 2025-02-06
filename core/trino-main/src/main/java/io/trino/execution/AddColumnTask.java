@@ -34,6 +34,7 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 
@@ -110,6 +111,7 @@ public class AddColumnTask
 
         ColumnDefinition element = statement.getColumn();
         Identifier columnName = element.getName().getOriginalParts().get(0);
+        ColumnPosition position = statement.getPosition().orElse(new ColumnPosition.Last());
         Type type;
         try {
             type = plannerContext.getTypeManager().getType(toTypeSignature(element.getType()));
@@ -133,6 +135,9 @@ public class AddColumnTask
             if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                 throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, columnName);
             }
+            if (position instanceof ColumnPosition.After after && !columns.containsKey(after.column().getValue().toLowerCase(ENGLISH))) {
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not", after.column().getValue());
+            }
 
             Map<String, Object> columnProperties = columnPropertyManager.getProperties(
                     catalogHandle.getCatalogName().toString(),
@@ -152,13 +157,22 @@ public class AddColumnTask
                     .setProperties(columnProperties)
                     .build();
 
-            plannerContext.getMetadata().addColumn(session, tableHandle, qualifiedTableName.asCatalogSchemaTableName(), column);
+            plannerContext.getMetadata().addColumn(
+                    session,
+                    tableHandle,
+                    qualifiedTableName.asCatalogSchemaTableName(),
+                    column,
+                    toConnectorColumnPosition(position));
         }
         else {
             accessControl.checkCanAlterColumn(session.toSecurityContext(), qualifiedTableName);
 
             if (!columns.containsKey(columnName.getValue().toLowerCase(ENGLISH))) {
                 throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", columnName);
+            }
+            if (!(position instanceof ColumnPosition.Last)) {
+                // TODO https://github.com/trinodb/trino/issues/24513 Support FIRST and AFTER options
+                throw semanticException(NOT_SUPPORTED, statement, "Specifying column position is not supported for nested columns");
             }
 
             List<String> parentPath = statement.getColumn().getName().getOriginalParts().subList(0, statement.getColumn().getName().getOriginalParts().size() - 1).stream()
@@ -233,5 +247,14 @@ public class AddColumnTask
         return plannerContext.getMetadata()
                 .getSupportedType(session, catalogHandle, tableProperties, type)
                 .orElse(type);
+    }
+
+    private static io.trino.spi.connector.ColumnPosition toConnectorColumnPosition(ColumnPosition columnPosition)
+    {
+        return switch (columnPosition) {
+            case ColumnPosition.First _ -> new io.trino.spi.connector.ColumnPosition.First();
+            case ColumnPosition.After after -> new io.trino.spi.connector.ColumnPosition.After(after.column().getValue().toLowerCase(ENGLISH));
+            case ColumnPosition.Last _ -> new io.trino.spi.connector.ColumnPosition.Last();
+        };
     }
 }

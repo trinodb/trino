@@ -25,6 +25,7 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
@@ -208,8 +209,9 @@ public class TestSetSessionTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
-        getFutureValue(new SetSessionTask(plannerContext, accessControl, sessionPropertyManager).execute(new SetSession(new NodeLocation(1, 1), qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
+        getFutureValue(new SetSessionTask(new SessionPropertyEvaluator(plannerContext, accessControl, sessionPropertyManager, new SqlEnvironmentConfig()), accessControl).execute(new SetSession(new NodeLocation(1, 1), qualifiedPropName, expression), stateMachine, parameters, WarningCollector.NOOP));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertThat(sessionProperties).isEqualTo(ImmutableMap.of(qualifiedPropName.toString(), expectedValue));

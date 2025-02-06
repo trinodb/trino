@@ -34,6 +34,16 @@ public record DeletionVectorEntry(String storageType, String pathOrInlineDv, Opt
         requireNonNull(offset, "offset is null");
     }
 
+    // https://github.com/delta-io/delta/blob/34f02d8/kernel/kernel-api/src/main/java/io/delta/kernel/internal/actions/DeletionVectorDescriptor.java#L167-L174
+    public String uniqueId()
+    {
+        String uniqueFileId = storageType + pathOrInlineDv;
+        if (offset.isPresent()) {
+            return uniqueFileId + "@" + offset;
+        }
+        return uniqueFileId;
+    }
+
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE

@@ -30,7 +30,6 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
 import io.trino.plugin.exchange.filesystem.MetricsBuilder;
 import io.trino.plugin.exchange.filesystem.MetricsBuilder.CounterMetricBuilder;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -55,6 +54,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.plugin.exchange.filesystem.MetricsBuilder.SOURCE_FILES_PROCESSED;
 import static java.lang.Math.toIntExact;
 import static java.nio.file.Files.createFile;
+import static java.nio.file.Files.newInputStream;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileSystemExchangeStorage
@@ -215,9 +215,9 @@ public class LocalFileSystemExchangeStorage
         }
 
         private InputStreamSliceInput getSliceInput(ExchangeSourceFile sourceFile)
-                throws FileNotFoundException
+                throws IOException
         {
-            return new InputStreamSliceInput(new FileInputStream(Paths.get(sourceFile.getFileUri()).toFile()), BUFFER_SIZE_IN_BYTES);
+            return new InputStreamSliceInput(newInputStream(Paths.get(sourceFile.getFileUri())), BUFFER_SIZE_IN_BYTES);
         }
     }
 

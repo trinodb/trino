@@ -14,6 +14,7 @@
 package io.trino.plugin.tpch;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
@@ -36,12 +37,19 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Comparator.comparing;
+import static java.util.Objects.requireNonNull;
 
 public class TpchNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     private final NodeManager nodeManager;
     private final int splitsPerNode;
+
+    @Inject
+    public TpchNodePartitioningProvider(NodeManager nodeManager, TpchConfig config)
+    {
+        this(requireNonNull(nodeManager, "nodeManager is null"), requireNonNull(config, "config is null").getSplitsPerNode());
+    }
 
     public TpchNodePartitioningProvider(NodeManager nodeManager, int splitsPerNode)
     {

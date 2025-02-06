@@ -47,6 +47,7 @@ import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.PUBLIC_OWNER;
+import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
@@ -246,7 +247,7 @@ class TestGlueConverter
         io.trino.metastore.Table trinoTable = GlueConverter.fromGlueTable(glueTable, glueDatabase.name());
         assertThat(trinoTable.getTableName()).isEqualTo(glueTable.name());
         assertThat(trinoTable.getDatabaseName()).isEqualTo(glueDatabase.name());
-        assertThat(trinoTable.getTableType()).isEqualTo(glueTable.tableType());
+        assertThat(trinoTable.getTableType()).isEqualTo(getTableTypeNullable(glueTable));
         assertThat(trinoTable.getOwner().orElse(null)).isEqualTo(glueTable.owner());
         assertThat(trinoTable.getParameters()).isEqualTo(glueTable.parameters());
         assertColumnList(glueTable.storageDescriptor().columns(), trinoTable.getDataColumns());
@@ -278,7 +279,7 @@ class TestGlueConverter
 
         assertThat(trinoTable.getTableName()).isEqualTo(glueTable.name());
         assertThat(trinoTable.getDatabaseName()).isEqualTo(glueDatabase.name());
-        assertThat(trinoTable.getTableType()).isEqualTo(glueTable.tableType());
+        assertThat(trinoTable.getTableType()).isEqualTo(getTableTypeNullable(glueTable));
         assertThat(trinoTable.getOwner().orElse(null)).isEqualTo(glueTable.owner());
         assertThat(trinoTable.getParameters()).isEqualTo(glueTable.parameters());
         assertThat(trinoTable.getDataColumns()).hasSize(1);

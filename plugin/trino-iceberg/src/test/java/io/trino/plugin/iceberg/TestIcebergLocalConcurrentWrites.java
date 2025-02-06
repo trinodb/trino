@@ -19,7 +19,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
@@ -52,7 +52,8 @@ final class TestIcebergLocalConcurrentWrites
         return IcebergQueryRunner.builder().build();
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentInserts()
             throws Exception
     {
@@ -101,7 +102,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentInsertsSelectingFromTheSameTable()
             throws Exception
     {
@@ -148,7 +150,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentInsertsSelectingFromTheSameVersionedTable()
             throws Exception
     {
@@ -197,7 +200,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentDelete()
             throws Exception
     {
@@ -238,7 +242,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentDeleteFromTheSamePartition()
             throws Exception
     {
@@ -273,7 +278,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentTruncate()
             throws Exception
     {
@@ -308,7 +314,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentTruncateAndInserts()
             throws Exception
     {
@@ -349,7 +356,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentNonOverlappingUpdate()
             throws Exception
     {
@@ -390,8 +398,16 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentOverlappingUpdate()
+            throws Exception
+    {
+        testConcurrentOverlappingUpdate(false);
+        testConcurrentOverlappingUpdate(true);
+    }
+
+    private void testConcurrentOverlappingUpdate(boolean partitioned)
             throws Exception
     {
         int threads = 3;
@@ -399,7 +415,9 @@ final class TestIcebergLocalConcurrentWrites
         ExecutorService executor = newFixedThreadPool(threads);
         String tableName = "test_concurrent_overlapping_updates_table_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+        assertUpdate("CREATE TABLE " + tableName + " (a, part) " +
+                (partitioned ? " WITH (partitioning = ARRAY['part'])" : "") +
+                " AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
@@ -446,7 +464,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentNonOverlappingUpdateOnNestedPartition()
             throws Exception
     {
@@ -493,7 +512,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentDeleteAndInserts()
             throws Exception
     {
@@ -570,7 +590,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateAndInserts()
             throws Exception
     {
@@ -648,7 +669,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentMergeAndInserts()
             throws Exception
     {
@@ -728,7 +750,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentDeleteAndDeletePushdownAndInsert()
             throws Exception
     {
@@ -772,7 +795,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithPartitionTransformation()
             throws Exception
     {
@@ -782,8 +806,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> rows = ImmutableList.of("('A', DATE '2024-01-01')", "('B', DATE '2024-02-02')", "('C', DATE '2024-03-03')", "('D', DATE '2024-04-04')");
         List<String> partitions = ImmutableList.of("DATE '2024-01-01'", "DATE '2024-02-02'", "DATE '2024-03-03'", "DATE '2024-04-04'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_partition_transform_table_",
                 "(data varchar, part date) with (partitioning = array['month(part)'])")) {
             String tableName = table.getName();
@@ -815,7 +838,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithNestedPartitionTransformation()
             throws Exception
     {
@@ -825,8 +849,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> rows = ImmutableList.of("('A', ROW(DATE '2024-01-01'))", "('B', ROW(DATE '2024-02-02'))", "('C', ROW(DATE '2024-03-03'))", "('D', ROW(DATE '2024-04-04'))");
         List<String> partitions = ImmutableList.of("DATE '2024-01-01'", "DATE '2024-02-02'", "DATE '2024-03-03'", "DATE '2024-04-04'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_partition_transform_table_",
                 "(data varchar, parent ROW (part date)) with (partitioning = array['month(\"parent.part\")'])")) {
             String tableName = table.getName();
@@ -858,7 +881,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithMultiplePartitionTransformation()
             throws Exception
     {
@@ -874,8 +898,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> partitions2 = ImmutableList.of("1", "1", "1", "1");
         List<String> partitions3 = ImmutableList.of("'aaa'", "'aab'", "'aac'", "'aad'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_multiple_partition_transform_table_",
                 "(data varchar, part1 timestamp, part2 int, part3 varchar) with (partitioning = array['hour(part1)', 'bucket(part2, 10)', 'truncate(part3, 2)'])")) {
             String tableName = table.getName();
@@ -915,7 +938,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithOverlappingPartitionTransformation()
             throws Exception
     {
@@ -925,8 +949,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> rows = ImmutableList.of("('A', DATE '2024-01-01')", "('B', DATE '2024-01-02')", "('C', DATE '2024-03-03')", "('D', DATE '2024-04-04')");
         List<String> partitions = ImmutableList.of("DATE '2024-01-01'", "DATE '2024-01-02'", "DATE '2024-03-03'", "DATE '2024-04-04'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_overlapping_partition_transform_table_",
                 "(data varchar, part date) with (partitioning = array['month(part)'])")) {
             String tableName = table.getName();
@@ -976,7 +999,8 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
-    @Test
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
     void testConcurrentUpdateWithEnforcedAndUnenforcedPartitions()
             throws Exception
     {
@@ -987,8 +1011,7 @@ final class TestIcebergLocalConcurrentWrites
         List<String> partitions1 = ImmutableList.of("'a'", "'b'", "'c'", "'d'");
         List<String> partitions2 = ImmutableList.of("DATE '2024-01-01'", "DATE '2024-02-02'", "DATE '2024-03-03'", "DATE '2024-04-04'");
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_concurrent_update_enforced_unenforced_partition_transform_table_",
                 // part1 is enforced and part2 is unenforced as it has transformation
                 "(data varchar, part1 varchar, part2 date) with (partitioning = array['part1', 'month(part2)'])")) {

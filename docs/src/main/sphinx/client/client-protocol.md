@@ -59,6 +59,8 @@ on a Trino cluster:
   [](prop-protocol-spooling).
 * Choose a suitable object storage that is accessible to your Trino cluster and
   your clients.
+* Create a location in your object storage that is not shared with any object
+  storage catalog or spooling for any other Trino clusters.
 * Configure the object storage in `etc/spooling-manager.properties` using the
   [](prop-spooling-file-system).
 
@@ -112,6 +114,8 @@ The following client drivers and client applications support the spooling protoc
 
 * [Trino JDBC driver](jdbc-spooling-protocol), version 466 and newer
 * [Trino command line interface](cli-spooling-protocol), version 466 and newer
+* [Trino Python client](https://github.com/trinodb/trino-python-client), version
+  0.332.0 and newer
 
 Refer to the documentation for other your specific client drivers and client
 applications for up to date information.

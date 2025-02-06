@@ -19,7 +19,7 @@ import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined'
 import { RouteProps } from 'react-router-dom'
 import { Dashboard } from './components/Dashboard'
 import { DemoComponents } from './components/DemoComponents'
-import { Workers } from './components/Workers'
+import { WorkersList } from './components/WorkersList.tsx'
 import { QueryHistory } from './components/QueryHistory'
 import { Texts } from './constant'
 
@@ -48,7 +48,7 @@ export const routers: RouterItems = [
         icon: <DnsOutlinedIcon />,
         routeProps: {
             path: '/workers',
-            element: <Workers />,
+            element: <WorkersList />,
         },
     },
     {

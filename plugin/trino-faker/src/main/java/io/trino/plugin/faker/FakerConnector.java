@@ -28,19 +28,27 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
+import io.trino.spi.type.ArrayType;
 import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.MAX_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.MIN_PROPERTY;
+import static io.trino.plugin.faker.ColumnInfo.STEP_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class FakerConnector
@@ -118,6 +126,20 @@ public class FakerConnector
                         "Default limit of rows returned from any table in this schema, if not specified in the query",
                         null,
                         defaultLimit -> checkProperty(1 <= defaultLimit, INVALID_SCHEMA_PROPERTY, "default_limit value must be equal or greater than 1"),
+                        false),
+                booleanProperty(
+                        SchemaInfo.SEQUENCE_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table using existing data, columns with the number of distinct values close to
+                        the number of rows are treated as sequences""",
+                        null,
+                        false),
+                booleanProperty(
+                        SchemaInfo.DICTIONARY_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table using existing data, columns with a low number of distinct values
+                        are treated as dictionaries, and get the allowed_values column property populated with random values""",
+                        null,
                         false));
     }
 
@@ -136,6 +158,20 @@ public class FakerConnector
                         "Default limit of rows returned from this table if not specified in the query",
                         null,
                         defaultLimit -> checkProperty(1 <= defaultLimit, INVALID_TABLE_PROPERTY, "default_limit value must be equal or greater than 1"),
+                        false),
+                booleanProperty(
+                        TableInfo.SEQUENCE_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table using existing data, columns with the number of distinct values close to
+                        the number of rows are treated as sequences""",
+                        null,
+                        false),
+                booleanProperty(
+                        TableInfo.DICTIONARY_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table using existing data, columns with a low number of distinct values
+                        are treated as dictionaries, and get the allowed_values column property populated with random values""",
+                        null,
                         false));
     }
 
@@ -161,6 +197,32 @@ public class FakerConnector
                                 throw new TrinoException(INVALID_COLUMN_PROPERTY, "generator must be a valid Faker expression", e);
                             }
                         },
+                        false),
+                stringProperty(
+                        MIN_PROPERTY,
+                        "Minimum generated value (inclusive)",
+                        null,
+                        false),
+                stringProperty(
+                        MAX_PROPERTY,
+                        "Maximum generated value (inclusive)",
+                        null,
+                        false),
+                new PropertyMetadata<>(
+                        ALLOWED_VALUES_PROPERTY,
+                        "List of allowed values",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        null,
+                        false,
+                        value -> ((List<?>) value).stream()
+                                .map(String.class::cast)
+                                .collect(toImmutableList()),
+                        value -> value),
+                stringProperty(
+                        STEP_PROPERTY,
+                        "If set, generate sequential values with this step. For date and time columns set this to a duration",
+                        null,
                         false));
     }
 

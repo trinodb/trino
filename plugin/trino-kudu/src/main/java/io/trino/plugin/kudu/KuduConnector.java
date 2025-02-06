@@ -16,6 +16,7 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.plugin.kudu.properties.KuduColumnProperties;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -44,6 +45,7 @@ public class KuduConnector
     private final ConnectorSplitManager splitManager;
     private final ConnectorPageSourceProvider pageSourceProvider;
     private final KuduTableProperties tableProperties;
+    private final KuduColumnProperties columnProperties;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final Set<Procedure> procedures;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
@@ -55,6 +57,7 @@ public class KuduConnector
             KuduMetadata metadata,
             ConnectorSplitManager splitManager,
             KuduTableProperties tableProperties,
+            KuduColumnProperties columnProperties,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             Set<Procedure> procedures,
@@ -66,6 +69,7 @@ public class KuduConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
+        this.columnProperties = requireNonNull(columnProperties, "columnProperties is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
@@ -112,7 +116,7 @@ public class KuduConnector
     @Override
     public List<PropertyMetadata<?>> getColumnProperties()
     {
-        return tableProperties.getColumnProperties();
+        return columnProperties.getColumnProperties();
     }
 
     @Override

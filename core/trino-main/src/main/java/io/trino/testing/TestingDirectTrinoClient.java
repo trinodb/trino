@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.execution.QueryState.FINISHED;
@@ -63,7 +64,7 @@ public class TestingDirectTrinoClient
     {
         MaterializedQueryResultsListener queryResultsListener = new MaterializedQueryResultsListener();
         DispatchQuery dispatchQuery = directTrinoClient.execute(sessionContext, sql, queryResultsListener);
-        return new Result(dispatchQuery.getQueryId(), toMaterializedRows(dispatchQuery, queryResultsListener.columnTypes(), queryResultsListener.columnNames(), queryResultsListener.pages()));
+        return new Result(dispatchQuery.getQueryId(), () -> toMaterializedRows(dispatchQuery, queryResultsListener.columnTypes(), queryResultsListener.columnNames(), queryResultsListener.pages()));
     }
 
     private static MaterializedResult toMaterializedRows(DispatchQuery dispatchQuery, List<Type> columnTypes, List<String> columnNames, List<Page> pages)
@@ -82,6 +83,7 @@ public class TestingDirectTrinoClient
         if (pages.isEmpty() && columnTypes == null) {
             // the query did not produce any output
             return new MaterializedResult(
+                    Optional.of(dispatchQuery.getSession()),
                     ImmutableList.of(),
                     ImmutableList.of(),
                     ImmutableList.of(),
@@ -105,6 +107,7 @@ public class TestingDirectTrinoClient
         }
 
         return new MaterializedResult(
+                Optional.of(dispatchQuery.getSession()),
                 materializedRows,
                 columnTypes,
                 columnNames,
@@ -137,9 +140,9 @@ public class TestingDirectTrinoClient
         return rows.build();
     }
 
-    record Result(QueryId queryId, MaterializedResult result)
+    public record Result(QueryId queryId, Supplier<MaterializedResult> result)
     {
-        Result
+        public Result
         {
             requireNonNull(queryId, "queryId is null");
             requireNonNull(result, "result is null");

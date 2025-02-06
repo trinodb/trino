@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>468-SNAPSHOT</version>
+        <version>470-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -41,8 +41,18 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
         </dependency>
 
         <dependency>
@@ -115,12 +125,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
             <scope>runtime</scope>
@@ -140,6 +144,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
@@ -154,6 +164,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
 

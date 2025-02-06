@@ -180,7 +180,6 @@ public final class TaskTestUtils
                 }),
                 new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
                 Optional.empty(),
-                Optional.empty(),
                 (types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
                 },

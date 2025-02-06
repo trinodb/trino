@@ -33,6 +33,7 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -294,9 +295,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
-        stats.getAddColumn().wrap(() -> delegate().addColumn(session, handle, column));
+        stats.getAddColumn().wrap(() -> delegate().addColumn(session, handle, column, position));
     }
 
     @Override

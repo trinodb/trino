@@ -24,7 +24,6 @@ import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -102,13 +101,7 @@ class TestCompressedQueryDataDecoder
                 assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
                         .isEqualTo("not compressed");
                 input.close(); // Closes input stream according to the contract
-                return new ResultRows() {
-                    @Override
-                    public Iterator<List<Object>> iterator()
-                    {
-                        return SAMPLE_VALUES.iterator();
-                    }
-                };
+                return SAMPLE_VALUES::iterator;
             }
 
             @Override

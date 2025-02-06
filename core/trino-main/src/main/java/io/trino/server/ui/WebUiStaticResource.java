@@ -30,6 +30,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.web.ui.WebUiResources.webUiResource;
 
 @Path("")
+@ResourceSecurity(PUBLIC)
 public class WebUiStaticResource
 {
     @ResourceSecurity(PUBLIC)
@@ -39,7 +40,6 @@ public class WebUiStaticResource
         return Response.seeOther(externalUriInfo.absolutePath("/ui/")).build();
     }
 
-    @ResourceSecurity(PUBLIC)
     @GET
     @Path("/ui")
     public Response getUi(@BeanParam ExternalUriInfo externalUriInfo)

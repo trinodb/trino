@@ -48,11 +48,13 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.IntFunction;
 import java.util.function.IntUnaryOperator;
@@ -128,7 +130,7 @@ public final class OpenXJsonDeserializer
                 columns.stream()
                         .map(Column::type)
                         .map(fieldType -> createDecoder(fieldType, options, timestampFormatters))
-                        .collect(toImmutableList()),
+                        .toArray(Decoder[]::new),
                 ordinal -> topLevelOrdinalMap.getOrDefault(ordinal, -1));
     }
 
@@ -227,7 +229,7 @@ public final class OpenXJsonDeserializer
                     rowType.getFields().stream()
                             .map(Field::getType)
                             .map(fieldType -> createDecoder(fieldType, options, timestampFormatters))
-                            .collect(toImmutableList()),
+                            .toArray(Decoder[]::new),
                     ordinal -> ordinal < rowType.getFields().size() ? ordinal : -1);
         }
         throw new UnsupportedOperationException("Unsupported column type: " + type);
@@ -753,19 +755,21 @@ public final class OpenXJsonDeserializer
     private static class RowDecoder
             extends Decoder
     {
-        private final List<FieldName> fieldNames;
-        private final List<Decoder> fieldDecoders;
+        private final FieldName[] fieldNames;
+        private final Decoder[] fieldDecoders;
         private final boolean dotsInKeyNames;
         private final IntUnaryOperator ordinalToFieldPosition;
 
-        public RowDecoder(RowType rowType, OpenXJsonOptions options, List<Decoder> fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
+        public RowDecoder(RowType rowType, OpenXJsonOptions options, Decoder[] fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
         {
             this.fieldNames = rowType.getFields().stream()
                     .map(field -> field.getName().orElseThrow())
                     .map(fieldName -> fieldName.toLowerCase(Locale.ROOT))
                     .map(originalValue -> new FieldName(originalValue, options))
-                    .collect(toImmutableList());
-            this.fieldDecoders = fieldDecoders;
+                    .toArray(FieldName[]::new);
+            this.fieldDecoders = requireNonNull(fieldDecoders, "fieldDecoders is null");
+            checkArgument(this.fieldDecoders.length == fieldNames.length, "fieldDecoders length mismatch: %s <> %s", this.fieldDecoders.length, fieldNames.length);
+            checkArgument(Arrays.stream(this.fieldDecoders).noneMatch(Objects::isNull), "fieldDecoders contains null element");
             this.dotsInKeyNames = options.isDotsInFieldNames();
             this.ordinalToFieldPosition = requireNonNull(ordinalToFieldPosition, "ordinalToFieldPosition is null");
         }
@@ -805,7 +809,7 @@ public final class OpenXJsonDeserializer
                 throw invalidJson("Primitive can not be coerced to a ROW");
             }
 
-            for (int i = 0; i < fieldDecoders.size(); i++) {
+            for (int i = 0; i < fieldDecoders.length; i++) {
                 BlockBuilder blockBuilder = fieldBuilders.apply(i);
                 blockBuilder.appendNull();
             }
@@ -813,8 +817,8 @@ public final class OpenXJsonDeserializer
 
         private void decodeValueFromMap(Map<?, ?> jsonObject, IntFunction<BlockBuilder> fieldBuilders)
         {
-            for (int i = 0; i < fieldDecoders.size(); i++) {
-                FieldName fieldName = fieldNames.get(i);
+            for (int i = 0; i < fieldDecoders.length; i++) {
+                FieldName fieldName = fieldNames[i];
                 Object fieldValue = null;
                 if (jsonObject.containsKey(fieldName)) {
                     fieldValue = jsonObject.get(fieldName);
@@ -834,14 +838,14 @@ public final class OpenXJsonDeserializer
                     blockBuilder.appendNull();
                 }
                 else {
-                    fieldDecoders.get(i).decode(fieldValue, blockBuilder);
+                    fieldDecoders[i].decode(fieldValue, blockBuilder);
                 }
             }
         }
 
         private void decodeValueFromList(List<?> jsonArray, IntFunction<BlockBuilder> fieldBuilders)
         {
-            boolean[] fieldWritten = new boolean[fieldDecoders.size()];
+            boolean[] fieldWritten = new boolean[fieldDecoders.length];
             for (int ordinal = 0; ordinal < jsonArray.size(); ordinal++) {
                 int fieldPosition = ordinalToFieldPosition.applyAsInt(ordinal);
                 if (fieldPosition < 0) {
@@ -854,7 +858,7 @@ public final class OpenXJsonDeserializer
                     blockBuilder.appendNull();
                 }
                 else {
-                    fieldDecoders.get(fieldPosition).decode(fieldValue, blockBuilder);
+                    fieldDecoders[fieldPosition].decode(fieldValue, blockBuilder);
                 }
                 fieldWritten[fieldPosition] = true;
             }

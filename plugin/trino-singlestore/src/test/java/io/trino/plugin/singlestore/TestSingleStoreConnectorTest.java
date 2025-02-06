@@ -207,7 +207,7 @@ public class TestSingleStoreConnectorTest
     @Override
     public void testInsertIntoNotNullColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = newTrinoTable("insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             assertQueryFails(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
@@ -220,7 +220,7 @@ public class TestSingleStoreConnectorTest
             assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0", table.getName()), ".*Field 'not_null_col' doesn't have a default value.*");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+        try (TestTable table = newTrinoTable("commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // This is enforced by the engine and not the connector
@@ -256,7 +256,7 @@ public class TestSingleStoreConnectorTest
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("Should fail to add not null column without a default value to a non-empty table");
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
+        try (TestTable table = newTrinoTable("test_add_nn_col", "(a_varchar varchar)")) {
             String tableName = table.getName();
 
             assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);

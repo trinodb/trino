@@ -14,19 +14,14 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.common.base.Splitter;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.json.JsonCodec;
-import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -44,13 +39,13 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
 import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility;
 import io.trino.spi.TrinoException;
@@ -83,17 +78,20 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.hash.Hashing.sha256;
 import static io.trino.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
-import static io.trino.metastore.Partition.toPartitionValues;
-import static io.trino.metastore.Partition.unescapePathName;
+import static io.trino.metastore.Partitions.escapePathName;
+import static io.trino.metastore.Partitions.toPartitionValues;
+import static io.trino.metastore.Partitions.unescapePathName;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
@@ -115,7 +113,6 @@ import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VERSIO
 import static io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility.UNSAFE_ASSUME_COMPATIBILITY;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
-import static io.trino.plugin.hive.util.HiveUtil.escapePathName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
@@ -127,7 +124,6 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -163,9 +159,6 @@ public class FileHiveMetastore
     private final JsonCodec<List<String>> rolesCodec = JsonCodec.listJsonCodec(String.class);
     private final JsonCodec<List<RoleGrant>> roleGrantsCodec = JsonCodec.listJsonCodec(RoleGrant.class);
 
-    // TODO Remove this speed-up workaround once that https://github.com/trinodb/trino/issues/13115 gets implemented
-    private final LoadingCache<String, List<TableInfo>> listTablesCache;
-
     public FileHiveMetastore(NodeVersion nodeVersion, TrinoFileSystemFactory fileSystemFactory, boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
     {
         this.currentVersion = nodeVersion.toString();
@@ -174,10 +167,6 @@ public class FileHiveMetastore
         this.catalogDirectory = Location.of(requireNonNull(config.getCatalogDirectory(), "catalogDirectory is null"));
         this.disableLocationChecks = config.isDisableLocationChecks();
         this.hideDeltaLakeTables = hideDeltaLakeTables;
-
-        listTablesCache = EvictableCacheBuilder.newBuilder()
-                .expireAfterWrite(10, SECONDS)
-                .build(CacheLoader.from(this::doListAllTables));
     }
 
     @Override
@@ -226,7 +215,7 @@ public class FileHiveMetastore
         databaseName = databaseName.toLowerCase(ENGLISH);
 
         getRequiredDatabase(databaseName);
-        if (!listAllTables(databaseName).isEmpty()) {
+        if (!getTables(databaseName).isEmpty()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -523,16 +512,19 @@ public class FileHiveMetastore
     @Override
     public synchronized List<TableInfo> getTables(String databaseName)
     {
-        return listAllTables(databaseName);
+        return doListAllTables(databaseName, _ -> true);
     }
 
-    @GuardedBy("this")
-    private List<TableInfo> listAllTables(String databaseName)
+    @Override
+    public synchronized List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
     {
-        return listTablesCache.getUnchecked(databaseName);
+        requireNonNull(parameterKey, "parameterKey is null");
+        return doListAllTables(databaseName, table -> parameterValues.contains(table.getParameters().get(parameterKey))).stream()
+                .map(tableInfo -> tableInfo.tableName().getTableName())
+                .collect(toImmutableList());
     }
 
-    private synchronized List<TableInfo> doListAllTables(String databaseName)
+    private synchronized List<TableInfo> doListAllTables(String databaseName, Predicate<TableMetadata> tableMetadataPredicate)
     {
         requireNonNull(databaseName, "databaseName is null");
 
@@ -557,7 +549,8 @@ public class FileHiveMetastore
                 Location schemaFileLocation = subdirectory.appendPath(TRINO_SCHEMA_FILE_NAME_SUFFIX);
                 readFile("table schema", schemaFileLocation, tableCodec).ifPresent(tableMetadata -> {
                     checkVersion(tableMetadata.getWriterVersion());
-                    if (hideDeltaLakeTables && DELTA_LAKE_PROVIDER.equals(tableMetadata.getParameters().get(SPARK_TABLE_PROVIDER_KEY))) {
+                    if ((hideDeltaLakeTables && DELTA_LAKE_PROVIDER.equals(tableMetadata.getParameters().get(SPARK_TABLE_PROVIDER_KEY)))
+                            || !tableMetadataPredicate.test(tableMetadata)) {
                         return;
                     }
                     tables.add(new TableInfo(
@@ -649,9 +642,6 @@ public class FileHiveMetastore
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        finally {
-            listTablesCache.invalidateAll();
         }
     }
 
@@ -1395,14 +1385,13 @@ public class FileHiveMetastore
     {
         try {
             try (InputStream inputStream = fileSystem.newInputFile(file).newStream()) {
-                byte[] json = ByteStreams.toByteArray(inputStream);
-                return Optional.of(codec.fromJson(json));
+                return Optional.of(codec.fromJson(inputStream));
             }
         }
-        catch (FileNotFoundException e) {
-            return Optional.empty();
-        }
         catch (Exception e) {
+            if (getCausalChain(e).stream().anyMatch(FileNotFoundException.class::isInstance)) {
+                return Optional.empty();
+            }
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not read " + type, e);
         }
     }
@@ -1440,9 +1429,6 @@ public class FileHiveMetastore
         catch (Exception e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not write " + type, e);
         }
-        finally {
-            listTablesCache.invalidateAll();
-        }
     }
 
     private void renameSchemaFile(SchemaType type, Location oldMetadataDirectory, Location newMetadataDirectory)
@@ -1453,9 +1439,6 @@ public class FileHiveMetastore
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not rename " + type + " schema", e);
         }
-        finally {
-            listTablesCache.invalidateAll();
-        }
     }
 
     private void deleteSchemaFile(SchemaType type, Location metadataDirectory)
@@ -1465,9 +1448,6 @@ public class FileHiveMetastore
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Could not delete " + type + " schema", e);
-        }
-        finally {
-            listTablesCache.invalidateAll();
         }
     }
 

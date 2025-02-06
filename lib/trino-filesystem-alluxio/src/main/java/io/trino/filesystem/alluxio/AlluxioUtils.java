@@ -50,6 +50,16 @@ public class AlluxioUtils
         return Location.of(schema + mountRootWithSlash + path);
     }
 
+    public static String getAlluxioBase(String path)
+    {
+        requireNonNull(path, "path is null");
+        if (!path.startsWith("alluxio://")) {
+            throw new IllegalArgumentException("path is not an alluxio://");
+        }
+        int index = path.indexOf('/', "alluxio://".length());
+        return path.substring(0, index);
+    }
+
     public static String simplifyPath(String path)
     {
         // Use a deque to store the path components

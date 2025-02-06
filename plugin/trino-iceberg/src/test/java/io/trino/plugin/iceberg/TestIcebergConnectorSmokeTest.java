@@ -55,7 +55,8 @@ public class TestIcebergConnectorSmokeTest
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.file-format", format.name(),
                         "iceberg.register-table-procedure.enabled", "true",
-                        "iceberg.writer-sort-buffer-size", "1MB"))
+                        "iceberg.writer-sort-buffer-size", "1MB",
+                        "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
                 .build();
         metastore = getHiveMetastore(queryRunner);
         return queryRunner;
@@ -137,9 +138,9 @@ public class TestIcebergConnectorSmokeTest
         columns += "orderkey, custkey,  orderstatus, totalprice, orderpriority) ";
         notMatchedClause += "s.orderkey, s.custkey,  s.orderstatus, s.totalprice, s.orderpriority ";
         matchedClause += "orderkey = s.orderkey, custkey = s.custkey,  orderstatus = s.orderstatus, totalprice = t.totalprice, orderpriority = s.orderpriority ";
-        TestTable table = new TestTable(getQueryRunner()::execute, "test_merge_", tableDefinition);
+        TestTable table = newTrinoTable("test_merge_", tableDefinition);
         assertUpdate("INSERT INTO " + table.getName() + " " + columns + " " + selectQuery, 1);
-        TestTable mergeTable = new TestTable(getQueryRunner()::execute, "test_table_", tableDefinition);
+        TestTable mergeTable = newTrinoTable("test_table_", tableDefinition);
         assertUpdate("INSERT INTO " + mergeTable.getName() + " " + columns + " " + selectQuery, 1);
         assertUpdate(
                 """

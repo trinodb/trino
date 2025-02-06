@@ -215,7 +215,7 @@ public abstract class BaseIcebergConnectorTest
     @BeforeAll
     public void initStorageTimePrecision()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "inspect_storage_precision", "(i int)")) {
+        try (TestTable table = newTrinoTable("inspect_storage_precision", "(i int)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1)", 1);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (3)", 1);
@@ -243,7 +243,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testAddRowFieldCaseInsensitivity()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_add_row_field_case_insensitivity_",
                 "AS SELECT CAST(row(row(2)) AS row(\"CHILD\" row(grandchild_1 integer))) AS col")) {
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(CHILD row(grandchild_1 integer))");
@@ -253,20 +253,6 @@ public abstract class BaseIcebergConnectorTest
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.CHILD.grandchild_3 integer");
             assertThat(getColumnType(table.getName(), "col")).isEqualTo("row(CHILD row(grandchild_1 integer, grandchild_2 integer, grandchild_3 integer))");
-        }
-    }
-
-    @Test
-    @Override
-    public void testAddAndDropColumnName()
-    {
-        for (String columnName : testColumnNameDataProvider()) {
-            if (columnName.equals("a.dot")) {
-                assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
-                        .hasMessage("Failed to add column: Cannot add column with ambiguous name: a.dot, use addColumn(parent, name, type)");
-                return;
-            }
-            testAddAndDropColumnName(columnName, requiresDelimiting(columnName));
         }
     }
 
@@ -301,7 +287,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testDeleteOnV1Table()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_", "WITH (format_version = 1) AS SELECT * FROM orders")) {
+        try (TestTable table = newTrinoTable("test_delete_", "WITH (format_version = 1) AS SELECT * FROM orders")) {
             assertQueryFails("DELETE FROM " + table.getName() + " WHERE custkey <= 100", "Iceberg table updates require at least format version 2");
         }
     }
@@ -311,8 +297,7 @@ public abstract class BaseIcebergConnectorTest
     public void testCharVarcharComparison()
     {
         // with char->varchar coercion on table creation, this is essentially varchar/varchar comparison
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_char_varchar",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS CHAR(3))), " +
@@ -376,7 +361,8 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
+                        "   location = '\\E.*/tpch/orders-.*\\Q',\n" +
+                        "   max_commit_retry = 4\n" +
                         ")\\E");
     }
 
@@ -1279,6 +1265,7 @@ public abstract class BaseIcebergConnectorTest
                         "   format = '%s',\n" +
                         "   format_version = 2,\n" +
                         "   location = '%s',\n" +
+                        "   max_commit_retry = 4,\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(\"order key\", 9)']\n" +
                         ")",
                 getSession().getCatalog().orElseThrow(),
@@ -1329,7 +1316,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testPartitionColumnNameConflict()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_conflict_partition", "(ts timestamp, ts_day int) WITH (partitioning = ARRAY['day(ts)'])")) {
+        try (TestTable table = newTrinoTable("test_conflict_partition", "(ts timestamp, ts_day int) WITH (partitioning = ARRAY['day(ts)'])")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', 1)", 1);
 
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -1338,7 +1325,7 @@ public abstract class BaseIcebergConnectorTest
                     .matches("VALUES DATE '2021-07-24'");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_conflict_partition", "(ts timestamp, ts_day int)")) {
+        try (TestTable table = newTrinoTable("test_conflict_partition", "(ts timestamp, ts_day int)")) {
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['day(ts)']");
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (TIMESTAMP '2021-07-24 03:43:57.987654', 1)", 1);
 
@@ -1515,8 +1502,7 @@ public abstract class BaseIcebergConnectorTest
     public void testSortOrderChange()
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_sort_order_change",
                 "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
@@ -1546,8 +1532,7 @@ public abstract class BaseIcebergConnectorTest
         Session withSortingDisabled = Session.builder(withSmallRowGroups(getSession()))
                 .setCatalogSessionProperty(ICEBERG_CATALOG, "sorted_writing_enabled", "false")
                 .build();
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_sorting_disabled",
                 "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSortingDisabled, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
@@ -1562,8 +1547,7 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimizeWithSortOrder()
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_optimize_with_sort_order",
                 "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey < 10", 10);
@@ -1584,8 +1568,7 @@ public abstract class BaseIcebergConnectorTest
     public void testUpdateWithSortOrder()
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_sorted_update",
                 "WITH (sorted_by = ARRAY['comment']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
             assertUpdate(
@@ -1623,8 +1606,7 @@ public abstract class BaseIcebergConnectorTest
     public void testDroppingSortColumn()
     {
         Session withSmallRowGroups = withSmallRowGroups(getSession());
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_dropping_sort_column",
                 "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
@@ -1646,7 +1628,8 @@ public abstract class BaseIcebergConnectorTest
                 "WITH (\n" +
                 format("   format = '%s',\n", format) +
                 "   format_version = 2,\n" +
-                format("   location = '%s'\n", tempDirPath) +
+                format("   location = '%s',\n", tempDirPath) +
+                "   max_commit_retry = 4\n" +
                 ")";
         String createTableWithoutComment = "" +
                 "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
@@ -1655,7 +1638,8 @@ public abstract class BaseIcebergConnectorTest
                 "WITH (\n" +
                 "   format = '" + format + "',\n" +
                 "   format_version = 2,\n" +
-                "   location = '" + tempDirPath + "'\n" +
+                "   location = '" + tempDirPath + "',\n" +
+                "   max_commit_retry = 4\n" +
                 ")";
         String createTableSql = format(createTableTemplate, "test table comment", format);
         assertUpdate(createTableSql);
@@ -1677,6 +1661,13 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testRollbackSnapshot()
     {
+        testRollbackSnapshot("ALTER TABLE tpch.test_rollback EXECUTE rollback_to_snapshot(%s)");
+        testRollbackSnapshot("ALTER TABLE tpch.test_rollback EXECUTE rollback_to_snapshot(snapshot_id => %s)");
+        testRollbackSnapshot("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)");
+    }
+
+    private void testRollbackSnapshot(String rollbackToSnapshotFormat)
+    {
         assertUpdate("CREATE TABLE test_rollback (col0 INTEGER, col1 BIGINT)");
         long afterCreateTableId = getCurrentSnapshotId("test_rollback");
 
@@ -1685,16 +1676,16 @@ public abstract class BaseIcebergConnectorTest
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
 
         // Check that rollback_to_snapshot can be executed also when it does not do any changes
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterFirstInsertId));
+        assertUpdate(format(rollbackToSnapshotFormat, afterFirstInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterFirstInsertId));
+        assertUpdate(format(rollbackToSnapshotFormat, afterFirstInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterCreateTableId));
+        assertUpdate(format(rollbackToSnapshotFormat, afterCreateTableId));
         assertThat((long) computeActual("SELECT COUNT(*) FROM test_rollback").getOnlyValue()).isEqualTo(0);
 
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (789, CAST(987 AS BIGINT))", 1);
@@ -1703,10 +1694,18 @@ public abstract class BaseIcebergConnectorTest
         // extra insert which should be dropped on rollback
         assertUpdate("INSERT INTO test_rollback (col0, col1) VALUES (999, CAST(999 AS BIGINT))", 1);
 
-        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterSecondInsertId));
+        assertUpdate(format("ALTER TABLE tpch.test_rollback EXECUTE rollback_to_snapshot(%s)", afterSecondInsertId));
         assertQuery("SELECT * FROM test_rollback ORDER BY col0", "VALUES (789, CAST(987 AS BIGINT))");
 
         assertUpdate("DROP TABLE test_rollback");
+    }
+
+    @Test
+    void testRollbackToSnapshotWithNullArgument()
+    {
+        assertQueryFails("CALL system.rollback_to_snapshot(NULL, 'customer_orders', 8954597067493422955)", ".*schema cannot be null.*");
+        assertQueryFails("CALL system.rollback_to_snapshot('testdb', NULL, 8954597067493422955)", ".*table cannot be null.*");
+        assertQueryFails("CALL system.rollback_to_snapshot('testdb', 'customer_orders', NULL)", ".*snapshot_id cannot be null.*");
     }
 
     @Override
@@ -1774,7 +1773,7 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("CREATE TABLE " + tableName + "(col row(a row(x int, \"X\" int)))", "Field name 'x' specified more than once");
         assertQueryFails("CREATE TABLE " + tableName + " AS SELECT cast(NULL AS row(a row(x int, \"X\" int))) col", "Field name 'x' specified more than once");
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_duplicated_field_names_", "(id int)")) {
+        try (TestTable table = newTrinoTable("test_duplicated_field_names_", "(id int)")) {
             assertQueryFails("ALTER TABLE " + table.getName() + " ADD COLUMN col row(x int, \"X\" int)", ".* Field name 'x' specified more than once");
 
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col row(\"X\" int)");
@@ -1937,6 +1936,7 @@ public abstract class BaseIcebergConnectorTest
                            format = '%s',
                            format_version = 2,
                            location = '%s',
+                           max_commit_retry = 4,
                            partitioning = ARRAY['adate']
                         )""",
                 format,
@@ -1952,7 +1952,8 @@ public abstract class BaseIcebergConnectorTest
                         WITH (
                            format = '%s',
                            format_version = 2,
-                           location = '%s'
+                           location = '%s',
+                           max_commit_retry = 4
                         )""",
                 format,
                 getTableLocation("test_create_table_like_copy1")));
@@ -1963,7 +1964,8 @@ public abstract class BaseIcebergConnectorTest
                         WITH (
                            format = '%s',
                            format_version = 2,
-                           location = '%s'
+                           location = '%s',
+                           max_commit_retry = 4
                         )""",
                 format,
                 getTableLocation("test_create_table_like_copy2")));
@@ -4106,8 +4108,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testPredicateOnDataColumnIsNotPushedDown()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_predicate_on_data_column_is_not_pushed_down",
                 "(a integer)")) {
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
@@ -5021,7 +5022,7 @@ public abstract class BaseIcebergConnectorTest
             if (testSetup.isUnsupportedType()) {
                 return;
             }
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_split_pruning_non_partitioned", "(row_id int, col " + testSetup.getTrinoTypeName() + ")")) {
+            try (TestTable table = newTrinoTable("test_split_pruning_non_partitioned", "(row_id int, col " + testSetup.getTrinoTypeName() + ")")) {
                 String tableName = table.getName();
                 String sampleValue = testSetup.getSampleValueLiteral();
                 String highValue = testSetup.getHighValueLiteral();
@@ -5058,7 +5059,9 @@ public abstract class BaseIcebergConnectorTest
         assertThat(actual).isNotNull();
         MaterializedResult expected = resultBuilder(getSession())
                 .row("write.format.default", format.name())
-                .row("write.parquet.compression-codec", "zstd").build();
+                .row("write.parquet.compression-codec", "zstd")
+                .row("commit.retry.num-retries", "4")
+                .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
@@ -5100,8 +5103,7 @@ public abstract class BaseIcebergConnectorTest
             if (testSetup.isUnsupportedType()) {
                 return;
             }
-            try (TestTable table = new TestTable(
-                    getQueryRunner()::execute,
+            try (TestTable table = newTrinoTable(
                     "test_split_pruning_data_file_statistics",
                     // Random double is needed to make sure rows are different. Otherwise compression may deduplicate rows, resulting in only one row group
                     "(col " + testSetup.getTrinoTypeName() + ", r double)")) {
@@ -5217,7 +5219,7 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("CREATE TABLE ambiguous (a ROW(cow BIGINT))");
         assertThatThrownBy(() -> assertUpdate("ALTER TABLE ambiguous ADD COLUMN \"a.cow\" BIGINT"))
-                .hasMessage("Failed to add column: Cannot add column with ambiguous name: a.cow, use addColumn(parent, name, type)");
+                .hasMessage("Failed to add column: Cannot add column, name already exists: a.cow");
         assertUpdate("DROP TABLE ambiguous");
     }
 
@@ -6072,7 +6074,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testDeleteWithPathColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_path_", "(key int)")) {
+        try (TestTable table = newTrinoTable("test_delete_with_path_", "(key int)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1)", 1);
             sleepUninterruptibly(1, MILLISECONDS);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
@@ -6091,7 +6093,7 @@ public abstract class BaseIcebergConnectorTest
         if (storageTimePrecision.toMillis(1) > 1) {
             storageTimePrecision.sleep(1);
         }
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_file_modified_time_", "(col) AS VALUES (1)")) {
+        try (TestTable table = newTrinoTable("test_file_modified_time_", "(col) AS VALUES (1)")) {
             // Describe output should not have the $file_modified_time hidden column
             assertThat(query("DESCRIBE " + table.getName()))
                     .skippingTypesCheck()
@@ -6177,7 +6179,7 @@ public abstract class BaseIcebergConnectorTest
     public void testDeleteWithFileModifiedTimeColumn()
             throws Exception
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_delete_with_file_modified_time_", "(key int)")) {
+        try (TestTable table = newTrinoTable("test_delete_with_file_modified_time_", "(key int)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (1)", 1);
             storageTimePrecision.sleep(1);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
@@ -6491,6 +6493,31 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testUpdatingMaxCommitRetry()
+    {
+        try (TestTable table = newTrinoTable("test_max_commit_retry", "(x int) WITH (max_commit_retry = 1)")) {
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("1");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_commit_retry = 100");
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("100");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES max_commit_retry = 0");
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("0");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " SET PROPERTIES max_commit_retry = -1", ".* max_commit_retry must be greater than or equal to 0");
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("0");
+
+            assertQueryFails("ALTER TABLE " + table.getName() + " SET PROPERTIES max_commit_retry = NULL", ".* \\QInvalid null value for catalog 'iceberg' table property 'max_commit_retry' from [null]");
+            assertThat(computeScalar("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'commit.retry.num-retries'"))
+                    .isEqualTo("0");
+        }
+    }
+
+    @Test
     public void testUpdatingInvalidTableProperty()
     {
         String tableName = "test_updating_invalid_table_property_" + randomNameSuffix();
@@ -6575,7 +6602,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testEmptyFilesTruncate()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_empty_files_truncate_", "AS SELECT 1 AS id")) {
+        try (TestTable table = newTrinoTable("test_empty_files_truncate_", "AS SELECT 1 AS id")) {
             assertUpdate("TRUNCATE TABLE " + table.getName());
             assertQueryReturnsEmptyResult("SELECT * FROM \"" + table.getName() + "$files\"");
         }
@@ -6946,7 +6973,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateOrReplaceTableSnapshots()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             long v1SnapshotId = getCurrentSnapshotId(table.getName());
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT BIGINT '-42' a, DOUBLE '38.5' b", 1);
@@ -6961,7 +6988,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             long v1SnapshotId = getCurrentSnapshotId(table.getName());
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT CAST(ARRAY[ROW('test')] AS ARRAY(ROW(field VARCHAR))) a, VARCHAR 'test2' b", 1);
@@ -6976,7 +7003,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateOrReplaceTableChangePartitionedTableIntoUnpartitioned()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " WITH (partitioning=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " WITH (partitioning=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b")) {
             long v1SnapshotId = getCurrentSnapshotId(table.getName());
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (sorted_by=ARRAY['a']) AS SELECT BIGINT '22' a, 'new data' b", 1);
@@ -6999,7 +7026,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateOrReplaceTableChangeUnpartitionedTableIntoPartitioned()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " WITH (sorted_by=ARRAY['a']) AS SELECT BIGINT '22' a, CAST('some data' AS VARCHAR) b")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " WITH (sorted_by=ARRAY['a']) AS SELECT BIGINT '22' a, CAST('some data' AS VARCHAR) b")) {
             long v1SnapshotId = getCurrentSnapshotId(table.getName());
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (partitioning=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b", 2);
@@ -7022,7 +7049,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateOrReplaceTableWithComments()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " (a BIGINT COMMENT 'This is a column') COMMENT 'This is a table'")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_", " (a BIGINT COMMENT 'This is a column') COMMENT 'This is a table'")) {
             long v1SnapshotId = getCurrentSnapshotId(table.getName());
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 1 a", 1);
@@ -7032,14 +7059,14 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
                     .returnsEmptyResult();
 
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+            assertThat(getTableComment(table.getName()))
                     .isNull();
             assertThat(getColumnComment(table.getName(), "a"))
                     .isNull();
 
             assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (a BIGINT COMMENT 'This is a column') COMMENT 'This is a table'");
 
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+            assertThat(getTableComment(table.getName()))
                     .isEqualTo("This is a table");
             assertThat(getColumnComment(table.getName(), "a"))
                     .isEqualTo("This is a column");
@@ -7049,8 +7076,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateOrReplaceTableWithSameLocation()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_create_or_replace_with_same_location_",
                 "(a integer)")) {
             String initialTableLocation = getTableLocation(table.getName());
@@ -7081,7 +7107,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testCreateOrReplaceTableWithChangeInLocation()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_change_location_", "(a integer) ")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace_change_location_", "(a integer) ")) {
             String initialTableLocation = getTableLocation(table.getName()) + randomNameSuffix();
             long v1SnapshotId = getCurrentSnapshotId(table.getName());
             assertQueryFails(
@@ -7444,7 +7470,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testSetPartitionedColumnType()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_partitioned_column_type_", "WITH (partitioning = ARRAY['part']) AS SELECT 1 AS id, CAST(123 AS integer) AS part")) {
+        try (TestTable table = newTrinoTable("test_set_partitioned_column_type_", "WITH (partitioning = ARRAY['part']) AS SELECT 1 AS id, CAST(123 AS integer) AS part")) {
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN part SET DATA TYPE bigint");
 
             assertThat(query("SELECT part FROM " + table.getName()))
@@ -7459,7 +7485,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testSetTransformPartitionedColumnType()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_partitioned_column_type_", "WITH (partitioning = ARRAY['bucket(part, 10)']) AS SELECT CAST(123 AS integer) AS part")) {
+        try (TestTable table = newTrinoTable("test_set_partitioned_column_type_", "WITH (partitioning = ARRAY['bucket(part, 10)']) AS SELECT CAST(123 AS integer) AS part")) {
             assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN part SET DATA TYPE bigint");
 
             assertThat(query("SELECT * FROM " + table.getName()))
@@ -7476,12 +7502,8 @@ public abstract class BaseIcebergConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (a bigint)");
 
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['a']",
-                "The following properties cannot be updated: orc_bloom_filter_columns");
         assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES location = '/var/data/table/', orc_bloom_filter_fpp = 0.5",
                 "The following properties cannot be updated: location, orc_bloom_filter_fpp");
-        assertQueryFails("ALTER TABLE " + tableName + " SET PROPERTIES format = 'ORC', orc_bloom_filter_columns = ARRAY['a']",
-                "The following properties cannot be updated: orc_bloom_filter_columns");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -7657,7 +7679,7 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails("TRUNCATE TABLE " + tableName, "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("COMMENT ON TABLE " + tableName + " IS NULL", "Metadata not found in metadata location for table " + schemaTableName);
         assertQueryFails("COMMENT ON COLUMN " + tableName + ".foo IS NULL", "Metadata not found in metadata location for table " + schemaTableName);
-        assertQueryFails("CALL iceberg.system.rollback_to_snapshot(CURRENT_SCHEMA, '" + tableName + "', 8954597067493422955)", "Metadata not found in metadata location for table " + schemaTableName);
+        assertQueryFails("ALTER TABLE " + tableName + " EXECUTE rollback_to_snapshot(8954597067493422955)", "Metadata not found in metadata location for table " + schemaTableName);
 
         // Avoid failing metadata queries
         assertQuery("SHOW TABLES LIKE 'test_corrupted_table_location_%' ESCAPE '\\'", "VALUES '" + tableName + "'");
@@ -7767,8 +7789,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testTableChangesFunctionAfterSchemaChange()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_table_changes_function_",
                 "AS SELECT nationkey, name FROM tpch.tiny.nation WITH NO DATA")) {
             long initialSnapshot = getCurrentSnapshotId(table.getName());
@@ -8144,8 +8165,8 @@ public abstract class BaseIcebergConnectorTest
     public void testUuidDynamicFilter()
     {
         String catalog = getSession().getCatalog().orElseThrow();
-        try (TestTable dataTable = new TestTable(getQueryRunner()::execute, "data_table", "(value uuid)");
-                TestTable filteringTable = new TestTable(getQueryRunner()::execute, "filtering_table", "(filtering_value uuid)")) {
+        try (TestTable dataTable = newTrinoTable("data_table", "(value uuid)");
+                TestTable filteringTable = newTrinoTable("filtering_table", "(filtering_value uuid)")) {
             assertUpdate("INSERT INTO " + dataTable.getName() + " VALUES UUID 'f73894f0-5447-41c5-a727-436d04c7f8ab', UUID '4f676658-67c9-4e80-83be-ec75f0b9d0c9'", 2);
             assertUpdate("INSERT INTO " + filteringTable.getName() + " VALUES UUID 'f73894f0-5447-41c5-a727-436d04c7f8ab'", 1);
 
@@ -8162,8 +8183,8 @@ public abstract class BaseIcebergConnectorTest
     public void testDynamicFilterWithExplicitPartitionFilter()
     {
         String catalog = getSession().getCatalog().orElseThrow();
-        try (TestTable salesTable = new TestTable(getQueryRunner()::execute, "sales_table", "(date date, receipt_id varchar, amount decimal(10,2)) with (partitioning=array['date'])");
-                TestTable dimensionTable = new TestTable(getQueryRunner()::execute, "dimension_table", "(date date, following_holiday boolean, year int)")) {
+        try (TestTable salesTable = newTrinoTable("sales_table", "(date date, receipt_id varchar, amount decimal(10,2)) with (partitioning=array['date'])");
+                TestTable dimensionTable = newTrinoTable("dimension_table", "(date date, following_holiday boolean, year int)")) {
             assertUpdate(
                     """
                     INSERT INTO %s
@@ -8257,8 +8278,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTypeCoercionOnCreateTableAsSelect()
     {
         for (TypeCoercionTestSetup setup : typeCoercionOnCreateTableAsSelectProvider()) {
-            try (TestTable testTable = new TestTable(
-                    getQueryRunner()::execute,
+            try (TestTable testTable = newTrinoTable(
                     "test_coercion_show_create_table",
                     format("AS SELECT %s a", setup.sourceValueLiteral))) {
                 assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(setup.newColumnType);
@@ -8274,8 +8294,7 @@ public abstract class BaseIcebergConnectorTest
     public void testTypeCoercionOnCreateTableAsSelectWithNoData()
     {
         for (TypeCoercionTestSetup setup : typeCoercionOnCreateTableAsSelectProvider()) {
-            try (TestTable testTable = new TestTable(
-                    getQueryRunner()::execute,
+            try (TestTable testTable = newTrinoTable(
                     "test_coercion_show_create_table",
                     format("AS SELECT %s a WITH NO DATA", setup.sourceValueLiteral))) {
                 assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(setup.newColumnType);
@@ -8462,7 +8481,7 @@ public abstract class BaseIcebergConnectorTest
 
     private void testAddColumnWithTypeCoercion(String columnType, String expectedColumnType)
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_coercion_add_column", "(a varchar, b row(x integer))")) {
+        try (TestTable testTable = newTrinoTable("test_coercion_add_column", "(a varchar, b row(x integer))")) {
             assertUpdate("ALTER TABLE " + testTable.getName() + " ADD COLUMN b.y " + columnType);
             assertThat(getColumnType(testTable.getName(), "b")).isEqualTo("row(x integer, y %s)".formatted(expectedColumnType));
 
@@ -8587,7 +8606,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testSetIllegalExtraPropertyKey()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_set_illegal_table_properties", "(x int)")) {
+        try (TestTable table = newTrinoTable("test_set_illegal_table_properties", "(x int)")) {
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " SET PROPERTIES extra_properties = MAP(ARRAY['sorted_by'], ARRAY['id'])",
                     "\\QIllegal keys in extra_properties: [sorted_by]");
@@ -8603,8 +8622,7 @@ public abstract class BaseIcebergConnectorTest
     @Test // regression test for https://github.com/trinodb/trino/issues/22922
     void testArrayElementChange()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_array_schema_change",
                 "(col array(row(a varchar, b varchar)))",
                 List.of("CAST(array[row('a', 'b')] AS array(row(a varchar, b varchar)))"))) {
@@ -8623,8 +8641,7 @@ public abstract class BaseIcebergConnectorTest
     @Test
     void testRowFieldChange()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_row_schema_change",
                 "(col row(a varchar, b varchar))")) {
             assertUpdate("INSERT INTO " + table.getName() + " SELECT CAST(row('a', 'b') AS row(a varchar, b varchar))", 1);

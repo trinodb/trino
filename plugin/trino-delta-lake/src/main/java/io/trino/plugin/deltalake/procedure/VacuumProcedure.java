@@ -66,6 +66,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniversalFormat;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.toUriFormat;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.DELETION_VECTORS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
@@ -190,8 +191,7 @@ public class VacuumProcedure
 
             checkUnsupportedUniversalFormat(handle.getMetadataEntry());
 
-            TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
-            ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+            ProtocolEntry protocolEntry = handle.getProtocolEntry();
             if (protocolEntry.minWriterVersion() > MAX_WRITER_VERSION) {
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %d writer version".formatted(protocolEntry.minWriterVersion()));
             }
@@ -205,6 +205,7 @@ public class VacuumProcedure
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(DELETION_VECTORS_FEATURE_NAME));
             }
 
+            TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
             String tableLocation = tableSnapshot.getTableLocation();
             String transactionLogDir = getTransactionLogDir(tableLocation);
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -222,24 +223,26 @@ public class VacuumProcedure
                     handle.getProtocolEntry(),
                     TupleDomain.all(),
                     alwaysFalse())) {
-                retainedPaths = Stream.concat(
-                                activeAddEntries
-                                        // paths can be absolute as well in case of shallow-cloned tables, and they shouldn't be deleted as part of vacuum because according to
-                                        // delta-protocol absolute paths are inherited from base table and the vacuum procedure should only list and delete local file references
-                                        .map(AddFileEntry::getPath),
-                                transactionLogAccess.getJsonEntries(
-                                                fileSystem,
-                                                transactionLogDir,
-                                                // discard oldest "recent" snapshot, since we take RemoveFileEntry only, to identify files that are no longer
-                                                // active files, but still needed to read a "recent" snapshot
-                                                recentVersions.stream().sorted(naturalOrder())
-                                                        .skip(1)
-                                                        .collect(toImmutableList()))
-                                        .map(DeltaLakeTransactionLogEntry::getRemove)
-                                        .filter(Objects::nonNull)
-                                        .map(RemoveFileEntry::path))
-                        .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
-                        .collect(toImmutableSet());
+                try (Stream<String> pathEntries = Stream.concat(
+                        activeAddEntries
+                                // paths can be absolute as well in case of shallow-cloned tables, and they shouldn't be deleted as part of vacuum because according to
+                                // delta-protocol absolute paths are inherited from base table and the vacuum procedure should only list and delete local file references
+                                .map(AddFileEntry::getPath),
+                        transactionLogAccess.getJsonEntries(
+                                        fileSystem,
+                                        transactionLogDir,
+                                        // discard oldest "recent" snapshot, since we take RemoveFileEntry only, to identify files that are no longer
+                                        // active files, but still needed to read a "recent" snapshot
+                                        recentVersions.stream().sorted(naturalOrder())
+                                                .skip(1)
+                                                .collect(toImmutableList()))
+                                .map(DeltaLakeTransactionLogEntry::getRemove)
+                                .filter(Objects::nonNull)
+                                .map(RemoveFileEntry::path))) {
+                    retainedPaths = pathEntries
+                            .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
+                            .collect(toImmutableSet());
+                }
             }
 
             log.debug(
@@ -267,7 +270,9 @@ public class VacuumProcedure
                         "Unexpected path [%s] returned when listing files under [%s]",
                         location,
                         tableLocation);
-                String relativePath = location.substring(commonPathPrefix.length());
+
+                // Paths are RFC 2396 URI encoded https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+                String relativePath = toUriFormat(location.substring(commonPathPrefix.length()));
                 if (relativePath.isEmpty()) {
                     // A file returned for "tableLocation/", might be possible on S3.
                     continue;

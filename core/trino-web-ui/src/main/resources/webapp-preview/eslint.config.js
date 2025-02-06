@@ -28,6 +28,8 @@ export default [
       sourceType: 'module',
       globals: {
         ...globals.browser,
+        process: 'readonly',
+        React: 'readonly',
       },
     },
     plugins: {

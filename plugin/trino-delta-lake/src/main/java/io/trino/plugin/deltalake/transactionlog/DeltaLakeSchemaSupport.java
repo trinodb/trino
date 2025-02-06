@@ -198,13 +198,15 @@ public final class DeltaLakeSchemaSupport
                 return ColumnMappingMode.NAME;
             }
 
-            boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
-            boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
-            checkArgument(
-                    supportsColumnMappingReader == supportsColumnMappingWriter,
-                    "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
-            if (!supportsColumnMappingReader) {
-                return ColumnMappingMode.NONE;
+            if (protocolEntry.supportsReaderFeatures() && protocolEntry.supportsWriterFeatures()) {
+                boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
+                boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
+                checkArgument(
+                        supportsColumnMappingReader == supportsColumnMappingWriter,
+                        "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
+                if (!supportsColumnMappingReader) {
+                    return ColumnMappingMode.NONE;
+                }
             }
         }
         String columnMappingMode = metadata.getConfiguration().getOrDefault(COLUMN_MAPPING_MODE_CONFIGURATION_KEY, "none");

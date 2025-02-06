@@ -47,9 +47,11 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.IntUnaryOperator;
@@ -62,6 +64,7 @@ import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.createTimestampParser;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
@@ -85,6 +88,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
 
 /**
@@ -135,7 +139,7 @@ public class JsonDeserializer
                 columns.stream()
                         .map(Column::type)
                         .map(fieldType -> createDecoder(fieldType, timestampParser))
-                        .collect(toImmutableList()),
+                        .toArray(Decoder[]::new),
                 topLevelOrdinalMap::get);
     }
 
@@ -212,7 +216,7 @@ public class JsonDeserializer
                     rowType.getFields().stream()
                             .map(Field::getType)
                             .map(fieldType -> createDecoder(fieldType, timestampParser))
-                            .collect(toImmutableList()),
+                            .toArray(Decoder[]::new),
                     IntUnaryOperator.identity());
         }
         throw new UnsupportedOperationException("Unsupported column type: " + type);
@@ -221,21 +225,24 @@ public class JsonDeserializer
     private abstract static class Decoder
     {
         private final Type type;
+        private final boolean isScalarType;
 
         public Decoder(Type type)
         {
-            this.type = type;
+            this.type = requireNonNull(type, "type is null");
+            this.isScalarType = isScalarType(type);
         }
 
         public final void decode(JsonParser parser, BlockBuilder builder)
                 throws IOException
         {
-            if (parser.currentToken() == VALUE_NULL) {
+            JsonToken currentToken = parser.currentToken();
+            if (currentToken == VALUE_NULL) {
                 builder.appendNull();
                 return;
             }
 
-            if (isScalarType(type) && !parser.currentToken().isScalarValue()) {
+            if (isScalarType && !currentToken.isScalarValue()) {
                 throw invalidJson(type + " value must be a scalar json value");
             }
             decodeValue(parser, builder);
@@ -340,7 +347,7 @@ public class JsonDeserializer
         public DecimalDecoder(DecimalType decimalType)
         {
             super(decimalType);
-            this.decimalType = decimalType;
+            this.decimalType = requireNonNull(decimalType, "decimalType is null");
         }
 
         @Override
@@ -427,8 +434,8 @@ public class JsonDeserializer
         public TimestampDecoder(TimestampType timestampType, Function<String, DecodedTimestamp> timestampParser)
         {
             super(timestampType);
-            this.timestampType = timestampType;
-            this.timestampParser = timestampParser;
+            this.timestampType = requireNonNull(timestampType, "timestampType is null");
+            this.timestampParser = requireNonNull(timestampParser, "timestampParser is null");
         }
 
         @Override
@@ -483,7 +490,7 @@ public class JsonDeserializer
         public VarcharDecoder(VarcharType varcharType)
         {
             super(varcharType);
-            this.varcharType = varcharType;
+            this.varcharType = requireNonNull(varcharType, "varcharType is null");
         }
 
         @Override
@@ -502,7 +509,7 @@ public class JsonDeserializer
         public CharDecoder(CharType charType)
         {
             super(charType);
-            this.charType = charType;
+            this.charType = requireNonNull(charType, "charType is null");
         }
 
         @Override
@@ -521,7 +528,7 @@ public class JsonDeserializer
         public ArrayDecoder(ArrayType arrayType, Decoder elementDecoder)
         {
             super(arrayType);
-            this.elementDecoder = elementDecoder;
+            this.elementDecoder = requireNonNull(elementDecoder, "elementDecoder is null");
         }
 
         @Override
@@ -558,8 +565,8 @@ public class JsonDeserializer
             super(mapType);
             this.keyType = mapType.getKeyType();
             this.valueType = mapType.getValueType();
-            this.valueDecoder = valueDecoder;
-            this.timestampParser = timestampParser;
+            this.valueDecoder = requireNonNull(valueDecoder, "valueDecoder is null");
+            this.timestampParser = requireNonNull(timestampParser, "timestampParser is null");
 
             this.distinctMapKeys = new DistinctMapKeys(mapType, true);
             this.keyBlockBuilder = mapType.getKeyType().createBlockBuilder(null, 128);
@@ -656,10 +663,11 @@ public class JsonDeserializer
         private static final Pattern INTERNAL_PATTERN = Pattern.compile("_col([0-9]+)");
 
         private final Map<String, Integer> fieldPositions;
-        private final List<Decoder> fieldDecoders;
+        private final Decoder[] fieldDecoders;
+        private final boolean[] fieldWritten;
         private final IntUnaryOperator ordinalToFieldPosition;
 
-        public RowDecoder(RowType rowType, List<Decoder> fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
+        public RowDecoder(RowType rowType, Decoder[] fieldDecoders, IntUnaryOperator ordinalToFieldPosition)
         {
             super(rowType);
 
@@ -670,8 +678,11 @@ public class JsonDeserializer
                 fieldPositions.put(field.getName().orElseThrow().toLowerCase(Locale.ROOT), i);
             }
             this.fieldPositions = fieldPositions.buildOrThrow();
-            this.fieldDecoders = fieldDecoders;
-            this.ordinalToFieldPosition = ordinalToFieldPosition;
+            this.fieldDecoders = requireNonNull(fieldDecoders, "fieldDecoders is null");
+            checkArgument(this.fieldDecoders.length == fields.size(), "fieldDecoders size mismatch: %s <> %s", this.fieldDecoders.length, fields.size());
+            checkArgument(Arrays.stream(this.fieldDecoders).noneMatch(Objects::isNull), "fieldDecoders contains null element");
+            this.fieldWritten = new boolean[this.fieldDecoders.length];
+            this.ordinalToFieldPosition = requireNonNull(ordinalToFieldPosition, "ordinalToFieldPosition is null");
         }
 
         public void decode(JsonParser parser, PageBuilder builder)
@@ -695,7 +706,7 @@ public class JsonDeserializer
                 throw invalidJson("start of object expected");
             }
 
-            boolean[] fieldWritten = new boolean[fieldDecoders.size()];
+            Arrays.fill(fieldWritten, false);
 
             while (nextObjectField(parser)) {
                 String fieldName = parser.getText();
@@ -711,7 +722,7 @@ public class JsonDeserializer
                 }
 
                 nextTokenRequired(parser);
-                fieldDecoders.get(rowIndex).decode(parser, fieldBuilder);
+                fieldDecoders[rowIndex].decode(parser, fieldBuilder);
                 fieldWritten[rowIndex] = true;
             }
 

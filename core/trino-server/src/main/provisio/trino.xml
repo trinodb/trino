@@ -78,6 +78,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/duckdb">
+        <artifact id="${project.groupId}:trino-duckdb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/elasticsearch">
         <artifact id="${project.groupId}:trino-elasticsearch:zip:${project.version}">
             <unpack />
@@ -195,14 +201,14 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/kinesis">
-        <artifact id="${project.groupId}:trino-kinesis:zip:${project.version}">
+    <artifactSet to="plugin/kudu">
+        <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/kudu">
-        <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
+    <artifactSet to="plugin/loki">
+        <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

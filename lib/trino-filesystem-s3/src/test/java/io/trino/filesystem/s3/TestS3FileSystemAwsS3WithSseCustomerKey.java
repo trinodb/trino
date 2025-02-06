@@ -33,7 +33,7 @@ import java.security.SecureRandom;
 import java.util.function.Function;
 
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
-import static java.util.Objects.requireNonNull;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 
 public class TestS3FileSystemAwsS3WithSseCustomerKey
         extends AbstractTestS3FileSystem
@@ -49,10 +49,10 @@ public class TestS3FileSystemAwsS3WithSseCustomerKey
     @Override
     protected void initEnvironment()
     {
-        accessKey = environmentVariable("AWS_ACCESS_KEY_ID");
-        secretKey = environmentVariable("AWS_SECRET_ACCESS_KEY");
-        region = environmentVariable("AWS_REGION");
-        bucket = environmentVariable("EMPTY_S3_BUCKET");
+        accessKey = requireEnv("AWS_ACCESS_KEY_ID");
+        secretKey = requireEnv("AWS_SECRET_ACCESS_KEY");
+        region = requireEnv("AWS_REGION");
+        bucket = requireEnv("EMPTY_S3_BUCKET");
         s3SseCustomerKey = S3SseCustomerKey.onAes256(CUSTOMER_KEY);
     }
 
@@ -107,11 +107,6 @@ public class TestS3FileSystemAwsS3WithSseCustomerKey
                         .setSseCustomerKey(s3SseCustomerKey.key())
                         .setStreamingPartSize(DataSize.valueOf("5.5MB")),
                 new S3FileSystemStats());
-    }
-
-    private static String environmentVariable(String name)
-    {
-        return requireNonNull(System.getenv(name), "Environment variable not set: " + name);
     }
 
     private static String generateCustomerKey()

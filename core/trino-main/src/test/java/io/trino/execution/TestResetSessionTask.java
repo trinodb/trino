@@ -120,6 +120,7 @@ public class TestResetSessionTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
 
         getFutureValue(new ResetSessionTask(metadata, sessionPropertyManager).execute(

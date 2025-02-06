@@ -13,6 +13,7 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -58,6 +59,7 @@ import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
+import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -667,6 +669,16 @@ public abstract class AbstractTestQueryFramework
         return Optional.empty();
     }
 
+    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition)
+    {
+        return newTrinoTable(namePrefix, tableDefinition, ImmutableList.of());
+    }
+
+    protected TestTable newTrinoTable(String namePrefix, @Language("SQL") String tableDefinition, List<String> rowsToInsert)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, tableDefinition, rowsToInsert);
+    }
+
     protected Session noJoinReordering()
     {
         return noJoinReordering(JoinDistributionType.PARTITIONED);
@@ -741,6 +753,18 @@ public abstract class AbstractTestQueryFramework
             getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(transactionSession, tableHandle.catalogHandle().getCatalogName().toString());
             return getQueryRunner().getPlannerContext().getMetadata().getTableName(transactionSession, tableHandle);
         });
+    }
+
+    protected String getTableComment(String tableName)
+    {
+        Session session = getSession();
+        return getTableComment(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), tableName);
+    }
+
+    protected String getTableComment(String catalogName, String schemaName, String tableName)
+    {
+        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments " +
+                "WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'");
     }
 
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)

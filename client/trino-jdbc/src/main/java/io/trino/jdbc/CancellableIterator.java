@@ -22,7 +22,8 @@ interface CancellableIterator<T>
 
     static <T> CancellableIterator<T> wrap(Iterator<T> iterator)
     {
-        return new CancellableIterator<T>() {
+        return new CancellableIterator<>()
+        {
             @Override
             public void cancel()
             {

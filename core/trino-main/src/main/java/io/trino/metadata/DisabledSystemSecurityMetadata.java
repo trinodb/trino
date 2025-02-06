@@ -196,6 +196,12 @@ public class DisabledSystemSecurityMetadata
     }
 
     @Override
+    public void functionCreated(Session session, CatalogSchemaFunctionName function) {}
+
+    @Override
+    public void functionDropped(Session session, CatalogSchemaFunctionName function) {}
+
+    @Override
     public void schemaCreated(Session session, CatalogSchemaName schema) {}
 
     @Override

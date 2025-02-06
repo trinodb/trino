@@ -21,8 +21,8 @@ import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.containers.HiveHadoop;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
 import io.trino.plugin.iceberg.catalog.rest.TestingPolarisCatalog;
 import io.trino.plugin.iceberg.containers.NessieContainer;
@@ -290,21 +290,20 @@ public final class IcebergQueryRunner
         }
     }
 
-    public static final class IcebergGlueQueryRunnerMain
+    public static final class IcebergExternalQueryRunnerMain
     {
-        private IcebergGlueQueryRunnerMain() {}
+        private IcebergExternalQueryRunnerMain() {}
 
         public static void main(String[] args)
                 throws Exception
         {
-            // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
-            // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+            // Please set Iceberg connector properties via VM options. e.g. -Diceberg.catalog.type=glue -D..
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
-                    .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", "glue"))
+                    .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", System.getProperty("iceberg.catalog.type")))
                     .build();
 
-            Logger log = Logger.get(IcebergGlueQueryRunnerMain.class);
+            Logger log = Logger.get(IcebergExternalQueryRunnerMain.class);
             log.info("======== SERVER STARTED ========");
             log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
         }
@@ -319,7 +318,7 @@ public final class IcebergQueryRunner
         {
             String bucketName = "test-bucket";
             @SuppressWarnings("resource")
-            HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
+            Hive3MinioDataLake hiveMinioDataLake = new Hive3MinioDataLake(bucketName);
             hiveMinioDataLake.start();
 
             @SuppressWarnings("resource")

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>468-SNAPSHOT</version>
+        <version>470-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -214,46 +214,65 @@
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.returnTypeTypeParametersChanged</code>
-                                    <old>method java.lang.Iterable&lt;io.trino.spi.protocol.SpoolingManagerFactory&gt; io.trino.spi.Plugin::getSpoolingManagerFactories()</old>
-                                    <new>method java.lang.Iterable&lt;io.trino.spi.spool.SpoolingManagerFactory&gt; io.trino.spi.Plugin::getSpoolingManagerFactories()</new>
-                                    <justification>Spooling package renamed</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.class.removed</code>
-                                    <old>interface io.trino.spi.protocol.SpoolingManager</old>
-                                    <justification>Spooling package renamed</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.noLongerDefault</code>
-                                    <old>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</old>
-                                    <new>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</new>
-                                    <justification>Old variant was removed and this becomes the new non-default one</justification>
-                                </item>
-                                <item>
-                                    <code>java.method.nowAbstract</code>
-                                    <old>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</old>
-                                    <new>method io.trino.spi.security.SystemAccessControl io.trino.spi.security.SystemAccessControlFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext)</new>
-                                    <justification>Old variant was removed and this becomes the new non-default one</justification>
-                                </item>
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method io.trino.spi.eventlistener.EventListener io.trino.spi.eventlistener.EventListenerFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;)</old>
-                                    <new>method io.trino.spi.eventlistener.EventListener io.trino.spi.eventlistener.EventListenerFactory::create(java.util.Map&lt;java.lang.String, java.lang.String&gt;, io.trino.spi.eventlistener.EventListenerFactory.EventListenerContext)</new>
-                                    <justification>Added EventListenerContext</justification>
-                                </item>
-                                <item>
                                     <code>java.method.removed</code>
-                                    <old>method io.trino.spi.connector.ConnectorTableHandle io.trino.spi.connector.ConnectorMetadata::makeCompatiblePartitioning(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorPartitioningHandle)</old>
+                                    <old>method java.lang.Iterable&lt;io.trino.spi.eventlistener.EventListener&gt; io.trino.spi.connector.Connector::getEventListeners()</old>
+                                    <justification>Remove connector event listeners</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</old>
-                                    <new>method void io.trino.spi.eventlistener.QueryStatistics::&lt;init&gt;(java.time.Duration, java.time.Duration, java.time.Duration, java.time.Duration, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.time.Duration&gt;, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, long, double, double, java.util.List&lt;io.trino.spi.eventlistener.StageGcStatistics&gt;, int, boolean, java.util.List&lt;io.trino.spi.eventlistener.StageCpuDistribution&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferUtilization&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageOutputBufferMetrics&gt;, java.util.List&lt;io.trino.spi.eventlistener.StageTaskStatistics&gt;, java.util.function.Supplier&lt;java.util.List&lt;java.lang.String&gt;&gt;, java.util.List&lt;io.trino.spi.eventlistener.QueryPlanOptimizerStatistics&gt;, java.util.Optional&lt;java.lang.String&gt;)</new>
-                                    <justification>Added output buffer metrics</justification>
+                                    <code>java.annotation.removed</code>
+                                    <old>method byte[] io.trino.spi.type.SqlVarbinary::getBytes()</old>
+                                    <new>method byte[] io.trino.spi.type.SqlVarbinary::getBytes()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlDate::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlDate::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlDecimal::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlDecimal::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlTime::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlTime::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlTimeWithTimeZone::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlTimeWithTimeZone::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlTimestamp::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlTimestamp::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.annotation.removed</code>
+                                    <old>method java.lang.String io.trino.spi.type.SqlTimestampWithTimeZone::toString()</old>
+                                    <new>method java.lang.String io.trino.spi.type.SqlTimestampWithTimeZone::toString()</new>
+                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
+                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

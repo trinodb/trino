@@ -71,7 +71,7 @@ import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.mappedCopy;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;

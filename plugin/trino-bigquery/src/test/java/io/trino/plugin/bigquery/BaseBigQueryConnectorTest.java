@@ -205,7 +205,7 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testCreateTableAlreadyExists()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_already_exists", "(col1 int)")) {
+        try (TestTable table = newTrinoTable("test_create_table_already_exists", "(col1 int)")) {
             assertQueryFails(
                     "CREATE TABLE " + table.getName() + "(col1 int)",
                     "\\Qline 1:1: Table 'bigquery.tpch." + table.getName() + "' already exists\\E");
@@ -353,8 +353,8 @@ public abstract class BaseBigQueryConnectorTest
     public void testStreamCommentTableSpecialCharacter()
     {
         String schemaName = "test_comment" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
         try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_semicolon (a integer) COMMENT " + varcharLiteral("a;semicolon"));
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_at (a integer) COMMENT " + varcharLiteral("an@at"));
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_quote (a integer) COMMENT " + varcharLiteral("a\"quote"));
@@ -379,7 +379,7 @@ public abstract class BaseBigQueryConnectorTest
                             "('test_comment_bracket', " + varcharLiteral("[square bracket]") + ")");
         }
         finally {
-            assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE");
         }
     }
 
@@ -387,7 +387,7 @@ public abstract class BaseBigQueryConnectorTest
     @Override // Override because the base test exceeds rate limits per a table
     public void testCommentColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer)")) {
+        try (TestTable table = newTrinoTable("test_comment_column_", "(a integer)")) {
             // comment set
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'new comment'");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("COMMENT 'new comment'");
@@ -398,7 +398,7 @@ public abstract class BaseBigQueryConnectorTest
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo(null);
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_comment_column_", "(a integer COMMENT 'test comment')")) {
+        try (TestTable table = newTrinoTable("test_comment_column_", "(a integer COMMENT 'test comment')")) {
             assertThat(getColumnComment(table.getName(), "a")).isEqualTo("test comment");
             // comment set new value
             assertUpdate("COMMENT ON COLUMN " + table.getName() + ".a IS 'updated comment'");
@@ -550,7 +550,7 @@ public abstract class BaseBigQueryConnectorTest
     @Test
     public void testColumnPositionMismatch()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test.test_column_position_mismatch", "(c_varchar VARCHAR, c_int INT, c_date DATE)")) {
+        try (TestTable table = newTrinoTable("test.test_column_position_mismatch", "(c_varchar VARCHAR, c_int INT, c_date DATE)")) {
             onBigQuery("INSERT INTO " + table.getName() + " VALUES ('a', 1, '2021-01-01')");
             // Adding a CAST makes BigQuery return columns in a different order
             assertQuery("SELECT c_varchar, CAST(c_int AS SMALLINT), c_date FROM " + table.getName(), "VALUES ('a', 1, '2021-01-01')");
@@ -1458,7 +1458,7 @@ public abstract class BaseBigQueryConnectorTest
     public void testInsertArray()
     {
         // Override because the connector disallows writing a NULL in ARRAY
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
+        try (TestTable table = newTrinoTable("test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (ARRAY[1.23E1], ARRAY[1.23E1])", 1);
             assertQuery("SELECT a[1], b[1] FROM " + table.getName(), "VALUES (12.3, 12)");
         }

@@ -48,12 +48,19 @@ class TestingSystemSecurityMetadata
     private final Set<String> roles = synchronizedSet(new HashSet<>());
     private final Set<RoleGrant> roleGrants = synchronizedSet(new HashSet<>());
     private final Map<CatalogSchemaTableName, Identity> viewOwners = synchronizedMap(new HashMap<>());
+    private final Map<CatalogSchemaFunctionName, Identity> functionOwners = synchronizedMap(new HashMap<>());
 
     public void reset()
     {
         roles.clear();
         roleGrants.clear();
         viewOwners.clear();
+        functionOwners.clear();
+    }
+
+    public String getFunctionOwner(CatalogSchemaFunctionName functionName)
+    {
+        return functionOwners.get(functionName).getUser();
     }
 
     @Override
@@ -246,7 +253,25 @@ class TestingSystemSecurityMetadata
     @Override
     public Optional<Identity> getFunctionRunAsIdentity(Session session, CatalogSchemaFunctionName functionName)
     {
-        return Optional.empty();
+        return Optional.ofNullable(functionOwners.get(functionName))
+                .map(identity -> Identity.from(identity)
+                        .withEnabledRoles(getRoleGrantsRecursively(new TrinoPrincipal(USER, identity.getUser()))
+                                .stream()
+                                .map(RoleGrant::getRoleName)
+                                .collect(toImmutableSet()))
+                        .build());
+    }
+
+    @Override
+    public void functionCreated(Session session, CatalogSchemaFunctionName function)
+    {
+        functionOwners.put(function, session.getIdentity());
+    }
+
+    @Override
+    public void functionDropped(Session session, CatalogSchemaFunctionName function)
+    {
+        functionOwners.remove(function);
     }
 
     @Override

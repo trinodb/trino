@@ -185,13 +185,13 @@ public class MockExchangeRequestProcessor
 
         public synchronized void addPage(Slice page)
         {
-            checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
+            checkState(!completed.get(), "Location %s is complete", location);
             serializedPages.add(page);
         }
 
         public synchronized void addPage(Page page)
         {
-            checkState(completed.get() != Boolean.TRUE, "Location %s is complete", location);
+            checkState(!completed.get(), "Location %s is complete", location);
             serializedPages.add(serializer.serialize(page));
         }
 

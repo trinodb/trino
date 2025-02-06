@@ -317,4 +317,10 @@
         <version>1.8</version>
         <comment>Use io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder() instead</comment>
     </violation>
+
+    <violation>
+        <name>software/amazon/awssdk/services/glue/model/Table.tableType:()Ljava/lang/String;</name>
+        <version>1.8</version>
+        <comment>Table type is nullable in Glue model, which is too easy to forget about. Prefer GlueConverter.getTableTypeNullable</comment>
+    </violation>
 </modernizer>

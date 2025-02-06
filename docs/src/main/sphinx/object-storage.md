@@ -61,7 +61,7 @@ compatible replacements:
 * [](/object-storage/file-system-s3)
 * [](/object-storage/file-system-alluxio)
 
-The native support is available in all four connectors, but must be activated
+The native support is available in all four connectors, and must be activated
 for use.
 
 (file-system-legacy)=
@@ -73,15 +73,15 @@ System (HDFS):
 
 - [](/object-storage/file-system-hdfs)
 
-All four connectors can use the related `hive.*` properties for access to other
-object storage system as *legacy* support. Additional documentation is available
-with the Hive connector and relevant dedicated pages:
+All four connectors can use the deprecated `hive.*` properties for access to
+other object storage system as *legacy* support. These properties will be
+removed in a future release. Additional documentation is available with the Hive
+connector and relevant migration guides pages:
 
 - [](/connector/hive)
-- [](/object-storage/legacy-azure)
-- [](/object-storage/legacy-gcs)
-- [](/object-storage/legacy-cos)
-- [](/object-storage/legacy-s3)
+- [Azure Storage migration from hive.azure.* properties](fs-legacy-azure-migration)
+- [Google Cloud Storage migration from hive.gcs.* properties](fs-legacy-gcs-migration)
+- [S3 migration from hive.s3.* properties](fs-legacy-s3-migration) 
 
 (object-storage-other)=
 ## Other object storage support
@@ -102,10 +102,6 @@ storage:
 /object-storage/file-system-gcs
 /object-storage/file-system-s3
 /object-storage/file-system-hdfs
-/object-storage/legacy-azure
-/object-storage/legacy-cos
-/object-storage/legacy-gcs
-/object-storage/legacy-s3
 /object-storage/file-system-cache
 /object-storage/file-system-alluxio
 /object-storage/metastores

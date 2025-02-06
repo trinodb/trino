@@ -36,7 +36,6 @@ import static io.trino.geospatial.GeometryType.LINE_STRING;
 import static io.trino.geospatial.GeometryType.MULTI_POINT;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.geospatial.serde.GeometrySerde.serialize;
-import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
@@ -52,7 +51,7 @@ public final class EncodedPolylineFunctions
 
     @Description("Decodes a polyline to a linestring")
     @ScalarFunction("from_encoded_polyline")
-    @SqlType(GEOMETRY_TYPE_NAME)
+    @SqlType(StandardTypes.GEOMETRY)
     public static Slice fromEncodedPolyline(@SqlType(StandardTypes.VARCHAR) Slice input)
     {
         return serialize(decodePolyline(input.toStringUtf8()));
@@ -104,7 +103,7 @@ public final class EncodedPolylineFunctions
     @Description("Encodes a linestring or multipoint geometry to a polyline")
     @ScalarFunction("to_encoded_polyline")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice toEncodedPolyline(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
+    public static Slice toEncodedPolyline(@SqlType(StandardTypes.GEOMETRY) Slice input)
     {
         OGCGeometry geometry = deserialize(input);
         validateType("encode_polyline", geometry, EnumSet.of(LINE_STRING, MULTI_POINT));

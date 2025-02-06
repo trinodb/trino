@@ -28,6 +28,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.QueryManagerConfig.AVAILABLE_HEAP_MEMORY;
+import static io.trino.execution.QueryManagerConfig.DEFAULT_TASK_DESCRIPTOR_STORAGE_MAX_MEMORY;
 import static io.trino.execution.QueryManagerConfig.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
 import static java.lang.Math.max;
 import static java.lang.Math.round;
@@ -100,8 +101,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionStandardSplitSize(DataSize.of(64, MEGABYTE))
                 .setFaultTolerantExecutionMaxTaskSplitCount(2048)
                 .setFaultTolerantExecutionTaskDescriptorStorageMaxMemory(DataSize.ofBytes(round(AVAILABLE_HEAP_MEMORY * 0.15)))
-                .setFaultTolerantExecutionTaskDescriptorStorageHighWaterMark(DataSize.ofBytes((long) (AVAILABLE_HEAP_MEMORY * 0.09)))
-                .setFaultTolerantExecutionTaskDescriptorStorageLowWaterMark(DataSize.ofBytes((long) (AVAILABLE_HEAP_MEMORY * 0.06)))
+                .setFaultTolerantExecutionTaskDescriptorStorageHighWaterMark(DataSize.ofBytes((long) (DEFAULT_TASK_DESCRIPTOR_STORAGE_MAX_MEMORY.toBytes() * 0.6)))
+                .setFaultTolerantExecutionTaskDescriptorStorageLowWaterMark(DataSize.ofBytes((long) (DEFAULT_TASK_DESCRIPTOR_STORAGE_MAX_MEMORY.toBytes() * 0.4)))
                 .setFaultTolerantExecutionMaxPartitionCount(50)
                 .setFaultTolerantExecutionMinPartitionCount(4)
                 .setFaultTolerantExecutionMinPartitionCountForWrite(50)

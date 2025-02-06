@@ -117,7 +117,7 @@ public class TestDeltaLakePageSink
             JsonCodec<DataFileInfo> dataFileInfoCodec = new JsonCodecFactory().jsonCodec(DataFileInfo.class);
             Collection<Slice> fragments = getFutureValue(pageSink.finish());
             List<DataFileInfo> dataFileInfos = fragments.stream()
-                    .map(Slice::getBytes)
+                    .map(Slice::getInput)
                     .map(dataFileInfoCodec::fromJson)
                     .collect(toImmutableList());
 
