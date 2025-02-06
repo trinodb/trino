@@ -24,15 +24,14 @@ import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.view.ViewBuilder;
-import org.assertj.core.util.Files;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -64,8 +63,8 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File warehouseLocation = Files.newTemporaryFolder();
-        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
+        Path warehouseLocation = Files.createTempDirectory(null);
+        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
 
         backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
@@ -78,7 +77,7 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         closeAfterClass(testServer::stop);
 
         return IcebergQueryRunner.builder(LOWERCASE_SCHEMA)
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                .setBaseDataDir(Optional.of(warehouseLocation))
                 .addIcebergProperty("iceberg.catalog.type", "rest")
                 .addIcebergProperty("iceberg.rest-catalog.uri", testServer.getBaseUrl().toString())
                 .addIcebergProperty("iceberg.rest-catalog.case-insensitive-name-matching", "true")

@@ -75,7 +75,8 @@ public abstract class BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(BaseTrinoCatalogTest.class);
 
-    protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations);
+    protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
+            throws IOException;
 
     protected Map<String, Object> defaultNamespaceProperties(String newNamespaceName)
     {
@@ -84,6 +85,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testCreateNamespaceWithLocation()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
         String namespace = "test_create_namespace_with_location_" + randomNameSuffix();
@@ -100,6 +102,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testNonLowercaseNamespace()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
 
@@ -313,6 +316,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testUseUniqueTableLocations()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(true);
         String namespace = "test_unique_table_locations_" + randomNameSuffix();
