@@ -15,7 +15,7 @@ package io.trino.plugin.hive.line;
 
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hive.formats.line.cloudtrail.CloudTrailFileReaderFactory;
+import io.trino.hive.formats.line.cloudtrail.CloudTrailLineReaderFactory;
 import io.trino.hive.formats.line.json.JsonDeserializerFactory;
 import io.trino.plugin.hive.HiveConfig;
 
@@ -29,6 +29,6 @@ public class CloudtrailJsonPageSourceFactory
     {
         super(trinoFileSystemFactory,
                 new JsonDeserializerFactory(),
-                new CloudTrailFileReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())));
+                new CloudTrailLineReaderFactory(1024, 1024, toIntExact(config.getTextMaxLineLength().toBytes())));
     }
 }

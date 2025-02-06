@@ -23,17 +23,17 @@ import java.util.Set;
 
 import static io.trino.hive.formats.HiveClassNames.CLOUDTRAIL_INPUT_FORMAT;
 
-public class CloudTrailFileReaderFactory
+public class CloudTrailLineReaderFactory
         extends TextLineReaderFactory
 {
-
-    public CloudTrailFileReaderFactory(int fileBufferSize, int initialLineBufferSize, int maxLineLength)
+    public CloudTrailLineReaderFactory(int fileBufferSize, int initialLineBufferSize, int maxLineLength)
     {
         super(fileBufferSize, initialLineBufferSize, maxLineLength);
     }
 
     @Override
-    public Set<String> getHiveInputFormatClassNames() {
+    public Set<String> getHiveInputFormatClassNames()
+    {
         return ImmutableSet.of(CLOUDTRAIL_INPUT_FORMAT);
     }
 
@@ -47,6 +47,6 @@ public class CloudTrailFileReaderFactory
             throws IOException
     {
         LineReader delegate = super.createLineReader(inputFile, start, length, headerCount, footerCount);
-        return new CloudtrailLineReader(delegate, this::createLineBuffer);
+        return new CloudTrailLineReader(delegate, this::createLineBuffer);
     }
 }

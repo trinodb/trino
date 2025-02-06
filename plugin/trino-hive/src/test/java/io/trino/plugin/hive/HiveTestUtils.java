@@ -191,7 +191,6 @@ public final class HiveTestUtils
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .add(new CloudtrailJsonPageSourceFactory(fileSystemFactory, hiveConfig))
-                .add(new CloudtrailJsonPageSourceFactory(fileSystemFactory, hiveConfig))
                 .build();
     }
 

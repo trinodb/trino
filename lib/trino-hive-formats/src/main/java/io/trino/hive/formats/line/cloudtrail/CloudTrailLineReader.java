@@ -22,39 +22,40 @@ import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineReader;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /*
     Cloudtrail reader should be used together with a JSON serde
-    Records from cloudtrail are json objects wrapped with an object with key named "Records"
-    This reader reads the line, and extract the serve the record through linebuffer one at a time
+    Records from cloudtrail are json objects wrapped in an object with key named "Records"
+    This reader reads the line, and extract and serve the record through linebuffer one at a time
  */
-public class CloudtrailLineReader
+public class CloudTrailLineReader
         implements LineReader
 {
-    private static final Logger log = Logger.get(CloudtrailLineReader.class);
+    private static final Logger log = Logger.get(CloudTrailLineReader.class);
     private static final String DOCUMENT_LIST_KEY = "Records";
+    private static final String AS_STRING_SUFFIX = "_as_string";
+    // Nested fields that are returned as String regardless of their nested schemas
     private static final Set<String> NESTED_FIELDS_WITHOUT_SCHEMA = ImmutableSet.of(
             "requestParameters",
             "responseElements",
             "additionalEventData",
             "serviceEventDetails");
-
+    // Fields that we will append an additional String field with a suffix
     private static final Set<String> AS_STRING_FIELDS = ImmutableSet.of(
             "userIdentity");
-    private static final String AS_STRING_SUFFIX = "_as_string";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final LineReader delegate;
     private Iterator<JsonNode> records;
     private LineBuffer fileLineBuffer;
 
-    public CloudtrailLineReader(LineReader delegate, Supplier<LineBuffer> lineBufferSupplier)
+    public CloudTrailLineReader(LineReader delegate, Supplier<LineBuffer> lineBufferSupplier)
             throws IOException
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -87,7 +88,8 @@ public class CloudtrailLineReader
 
     @Override
     public boolean readLine(LineBuffer lineBuffer)
-            throws IOException {
+            throws IOException
+    {
         lineBuffer.reset();
 
         if (records != null && records.hasNext()) {
@@ -95,18 +97,14 @@ public class CloudtrailLineReader
             return true;
         }
 
-        while (delegate.readLine(fileLineBuffer))
-        {
+        while (delegate.readLine(fileLineBuffer)) {
             try {
                 JsonNode node = MAPPER.readValue(fileLineBuffer.getBuffer(), JsonNode.class);
                 records = node.get(DOCUMENT_LIST_KEY).elements();
             }
-            catch (IOException ioException) {
-                throw new UncheckedIOException(ioException);
-            }
             catch (Exception e) {
                 // We do not throw error in order to fully read cloudtrail records and ignored backward incompatible records
-                log.error("Encountered an exception while parsing Cloudtrail records", e);
+                log.error(e, "Encountered an exception while parsing CloudTrail records");
                 continue;
             }
 
@@ -130,7 +128,7 @@ public class CloudtrailLineReader
     }
 
     private byte[] transformJsonNode(JsonNode node)
-            throws IOException {
+    {
         ObjectNode objectNode = (ObjectNode) node;
         for (String field : NESTED_FIELDS_WITHOUT_SCHEMA) {
             if (node.has(field)) {
@@ -155,7 +153,6 @@ public class CloudtrailLineReader
                 }
             }
         }
-
-        return node.binaryValue();
+        return objectNode.toString().getBytes(UTF_8);
     }
 }
