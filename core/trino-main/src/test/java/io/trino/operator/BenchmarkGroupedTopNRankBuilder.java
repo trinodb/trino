@@ -89,7 +89,7 @@ public class BenchmarkGroupedTopNRankBuilder
                     ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
                     typeOperators);
             equalsAndHash = new SimplePageWithPositionEqualsAndHash(
-                    types,
+                    ImmutableList.of(types.get(EXTENDED_PRICE), types.get(STATUS)),
                     ImmutableList.of(EXTENDED_PRICE, STATUS),
                     blockTypeOperators);
 

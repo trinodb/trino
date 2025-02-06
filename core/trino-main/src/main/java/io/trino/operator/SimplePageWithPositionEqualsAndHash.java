@@ -39,13 +39,13 @@ public class SimplePageWithPositionEqualsAndHash
     {
         requireNonNull(channelTypes, "channelTypes is null");
         this.equalityChannels = new IntArrayList(requireNonNull(equalityChannels, "equalityChannels is null"));
-        checkArgument(channelTypes.size() >= equalityChannels.size(), "channelTypes cannot have fewer columns then equalityChannels");
+        checkArgument(channelTypes.size() == equalityChannels.size(), "channelTypes and equalityChannels must have the same size");
 
         // Use IS DISTINCT FROM for equality, because it evaluates NULL and NaN values as distinct (unlike SQL EQUALS)
         ImmutableList.Builder<BlockPositionIsIdentical> identicalOperators = ImmutableList.builder();
         ImmutableList.Builder<BlockPositionHashCode> hashOperators = ImmutableList.builder();
         for (int index = 0; index < equalityChannels.size(); index++) {
-            Type type = channelTypes.get(this.equalityChannels.getInt(index));
+            Type type = channelTypes.get(index);
             identicalOperators.add(blockTypeOperators.getIdenticalOperator(type));
             hashOperators.add(blockTypeOperators.getHashCodeOperator(type));
         }
