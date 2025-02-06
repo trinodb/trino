@@ -17,11 +17,18 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.JoinOperator;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -29,10 +36,15 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.JoinOperator.FULL_JOIN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
@@ -43,7 +55,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_W
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -223,9 +234,9 @@ public class TestVerticaConnectorTest
             // join over TopN
             assertJoinConditionallyPushedDown(
                     session,
-                    format("SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey LIMIT 5) n " +
+                    format("SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey NULLS FIRST LIMIT 5) n " +
                             "%s region r ON n.nationkey = r.regionkey", joinOperator),
-                    hasBehavior(SUPPORTS_TOPN_PUSHDOWN));
+                    true);
 
             // join over join
             assertThat(query(session, "SELECT * FROM nation n, region r, customer c WHERE n.regionkey = r.regionkey AND r.regionkey = c.custkey"))
@@ -369,6 +380,224 @@ public class TestVerticaConnectorTest
     public void testInsertIntoNotNullColumn()
     {
         abort("TODO Enable this test");
+    }
+
+    @Override
+    @Test
+    public void testSortItemsReflectedInExplain()
+    {
+        // Even if the sort items are pushed down into the table scan, it should still be reflected in EXPLAIN (via ConnectorTableHandle.toString)
+        @Language("RegExp") String expectedPattern = "sortOrder=\\[(?i:nationkey):.* DESC NULLS LAST] limit=5";
+
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
+                expectedPattern);
+    }
+
+    /*
+    In Vertica null ordering is:
+        - INTEGER, INT, DATE/TIME: NULL has the smallest value.
+        - FLOAT, BOOLEAN, CHAR, VARCHAR, ARRAY, SET: NULL has the largest value
+    */
+    @Override
+    @Test
+    public void testTopNPushdown()
+    {
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey NULLS FIRST LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
+        // no push down due to NULLS LAST in ASC order for numeric
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey NULLS LAST LIMIT 10"))
+                .ordered()
+                .isNotFullyPushedDown(TopNNode.class);
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
+        // no push down due to NULLS FIRST in DESC order for numeric
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC NULLS FIRST LIMIT 10"))
+                .ordered()
+                .isNotFullyPushedDown(TopNNode.class);
+
+        // multiple sort columns with different orders
+        assertThat(query("SELECT * FROM orders ORDER BY shippriority DESC, totalprice ASC LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
+        // no push down due to NULLS FIRST in ASC order for double
+        assertThat(query("SELECT * FROM orders ORDER BY shippriority DESC, totalprice ASC NULLS FIRST LIMIT 10"))
+                .ordered()
+                .isNotFullyPushedDown(TopNNode.class);
+
+        // TODO remove hasBehavior after merge aggregation push down
+        // TopN over aggregation column
+        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
+                    .ordered()
+                    .isFullyPushedDown();
+        }
+
+        // TopN over TopN
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
+                .ordered()
+                .isNotFullyPushedDown(TopNNode.class);
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1 NULLS FIRST, 2 LIMIT 10) ORDER BY 2, 1 NULLS FIRST LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+
+        assertThat(query("SELECT orderkey, totalprice " +
+                "FROM (SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1 NULLS FIRST, 2 LIMIT 10) " +
+                "ORDER BY 2, 1 NULLS FIRST LIMIT 5) ORDER BY 1 NULLS FIRST, 2 LIMIT 3"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over limit - use high limit for deterministic result
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 15000) ORDER BY totalprice ASC LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over limit with filter
+        assertThat(query("SELECT orderkey, totalprice " +
+                "FROM (SELECT orderkey, totalprice FROM orders WHERE orderdate = DATE '1995-09-16' LIMIT 20) " +
+                "ORDER BY totalprice ASC LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TODO remove hasBehavior after merge aggregation push down
+        // TopN over aggregation with filter
+        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("" +
+                    "SELECT * " +
+                    "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
+                    "ORDER BY sum DESC LIMIT 10"))
+                    .ordered()
+                    .isFullyPushedDown();
+        }
+
+        // TopN over LEFT join (enforces SINGLE TopN cannot be pushed below OUTER side of join)
+        // We expect PARTIAL TopN on the LEFT side of join to be pushed down.
+        assertThat(query(
+                // Explicitly disable join pushdown. The purpose of the this test is to verify partial TopN gets pushed down when Join is not.
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), JOIN_PUSHDOWN_ENABLED, "false")
+                        .build(),
+                "SELECT * FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey " +
+                        "ORDER BY n.nationkey NULLS FIRST LIMIT 3"))
+                .ordered()
+                .isNotFullyPushedDown(
+                        node(TopNNode.class, // FINAL TopN
+                                anyTree(node(JoinNode.class,
+                                        node(ExchangeNode.class, node(TableScanNode.class)), // no PARTIAL TopN
+                                        anyTree(node(TableScanNode.class))))));
+    }
+
+    // extension for BaseJdbcConnectorTest.testLimitPushdown
+    @Test
+    public void testLimitPushdownOverTopN(){
+        // with TopN over numeric column
+        PlanMatchPattern topnOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC NULLS FIRST LIMIT 10) LIMIT 5",
+                true,
+                topnOverTableScan);
+        // with TopN over varchar column
+        assertConditionallyPushedDown(
+                getSession(),
+                "SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5",
+                true,
+                topnOverTableScan);
+    }
+
+    @Override
+    @Test
+    public void testNullSensitiveTopNPushdown()
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_null_sensitive_topn_pushdown",
+                "(name varchar(10), a bigint)",
+                List.of(
+                        "'small', 42",
+                        "'big', 134134",
+                        "'negative', -15",
+                        "'null', NULL"))) {
+            verify(SortOrder.values().length == 4, "The test needs to be updated when new options are added");
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a ASC NULLS FIRST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a ASC NULLS LAST LIMIT 5"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a DESC NULLS FIRST LIMIT 5"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a DESC NULLS LAST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY name ASC NULLS FIRST LIMIT 5"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY name ASC NULLS LAST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY name DESC NULLS FIRST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY name DESC NULLS LAST LIMIT 5"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+        }
+    }
+
+    @Override
+    @Test
+    public void testCaseSensitiveTopNPushdown()
+    {
+        PlanMatchPattern topNOverTableScan = project(node(TopNNode.class, anyTree(node(TableScanNode.class))));
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_case_sensitive_topn_pushdown",
+                "(a_string varchar(10), a_char char(10), a_bigint bigint)",
+                List.of(
+                        "'A', 'A', 1",
+                        "'B', 'B', 2",
+                        "'a', 'a', 3",
+                        "'b', 'b', 4"))) {
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string ASC LIMIT 2",
+                    true,
+                    topNOverTableScan);
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string DESC LIMIT 2",
+                    false,
+                    topNOverTableScan);
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char ASC LIMIT 2",
+                    true,
+                    topNOverTableScan);
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char DESC LIMIT 2",
+                    false,
+                    topNOverTableScan);
+
+            // multiple sort columns with at-least one case-sensitive column
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint NULLS FIRST, a_char LIMIT 2",
+                    true,
+                    topNOverTableScan);
+            assertConditionallyOrderedPushedDown(
+                    getSession(),
+                    "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint NULLS FIRST, a_string DESC NULLS FIRST LIMIT 2",
+                    true,
+                    topNOverTableScan);
+        }
     }
 
     @Override
