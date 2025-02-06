@@ -4,8 +4,8 @@
 
 * Add [](/connector/duckdb). ({issue}`18031`)
 * Add [](/connector/loki). ({issue}`23053`)
-* Add support for `WITH SESSION` to set per-query session properties with
-  `SELECT` queries. ({issue}`24889`)
+* Add support for the [](select-with-session) to set per-query session
+  properties with `SELECT` queries. ({issue}`24889`)
 * Improve compatibility of fault-tolerant exchange storage with S3-compliant
   object stores. ({issue}`24822`)
 * Allow skipping directory schema validation to improve compatibility of
