@@ -26,6 +26,8 @@
 
 ## Druid connector
 
+## DuckDB connector
+
 ## Elasticsearch connector
 
 ## Exasol connector
@@ -47,6 +49,8 @@
 ## Kafka connector
 
 ## Kudu connector
+
+## Loki connector
 
 ## MariaDB connector
 
