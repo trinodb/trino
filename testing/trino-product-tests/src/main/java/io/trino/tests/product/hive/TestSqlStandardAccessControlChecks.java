@@ -106,11 +106,11 @@ public class TestSqlStandardAccessControlChecks
     public void testAccessControlUpdate()
     {
         assertQueryFailure(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
-                .hasMessageContaining("Access Denied: Cannot update columns [month, day] in table default.%s", tableName);
+                .hasMessageContaining("Access Denied: Cannot update columns in table default.%s", tableName);
 
         aliceExecutor.executeQuery(format("GRANT INSERT ON %s TO bob", tableName));
         assertQueryFailure(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
-                .hasMessageContaining("Access Denied: Cannot update columns [month, day] in table default.%s", tableName);
+                .hasMessageContaining("Access Denied: Cannot update columns in table default.%s", tableName);
 
         aliceExecutor.executeQuery(format("GRANT UPDATE ON %s TO bob", tableName));
         assertQueryFailure(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))

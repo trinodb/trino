@@ -304,47 +304,47 @@ public class TestAccessControl
         assertAccessDenied("CREATE TABLE foo AS SELECT * FROM orders", "Cannot create table .*.foo.*", privilege("foo", CREATE_TABLE));
         assertAccessDenied("ALTER TABLE orders SET PROPERTIES field_length = 32", "Cannot set table properties to .*.orders.*", privilege("orders", SET_TABLE_PROPERTIES));
         assertAccessDenied("ALTER TABLE orders ALTER COLUMN orderkey SET DATA TYPE char(100)", "Cannot alter a column for table .*.orders.*", privilege("orders", ALTER_COLUMN));
-        assertAccessDenied("SELECT * FROM nation", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM nation", "Cannot select from table or view .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM (SELECT * FROM nation)", "Cannot select from table or view .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT name FROM (SELECT * FROM nation)", "Cannot select from table or view .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name FROM nation", privilege("nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT n1.nationkey, n2.regionkey FROM nation n1, nation n2", "Cannot select from columns \\[nationkey, regionkey] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT count(name) as c FROM nation where comment > 'abc' GROUP BY regionkey having max(nationkey) > 10", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT 1 FROM region, nation where region.regionkey = nation.nationkey", "Cannot select from columns \\[nationkey] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
-        assertAccessDenied("SELECT count(*) FROM nation", "Cannot select from columns \\[] in table .*.nation.*", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("WITH t1 AS (SELECT * FROM nation) SELECT * FROM t1", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT n1.nationkey, n2.regionkey FROM nation n1, nation n2", "Cannot select from table or view .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(name) as c FROM nation where comment > 'abc' GROUP BY regionkey having max(nationkey) > 10", "Cannot select from table or view .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT 1 FROM region, nation where region.regionkey = nation.nationkey", "Cannot select from table or view .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(*) FROM nation", "Cannot select from table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("WITH t1 AS (SELECT * FROM nation) SELECT * FROM t1", "Cannot select from table or view .*.nation.*", privilege("nation.nationkey", SELECT_COLUMN));
         assertAccessAllowed("SELECT name AS my_alias FROM nation", privilege("my_alias", SELECT_COLUMN));
         assertAccessAllowed("SELECT my_alias from (SELECT name AS my_alias FROM nation)", privilege("my_alias", SELECT_COLUMN));
-        assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from columns \\[name] in table .*.nation.*", privilege("nation.name", SELECT_COLUMN));
+        assertAccessDenied("SELECT name AS my_alias FROM nation", "Cannot select from table or view .*.nation.*", privilege("nation.name", SELECT_COLUMN));
         assertAccessAllowed("SELECT 1 FROM mock.default.test_materialized_view");
-        assertAccessDenied("SELECT 1 FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
+        assertAccessDenied("SELECT 1 FROM mock.default.test_materialized_view", "Cannot select from table or view .*.test_materialized_view", privilege("test_materialized_view", SELECT_COLUMN));
         assertAccessAllowed("SELECT * FROM mock.default.test_materialized_view");
-        assertAccessDenied("SELECT * FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM mock.default.test_materialized_view", "Cannot select from table or view .*.test_materialized_view", privilege("test_materialized_view", SELECT_COLUMN));
         assertAccessAllowed("SELECT 1 FROM mock.default.test_view_definer");
-        assertAccessDenied("SELECT 1 FROM mock.default.test_view_definer", "Cannot select from columns.*", privilege("test_view_definer", SELECT_COLUMN));
+        assertAccessDenied("SELECT 1 FROM mock.default.test_view_definer", "Cannot select from table or view .*.test_view_definer", privilege("test_view_definer", SELECT_COLUMN));
         assertAccessAllowed("SELECT * FROM mock.default.test_view_definer");
-        assertAccessDenied("SELECT * FROM mock.default.test_view_definer", "Cannot select from columns.*", privilege("test_view_definer", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM mock.default.test_view_definer", "Cannot select from table or view .*.test_view_definer", privilege("test_view_definer", SELECT_COLUMN));
         assertAccessAllowed("SELECT 1 FROM mock.default.test_view_invoker");
-        assertAccessDenied("SELECT 1 FROM mock.default.test_view_invoker", "Cannot select from columns.*", privilege("test_view_invoker", SELECT_COLUMN));
+        assertAccessDenied("SELECT 1 FROM mock.default.test_view_invoker", "Cannot select from table or view .*.test_view_invoker", privilege("test_view_invoker", SELECT_COLUMN));
         assertAccessAllowed("SELECT * FROM mock.default.test_view_invoker");
-        assertAccessDenied("SELECT * FROM mock.default.test_view_invoker", "Cannot select from columns.*", privilege("test_view_invoker", SELECT_COLUMN));
+        assertAccessDenied("SELECT * FROM mock.default.test_view_invoker", "Cannot select from table or view .*.test_view_invoker", privilege("test_view_invoker", SELECT_COLUMN));
         // with current implementation this next block of checks is redundant to `SELECT 1 FROM ..`, but it is not obvious unless details of how
         // semantics analyzer works are known
         assertAccessAllowed("SELECT count(*) FROM mock.default.test_materialized_view");
-        assertAccessDenied("SELECT count(*) FROM mock.default.test_materialized_view", "Cannot select from columns.*", privilege("test_materialized_view", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(*) FROM mock.default.test_materialized_view", "Cannot select from table or view .*.test_materialized_view", privilege("test_materialized_view", SELECT_COLUMN));
         assertAccessAllowed("SELECT count(*) FROM mock.default.test_view_invoker");
-        assertAccessDenied("SELECT count(*) FROM mock.default.test_view_invoker", "Cannot select from columns.*", privilege("test_view_invoker", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(*) FROM mock.default.test_view_invoker", "Cannot select from table or view .*.test_view_invoker", privilege("test_view_invoker", SELECT_COLUMN));
         assertAccessAllowed("SELECT count(*) FROM mock.default.test_view_definer");
-        assertAccessDenied("SELECT count(*) FROM mock.default.test_view_definer", "Cannot select from columns.*", privilege("test_view_definer", SELECT_COLUMN));
+        assertAccessDenied("SELECT count(*) FROM mock.default.test_view_definer", "Cannot select from table or view .*.test_view_definer", privilege("test_view_definer", SELECT_COLUMN));
 
         assertAccessDenied(
                 "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
-                "Cannot select from columns \\[orderkey, custkey] in table .*",
+                "Cannot select from table or view .*.orders",
                 privilege("orders.orderkey", SELECT_COLUMN));
 
         assertAccessDenied(
                 "SELECT orders.custkey, lineitem.quantity FROM orders JOIN lineitem USING (orderkey)",
-                "Cannot select from columns \\[orderkey, quantity] in table .*",
+                "Cannot select from table or view .*.lineitem",
                 privilege("lineitem.orderkey", SELECT_COLUMN));
 
         assertAccessDenied("SHOW CREATE TABLE orders", "Cannot show create table for .*.orders.*", privilege("orders", SHOW_CREATE_TABLE));
@@ -357,15 +357,15 @@ public class TestAccessControl
         assertAccessAllowed("SHOW STATS FOR lineitem", privilege("orders", SELECT_COLUMN));
         assertAccessAllowed("SHOW STATS FOR (SELECT * FROM lineitem)");
         assertAccessAllowed("SHOW STATS FOR (SELECT * FROM lineitem)", privilege("orders", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot select from columns \\[nationkey] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot select from columns \\[nationkey] in table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT *, nationkey FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT *, * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT linenumber, orderkey FROM lineitem)", "Cannot select from columns \\[linenumber, orderkey] in table or view .*.lineitem.*", privilege("lineitem", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT linenumber, orderkey, quantity FROM lineitem)", "Cannot select from columns \\[linenumber, orderkey, quantity] in table or view .*.lineitem.*", privilege("lineitem.linenumber", SELECT_COLUMN), privilege("lineitem.orderkey", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot select from columns \\[nationkey] in table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot select from columns \\[nationkey, regionkey, name, comment] in table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot select from table or view .*.nation", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot select from table or view .*.nation", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot select from table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT *, nationkey FROM nation)", "Cannot select from table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT *, * FROM nation)", "Cannot select from table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT linenumber, orderkey FROM lineitem)", "Cannot select from table or view .*.lineitem.*", privilege("lineitem", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT linenumber, orderkey, quantity FROM lineitem)", "Cannot select from table or view .*.lineitem.*", privilege("lineitem.linenumber", SELECT_COLUMN), privilege("lineitem.orderkey", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT nationkey FROM nation)", "Cannot select from table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot select from table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
     }
 
     @Test
@@ -446,7 +446,7 @@ public class TestAccessControl
                 privilege(viewOwnerSession.getUser(), "orders", SELECT_COLUMN));
         assertAccessDenied(
                 "SELECT * FROM " + invokerViewName,
-                "Cannot select from columns \\[.*] in table .*.orders.*",
+                "Cannot select from table .*.orders.*",
                 privilege(getSession().getUser(), "orders", SELECT_COLUMN));
 
         // verify that groups are set inside access control
@@ -502,7 +502,7 @@ public class TestAccessControl
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
         assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession,
                 "SELECT * FROM " + viewName))
-                .hasMessageMatching("Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders");
+                .hasMessageMatching("Access Denied: Cannot select from table or view \\w+\\.\\w+\\.orders");
 
         systemSecurityMetadata.revokeRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
         getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + viewName);
@@ -541,7 +541,7 @@ public class TestAccessControl
         getQueryRunner().getAccessControl()
                 .denyIdentityTable((identity, table) -> !(identity.getEnabledRoles().contains("view_owner_role_without_access") && "orders".equals(table)));
         systemSecurityMetadata.grantRoles(getSession(), Set.of("view_owner_role_without_access"), Set.of(viewOwnerPrincipal), false, Optional.empty());
-        String errorMessage = "Access Denied: Cannot select from columns \\[.*] in table or view \\w+\\.\\w+\\.orders";
+        String errorMessage = "Access Denied: Cannot select from table or view \\w+\\.\\w+\\.orders";
 
         getQueryRunner().execute(viewOwnerSession, "SELECT * FROM orders");
         assertThatThrownBy(() -> getQueryRunner().execute(viewOwnerSession, "SELECT * FROM " + viewName))
@@ -808,7 +808,7 @@ public class TestAccessControl
 
         assertAccessDenied(
                 "SELECT * FROM TABLE(exclude_columns(TABLE(nation), descriptor(regionkey, comment)))",
-                "Cannot select from columns \\[nationkey, name] in table .*.nation.*",
+                "Cannot select from table or view .*.nation.*",
                 privilege("nation.nationkey", SELECT_COLUMN));
     }
 
@@ -819,8 +819,8 @@ public class TestAccessControl
 
         assertAccessAllowed("ANALYZE nation");
         assertAccessDenied("ANALYZE nation", "Cannot ANALYZE \\(missing insert privilege\\) table .*.nation.*", privilege("nation", INSERT_TABLE));
-        assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*] in table or view .*.nation", privilege("nation", SELECT_COLUMN));
-        assertAccessDenied("ANALYZE nation", "Cannot select from columns \\[.*nationkey.*] in table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
+        assertAccessDenied("ANALYZE nation", "Cannot select from table or view .*.nation", privilege("nation", SELECT_COLUMN));
+        assertAccessDenied("ANALYZE nation", "Cannot select from table or view .*.nation", privilege("nation.nationkey", SELECT_COLUMN));
     }
 
     @Test
@@ -992,7 +992,7 @@ public class TestAccessControl
     {
         reset();
 
-        assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from columns \\[orderkey] in table or view .*.orders.*", privilege("orders.orderkey", SELECT_COLUMN));
+        assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from table or view .*\\.orders.*", privilege("orders.orderkey", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders WHERE orderkey < 12", privilege("orders" + ".orderdate", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders", privilege("orders", SELECT_COLUMN));
     }
@@ -1010,8 +1010,8 @@ public class TestAccessControl
     {
         reset();
 
-        assertAccessDenied("UPDATE orders SET orderkey=123", "Cannot update columns \\[orderkey] in table .*", privilege("orders", UPDATE_TABLE));
-        assertAccessDenied("UPDATE orders SET orderkey=123 WHERE custkey < 12", "Cannot select from columns \\[custkey] in table or view .*.default.orders", privilege("orders.custkey", SELECT_COLUMN));
+        assertAccessDenied("UPDATE orders SET orderkey=123", "Cannot update columns in table .*", privilege("orders", UPDATE_TABLE));
+        assertAccessDenied("UPDATE orders SET orderkey=123 WHERE custkey < 12", "Cannot select from table or view .*.default.orders", privilege("orders.custkey", SELECT_COLUMN));
         assertAccessAllowed("UPDATE orders SET orderkey=123", privilege("orders", SELECT_COLUMN));
     }
 
@@ -1046,12 +1046,12 @@ public class TestAccessControl
 
         // Show that without SELECT on the source table, the MERGE fails regardless of which case is included
         for (String mergeCase : ImmutableList.of(deleteCase, updateCase, insertCase)) {
-            assertAccessDenied(baseMergeSql + mergeCase, "Cannot select from columns .* in table or view " + sourceName, privilege(sourceTable, SELECT_COLUMN));
+            assertAccessDenied(baseMergeSql + mergeCase, "Cannot select from table or view " + sourceName, privilege(sourceTable, SELECT_COLUMN));
         }
 
         // Show that without SELECT on the target table, the MERGE fails regardless of which case is included
         for (String mergeCase : ImmutableList.of(deleteCase, updateCase, insertCase)) {
-            assertAccessDenied(baseMergeSql + mergeCase, "Cannot select from columns .* in table or view " + targetName, privilege(targetTable, SELECT_COLUMN));
+            assertAccessDenied(baseMergeSql + mergeCase, "Cannot select from table or view " + targetName, privilege(targetTable, SELECT_COLUMN));
         }
 
         // Show that without INSERT on the target table, the MERGE fails
@@ -1061,7 +1061,7 @@ public class TestAccessControl
         assertAccessDenied(baseMergeSql + deleteCase, "Cannot delete from table " + targetName, privilege(targetTable, DELETE_TABLE));
 
         // Show that without UPDATE on the target table, the MERGE fails
-        assertAccessDenied(baseMergeSql + updateCase, "Cannot update columns \\[nation_name] in table " + targetName, privilege(targetTable, UPDATE_TABLE));
+        assertAccessDenied(baseMergeSql + updateCase, "Cannot update columns in table " + targetName, privilege(targetTable, UPDATE_TABLE));
 
         assertAccessAllowed(
                 """

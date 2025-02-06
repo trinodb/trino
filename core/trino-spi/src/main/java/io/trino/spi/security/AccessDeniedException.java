@@ -391,14 +391,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot truncate table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    @Deprecated
     public static void denyUpdateTableColumns(String tableName, Set<String> updatedColumnNames)
     {
-        denyUpdateTableColumns(tableName, updatedColumnNames, null);
+        denyUpdateTableColumns(tableName, (String) null);
     }
 
+    @Deprecated
     public static void denyUpdateTableColumns(String tableName, Set<String> updatedColumnNames, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot update columns %s in table %s%s", updatedColumnNames, tableName, formatExtraInfo(extraInfo)));
+        denyUpdateTableColumns(tableName, extraInfo);
+    }
+
+    public static void denyUpdateTableColumns(String tableName)
+    {
+        denyUpdateTableColumns(tableName, (String) null);
+    }
+
+    public static void denyUpdateTableColumns(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot update columns in table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyCreateView(String viewName)
@@ -646,14 +658,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set catalog session property %s", propertyName));
     }
 
+    @Deprecated
     public static void denySelectColumns(String tableName, Collection<String> columnNames)
     {
-        denySelectColumns(tableName, columnNames, null);
+        denySelectColumns(tableName, (String) null);
     }
 
+    @Deprecated
     public static void denySelectColumns(String tableName, Collection<String> columnNames, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot select from columns %s in table or view %s%s", columnNames, tableName, formatExtraInfo(extraInfo)));
+        denySelectColumns(tableName, extraInfo);
+    }
+
+    public static void denySelectColumns(String tableName)
+    {
+        denySelectColumns(tableName, (String) null);
+    }
+
+    public static void denySelectColumns(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot select from table or view %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyCreateRole(String roleName)

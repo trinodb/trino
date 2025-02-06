@@ -787,7 +787,7 @@ public class TestColumnMask
                         .expression("custkey")
                         .build());
         assertThat(assertions.query("SELECT orderkey FROM orders"))
-                .failure().hasMessage("Access Denied: Cannot select from columns [orderkey, custkey] in table or view local.tiny.orders");
+                .failure().hasMessage("Access Denied: Cannot select from table or view local.tiny.orders");
     }
 
     @Test

@@ -152,7 +152,7 @@ public class TestAccessControlManager
                 assertThatThrownBy(
                         () -> accessControlManager.checkCanSelectFromColumns(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "table"), ImmutableSet.of("column")))
                         .isInstanceOf(AccessDeniedException.class)
-                        .hasMessage("Access Denied: Cannot select from columns [column] in table or view schema.table"));
+                        .hasMessage("Access Denied: Cannot select from table or view schema.table"));
     }
 
     @Test

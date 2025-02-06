@@ -5822,7 +5822,7 @@ public class TestAnalyzer
                 "SELECT * FROM fresh_materialized_view",
                 accessControlManager)
                 .hasErrorCode(PERMISSION_DENIED)
-                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
+                .hasMessage("Access Denied: Cannot select from table or view tpch.s1.fresh_materialized_view");
     }
 
     @Test
