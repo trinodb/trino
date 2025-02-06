@@ -377,7 +377,7 @@ public class PaimonPageSourceProvider
                         sources.add(source);
                     }
 
-                    pageSource = Optional.of(new DirectTrinoPageSource(sources, limit));
+                    pageSource = Optional.of(new DirectPaimonPageSource(sources, limit));
                 }
                 catch (Exception e) {
                     throw new RuntimeException(e);

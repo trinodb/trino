@@ -25,7 +25,7 @@ import java.util.OptionalLong;
 /**
  * Trino {@link ConnectorPageSource}.
  */
-public class DirectTrinoPageSource
+public class DirectPaimonPageSource
         implements ConnectorPageSource
 {
     private final LinkedList<ConnectorPageSource> pageSourceQueue;
@@ -34,7 +34,7 @@ public class DirectTrinoPageSource
     private long completedBytes;
     private long numReturn;
 
-    public DirectTrinoPageSource(
+    public DirectPaimonPageSource(
             LinkedList<ConnectorPageSource> pageSourceQueue, OptionalLong limit)
     {
         this.pageSourceQueue = pageSourceQueue;
