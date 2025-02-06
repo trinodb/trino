@@ -29,6 +29,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import java.util.Optional;
 import java.util.Set;
@@ -91,6 +92,7 @@ public class S3FileSystemConfig
     private String endpoint;
     private String region;
     private boolean pathStyleAccess;
+    private StorageClass storageClass = StorageClass.STANDARD;
     private String iamRole;
     private String roleSessionName = "trino-filesystem";
     private String externalId;
@@ -179,6 +181,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setPathStyleAccess(boolean pathStyleAccess)
     {
         this.pathStyleAccess = pathStyleAccess;
+        return this;
+    }
+
+    public StorageClass getStorageClass()
+    {
+        return storageClass;
+    }
+
+    @Config("s3.storage-class")
+    @ConfigDescription("The S3 storage class to use when writing the data")
+    public S3FileSystemConfig setStorageClass(StorageClass storageClass)
+    {
+        this.storageClass = storageClass;
         return this;
     }
 
