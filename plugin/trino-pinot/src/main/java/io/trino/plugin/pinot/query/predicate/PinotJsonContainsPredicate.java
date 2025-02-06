@@ -28,6 +28,8 @@ import java.util.List;
 public class PinotJsonContainsPredicate
         implements PinotPredicate
 {
+    private static final FunctionName CONTAINS = new FunctionName("contains");
+    private static final FunctionName CAST = new FunctionName("$cast");
     private final String columnName;
     private final String jsonPath;
     private final List<String> values;
@@ -35,7 +37,7 @@ public class PinotJsonContainsPredicate
 
     public static boolean supportsCall(Call call)
     {
-        if (!new FunctionName("contains").equals(call.getFunctionName())) {
+        if (!CONTAINS.equals(call.getFunctionName())) {
             return false;
         }
 
@@ -50,7 +52,7 @@ public class PinotJsonContainsPredicate
             return false;
         }
 
-        if (new FunctionName("$cast").equals(innerCall.getFunctionName())) {
+        if (CAST.equals(innerCall.getFunctionName())) {
             List<ConnectorExpression> castArguments = innerCall.getArguments();
             if (!(castArguments.getFirst() instanceof Call jsonExtracatScalarCall)) {
                 return false;
@@ -85,7 +87,7 @@ public class PinotJsonContainsPredicate
 
         Call innerCall = (Call) containsCallArgs.get(1);
         Call jsonExtractScalarCall = innerCall;
-        if (new FunctionName("$cast").equals(innerCall.getFunctionName())) {
+        if (CAST.equals(innerCall.getFunctionName())) {
             jsonExtractScalarCall = (Call) innerCall.getArguments().getFirst();
         }
 

@@ -25,12 +25,13 @@ import java.util.List;
 public class PinotJsonExtractIsNullPredicate
         implements PinotPredicate
 {
+    private static final FunctionName IS_NULL = new FunctionName("$is_null");
     private final String columnName;
     private final String jsonPath;
 
     public static boolean supportsCall(Call call)
     {
-        if (!new FunctionName("$is_null").equals(call.getFunctionName())) {
+        if (!IS_NULL.equals(call.getFunctionName())) {
             return false;
         }
 

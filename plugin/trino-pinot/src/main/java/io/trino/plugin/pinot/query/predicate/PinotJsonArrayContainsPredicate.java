@@ -26,6 +26,7 @@ import java.util.List;
 public class PinotJsonArrayContainsPredicate
         implements PinotPredicate
 {
+    public static final FunctionName JSON_ARRAY_CONTAINS = new FunctionName("json_array_contains");
     private final String columnName;
     private final String jsonPath;
     private final String value;
@@ -33,7 +34,7 @@ public class PinotJsonArrayContainsPredicate
 
     public static boolean supportsCall(Call call)
     {
-        if (!new FunctionName("json_array_contains").equals(call.getFunctionName())) {
+        if (!JSON_ARRAY_CONTAINS.equals(call.getFunctionName())) {
             return false;
         }
 

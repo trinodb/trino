@@ -24,12 +24,13 @@ import java.util.List;
 public class PinotJsonContainsEqualsPredicate
         implements PinotPredicate
 {
+    private static final FunctionName EQUALS = new FunctionName("$equal");
+    private static final FunctionName NOT_EQUALS = new FunctionName("$not_equal");
     private final String pql;
 
     public static boolean supportsCall(Call call)
     {
-        if (!new FunctionName("$equal").equals(call.getFunctionName()) &&
-                !new FunctionName("$not_equal").equals(call.getFunctionName())) {
+        if (!EQUALS.equals(call.getFunctionName()) && !NOT_EQUALS.equals(call.getFunctionName())) {
             return false;
         }
 
@@ -48,10 +49,10 @@ public class PinotJsonContainsEqualsPredicate
         String operator = "IN (";
 
         boolean booleanValue = (boolean) ((Constant) arguments.get(1)).getValue();
-        if (new FunctionName("$equal").equals(call.getFunctionName()) && !booleanValue) {
+        if (EQUALS.equals(call.getFunctionName()) && !booleanValue) {
             operator = "NOT IN (";
         }
-        else if (new FunctionName("$not_equal").equals(call.getFunctionName()) && booleanValue) {
+        else if (NOT_EQUALS.equals(call.getFunctionName()) && booleanValue) {
             operator = "NOT IN (";
         }
 

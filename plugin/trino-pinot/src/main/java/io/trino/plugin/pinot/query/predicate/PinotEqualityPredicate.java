@@ -23,9 +23,11 @@ import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 
-public class PinotEqualsNotEqualsPredicate
+public class PinotEqualityPredicate
         implements PinotPredicate
 {
+    private static final FunctionName EQUALS = new FunctionName("$equal");
+    private static final FunctionName NOT_EQUALS = new FunctionName("$not_equal");
     private final String columnName;
     private final String value;
     private final String operator;
@@ -33,8 +35,7 @@ public class PinotEqualsNotEqualsPredicate
 
     public static boolean supportsCall(Call call)
     {
-        if (!new FunctionName("$equal").equals(call.getFunctionName()) &&
-                !new FunctionName("$not_equal").equals(call.getFunctionName())) {
+        if (!EQUALS.equals(call.getFunctionName()) && !NOT_EQUALS.equals(call.getFunctionName())) {
             return false;
         }
 
@@ -46,9 +47,9 @@ public class PinotEqualsNotEqualsPredicate
         return true;
     }
 
-    public PinotEqualsNotEqualsPredicate(Call call)
+    public PinotEqualityPredicate(Call call)
     {
-        operator = new FunctionName("$equal").equals(call.getFunctionName()) ? "=" : "!=";
+        operator = EQUALS.equals(call.getFunctionName()) ? "=" : "!=";
         List<ConnectorExpression> arguments = call.getArguments();
         columnName = ((Variable) arguments.get(0)).getName();
         Constant constant = (Constant) arguments.get(1);

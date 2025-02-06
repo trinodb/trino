@@ -22,11 +22,12 @@ import java.util.List;
 public class PinotNotJsonContainsPredicate
         implements PinotPredicate
 {
+    private static final FunctionName NOT = new FunctionName("$not");
     private final String pql;
 
     public static boolean supportsCall(Call call)
     {
-        if (!new FunctionName("$not").equals(call.getFunctionName())) {
+        if (!NOT.equals(call.getFunctionName())) {
             return false;
         }
 

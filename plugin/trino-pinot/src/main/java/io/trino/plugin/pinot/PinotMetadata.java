@@ -36,7 +36,7 @@ import io.trino.plugin.pinot.query.aggregation.ImplementCountAll;
 import io.trino.plugin.pinot.query.aggregation.ImplementCountDistinct;
 import io.trino.plugin.pinot.query.aggregation.ImplementMinMax;
 import io.trino.plugin.pinot.query.aggregation.ImplementSum;
-import io.trino.plugin.pinot.query.predicate.PinotEqualsNotEqualsPredicate;
+import io.trino.plugin.pinot.query.predicate.PinotEqualityPredicate;
 import io.trino.plugin.pinot.query.predicate.PinotJsonArrayContainsEqualsPredicate;
 import io.trino.plugin.pinot.query.predicate.PinotJsonArrayContainsPredicate;
 import io.trino.plugin.pinot.query.predicate.PinotJsonContainsEqualsPredicate;
@@ -428,8 +428,8 @@ public class PinotMetadata
 
     private static Optional<PinotPredicate> getPinotPredicate(Call call)
     {
-        if (PinotEqualsNotEqualsPredicate.supportsCall(call)) {
-            return Optional.of(new PinotEqualsNotEqualsPredicate(call));
+        if (PinotEqualityPredicate.supportsCall(call)) {
+            return Optional.of(new PinotEqualityPredicate(call));
         }
         if (PinotJsonExtractIsNullPredicate.supportsCall(call)) {
             return Optional.of(new PinotJsonExtractIsNullPredicate(call));
