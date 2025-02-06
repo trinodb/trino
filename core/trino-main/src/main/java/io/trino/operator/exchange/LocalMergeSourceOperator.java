@@ -74,7 +74,10 @@ public class LocalMergeSourceOperator
             checkState(!closed, "Factory is already closed");
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, LocalMergeSourceOperator.class.getSimpleName());
-            PageWithPositionComparator comparator = orderingCompiler.compilePageWithPositionComparator(types, sortChannels, orderings);
+            List<Type> sortTypes = sortChannels.stream()
+                    .map(types::get)
+                    .collect(toImmutableList());
+            PageWithPositionComparator comparator = orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, orderings);
             List<LocalExchangeSource> sources = IntStream.range(0, localExchange.getBufferCount())
                     .boxed()
                     .map(index -> localExchange.getNextSource())

@@ -26,6 +26,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
@@ -55,9 +56,12 @@ public class TopNProcessor
             outputIterator = emptyIterator();
         }
         else {
+            List<Type> sortTypes = sortChannels.stream()
+                    .map(types::get)
+                    .collect(toImmutableList());
             topNBuilder = new GroupedTopNRowNumberBuilder(
                     types,
-                    new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators),
+                    new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrders, typeOperators),
                     n,
                     false,
                     new int[0],
