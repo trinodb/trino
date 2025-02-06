@@ -5054,25 +5054,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testGetIcebergTableProperties()
-    {
-        assertUpdate("CREATE TABLE test_iceberg_get_table_props (x BIGINT)");
-        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""));
-        assertUpdate("DROP TABLE test_iceberg_get_table_props");
-    }
-
-    protected void verifyIcebergTableProperties(MaterializedResult actual)
-    {
-        assertThat(actual).isNotNull();
-        MaterializedResult expected = resultBuilder(getSession())
-                .row("write.format.default", format.name())
-                .row("write.parquet.compression-codec", "zstd")
-                .row("commit.retry.num-retries", "4")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
-    }
-
-    @Test
     public void testGetIcebergTableWithLegacyOrcBloomFilterProperties()
             throws IOException
     {

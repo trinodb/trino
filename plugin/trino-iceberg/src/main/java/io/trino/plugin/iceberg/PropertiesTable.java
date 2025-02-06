@@ -14,6 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
@@ -25,23 +27,35 @@ import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import org.apache.iceberg.Table;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.SortOrder;
 
 import java.util.List;
+import java.util.Set;
 
+import static io.trino.plugin.iceberg.SortFieldUtils.toSortFields;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
+import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
 
 public class PropertiesTable
         implements SystemTable
 {
-    private final ConnectorTableMetadata tableMetadata;
-    private final Table icebergTable;
+    private static final Set<String> RESERVED_PROPERTIES = ImmutableSet.<String>builder()
+            .add("provider")
+            .add("format")
+            .add("current-snapshot-id")
+            .add("location")
+            .add("format-version")
+            .build();
 
-    public PropertiesTable(SchemaTableName tableName, Table icebergTable)
+    private final ConnectorTableMetadata tableMetadata;
+    private final BaseTable icebergTable;
+
+    public PropertiesTable(SchemaTableName tableName, BaseTable icebergTable)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
-
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
                         .add(new ColumnMetadata("key", VARCHAR))
@@ -67,11 +81,28 @@ public class PropertiesTable
         return new FixedPageSource(buildPages(tableMetadata, icebergTable));
     }
 
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, Table icebergTable)
+    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, BaseTable icebergTable)
     {
-        PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        String currentSnapshotId = icebergTable.currentSnapshot() != null ? String.valueOf(icebergTable.currentSnapshot().snapshotId()) : "none";
+        String fileFormat = icebergTable.properties().getOrDefault(DEFAULT_FILE_FORMAT, DEFAULT_FILE_FORMAT_DEFAULT);
+        properties.put("format", "iceberg/" + fileFormat);
+        properties.put("provider", "iceberg");
+        properties.put("current-snapshot-id", currentSnapshotId);
+        properties.put("location", icebergTable.location());
+        properties.put("format-version", String.valueOf(icebergTable.operations().current().formatVersion()));
+        // TODO: Support sort column transforms (https://github.com/trinodb/trino/issues/15088)
+        SortOrder sortOrder = icebergTable.sortOrder();
+        if (!sortOrder.isUnsorted() && sortOrder.fields().stream().allMatch(sortField -> sortField.transform().isIdentity())) {
+            List<String> sortColumnNames = toSortFields(sortOrder);
+            properties.put("sort-order", String.join(", ", sortColumnNames));
+        }
+        icebergTable.properties().entrySet().stream()
+                .filter(entry -> !RESERVED_PROPERTIES.contains(entry.getKey()))
+                .forEach(properties::put);
 
-        icebergTable.properties().entrySet().forEach(prop -> {
+        PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
+        properties.buildOrThrow().entrySet().forEach(prop -> {
             pagesBuilder.beginRow();
             pagesBuilder.appendVarchar(prop.getKey());
             pagesBuilder.appendVarchar(prop.getValue());
