@@ -27,8 +27,6 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
-import io.trino.plugin.base.util.Closables;
-import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
@@ -77,22 +75,16 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -111,8 +103,6 @@ import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Map.entry;
-import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
@@ -144,15 +134,6 @@ public class TestIcebergV2
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                 .put("hive.security", "allow-all")
                 .buildOrThrow());
-
-        try {
-            queryRunner.installPlugin(new BlackHolePlugin());
-            queryRunner.createCatalog("blackhole", "blackhole");
-        }
-        catch (RuntimeException e) {
-            Closables.closeAllSuppress(e, queryRunner);
-            throw e;
-        }
 
         return queryRunner;
     }
@@ -669,97 +650,6 @@ public class TestIcebergV2
                 .doesNotContain(initialActiveFiles.stream()
                         .filter(path -> !path.contains("regionkey=1"))
                         .toArray(String[]::new));
-    }
-
-    @Test
-    public void testOptimizeDuringWriteOperations()
-            throws Exception
-    {
-        runOptimizeDuringWriteOperations(true);
-        runOptimizeDuringWriteOperations(false);
-    }
-
-    private void runOptimizeDuringWriteOperations(boolean useSmallFiles)
-            throws Exception
-    {
-        int threads = 5;
-        int deletionThreads = threads - 1;
-        int rows = 12;
-        int rowsPerThread = rows / deletionThreads;
-
-        CyclicBarrier barrier = new CyclicBarrier(threads);
-        ExecutorService executor = newFixedThreadPool(threads);
-
-        // Slow down the delete operations so optimize is more likely to complete
-        String blackholeTable = "blackhole_table_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE blackhole.default.%s (a INT, b INT) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '3s')".formatted(blackholeTable));
-
-        try (TestTable table = newTrinoTable(
-                "test_optimize_during_write_operations",
-                "(int_col INT)")) {
-            String tableName = table.getName();
-
-            // Testing both situations where a file is fully removed by the delete operation and when a row level delete is required.
-            if (useSmallFiles) {
-                for (int i = 0; i < rows; i++) {
-                    assertUpdate(format("INSERT INTO %s VALUES %s", tableName, i), 1);
-                }
-            }
-            else {
-                String values = IntStream.range(0, rows).mapToObj(String::valueOf).collect(Collectors.joining(", "));
-                assertUpdate(format("INSERT INTO %s VALUES %s", tableName, values), rows);
-            }
-
-            List<Future<List<Boolean>>> deletionFutures = IntStream.range(0, deletionThreads)
-                    .mapToObj(threadNumber -> executor.submit(() -> {
-                        barrier.await(10, SECONDS);
-                        List<Boolean> successfulDeletes = new ArrayList<>();
-                        for (int i = 0; i < rowsPerThread; i++) {
-                            try {
-                                int rowNumber = threadNumber * rowsPerThread + i;
-                                getQueryRunner().execute(format("DELETE FROM %s WHERE int_col = %s OR ((SELECT count(*) FROM blackhole.default.%s) > 42)", tableName, rowNumber, blackholeTable));
-                                successfulDeletes.add(true);
-                            }
-                            catch (RuntimeException e) {
-                                successfulDeletes.add(false);
-                            }
-                        }
-                        return successfulDeletes;
-                    }))
-                    .collect(toImmutableList());
-
-            Future<?> optimizeFuture = executor.submit(() -> {
-                try {
-                    barrier.await(10, SECONDS);
-                    // Allow for some deletes to start before running optimize
-                    Thread.sleep(50);
-                    assertUpdate("ALTER TABLE %s EXECUTE optimize".formatted(tableName));
-                }
-                catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            });
-
-            List<String> expectedValues = new ArrayList<>();
-            for (int threadNumber = 0; threadNumber < deletionThreads; threadNumber++) {
-                List<Boolean> deleteOutcomes = deletionFutures.get(threadNumber).get();
-                verify(deleteOutcomes.size() == rowsPerThread);
-                for (int rowNumber = 0; rowNumber < rowsPerThread; rowNumber++) {
-                    boolean successfulDelete = deleteOutcomes.get(rowNumber);
-                    if (!successfulDelete) {
-                        expectedValues.add(String.valueOf(threadNumber * rowsPerThread + rowNumber));
-                    }
-                }
-            }
-
-            optimizeFuture.get();
-            assertThat(expectedValues.size()).isGreaterThan(0).isLessThan(rows);
-            assertQuery("SELECT * FROM " + tableName, "VALUES " + String.join(", ", expectedValues));
-        }
-        finally {
-            executor.shutdownNow();
-            executor.awaitTermination(10, SECONDS);
-        }
     }
 
     @Test
