@@ -323,4 +323,25 @@
         <version>1.8</version>
         <comment>Table type is nullable in Glue model, which is too easy to forget about. Prefer GlueConverter.getTableTypeNullable</comment>
     </violation>
+
+    <violation>
+        <name>org/assertj/core/util/Files.newTemporaryFile:()Ljava/io/File;</name>
+        <version>1.1</version>
+        <comment>Use @TempDir instead</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/util/Files.newTemporaryFolder:()Ljava/io/File;</name>
+        <version>1.1</version>
+        <comment>Use @TempDir instead</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/util/Files.temporaryFolder:()Ljava/io/File;</name>
+        <version>1.1</version>
+        <comment>Use @TempDir instead</comment>
+    </violation>
+    <violation>
+        <name>org/assertj/core/util/Files.temporaryFolderPath:()Ljava/lang/String;</name>
+        <version>1.1</version>
+        <comment>Use @TempDir instead</comment>
+    </violation>
 </modernizer>
