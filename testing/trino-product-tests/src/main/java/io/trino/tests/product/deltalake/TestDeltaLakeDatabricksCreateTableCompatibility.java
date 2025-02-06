@@ -26,7 +26,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_104_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_113_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
@@ -69,7 +68,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES FROM default LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM default." + tableName)).contains(row(0));
             String showCreateTable;
-            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\nLOCATION 's3://%s/%s'\n%s",
                         tableName,
@@ -112,7 +111,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM " + tableName)).contains(row(0));
             String showCreateTable;
-            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\n" +
                                 "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n%s",
@@ -155,7 +154,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES FROM default LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM default." + tableName)).contains(row(3));
             String showCreateTable;
-            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\nLOCATION 's3://%s/%s'\n%s",
                         tableName,
@@ -201,7 +200,7 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
             assertThat(onDelta().executeQuery("SHOW TABLES LIKE '" + tableName + "'")).contains(row("default", tableName, false));
             assertThat(onDelta().executeQuery("SELECT count(*) FROM " + tableName)).contains(row(3));
             String showCreateTable;
-            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_104_RUNTIME_VERSION)) {
+            if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
                 showCreateTable = format(
                         "CREATE TABLE spark_catalog.default.%s (\n  integer INT,\n  string STRING,\n  timetz TIMESTAMP)\nUSING delta\n" +
                                 "PARTITIONED BY (string)\nLOCATION 's3://%s/%s'\n%s",
@@ -401,13 +400,6 @@ public class TestDeltaLakeDatabricksCreateTableCompatibility
 
     private String getDatabricksDefaultTableProperties()
     {
-        if (databricksRuntimeVersion.equals(DATABRICKS_104_RUNTIME_VERSION)) {
-            return "TBLPROPERTIES (\n" +
-                    "  'Type' = 'EXTERNAL',\n" +
-                    "  'delta.enableDeletionVectors' = 'false',\n" +
-                    "  'delta.minReaderVersion' = '1',\n" +
-                    "  'delta.minWriterVersion' = '2')\n";
-        }
         if (databricksRuntimeVersion.isAtLeast(DATABRICKS_113_RUNTIME_VERSION)) {
             return "TBLPROPERTIES (\n" +
                     "  'delta.enableDeletionVectors' = 'false',\n" +
