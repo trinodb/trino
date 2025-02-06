@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>470-SNAPSHOT</version>
+        <version>470</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
