@@ -109,6 +109,9 @@ public final class MigrationUtils
         // TODO: Introduce parallelism
         FileIterator files = fileSystem.listFiles(Location.of(location));
         ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
+        if (Location.of(location).removeOneTrailingSlash().fileName().startsWith(".")) {
+            return dataFilesBuilder.build();
+        }
         while (files.hasNext()) {
             FileEntry file = files.next();
             String fileLocation = file.location().toString();
