@@ -22,6 +22,7 @@ import io.trino.spi.Page;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.type.BlockTypeOperators;
@@ -64,6 +65,7 @@ public class TestTopNRankingOperator
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final TypeOperators typeOperators = new TypeOperators();
+    private final OrderingCompiler orderingCompiler = new OrderingCompiler(typeOperators);
     private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
     private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
 
@@ -106,14 +108,13 @@ public class TestTopNRankingOperator
                     Ints.asList(0),
                     ImmutableList.of(VARCHAR),
                     Ints.asList(1),
-                    ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                     3,
                     false,
                     Optional.empty(),
                     10,
                     Optional.empty(),
                     hashStrategyCompiler,
-                    typeOperators,
+                    orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                     blockTypeOperators);
 
             MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR, BIGINT)
@@ -162,14 +163,13 @@ public class TestTopNRankingOperator
                     Ints.asList(),
                     ImmutableList.of(),
                     Ints.asList(1),
-                    ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                     3,
                     partial,
                     Optional.empty(),
                     10,
                     partial ? Optional.of(DataSize.ofBytes(1)) : Optional.empty(),
                     hashStrategyCompiler,
-                    typeOperators,
+                    orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                     blockTypeOperators);
 
             MaterializedResult expected;
@@ -228,14 +228,13 @@ public class TestTopNRankingOperator
                     Ints.asList(),
                     ImmutableList.of(),
                     Ints.asList(1),
-                    ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                     3,
                     partial,
                     Optional.empty(),
                     10,
                     partial ? Optional.of(DataSize.of(1, DataSize.Unit.BYTE)) : Optional.empty(),
                     hashStrategyCompiler,
-                    typeOperators,
+                    orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                     blockTypeOperators);
 
             TopNRankingOperator operator = (TopNRankingOperator) operatorFactory.createOperator(driverContext);
@@ -272,14 +271,13 @@ public class TestTopNRankingOperator
                 ImmutableList.of(0),
                 ImmutableList.of(type),
                 Ints.asList(0),
-                ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 3,
                 false,
                 Optional.empty(),
                 10,
                 Optional.empty(),
                 hashStrategyCompiler,
-                typeOperators,
+                orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(type), Ints.asList(0), ImmutableList.of(SortOrder.ASC_NULLS_LAST)),
                 blockTypeOperators);
 
         // get result with yield; pick a relatively small buffer for heaps
@@ -333,14 +331,13 @@ public class TestTopNRankingOperator
                 Ints.asList(0),
                 ImmutableList.of(VARCHAR),
                 Ints.asList(1),
-                ImmutableList.of(ASC_NULLS_FIRST),
                 3,
                 false,
                 Optional.empty(),
                 10,
                 Optional.empty(),
                 hashStrategyCompiler,
-                typeOperators,
+                orderingCompiler.compilePageWithPositionComparator(ImmutableList.of(DOUBLE), Ints.asList(1), ImmutableList.of(ASC_NULLS_FIRST)),
                 blockTypeOperators);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, VARCHAR, BIGINT)

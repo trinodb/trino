@@ -16,8 +16,10 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.OrderingCompiler;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -35,6 +37,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
@@ -58,11 +61,6 @@ public class BenchmarkGroupedTopNRowNumberBuilder
     public static class BenchmarkData
     {
         private final List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE);
-        private final PageWithPositionComparator comparator = new SimplePageWithPositionComparator(
-                ImmutableList.of(types.get(EXTENDED_PRICE), types.get(SHIP_DATE)),
-                ImmutableList.of(EXTENDED_PRICE, SHIP_DATE),
-                ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
-                new TypeOperators());
 
         @Param({"1", "10", "100"})
         private int topN = 1;
@@ -78,11 +76,19 @@ public class BenchmarkGroupedTopNRowNumberBuilder
         @Param("100")
         private int addPageCalls = 1;
 
+        private PageWithPositionComparator comparator;
         private Page page;
 
         @Setup
         public void setup()
         {
+            OrderingCompiler orderingCompiler = new OrderingCompiler(new TypeOperators());
+            List<Integer> sortColumns = ImmutableList.of(EXTENDED_PRICE, SHIP_DATE);
+            List<Type> sortTypes = sortColumns.stream()
+                    .map(types::get)
+                    .collect(toImmutableList());
+            List<SortOrder> sortOrders = ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST);
+            comparator = orderingCompiler.compilePageWithPositionComparator(sortTypes, sortColumns, sortOrders);
             page = createInputPage(positions, types);
         }
 
