@@ -35,9 +35,9 @@ import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
-import org.assertj.core.util.Files;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
@@ -199,8 +199,8 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             Catalog backend = backendCatalog(warehouseLocation);
 
@@ -213,7 +213,7 @@ public final class IcebergQueryRunner
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
-                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .setIcebergProperties(ImmutableMap.of(
                             "iceberg.catalog.type", "rest",
                             "iceberg.rest-catalog.uri", testServer.getBaseUrl().toString()))
@@ -233,15 +233,15 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             @SuppressWarnings("resource")
-            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.getPath());
+            TestingPolarisCatalog polarisCatalog = new TestingPolarisCatalog(warehouseLocation.toString());
 
             @SuppressWarnings("resource")
             QueryRunner queryRunner = icebergQueryRunnerMainBuilder()
-                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.catalog.type", "rest")
                     .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
                     .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
@@ -264,8 +264,8 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             @SuppressWarnings("resource")
             UnityCatalogContainer unityCatalog = new UnityCatalogContainer("unity", "tpch");
@@ -273,7 +273,7 @@ public final class IcebergQueryRunner
             @SuppressWarnings("resource")
             QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .addCoordinatorProperty("http-server.http.port", "8080")
-                    .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                    .setBaseDataDir(Optional.of(warehouseLocation))
                     .addIcebergProperty("iceberg.security", "read_only")
                     .addIcebergProperty("iceberg.catalog.type", "rest")
                     .addIcebergProperty("iceberg.rest-catalog.uri", unityCatalog.uri() + "/iceberg")
@@ -447,8 +447,8 @@ public final class IcebergQueryRunner
         public static void main(String[] args)
                 throws Exception
         {
-            File warehouseLocation = Files.newTemporaryFolder();
-            warehouseLocation.deleteOnExit();
+            Path warehouseLocation = Files.createTempDirectory(null);
+            warehouseLocation.toFile().deleteOnExit();
 
             TestingIcebergJdbcServer server = new TestingIcebergJdbcServer();
 
@@ -461,7 +461,7 @@ public final class IcebergQueryRunner
                             .put("iceberg.jdbc-catalog.connection-user", USER)
                             .put("iceberg.jdbc-catalog.connection-password", PASSWORD)
                             .put("iceberg.jdbc-catalog.catalog-name", "tpch")
-                            .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.getAbsolutePath())
+                            .put("iceberg.jdbc-catalog.default-warehouse-dir", warehouseLocation.toAbsolutePath().toString())
                             .buildOrThrow())
                     .setInitialTables(TpchTable.getTables())
                     .build();
