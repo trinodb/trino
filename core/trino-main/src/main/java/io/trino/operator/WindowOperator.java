@@ -328,6 +328,9 @@ public class WindowOperator
                     sortChannels,
                     windowFunctionDefinitions);
 
+            List<Type> unGroupedOrderTypes = unGroupedOrderChannels.stream()
+                    .map(sourceTypes::get)
+                    .collect(toImmutableList());
             this.spillablePagesToPagesIndexes = Optional.of(new SpillablePagesToPagesIndexes(
                     inMemoryPagesIndexWithHashStrategies,
                     mergedPagesIndexWithHashStrategies,
@@ -335,7 +338,7 @@ public class WindowOperator
                     orderChannels,
                     ordering,
                     spillerFactory,
-                    orderingCompiler.compilePageWithPositionComparator(sourceTypes, unGroupedOrderChannels, unGroupedOrdering)));
+                    orderingCompiler.compilePageWithPositionComparator(unGroupedOrderTypes, unGroupedOrderChannels, unGroupedOrdering)));
 
             this.outputPages = pageBuffer.pages()
                     .flatTransform(spillablePagesToPagesIndexes.get())

@@ -349,9 +349,13 @@ public class OrderByOperator
                 .add(WorkProcessor.fromIterator(sortedPagesIndex))
                 .build();
 
+        List<Type> sortTypes = sortChannels.stream()
+                .map(sourceTypes::get)
+                .collect(toImmutableList());
+
         return mergeSortedPages(
                 sortedStreams,
-                orderingCompiler.compilePageWithPositionComparator(sourceTypes, sortChannels, sortOrder),
+                orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
                 sourceTypes,
                 operatorContext.aggregateUserMemoryContext(),
                 operatorContext.getDriverContext().getYieldSignal());

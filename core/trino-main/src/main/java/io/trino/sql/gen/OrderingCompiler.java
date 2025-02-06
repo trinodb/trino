@@ -50,6 +50,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
@@ -110,6 +111,8 @@ public class OrderingCompiler
         requireNonNull(sortTypes, "sortTypes is null");
         requireNonNull(sortChannels, "sortChannels is null");
         requireNonNull(sortOrders, "sortOrders is null");
+        checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes and sortChannels must be the same size");
+        checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
 
         return pagesIndexOrderings.getUnchecked(new PagesIndexComparatorCacheKey(sortTypes, sortChannels, sortOrders));
     }
@@ -155,6 +158,9 @@ public class OrderingCompiler
 
     private void generatePageIndexCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
+        checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes and sortChannels must be the same size");
+        checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
+
         Parameter pagesIndex = arg("pagesIndex", PagesIndex.class);
         Parameter leftPosition = arg("leftPosition", int.class);
         Parameter rightPosition = arg("rightPosition", int.class);
@@ -259,20 +265,22 @@ public class OrderingCompiler
         requireNonNull(sortTypes, "sortTypes is null");
         requireNonNull(sortChannels, "sortChannels is null");
         requireNonNull(sortOrders, "sortOrders is null");
+        checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes and sortChannels must be the same size");
+        checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
 
         return pageWithPositionComparators.getUnchecked(new PagesIndexComparatorCacheKey(sortTypes, sortChannels, sortOrders));
     }
 
-    private PageWithPositionComparator internalCompilePageWithPositionComparator(List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    private PageWithPositionComparator internalCompilePageWithPositionComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
         PageWithPositionComparator comparator;
         try {
-            Class<? extends PageWithPositionComparator> pageWithPositionsComparatorClass = generatePageWithPositionComparatorClass(types, sortChannels, sortOrders);
+            Class<? extends PageWithPositionComparator> pageWithPositionsComparatorClass = generatePageWithPositionComparatorClass(sortTypes, sortChannels, sortOrders);
             comparator = pageWithPositionsComparatorClass.getConstructor().newInstance();
         }
         catch (Throwable t) {
             log.error(t, "Error compiling comparator for channels %s with order %s", sortChannels, sortOrders);
-            comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators);
+            comparator = new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrders, typeOperators);
         }
         return comparator;
     }
@@ -294,8 +302,11 @@ public class OrderingCompiler
         return defineClass(classDefinition, PageWithPositionComparator.class, callSiteBinder.getBindings(), getClass().getClassLoader());
     }
 
-    private void generateMergeSortCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders)
+    private void generateMergeSortCompareTo(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders)
     {
+        checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes and sortChannels must be the same size");
+        checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
+
         Parameter leftPage = arg("leftPage", Page.class);
         Parameter leftPosition = arg("leftPosition", int.class);
         Parameter rightPage = arg("rightPage", Page.class);
@@ -305,7 +316,7 @@ public class OrderingCompiler
         for (int i = 0; i < sortChannels.size(); i++) {
             int sortChannel = sortChannels.get(i);
             SortOrder sortOrder = sortOrders.get(i);
-            Type sortType = types.get(sortChannel);
+            Type sortType = sortTypes.get(i);
             MethodHandle compareBlockValue = getBlockPositionOrderingOperator(sortOrder, sortType);
 
             BytecodeBlock block = new BytecodeBlock()
@@ -355,6 +366,8 @@ public class OrderingCompiler
             this.sortTypes = ImmutableList.copyOf(sortTypes);
             this.sortChannels = ImmutableList.copyOf(sortChannels);
             this.sortOrders = ImmutableList.copyOf(sortOrders);
+            checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes and sortChannels must be the same size");
+            checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
         }
 
         public List<Type> getSortTypes()

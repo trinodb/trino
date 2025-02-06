@@ -59,7 +59,7 @@ public class BenchmarkGroupedTopNRowNumberBuilder
     {
         private final List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE);
         private final PageWithPositionComparator comparator = new SimplePageWithPositionComparator(
-                types,
+                ImmutableList.of(types.get(EXTENDED_PRICE), types.get(SHIP_DATE)),
                 ImmutableList.of(EXTENDED_PRICE, SHIP_DATE),
                 ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
                 new TypeOperators());

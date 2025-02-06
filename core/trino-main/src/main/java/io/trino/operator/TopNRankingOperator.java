@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static java.util.Objects.requireNonNull;
 
@@ -276,8 +277,11 @@ public class TopNRankingOperator
             int[] groupByChannels,
             Supplier<GroupByHash> groupByHashSupplier)
     {
+        List<Type> sortTypes = sortChannels.stream()
+                .map(sourceTypes::get)
+                .collect(toImmutableList());
         if (rankingType == RankingType.ROW_NUMBER) {
-            PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sourceTypes, sortChannels, sortOrders, typeOperators);
+            PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrders, typeOperators);
             return () -> new GroupedTopNRowNumberBuilder(
                     sourceTypes,
                     comparator,
@@ -287,7 +291,7 @@ public class TopNRankingOperator
                     groupByHashSupplier.get());
         }
         if (rankingType == RankingType.RANK) {
-            PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sourceTypes, sortChannels, sortOrders, typeOperators);
+            PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrders, typeOperators);
             PageWithPositionEqualsAndHash equalsAndHash = new SimplePageWithPositionEqualsAndHash(ImmutableList.copyOf(sourceTypes), sortChannels, blockTypeOperators);
             return () -> new GroupedTopNRankBuilder(
                     sourceTypes,
