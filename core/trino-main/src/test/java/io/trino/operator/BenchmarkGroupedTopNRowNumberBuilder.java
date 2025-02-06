@@ -43,7 +43,6 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.SECONDS)
@@ -60,7 +59,7 @@ public class BenchmarkGroupedTopNRowNumberBuilder
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        private final List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, VARCHAR, DOUBLE);
+        private final List<Type> types = ImmutableList.of(DOUBLE, DOUBLE, DATE, DOUBLE);
 
         @Param({"1", "10", "100"})
         private int topN = 1;
