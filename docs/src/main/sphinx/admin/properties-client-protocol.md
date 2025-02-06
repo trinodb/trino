@@ -23,7 +23,11 @@ used automatically.
 - **Type:** [](prop-type-string)
 
 A required 256 bit, base64-encoded secret key used to secure spooled metadata
-exchanged with the client.
+exchanged with the client. Create a suitable value with the following command:
+
+```shell
+openssl rand -base64 32
+```
 
 ### `protocol.spooling.retrieval-mode`
 
