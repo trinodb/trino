@@ -148,6 +148,7 @@ public class IcebergPageSinkProvider
                         pageSorter);
             case DROP_EXTENDED_STATS:
             case ROLLBACK_TO_SNAPSHOT:
+            case ROLLBACK_TO_TIMESTAMP:
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:
             case ADD_FILES:

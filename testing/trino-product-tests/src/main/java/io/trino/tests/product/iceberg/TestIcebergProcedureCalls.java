@@ -19,6 +19,9 @@ import io.trino.tempto.assertions.QueryAssert.Row;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.sql.Timestamp;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -366,10 +369,39 @@ public class TestIcebergProcedureCalls
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testRollbackToTimestamp()
+            throws InterruptedException
+    {
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+
+        String tableName = "test_rollback_to_timestamp_" + randomNameSuffix();
+
+        onTrino().executeQuery("USE iceberg.default");
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        onTrino().executeQuery(format("CREATE TABLE %s (a INTEGER)", tableName));
+        Thread.sleep(1);
+        onTrino().executeQuery(format("INSERT INTO %s VALUES 1", tableName));
+        String snapshotTimestamp = timeFormatter.format(getCurrentCommitTimestamp(tableName).toInstant().atZone(ZoneId.of("UTC")));
+        Thread.sleep(1);
+        onTrino().executeQuery(format("INSERT INTO %s VALUES 2", tableName));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE rollback_to_timestamp(TIMESTAMP '%s')", tableName, snapshotTimestamp));
+        assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
+                .containsOnly(row(1));
+        onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+    }
+
     private long getSecondOldestTableSnapshot(String tableName)
     {
         return (Long) onTrino().executeQuery(
                 format("SELECT snapshot_id FROM iceberg.default.\"%s$snapshots\" WHERE parent_id IS NOT NULL ORDER BY committed_at FETCH FIRST 1 ROW WITH TIES", tableName))
+                .getOnlyValue();
+    }
+
+    private Timestamp getCurrentCommitTimestamp(String tableName)
+    {
+        return (Timestamp) onTrino().executeQuery(
+                format("SELECT committed_at FROM \"%s$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES", tableName))
                 .getOnlyValue();
     }
 

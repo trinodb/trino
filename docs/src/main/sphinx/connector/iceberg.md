@@ -1720,6 +1720,29 @@ state of the table to a previous snapshot id:
 ALTER TABLE testdb.customer_orders EXECUTE rollback_to_snapshot(8954597067493422955);
 ```
 
+The table procedure `rollback_to_timestamp` allows the caller to roll back the 
+state of the table to latest snapshot before or at the specified timestamp.
+
+```sql
+ALTER TABLE testdb.customer_orders EXECUTE rollback_to_timestamp(TIMESTAMP '2025-01-01 10:10:10.000')
+```
+
+Assuming that the session time zone is `America/Los_Angeles` the following queries are equivalent:
+
+```sql
+ALTER TABLE testdb.customer_orders EXECUTE rollback_to_timestamp(TIMESTAMP '2025-01-01')
+```
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders EXECUTE rollback_to_timestamp(TIMESTAMP '2025-01-01 00:00:00');
+```
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders EXECUTE rollback_to_timestamp(TIMESTAMP '2025-01-01 00:00:00.000 America/Los_Angeles');
+```
+
 #### `NOT NULL` column constraint
 
 The Iceberg connector supports setting `NOT NULL` constraints on the table
