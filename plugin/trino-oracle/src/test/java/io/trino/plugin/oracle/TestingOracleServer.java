@@ -73,7 +73,7 @@ public class TestingOracleServer
 
     private void createContainer()
     {
-        OracleContainer container = new OracleContainer("gvenzl/oracle-xe:11.2.0.2-full")
+        OracleContainer container = new OracleContainer()
                 .withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/container-entrypoint-initdb.d/01-init.sql")
                 .withCopyFileToContainer(MountableFile.forClasspathResource("restart.sh"), "/container-entrypoint-initdb.d/02-restart.sh")
                 .withCopyFileToContainer(MountableFile.forHostPath(createConfigureScript()), "/container-entrypoint-initdb.d/03-create-users.sql")
