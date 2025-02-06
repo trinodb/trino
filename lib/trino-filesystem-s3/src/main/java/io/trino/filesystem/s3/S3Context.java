@@ -21,6 +21,7 @@ import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import java.util.Optional;
 
@@ -37,6 +38,7 @@ record S3Context(
         boolean requesterPays,
         S3SseContext s3SseContext,
         Optional<AwsCredentialsProvider> credentialsProviderOverride,
+        StorageClass storageClass,
         ObjectCannedAcl cannedAcl,
         boolean exclusiveWriteSupported)
 {
@@ -56,7 +58,7 @@ record S3Context(
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, cannedAcl, exclusiveWriteSupported);
+        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, storageClass, cannedAcl, exclusiveWriteSupported);
     }
 
     public S3Context withCredentials(ConnectorIdentity identity)
@@ -73,7 +75,7 @@ record S3Context(
 
     public S3Context withSseCustomerKey(String key)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, cannedAcl, exclusiveWriteSupported);
+        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, storageClass, cannedAcl, exclusiveWriteSupported);
     }
 
     public S3Context withCredentialsProviderOverride(AwsCredentialsProvider credentialsProviderOverride)
@@ -83,6 +85,7 @@ record S3Context(
                 requesterPays,
                 s3SseContext,
                 Optional.of(credentialsProviderOverride),
+                storageClass,
                 cannedAcl,
                 exclusiveWriteSupported);
     }

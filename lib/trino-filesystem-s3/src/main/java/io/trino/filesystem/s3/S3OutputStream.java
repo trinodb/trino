@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.model.UploadPartResponse;
 
@@ -68,6 +69,7 @@ final class S3OutputStream
     private final S3Context context;
     private final int partSize;
     private final RequestPayer requestPayer;
+    private final StorageClass storageClass;
     private final ObjectCannedACL cannedAcl;
     private final boolean exclusiveCreate;
     private final Optional<EncryptionKey> key;
@@ -97,6 +99,7 @@ final class S3OutputStream
         this.context = requireNonNull(context, "context is null");
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
+        this.storageClass = context.storageClass();
         this.cannedAcl = getCannedAcl(context.cannedAcl());
         this.key = requireNonNull(key, "key is null");
 
@@ -214,6 +217,7 @@ final class S3OutputStream
                     .requestPayer(requestPayer)
                     .bucket(location.bucket())
                     .key(location.key())
+                    .storageClass(storageClass)
                     .contentLength((long) bufferSize)
                     .applyMutation(builder -> {
                         if (exclusiveCreate) {
@@ -304,6 +308,7 @@ final class S3OutputStream
                     .requestPayer(requestPayer)
                     .bucket(location.bucket())
                     .key(location.key())
+                    .storageClass(storageClass)
                     .applyMutation(builder ->
                         key.ifPresentOrElse(
                                 encryption ->
