@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -425,9 +426,9 @@ public class DeltaLakeConfig
 
     @Config("delta.metastore.store-table-metadata-threads")
     @ConfigDescription("Number of threads used for storing table metadata in metastore")
-    public DeltaLakeConfig setStoreTableMetadataThreads(int storeTableMetadataThreads)
+    public DeltaLakeConfig setStoreTableMetadataThreads(String storeTableMetadataThreads)
     {
-        this.storeTableMetadataThreads = storeTableMetadataThreads;
+        this.storeTableMetadataThreads = ThreadCount.valueOf(storeTableMetadataThreads).getThreadCount();
         return this;
     }
 
