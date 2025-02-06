@@ -27,6 +27,8 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.executor.ExecutionPriority;
+import io.trino.execution.executor.ExecutionPriorityManager;
 import io.trino.execution.executor.RunningSplitInfo;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
@@ -37,11 +39,8 @@ import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Queue;
 import java.util.Set;
@@ -71,7 +70,7 @@ public class ThreadPerDriverTaskExecutor
     private final ScheduledThreadPoolExecutor backgroundTasks = new ScheduledThreadPoolExecutor(2, daemonThreadsNamed("task-executor-scheduler-%s"));
 
     @GuardedBy("this")
-    private final Map<TaskId, TaskEntry> tasks = new HashMap<>();
+    private final TaskSet tasks;
 
     @GuardedBy("this")
     private boolean closed;
@@ -86,14 +85,16 @@ public class ThreadPerDriverTaskExecutor
                 tracer,
                 versionEmbedder,
                 new FairScheduler(config.getMaxWorkerThreads(), "SplitRunner-%d", Ticker.systemTicker()),
+                config.getLowQueryPriorityResourcePercentage(),
                 config.getMinDriversPerTask(),
                 config.getMaxDriversPerTask(),
                 config.getMinDrivers());
     }
 
     @VisibleForTesting
-    public ThreadPerDriverTaskExecutor(Tracer tracer, VersionEmbedder versionEmbedder, FairScheduler scheduler, int minDriversPerTask, int maxDriversPerTask, int targetGlobalLeafDrivers)
+    public ThreadPerDriverTaskExecutor(Tracer tracer, VersionEmbedder versionEmbedder, FairScheduler scheduler, double lowQueryPriorityResourcePercentage, int minDriversPerTask, int maxDriversPerTask, int targetGlobalLeafDrivers)
     {
+        this.tasks = new TaskSet(new ExecutionPriorityManager(lowQueryPriorityResourcePercentage));
         this.scheduler = scheduler;
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.versionEmbedder = requireNonNull(versionEmbedder, "versionEmbedder is null");
@@ -117,7 +118,7 @@ public class ThreadPerDriverTaskExecutor
     public synchronized void stop()
     {
         closed = true;
-        tasks.values().forEach(TaskEntry::destroy);
+        tasks.close();
         backgroundTasks.shutdownNow();
         scheduler.close();
     }
@@ -125,6 +126,7 @@ public class ThreadPerDriverTaskExecutor
     @Override
     public synchronized TaskHandle addTask(
             TaskId taskId,
+            ExecutionPriority taskExecutionPriority,
             DoubleSupplier utilizationSupplier,
             int initialSplitConcurrency,
             Duration splitConcurrencyAdjustFrequency,
@@ -133,12 +135,13 @@ public class ThreadPerDriverTaskExecutor
         checkArgument(!closed, "Executor is already closed");
         TaskEntry task = new TaskEntry(
                 taskId,
+                taskExecutionPriority,
                 scheduler,
                 versionEmbedder,
                 tracer,
                 initialSplitConcurrency,
                 utilizationSupplier);
-        tasks.put(taskId, task);
+        tasks.add(task);
         return task;
     }
 
@@ -146,7 +149,7 @@ public class ThreadPerDriverTaskExecutor
     public synchronized void removeTask(TaskHandle handle)
     {
         TaskEntry entry = (TaskEntry) handle;
-        tasks.remove(entry.taskId());
+        tasks.remove(entry);
         if (!entry.isDestroyed()) {
             entry.destroy();
         }
@@ -202,7 +205,7 @@ public class ThreadPerDriverTaskExecutor
         }
 
         // schedule additional drivers up to the target global leaf drivers
-        Queue<TaskEntry> queue = new ArrayDeque<>(tasks.values());
+        Queue<TaskEntry> queue = tasks.newQueue();
         int target = targetGlobalLeafDrivers - runningLeafDrivers;
         for (int i = 0; i < target && !queue.isEmpty(); i++) {
             TaskEntry task = queue.poll();
@@ -259,25 +262,31 @@ public class ThreadPerDriverTaskExecutor
     @Managed
     public synchronized int getTotalRunningSplits()
     {
-        return tasks.values().stream()
-                .mapToInt(TaskEntry::totalRunningSplits)
-                .sum();
+        int total = 0;
+        for (TaskEntry task : tasks.values()) {
+            total += task.totalRunningSplits();
+        }
+        return total;
     }
 
     @Managed
     public synchronized int getTotalRunningLeafSplits()
     {
-        return tasks.values().stream()
-                .mapToInt(TaskEntry::runningLeafSplits)
-                .sum();
+        int total = 0;
+        for (TaskEntry task : tasks.values()) {
+            total += task.runningLeafSplits();
+        }
+        return total;
     }
 
     @Managed
     public synchronized int getTotalPendingLeafSplits()
     {
-        return tasks.values().stream()
-                .mapToInt(TaskEntry::pendingLeafSplitCount)
-                .sum();
+        int total = 0;
+        for (TaskEntry task : tasks.values()) {
+            total += task.pendingLeafSplitCount();
+        }
+        return total;
     }
 
     @Managed(description = "Scheduler executor")
