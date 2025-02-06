@@ -544,6 +544,28 @@ public abstract class BaseIcebergConnectorSmokeTest
     }
 
     @Test
+    public void testSortedTableUsingNestedField()
+    {
+        Session withSmallRowGroups = withSmallRowGroups(getSession());
+
+        try (TestTable table = new TestTable(
+                    getQueryRunner()::execute,
+                    "test_sorted_table_using_nested_fields",
+                    " (id INT, row_t ROW(name VARCHAR)) WITH (format = '" + format.name() + "', sorted_by = ARRAY[ '\"row_t.name\"' ])")) {
+            assertUpdate(
+                    withSmallRowGroups,
+                    "INSERT INTO " + table.getName() + "(id, row_t)" +
+                    "SELECT id, ROW(CONCAT('v', CAST(id as VARCHAR))) as row_t FROM UNNEST(sequence(1, 500)) AS t(id)",
+                    500);
+
+            for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
+                assertThat(isFileSorted(Location.of((String) filePath), "row_t.name")).isTrue();
+            }
+            assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM " + table.getName() + " ORDER BY id");
+        }
+    }
+
+    @Test
     public void testFileSortingWithLargerTable()
     {
         // Using a larger table forces buffered data to be written to disk
