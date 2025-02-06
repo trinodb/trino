@@ -32,24 +32,27 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.io.Files.copy;
 import static io.trino.spi.security.PrincipalType.ROLE;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.security.Privilege.UPDATE;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Thread.sleep;
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.assertj.core.util.Files.newTemporaryFile;
 
 public abstract class BaseFileBasedConnectorAccessControlTest
 {
@@ -60,10 +63,11 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     private static final ConnectorSecurityContext JOE = user("joe", ImmutableSet.of());
     private static final ConnectorSecurityContext UNKNOWN = user("unknown", ImmutableSet.of());
 
-    protected abstract ConnectorAccessControl createAccessControl(File configFile, Map<String, String> properties);
+    protected abstract ConnectorAccessControl createAccessControl(Path configFile, Map<String, String> properties);
 
     @Test
     public void testEmptyFile()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("empty.json");
 
@@ -123,6 +127,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testSchemaRules()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
 
@@ -198,6 +203,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testGrantSchemaPrivilege()
+            throws Exception
     {
         for (Privilege privilege : Privilege.values()) {
             testGrantSchemaPrivilege(privilege, false);
@@ -206,6 +212,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     }
 
     private void testGrantSchemaPrivilege(Privilege privilege, boolean grantOption)
+            throws URISyntaxException
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
         TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
@@ -228,6 +235,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testDenySchemaPrivilege()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
         TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
@@ -250,6 +258,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testRevokeSchemaPrivilege()
+            throws Exception
     {
         for (Privilege privilege : Privilege.values()) {
             testRevokeSchemaPrivilege(privilege, false);
@@ -258,6 +267,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     }
 
     private void testRevokeSchemaPrivilege(Privilege privilege, boolean grantOption)
+            throws URISyntaxException
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
         TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
@@ -280,6 +290,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testTableRules()
+            throws Exception
     {
         SchemaTableName testTable = new SchemaTableName("test", "test");
         SchemaTableName aliceTable = new SchemaTableName("aliceschema", "alicetable");
@@ -371,6 +382,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testTableRulesForMixedGroupUsers()
+            throws Exception
     {
         SchemaTableName myTable = new SchemaTableName("my_schema", "my_table");
 
@@ -456,6 +468,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testTableFilter()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("table-filter.json");
         Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
@@ -487,6 +500,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testNoTableRules()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("no-access.json");
         SchemaTableName bobTable = new SchemaTableName("bobschema", "bobtable");
@@ -506,6 +520,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testNoFunctionRules()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("no-access.json");
 
@@ -529,6 +544,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testSessionPropertyRules()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("session_property.json");
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "dangerous");
@@ -546,6 +562,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testFilterSchemas()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("visibility.json");
         assertFilterSchemas(accessControl);
@@ -562,6 +579,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testSchemaRulesForCheckCanShowTables()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("visibility.json");
         accessControl.checkCanShowTables(ADMIN, "specific-schema");
@@ -588,6 +606,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testSchemaRulesForCheckCanShowFunctions()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("visibility.json");
         accessControl.checkCanShowFunctions(ADMIN, "specific-schema");
@@ -614,6 +633,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testFunctionRulesForCheckCanExecute()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("visibility.json");
         assertThat(accessControl.canExecuteFunction(ADMIN, new SchemaRoutineName("ptf_schema", "some_function"))).isFalse();
@@ -639,6 +659,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testProcedureRulesForCheckCanExecute()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("visibility.json");
 
@@ -660,8 +681,9 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testFilterSchemasWithJsonPointer()
+            throws Exception
     {
-        File configFile = new File(getResourcePath("visibility-with-json-pointer.json"));
+        Path configFile = getResourcePath("visibility-with-json-pointer.json");
         ConnectorAccessControl accessControl = createAccessControl(configFile,
                 ImmutableMap.of("security.json-pointer", "/data"));
         assertFilterSchemas(accessControl);
@@ -669,6 +691,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testSchemaAuthorization()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
 
@@ -693,6 +716,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testTableAuthorization()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
 
@@ -717,6 +741,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testViewAuthorization()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("authorization-no-roles.json");
 
@@ -741,6 +766,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     @Test
     public void testFunctionFilter()
+            throws Exception
     {
         ConnectorAccessControl accessControl = createAccessControl("function-filter.json");
         Set<SchemaFunctionName> functions = ImmutableSet.<SchemaFunctionName>builder()
@@ -778,12 +804,11 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     }
 
     @Test
-    public void testRefreshing()
+    public void testRefreshing(@TempDir Path tempDir)
             throws Exception
     {
-        File configFile = newTemporaryFile();
-        configFile.deleteOnExit();
-        copy(new File(getResourcePath("visibility.json")), configFile);
+        Path configFile = tempDir.resolve("visibility.json");
+        Files.copy(getResourcePath("visibility.json"), configFile, REPLACE_EXISTING);
 
         ConnectorAccessControl accessControl = createAccessControl(configFile, ImmutableMap.of(
                 "security.refresh-period", "1ms"));
@@ -791,13 +816,13 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         accessControl.checkCanShowTables(ALICE, "alice-schema");
         accessControl.checkCanShowTables(ALICE, "alice-schema");
 
-        copy(new File(getResourcePath("no-access.json")), configFile);
+        Files.copy(getResourcePath("no-access.json"), configFile, REPLACE_EXISTING);
         sleep(2);
 
         assertThatThrownBy(() -> accessControl.checkCanShowTables(ALICE, "alice-schema"))
                 .hasMessageContaining("Access Denied");
 
-        copy(new File(getResourcePath("visibility.json")), configFile);
+        Files.copy(getResourcePath("visibility.json"), configFile, REPLACE_EXISTING);
         sleep(2);
 
         accessControl.checkCanShowTables(ALICE, "alice-schema");
@@ -817,14 +842,16 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     }
 
     private ConnectorAccessControl createAccessControl(String rulesName)
+            throws URISyntaxException
     {
-        File configFile = new File(getResourcePath(rulesName));
+        Path configFile = getResourcePath(rulesName);
         return createAccessControl(configFile, ImmutableMap.of());
     }
 
-    private String getResourcePath(String resourceName)
+    private Path getResourcePath(String resourceName)
+            throws URISyntaxException
     {
-        return requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).getPath();
+        return Paths.get(requireNonNull(this.getClass().getClassLoader().getResource(resourceName), "Resource does not exist: " + resourceName).toURI());
     }
 
     private static ConnectorSecurityContext user(String user, String group)
