@@ -19,6 +19,7 @@ Elasticsearch   <connector/elasticsearch>
 Exasol          <connector/exasol>
 Faker           <connector/faker>
 Google Sheets   <connector/googlesheets>
+HsqlDB          <connector/hsqldb>
 Hive            <connector/hive>
 Hudi            <connector/hudi>
 Iceberg         <connector/iceberg>
