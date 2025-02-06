@@ -81,7 +81,7 @@ public class TestGroupedTopNRankBuilder
 
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(0)), ImmutableList.of(0), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
                 new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(0), blockTypeOperators),
                 3,
                 produceRanking,
@@ -147,7 +147,7 @@ public class TestGroupedTopNRankBuilder
         GroupByHash groupByHash = createGroupByHash(types.get(0), NOOP, typeOperators);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
                 new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(1), blockTypeOperators),
                 3,
                 produceRanking,
@@ -229,7 +229,7 @@ public class TestGroupedTopNRankBuilder
         GroupByHash groupByHash = createGroupByHash(types.get(0), unblock::get, typeOperators);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNRankBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
+                new SimplePageWithPositionComparator(ImmutableList.of(types.get(1)), ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), typeOperators),
                 new SimplePageWithPositionEqualsAndHash(types, ImmutableList.of(1), blockTypeOperators),
                 5,
                 false,

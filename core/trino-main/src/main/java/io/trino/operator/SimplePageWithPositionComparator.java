@@ -24,6 +24,7 @@ import io.trino.spi.type.TypeOperators;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -37,14 +38,16 @@ public class SimplePageWithPositionComparator
     private final List<Integer> sortChannels;
     private final List<MethodHandle> orderingOperators;
 
-    public SimplePageWithPositionComparator(List<Type> types, List<Integer> sortChannels, List<SortOrder> sortOrders, TypeOperators typeOperators)
+    public SimplePageWithPositionComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, TypeOperators typeOperators)
     {
         this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
-        requireNonNull(types, "types is null");
+        requireNonNull(sortTypes, "sortTypes is null");
         requireNonNull(sortOrders, "sortOrders is null");
+        checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes and sortChannels must be the same size");
+        checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
         ImmutableList.Builder<MethodHandle> orderingOperators = ImmutableList.builder();
         for (int index = 0; index < sortChannels.size(); index++) {
-            Type type = types.get(sortChannels.get(index));
+            Type type = sortTypes.get(index);
             SortOrder sortOrder = sortOrders.get(index);
             orderingOperators.add(typeOperators.getOrderingOperator(type, sortOrder, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)));
         }
