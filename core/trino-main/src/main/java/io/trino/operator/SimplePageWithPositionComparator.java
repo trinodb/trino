@@ -13,11 +13,12 @@
  */
 package io.trino.operator;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 
@@ -35,35 +36,37 @@ import static java.util.Objects.requireNonNull;
 public class SimplePageWithPositionComparator
         implements PageWithPositionComparator
 {
-    private final List<Integer> sortChannels;
-    private final List<MethodHandle> orderingOperators;
+    private static final InvocationConvention INVOCATION_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
+
+    private final int[] sortChannels;
+    private final MethodHandle[] orderingOperators;
 
     public SimplePageWithPositionComparator(List<Type> sortTypes, List<Integer> sortChannels, List<SortOrder> sortOrders, TypeOperators typeOperators)
     {
-        this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
+        requireNonNull(sortChannels, "sortChannels is null");
         requireNonNull(sortTypes, "sortTypes is null");
         requireNonNull(sortOrders, "sortOrders is null");
         checkArgument(sortTypes.size() == sortChannels.size(), "sortTypes and sortChannels must be the same size");
         checkArgument(sortTypes.size() == sortOrders.size(), "sortTypes and sortOrders must be the same size");
-        ImmutableList.Builder<MethodHandle> orderingOperators = ImmutableList.builder();
-        for (int index = 0; index < sortChannels.size(); index++) {
+        this.sortChannels = Ints.toArray(sortChannels);
+        this.orderingOperators = new MethodHandle[this.sortChannels.length];
+        for (int index = 0; index < this.sortChannels.length; index++) {
             Type type = sortTypes.get(index);
             SortOrder sortOrder = sortOrders.get(index);
-            orderingOperators.add(typeOperators.getOrderingOperator(type, sortOrder, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)));
+            orderingOperators[index] = typeOperators.getOrderingOperator(type, sortOrder, INVOCATION_CONVENTION);
         }
-        this.orderingOperators = orderingOperators.build();
     }
 
     @Override
     public int compareTo(Page left, int leftPosition, Page right, int rightPosition)
     {
         try {
-            for (int i = 0; i < sortChannels.size(); i++) {
-                int sortChannel = sortChannels.get(i);
+            for (int i = 0; i < sortChannels.length; i++) {
+                int sortChannel = sortChannels[i];
                 Block leftBlock = left.getBlock(sortChannel);
                 Block rightBlock = right.getBlock(sortChannel);
 
-                MethodHandle orderingOperator = orderingOperators.get(i);
+                MethodHandle orderingOperator = orderingOperators[i];
                 int compare = (int) orderingOperator.invokeExact(leftBlock, leftPosition, rightBlock, rightPosition);
                 if (compare != 0) {
                     return compare;
