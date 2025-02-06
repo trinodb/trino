@@ -292,7 +292,7 @@ public class TopNRankingOperator
         }
         if (rankingType == RankingType.RANK) {
             PageWithPositionComparator comparator = new SimplePageWithPositionComparator(sortTypes, sortChannels, sortOrders, typeOperators);
-            PageWithPositionEqualsAndHash equalsAndHash = new SimplePageWithPositionEqualsAndHash(ImmutableList.copyOf(sourceTypes), sortChannels, blockTypeOperators);
+            PageWithPositionEqualsAndHash equalsAndHash = new SimplePageWithPositionEqualsAndHash(sortTypes, sortChannels, blockTypeOperators);
             return () -> new GroupedTopNRankBuilder(
                     sourceTypes,
                     comparator,
