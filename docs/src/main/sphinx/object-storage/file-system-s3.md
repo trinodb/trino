@@ -30,6 +30,8 @@ support:
   - Required region name for S3.
 * - `s3.path-style-access`
   - Use path-style access for all requests to S3
+* - `s3.storage-class`
+  - S3 storage class to use while writing data. Defaults to STANDARD.
 * - `s3.exclusive-create`
   - Whether conditional write is supported by the S3-compatible storage. Defaults to `true`.
 * - `s3.canned-acl`
