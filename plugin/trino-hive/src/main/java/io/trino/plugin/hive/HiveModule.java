@@ -28,6 +28,7 @@ import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
+import io.trino.plugin.hive.line.GrokPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
 import io.trino.plugin.hive.line.OpenXJsonFileWriterFactory;
@@ -113,6 +114,7 @@ public class HiveModule
         pageSourceFactoryBinder.addBinding().to(ParquetPageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(RcFilePageSourceFactory.class).in(Scopes.SINGLETON);
         pageSourceFactoryBinder.addBinding().to(AvroPageSourceFactory.class).in(Scopes.SINGLETON);
+        pageSourceFactoryBinder.addBinding().to(GrokPageSourceFactory.class).in(Scopes.SINGLETON);
 
         Multibinder<HiveFileWriterFactory> fileWriterFactoryBinder = newSetBinder(binder, HiveFileWriterFactory.class);
         binder.bind(OrcFileWriterFactory.class).in(Scopes.SINGLETON);
