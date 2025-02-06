@@ -15,6 +15,8 @@ package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.operator.project.SelectedPositions;
@@ -30,15 +32,18 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.gen.columnar.SliceBloomFilter;
 import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -52,11 +57,13 @@ import static io.trino.block.BlockAssertions.createBlockOfReals;
 import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRowBlock;
+import static io.trino.block.BlockAssertions.createSlicesBlock;
 import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.block.BlockAssertions.createTypedLongsBlock;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.operator.project.SelectedPositions.positionsRange;
 import static io.trino.spi.predicate.Domain.multipleValues;
+import static io.trino.spi.predicate.Domain.notNull;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -64,7 +71,9 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.RowType.rowType;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.gen.columnar.ColumnarBloomFilterGenerator.canUseBloomFilter;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.util.DynamicFiltersTestUtil.TestingDynamicFilter;
@@ -101,28 +110,86 @@ public class TestDynamicPageFilter
     }
 
     @Test
-    public void testStringFilter()
+    void testVarcharFilter()
     {
-        ColumnHandle column = new TestingColumnHandle("column");
+        ColumnHandle columnA = new TestingColumnHandle("columnA");
+        ColumnHandle columnB = new TestingColumnHandle("columnB");
         FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
-                TupleDomain.withColumnDomains(ImmutableMap.of(column, onlyNull(VARCHAR))),
-                ImmutableMap.of(column, 0));
-        Page page = new Page(
+                TupleDomain.withColumnDomains(ImmutableMap.of(columnA, onlyNull(VARCHAR))),
+                ImmutableMap.of(columnA, 0));
+
+        Page pageWithNull = new Page(
                 createStringsBlock("ab", "bc", null, "cd", null),
                 createStringsBlock(null, "de", "ef", null, "fg"));
-        verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {2, 4});
+        Page pageWithoutNull = new Page(
+                createStringsBlock("ab", "bc", "cd", "de", "fg"),
+                createStringsBlock("ab", "bc", "cd", "de", "fg"));
+
+        verifySelectedPositions(filterPage(pageWithNull, filterEvaluator), new int[] {2, 4});
+        verifySelectedPositions(filterPage(pageWithoutNull, filterEvaluator), new int[] {});
+        filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(columnA, notNull(VARCHAR))),
+                ImmutableMap.of(columnA, 1));
+        verifySelectedPositions(filterPage(pageWithNull, filterEvaluator), new int[] {1, 2, 4});
+        verifySelectedPositions(filterPage(pageWithoutNull, filterEvaluator), 5);
 
         filterEvaluator = createDynamicFilterEvaluator(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
+                        columnA,
                         multipleValues(VARCHAR, ImmutableList.of("bc", "cd")))),
-                ImmutableMap.of(column, 0));
-        verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {1, 3});
+                ImmutableMap.of(columnA, 0));
+        verifySelectedPositions(filterPage(pageWithNull, filterEvaluator), new int[] {1, 3});
+        verifySelectedPositions(filterPage(pageWithoutNull, filterEvaluator), new int[] {1, 2});
 
         filterEvaluator = createDynamicFilterEvaluator(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
+                        columnA,
+                        multipleValues(VARCHAR, ImmutableList.of("a", "ab"), true))),
+                ImmutableMap.of(columnA, 0));
+        verifySelectedPositions(filterPage(pageWithNull, filterEvaluator), new int[] {0, 2, 4});
+        verifySelectedPositions(filterPage(pageWithoutNull, filterEvaluator), new int[] {0});
+
+        filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        columnA,
+                        multipleValues(VARCHAR, ImmutableList.of("ab", "cd"), true),
+                        columnB,
+                        multipleValues(VARCHAR, ImmutableList.of("a", "de"), true))),
+                ImmutableMap.of(columnA, 0, columnB, 1));
+        verifySelectedPositions(filterPage(pageWithNull, filterEvaluator), new int[] {0, 3});
+        verifySelectedPositions(filterPage(pageWithoutNull, filterEvaluator), new int[] {});
+    }
+
+    @Test
+    void testVarbinaryFilter()
+    {
+        ColumnHandle column = new TestingColumnHandle("columnA");
+
+        Page page = new Page(
+                createSlicesBlock(utf8Slice("ab"), utf8Slice("bc"), null, utf8Slice("cd"), null),
+                createSlicesBlock(null, utf8Slice("de"), utf8Slice("ef"), null, utf8Slice("fg")));
+
+        FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
                         column,
-                        Domain.create(ValueSet.of(VARCHAR, utf8Slice("ab")), true))),
+                        multipleValues(VARBINARY, ImmutableList.of("a", "ab"), true))),
+                ImmutableMap.of(column, 0));
+        verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {0, 2, 4});
+    }
+
+    @Test
+    void testCharFilter()
+    {
+        ColumnHandle column = new TestingColumnHandle("columnA");
+
+        Page page = new Page(
+                createSlicesBlock(utf8Slice("ab"), utf8Slice("bc"), null, utf8Slice("cd"), null),
+                createSlicesBlock(null, utf8Slice("de"), utf8Slice("ef"), null, utf8Slice("fg")));
+
+        FilterEvaluator filterEvaluator = createDynamicFilterEvaluator(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        column,
+                        multipleValues(CharType.createCharType(2), ImmutableList.of("a", "ab"), true))),
                 ImmutableMap.of(column, 0));
         verifySelectedPositions(filterPage(page, filterEvaluator), new int[] {0, 2, 4});
     }
@@ -459,6 +526,75 @@ public class TestDynamicPageFilter
             assertThat(inputPage.getBlock(3)).isNotInstanceOf(LazyBlock.class);
             assertThat(inputPage.getBlock(4)).isInstanceOf(LazyBlock.class);
         }
+    }
+
+    @Test
+    void testCanUseBloomFilter()
+    {
+        assertThat(canUseBloomFilter(Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L)))).isFalse();
+        assertThat(canUseBloomFilter(Domain.singleValue(VARCHAR, utf8Slice("A")))).isFalse();
+        assertThat(canUseBloomFilter(Domain.notNull(VARCHAR))).isFalse();
+        assertThat(canUseBloomFilter(Domain.onlyNull(VARCHAR))).isFalse();
+        assertThat(canUseBloomFilter(Domain.none(VARCHAR))).isFalse();
+        assertThat(canUseBloomFilter(Domain.all(VARCHAR))).isFalse();
+        assertThat(canUseBloomFilter(Domain.create(ValueSet.of(VARCHAR, utf8Slice("a"), utf8Slice("b")), false))).isTrue();
+        assertThat(canUseBloomFilter(Domain.create(ValueSet.of(VARCHAR, utf8Slice("a"), utf8Slice("b"), utf8Slice("c")), true))).isTrue();
+    }
+
+    @Test
+    void testSliceBloomFilter()
+    {
+        SliceBloomFilter filter = new SliceBloomFilter(
+                ImmutableList.of(
+                        utf8Slice("Igne"),
+                        utf8Slice("natura"),
+                        utf8Slice("renovitur"),
+                        utf8Slice("integra.")),
+                false,
+                VARCHAR);
+        assertThat(filter.containsNull()).isFalse();
+        assertThat(filter.contains(utf8Slice("Igne"))).isTrue();
+        assertThat(filter.contains(utf8Slice("natura"))).isTrue();
+        assertThat(filter.contains(utf8Slice("renovitur"))).isTrue();
+        assertThat(filter.contains(utf8Slice("integra."))).isTrue();
+
+        assertThat(filter.contains(utf8Slice("natur"))).isFalse();
+        assertThat(filter.contains(utf8Slice("apple"))).isFalse();
+
+        int valuesCount = 10000;
+        List<Slice> testValues = new ArrayList<>(valuesCount);
+        List<Slice> filterValues = new ArrayList<>();
+        byte base = 0;
+        for (int i = 0; i < valuesCount; i++) {
+            Slice value = sequentialBytes(base, i);
+            testValues.add(value);
+            base = (byte) (base + i);
+            if (i % 9 == 0) {
+                filterValues.add(value);
+            }
+        }
+
+        filter = new SliceBloomFilter(filterValues, true, VARCHAR);
+        assertThat(filter.containsNull()).isTrue();
+        int hits = 0;
+        for (int i = 0; i < valuesCount; i++) {
+            boolean contains = filter.contains(testValues.get(i));
+            if (i % 9 == 0) {
+                // No false negatives
+                assertThat(contains).isTrue();
+            }
+            hits += contains ? 1 : 0;
+        }
+        assertThat((double) hits / valuesCount).isBetween(0.1, 0.115);
+    }
+
+    private static Slice sequentialBytes(byte base, int length)
+    {
+        byte[] bytes = new byte[length];
+        for (int i = 0; i < length; i++) {
+            bytes[i] = (byte) (base + i);
+        }
+        return Slices.wrappedBuffer(bytes);
     }
 
     private static SelectedPositions filterPage(Page page, FilterEvaluator filterEvaluator)
