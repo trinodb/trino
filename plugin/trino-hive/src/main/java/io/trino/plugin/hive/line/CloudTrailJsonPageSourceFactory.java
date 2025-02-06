@@ -21,11 +21,11 @@ import io.trino.plugin.hive.HiveConfig;
 
 import static java.lang.Math.toIntExact;
 
-public class CloudtrailJsonPageSourceFactory
+public class CloudTrailJsonPageSourceFactory
         extends LinePageSourceFactory
 {
     @Inject
-    public CloudtrailJsonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
+    public CloudTrailJsonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory, HiveConfig config)
     {
         super(trinoFileSystemFactory,
                 new JsonDeserializerFactory(),

@@ -36,7 +36,7 @@ import io.trino.operator.PagesIndexPageSorter;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.avro.AvroFileWriterFactory;
 import io.trino.plugin.hive.avro.AvroPageSourceFactory;
-import io.trino.plugin.hive.line.CloudtrailJsonPageSourceFactory;
+import io.trino.plugin.hive.line.CloudTrailJsonPageSourceFactory;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
@@ -190,7 +190,7 @@ public final class HiveTestUtils
                 .add(new RcFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
-                .add(new CloudtrailJsonPageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new CloudTrailJsonPageSourceFactory(fileSystemFactory, hiveConfig))
                 .build();
     }
 
