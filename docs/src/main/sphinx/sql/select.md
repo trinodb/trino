@@ -85,11 +85,11 @@ to reduce the time to `2h`. It also overrides the catalog property
 `query_partition_filter_required` to `true`:
 
 ```sql
-WITH 
+WITH
   SESSION
     query_max_execution_time='2h',
     example.query_partition_filter_required=true
-SELECT * 
+SELECT *
 FROM example.default.thetable
 LIMIT 100;
 ```
