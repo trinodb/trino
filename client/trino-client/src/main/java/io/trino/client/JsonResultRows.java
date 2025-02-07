@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonParser.Feature.AUTO_CLOSE_SOURCE;
@@ -48,6 +47,7 @@ public final class JsonResultRows
 
     private static class RowWiseIterator
             extends AbstractIterator<List<Object>>
+            implements CloseableIterator<List<Object>>
     {
         private final Closer closer = Closer.create();
         private boolean closed;
@@ -129,7 +129,8 @@ public final class JsonResultRows
             }
         }
 
-        private void close()
+        @Override
+        public void close()
                 throws IOException
         {
             this.closed = true;
@@ -137,13 +138,13 @@ public final class JsonResultRows
         }
     }
 
-    public static Iterator<List<Object>> forJsonParser(JsonParser parser, List<Column> columns)
+    public static CloseableIterator<List<Object>> forJsonParser(JsonParser parser, List<Column> columns)
             throws IOException
     {
         return new RowWiseIterator(parser, createTypeDecoders(columns));
     }
 
-    public static Iterator<List<Object>> forInputStream(InputStream stream, TypeDecoder[] decoders)
+    public static CloseableIterator<List<Object>> forInputStream(InputStream stream, TypeDecoder[] decoders)
             throws IOException
     {
         return new RowWiseIterator(stream, decoders);

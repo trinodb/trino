@@ -17,7 +17,6 @@ import io.trino.client.spooling.DataAttributes;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Iterator;
 import java.util.List;
 
 public interface QueryDataDecoder
@@ -40,7 +39,7 @@ public interface QueryDataDecoder
      *
      * @throws IOException if an I/O error occurs
      */
-    Iterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
+    CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
             throws IOException;
 
     String encoding();
