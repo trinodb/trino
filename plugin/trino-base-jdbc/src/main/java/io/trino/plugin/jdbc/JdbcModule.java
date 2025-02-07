@@ -29,6 +29,7 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifierModule;
 import io.trino.plugin.jdbc.procedure.ExecuteProcedure;
 import io.trino.plugin.jdbc.procedure.FlushJdbcMetadataCacheProcedure;
+import io.trino.plugin.jdbc.properties.JdbcColumnProperties;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -64,7 +65,6 @@ public class JdbcModule
 
         procedureBinder(binder);
         tablePropertiesProviderBinder(binder);
-        columnPropertiesProviderBinder(binder);
 
         newOptionalBinder(binder, JdbcMetadataFactory.class).setDefault().to(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IdentityCacheMapping.class).setDefault().to(SingletonIdentityCacheMapping.class).in(Scopes.SINGLETON);
@@ -86,6 +86,7 @@ public class JdbcModule
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcWriteSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcDynamicFilteringSessionProperties.class);
+        bindColumnPropertiesProvider(binder, JdbcColumnProperties.class);
 
         binder.bind(DynamicFilteringStats.class).in(Scopes.SINGLETON);
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
