@@ -136,6 +136,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.properties.JdbcColumnProperties.AUTO_INCREMENT;
+import static io.trino.plugin.jdbc.properties.JdbcColumnProperties.PRIMARY_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -349,6 +351,25 @@ public class MariaDbClient
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 mariaDbVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MariaDB
         execute(session, sql);
+    }
+
+    @Override
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
+
+        Map<String, Object> columnProperties = column.getProperties();
+        boolean key = columnProperties.containsKey(PRIMARY_KEY) && (boolean) columnProperties.get(PRIMARY_KEY);
+        boolean autoIncrement = columnProperties.containsKey(AUTO_INCREMENT) && (boolean) columnProperties.get(AUTO_INCREMENT);
+
+        return "%s %s %s %s %s".formatted(
+                quoted(columnName),
+                toWriteMapping(session, column.getType()).getDataType(),
+                column.isNullable() && !key ? "NULL" : "NOT NULL",
+                autoIncrement && key ? "AUTO_INCREMENT" : "",
+                key ? "PRIMARY KEY" : "");
     }
 
     @Override
