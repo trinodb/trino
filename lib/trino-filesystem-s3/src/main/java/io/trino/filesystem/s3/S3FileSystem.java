@@ -33,6 +33,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.OptionalObjectAttributes;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Error;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -242,6 +243,7 @@ final class S3FileSystem
 
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
+                .optionalObjectAttributes(OptionalObjectAttributes.RESTORE_STATUS) // Restore status will not be added to the response without this
                 .requestPayer(requestPayer)
                 .bucket(s3Location.bucket())
                 .prefix(key)
