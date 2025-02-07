@@ -648,7 +648,7 @@ class Query
             queryManager.failQuery(queryId, exception);
         }
         catch (RuntimeException e) {
-            log.debug(e, "Could not fail query");
+            log.warn(e, "Could not fail query");
         }
 
         if (typeSerializationException.isEmpty()) {
