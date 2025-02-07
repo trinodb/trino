@@ -15,6 +15,7 @@ package io.trino.client.spooling;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.io.Closer;
+import io.trino.client.CloseableIterator;
 import io.trino.client.QueryDataDecoder;
 
 import java.io.IOException;
@@ -31,6 +32,7 @@ import static java.util.Objects.requireNonNull;
 // Accessible through the SpooledSegment.toIterator
 class SpooledSegmentIterator
         extends AbstractIterator<List<Object>>
+        implements CloseableIterator<List<Object>>
 {
     private final SpooledSegment segment;
     private final long rowsCount;
@@ -48,6 +50,8 @@ class SpooledSegmentIterator
         this.rowsCount = spooledSegment.getRowsCount();
         this.loader = requireNonNull(loader, "loader is null");
         this.decoder = requireNonNull(decoder, "decoder is null");
+
+        closer.register(() -> loader.acknowledge(segment)); // acknowledge segment when closed
     }
 
     public void load()
@@ -57,8 +61,7 @@ class SpooledSegmentIterator
 
         checkState(iterator == null, "Iterator should be unloaded");
         try {
-            InputStream stream = closer.register(loader.load(segment)); // close stream when depleted
-            closer.register(() -> loader.acknowledge(segment)); // acknowledge segment when depleted
+            InputStream stream = closer.register(loader.load(segment)); // close stream when exhausted
             iterator = decoder.decode(stream, segment.getMetadata());
             loaded = true;
         }
@@ -113,6 +116,15 @@ class SpooledSegmentIterator
             // Cleanup if decoding has failed
             unload();
             throw e;
+        }
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        if (!closed) {
+            unload();
         }
     }
 }

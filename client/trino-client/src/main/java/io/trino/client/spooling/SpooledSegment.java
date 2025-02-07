@@ -17,10 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.trino.client.QueryDataDecoder;
 
 import java.net.URI;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -76,10 +74,5 @@ public final class SpooledSegment
     public String toString()
     {
         return format("SpooledSegment{offset=%d, rows=%d, size=%d, headers=%s}", getOffset(), getRowsCount(), getSegmentSize(), headers.keySet());
-    }
-
-    public Iterator<List<Object>> toIterator(SegmentLoader loader, QueryDataDecoder decoder)
-    {
-        return new SpooledSegmentIterator(this, loader, decoder);
     }
 }

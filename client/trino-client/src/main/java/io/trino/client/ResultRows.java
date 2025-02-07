@@ -13,6 +13,8 @@
  */
 package io.trino.client;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
@@ -22,9 +24,12 @@ import static java.util.Collections.emptyIterator;
  * Allows iterating over decoded result data in row-wise manner.
  */
 public interface ResultRows
-        extends Iterable<List<Object>>
+        extends Iterable<List<Object>>, Closeable
 {
     ResultRows NULL_ROWS = new ResultRows() {
+        @Override
+        public void close() {}
+
         @Override
         public boolean isNull()
         {
@@ -42,7 +47,34 @@ public interface ResultRows
 
     static ResultRows wrapList(List<List<Object>> values)
     {
-        return values::iterator;
+        return new ResultRows() {
+            @Override
+            public void close() {}
+
+            @Override
+            public Iterator<List<Object>> iterator()
+            {
+                return values.iterator();
+            }
+        };
+    }
+
+    static ResultRows wrapIterator(CloseableIterator<List<Object>> iterator)
+    {
+        return new ResultRows() {
+            @Override
+            public void close()
+                    throws IOException
+            {
+                iterator.close();
+            }
+
+            @Override
+            public Iterator<List<Object>> iterator()
+            {
+                return iterator;
+            }
+        };
     }
 
     default boolean isNull()

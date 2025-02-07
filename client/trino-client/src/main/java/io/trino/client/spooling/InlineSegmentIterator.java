@@ -14,12 +14,12 @@
 package io.trino.client.spooling;
 
 import com.google.common.collect.AbstractIterator;
+import io.trino.client.CloseableIterator;
 import io.trino.client.QueryDataDecoder;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Iterator;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -27,10 +27,11 @@ import static java.util.Objects.requireNonNull;
 // Accessible through the InlineSegment.toIterator
 class InlineSegmentIterator
         extends AbstractIterator<List<Object>>
+        implements CloseableIterator<List<Object>>
 {
     private InlineSegment segment;
     private final QueryDataDecoder decoder;
-    private Iterator<List<Object>> iterator;
+    private CloseableIterator<List<Object>> iterator;
 
     public InlineSegmentIterator(InlineSegment segment, QueryDataDecoder decoder)
     {
@@ -55,5 +56,14 @@ class InlineSegmentIterator
             return iterator.next();
         }
         return endOfData();
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        if (iterator != null) {
+            iterator.close();
+        }
     }
 }
