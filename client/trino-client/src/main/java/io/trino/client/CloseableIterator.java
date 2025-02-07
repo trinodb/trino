@@ -42,6 +42,15 @@ public interface CloseableIterator<T>
             {
                 return iterator.next();
             }
+
+            @Override
+            public String toString()
+            {
+                return "CloseableIterator{iterator=" + iterator + '}';
+            }
         };
     }
+
+    @Override
+    String toString();
 }

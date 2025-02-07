@@ -43,6 +43,12 @@ public interface ResultRows
         {
             return emptyIterator();
         }
+
+        @Override
+        public String toString()
+        {
+            return "EmptyResultRows{}";
+        }
     };
 
     static ResultRows wrapList(List<List<Object>> values)
@@ -55,6 +61,12 @@ public interface ResultRows
             public Iterator<List<Object>> iterator()
             {
                 return values.iterator();
+            }
+
+            @Override
+            public String toString()
+            {
+                return "ResultRows{values=" + values + "}";
             }
         };
     }
@@ -73,6 +85,12 @@ public interface ResultRows
             public Iterator<List<Object>> iterator()
             {
                 return iterator;
+            }
+
+            @Override
+            public String toString()
+            {
+                return "ResultRows{iterator=" + iterator + "}";
             }
         };
     }

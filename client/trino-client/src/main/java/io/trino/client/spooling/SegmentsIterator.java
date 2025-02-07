@@ -111,4 +111,10 @@ public class SegmentsIterator
             throw exception;
         }
     }
+
+    @Override
+    public String toString()
+    {
+        return "SegmentsIterator{currentIterator=" + currentIterator + ", remainingSegments=" + remainingSegments + "}";
+    }
 }
