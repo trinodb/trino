@@ -200,7 +200,7 @@
         <dep.httpcore5.version>5.3.3</dep.httpcore5.version>
         <dep.iceberg.version>1.7.1</dep.iceberg.version>
         <dep.jna.version>5.16.0</dep.jna.version>
-        <dep.joda.version>2.13.0</dep.joda.version>
+        <dep.joda.version>2.13.1</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>3.9.0</dep.kafka-clients.version>
