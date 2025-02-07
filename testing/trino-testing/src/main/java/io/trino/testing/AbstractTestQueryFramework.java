@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.inject.Key;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
@@ -47,6 +48,8 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.dialect.trino.ProgramBuilder;
+import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
@@ -593,6 +596,13 @@ public abstract class AbstractTestQueryFramework
                 sql,
                 queryStats -> assertThat(queryStats.getProcessedInputDataSize().toBytes()).isEqualTo(0),
                 results -> assertThat(results.getRowCount()).isEqualTo(0));
+    }
+
+    protected void assertAssembly(@Language("SQL") String sql, String expectedAssembly)
+    {
+        Plan plan = queryRunner.executeWithPlan(getSession(), sql).queryPlan().orElseThrow();
+        String actualAssembly = ProgramBuilder.buildProgram(plan.getRoot()).print(1, getQueryRunner().getCoordinator().getInstance(Key.get(FormatOptions.class)));
+        assertThat(actualAssembly).isEqualTo(expectedAssembly);
     }
 
     protected MaterializedResult computeExpected(@Language("SQL") String sql, List<? extends Type> resultTypes)

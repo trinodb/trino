@@ -403,4 +403,29 @@ public abstract class AbstractDistributedEngineOnlyQueries
         @Language("SQL") String query = "SELECT row(" + rowFields + ") FROM (select * from tpch.tiny.orders limit 1) t(" + colNames + ")";
         assertThat(getQueryRunner().execute(query).getOnlyValue()).isNotNull();
     }
+
+    @Test
+    public void testProgramAssembly()
+    {
+        assertAssembly(
+                "SELECT name FROM nation",
+                """
+                IR version = 1
+                %0 = query() : () -> "boolean" ({
+                    ^query
+                        %1 = table_scan() : () -> "multiset(row(varchar(25)))" ()
+                            {table_handle = "{""catalogHandle"":""memory:normal:21a29a35ed877cb4ea566f4b08371b5a0a3c0588f07ba25bd0881def395049cd"",""connectorHandle"":{""@type"":""system:io.trino.plugin.memory.MemoryTableHandle"",""id"":2},""transaction"":[""system:io.trino.plugin.memory.MemoryTransactionHandle"",""INSTANCE""]}", column_handles = "[{""@type"":""system:io.trino.plugin.memory.MemoryColumnHandle"",""columnIndex"":1,""type"":""varchar(25)""}]", constraint = "{""columnDomains"":[]}", update_target = "false", use_connector_node_partitioning = "false"}
+                        %2 = output(%1) : ("multiset(row(varchar(25)))") -> "boolean" ({
+                            ^outputFieldSelector (%3 : "row(varchar(25))")
+                                %4 = field_reference(%3) : ("row(varchar(25))") -> "varchar(25)" ()
+                                    {field_index = "0"}
+                                %5 = row(%4) : ("varchar(25)") -> "row(varchar(25))" ()
+                                %6 = return(%5) : ("row(varchar(25))") -> "row(varchar(25))" ()
+                                    {ir.terminal = "true"}
+                            })
+                            {output_names = "[""name""]", ir.terminal = "true"}
+                    })
+                    {ir.terminal = "true"}
+                """);
+    }
 }
