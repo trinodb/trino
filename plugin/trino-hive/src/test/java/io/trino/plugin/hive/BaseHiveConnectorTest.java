@@ -40,6 +40,8 @@ import io.trino.metastore.Table;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Constraint;
+import io.trino.spi.eventlistener.ColumnDetail;
+import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -1254,7 +1256,17 @@ public abstract class BaseHiveConnectorTest
                                                                                 new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                 estimate)),
                 Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
-                estimate));
+                estimate,
+                Optional.of(ImmutableList.of(
+                        new OutputColumnMetadata("custkey", "bigint",
+                                ImmutableSet.of(
+                                        new ColumnDetail("hive", "tpch", "test_io_explain", "custkey"))),
+                        new OutputColumnMetadata("orderkey", "bigint",
+                                ImmutableSet.of(
+                                        new ColumnDetail("hive", "tpch", "test_io_explain", "orderkey"))),
+                        new OutputColumnMetadata("processing", "boolean",
+                                ImmutableSet.of(
+                                        new ColumnDetail("hive", "tpch", "test_io_explain", "processing")))))));
 
         assertUpdate("DROP TABLE test_io_explain");
 
@@ -1290,7 +1302,14 @@ public abstract class BaseHiveConnectorTest
                                                                                 new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                 estimate)),
                 Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
-                estimate));
+                estimate,
+                Optional.of(ImmutableList.of(
+                        new OutputColumnMetadata("custkey", "bigint",
+                                ImmutableSet.of(
+                                        new ColumnDetail("hive", "tpch", "test_io_explain", "custkey"))),
+                        new OutputColumnMetadata("orderkey", "bigint",
+                                ImmutableSet.of(
+                                        new ColumnDetail("hive", "tpch", "test_io_explain", "orderkey")))))));
 
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
         estimate = new EstimatedStatsAndCost(1.0, 18.0, 18, 0.0, 0.0);
@@ -1313,7 +1332,14 @@ public abstract class BaseHiveConnectorTest
                                                                                 new FormattedMarker(Optional.of("100"), EXACTLY))))))),
                                 estimate)),
                 Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
-                finalEstimate));
+                finalEstimate,
+                Optional.of(ImmutableList.of(
+                        new OutputColumnMetadata("custkey", "bigint",
+                                ImmutableSet.of(
+                                        new ColumnDetail("hive", "tpch", "test_io_explain", "custkey"))),
+                        new OutputColumnMetadata("orderkey", "bigint",
+                                ImmutableSet.of(
+                                        new ColumnDetail("hive", "tpch", "test_io_explain", "orderkey")))))));
 
         assertUpdate("DROP TABLE test_io_explain");
     }
@@ -1366,7 +1392,8 @@ public abstract class BaseHiveConnectorTest
                                                                                 new FormattedMarker(Optional.of("P"), EXACTLY))))))),
                                 estimate)),
                 Optional.empty(),
-                finalEstimate));
+                finalEstimate,
+                Optional.empty()));
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and (orderstatus='P' or orderstatus='S')");
         assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
                 ImmutableSet.of(
@@ -1410,7 +1437,8 @@ public abstract class BaseHiveConnectorTest
                                                                                 new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                 estimate)),
                 Optional.empty(),
-                finalEstimate));
+                finalEstimate,
+                Optional.empty()));
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and cast(orderstatus as integer) = 5");
         assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
                 ImmutableSet.of(
@@ -1442,7 +1470,8 @@ public abstract class BaseHiveConnectorTest
                                                                                 new FormattedMarker(Optional.of("10"), EXACTLY))))))),
                                 estimate)),
                 Optional.empty(),
-                finalEstimate));
+                finalEstimate,
+                Optional.empty()));
 
         assertUpdate("DROP TABLE test_io_explain_column_filters");
     }
@@ -1462,7 +1491,8 @@ public abstract class BaseHiveConnectorTest
                                 new IoPlanPrinter.Constraint(true, ImmutableSet.of()),
                                 estimate)),
                 Optional.empty(),
-                estimate));
+                estimate,
+                Optional.empty()));
 
         assertUpdate("DROP TABLE test_io_explain_with_empty_partitioned_table");
     }
@@ -1508,7 +1538,8 @@ public abstract class BaseHiveConnectorTest
                                                                                 new FormattedMarker(Optional.of("a"), EXACTLY))))))),
                                 estimate)),
                 Optional.empty(),
-                finalEstimate));
+                finalEstimate,
+                Optional.empty()));
         assertUpdate("DROP TABLE io_explain_test_no_filter");
     }
 
@@ -1562,7 +1593,8 @@ public abstract class BaseHiveConnectorTest
                                                                                 new FormattedMarker(Optional.of("b"), EXACTLY))))))),
                                 estimate)),
                 Optional.empty(),
-                finalEstimate));
+                finalEstimate,
+                Optional.empty()));
         assertUpdate("DROP TABLE io_explain_test_filter_on_agg");
     }
 
@@ -1617,7 +1649,8 @@ public abstract class BaseHiveConnectorTest
                                                                                     new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY))))))),
                                     estimate)),
                             Optional.empty(),
-                            estimate));
+                            estimate,
+                            Optional.empty()));
 
             assertUpdate("DROP TABLE " + tableName);
         }
