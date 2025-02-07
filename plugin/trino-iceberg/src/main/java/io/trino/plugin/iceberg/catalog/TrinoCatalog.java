@@ -146,7 +146,7 @@ public interface TrinoCatalog
      * @return Iceberg table loaded
      * @throws UnknownTableTypeException if table is not of Iceberg type in the metastore
      */
-    Table loadTable(ConnectorSession session, SchemaTableName schemaTableName);
+    BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     /**
      * Bulk load column metadata. The returned map may contain fewer entries then asked for.

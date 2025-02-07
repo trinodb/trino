@@ -119,7 +119,7 @@ public class TrinoRestCatalog
     private final Cache<Namespace, Namespace> remoteNamespaceMappingCache;
     private final Cache<TableIdentifier, TableIdentifier> remoteTableMappingCache;
 
-    private final Cache<SchemaTableName, Table> tableCache = EvictableCacheBuilder.newBuilder()
+    private final Cache<SchemaTableName, BaseTable> tableCache = EvictableCacheBuilder.newBuilder()
             .maximumSize(PER_QUERY_CACHE_SIZE)
             .build();
 
@@ -489,7 +489,7 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
+    public BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         Namespace namespace = toNamespace(schemaTableName.getSchemaName());
         try {

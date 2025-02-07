@@ -217,7 +217,7 @@ public final class IcebergUtil
 
     private IcebergUtil() {}
 
-    public static Table loadIcebergTable(TrinoCatalog catalog, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
+    public static BaseTable loadIcebergTable(TrinoCatalog catalog, IcebergTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 catalog,
@@ -229,7 +229,7 @@ public final class IcebergUtil
         return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
-    public static Table getIcebergTableWithMetadata(
+    public static BaseTable getIcebergTableWithMetadata(
             TrinoCatalog catalog,
             IcebergTableOperationsProvider tableOperationsProvider,
             ConnectorSession session,
@@ -299,7 +299,7 @@ public final class IcebergUtil
         return ImmutableList.copyOf(path.reversed());
     }
 
-    public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
+    public static Map<String, Object> getIcebergTableProperties(BaseTable icebergTable)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
@@ -318,7 +318,7 @@ public final class IcebergUtil
             properties.put(LOCATION_PROPERTY, icebergTable.location());
         }
 
-        int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
+        int formatVersion = icebergTable.operations().current().formatVersion();
         properties.put(FORMAT_VERSION_PROPERTY, formatVersion);
 
         if (icebergTable.properties().containsKey(COMMIT_NUM_RETRIES)) {
