@@ -127,4 +127,10 @@ class SpooledSegmentIterator
             unload();
         }
     }
+
+    @Override
+    public String toString()
+    {
+        return "SpooledSegmentIterator{segment=" + segment + "}";
+    }
 }
