@@ -15,7 +15,10 @@ package io.trino.client.spooling;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.client.QueryDataDecoder;
 
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import static java.lang.String.format;
@@ -47,5 +50,10 @@ public final class InlineSegment
     public String toString()
     {
         return format("InlineSegment{offset=%d, rows=%d, size=%d}", getOffset(), getRowsCount(), getSegmentSize());
+    }
+
+    public Iterator<List<Object>> toIterator(QueryDataDecoder decoder)
+    {
+        return new InlineSegmentIterator(this, decoder);
     }
 }

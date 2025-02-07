@@ -40,7 +40,7 @@ public interface ResultRows
         }
     };
 
-    static ResultRows fromIterableRows(Iterable<List<Object>> values)
+    static ResultRows wrapList(List<List<Object>> values)
     {
         return values::iterator;
     }
