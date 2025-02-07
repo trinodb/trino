@@ -62,7 +62,9 @@ public abstract class BaseMySqlConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_MERGE,
-                 SUPPORTS_ROW_LEVEL_UPDATE -> true;
+                 SUPPORTS_ROW_LEVEL_UPDATE,
+                 SUPPORTS_CREATE_TABLE_WITH_PRIMARY_KEY,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_AUTO_INCREMENT -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,

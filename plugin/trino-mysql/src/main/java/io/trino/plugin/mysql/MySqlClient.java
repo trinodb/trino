@@ -177,6 +177,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.properties.JdbcColumnProperties.AUTO_INCREMENT;
+import static io.trino.plugin.jdbc.properties.JdbcColumnProperties.PRIMARY_KEY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
@@ -487,10 +489,16 @@ public class MySqlClient
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
 
-        return "%s %s %s".formatted(
+        Map<String, Object> columnProperties = column.getProperties();
+        boolean key = columnProperties.containsKey(PRIMARY_KEY) && (boolean) columnProperties.get(PRIMARY_KEY);
+        boolean autoIncrement = columnProperties.containsKey(AUTO_INCREMENT) && (boolean) columnProperties.get(AUTO_INCREMENT);
+
+        return "%s %s %s %s %s".formatted(
                 quoted(columnName),
                 toWriteMapping(session, column.getType()).getDataType(),
-                column.isNullable() ? "NULL" : "NOT NULL");
+                column.isNullable() && !key ? "NULL" : "NOT NULL",
+                autoIncrement && key ? "AUTO_INCREMENT" : "",
+                key ? "PRIMARY KEY" : "");
     }
 
     private static String mysqlVarcharLiteral(String value)
