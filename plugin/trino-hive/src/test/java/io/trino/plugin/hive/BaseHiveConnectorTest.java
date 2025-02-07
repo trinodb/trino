@@ -142,6 +142,7 @@ import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveQueryRunner.createBucketedSession;
+import static io.trino.plugin.hive.HiveStorageFormat.CLOUDTRAIL;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.HiveStorageFormat.REGEX;
@@ -5702,6 +5703,7 @@ public abstract class BaseHiveConnectorTest
             case TEXTFILE -> false;
             case CSV -> false;
             case REGEX -> false;
+            case CLOUDTRAIL -> false;
         };
     }
 
@@ -9502,8 +9504,8 @@ public abstract class BaseHiveConnectorTest
                 // CSV supports only unbounded VARCHAR type
                 continue;
             }
-            if (hiveStorageFormat == REGEX) {
-                // REGEX format is read-only
+            if (hiveStorageFormat == REGEX || hiveStorageFormat == CLOUDTRAIL) {
+                // REGEX and CLOUDTRAIL format is read-only
                 continue;
             }
 
