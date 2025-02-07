@@ -80,8 +80,8 @@ public enum TestingConnectorBehavior
     SUPPORTS_CREATE_TABLE_WITH_DATA(SUPPORTS_CREATE_TABLE),
     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT(SUPPORTS_CREATE_TABLE),
     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT(SUPPORTS_CREATE_TABLE),
-    SUPPORTS_CREATE_TABLE_WITH_PRIMARY_KEY(SUPPORTS_CREATE_TABLE),
-    SUPPORTS_CREATE_TABLE_WITH_COLUMN_AUTO_INCREMENT(SUPPORTS_CREATE_TABLE),
+    SUPPORTS_CREATE_TABLE_WITH_PRIMARY_KEY(false),
+    SUPPORTS_CREATE_TABLE_WITH_COLUMN_AUTO_INCREMENT(false),
     SUPPORTS_RENAME_TABLE,
     SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS(SUPPORTS_RENAME_TABLE),
 
@@ -150,6 +150,8 @@ public enum TestingConnectorBehavior
                                 name().equals("SUPPORTS_DYNAMIC_FILTER_PUSHDOWN") ||
                                 name().equals("SUPPORTS_JOIN_PUSHDOWN") ||
                                 name().equals("SUPPORTS_CREATE_OR_REPLACE_TABLE") ||
+                                name().equals("SUPPORTS_CREATE_TABLE_WITH_PRIMARY_KEY") ||
+                                name().equals("SUPPORTS_CREATE_TABLE_WITH_COLUMN_AUTO_INCREMENT") ||
                                 name().equals("SUPPORTS_CREATE_FUNCTION") ||
                                 name().equals("SUPPORTS_REPORTING_WRITTEN_BYTES") ||
                                 name().equals("SUPPORTS_MULTI_STATEMENT_WRITES")),
