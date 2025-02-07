@@ -15,6 +15,7 @@ package io.trino.client.spooling.encoding;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
+import io.trino.client.CloseableIterator;
 import io.trino.client.QueryDataDecoder;
 import io.trino.client.spooling.DataAttributes;
 import org.junit.jupiter.api.Test;
@@ -23,10 +24,10 @@ import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static io.trino.client.CloseableIterator.closeable;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
 import static io.trino.client.spooling.DataAttribute.UNCOMPRESSED_SIZE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -53,12 +54,12 @@ class TestCompressedQueryDataDecoder
 
         QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder() {
             @Override
-            public Iterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
+            public CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
             {
                 assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
                         .isEqualTo("decompressed");
-                return SAMPLE_VALUES.iterator();
+                return closeable(SAMPLE_VALUES.iterator());
             }
 
             @Override
@@ -96,13 +97,13 @@ class TestCompressedQueryDataDecoder
 
         QueryDataDecoder decoder = new TestQueryDataDecoder(new QueryDataDecoder() {
             @Override
-            public Iterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
+            public CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
                     throws IOException
             {
                 assertThat(new String(ByteStreams.toByteArray(input), UTF_8))
                         .isEqualTo("not compressed");
                 input.close(); // Closes input stream according to the contract
-                return SAMPLE_VALUES.iterator();
+                return closeable(SAMPLE_VALUES.iterator());
             }
 
             @Override
