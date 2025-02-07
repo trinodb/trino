@@ -31,6 +31,7 @@ import okhttp3.RequestBody;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
+import java.io.UncheckedIOException;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -559,6 +560,15 @@ class StatementClientV1
             if (uri != null) {
                 httpDelete(uri);
             }
+        }
+
+        // Close rows - this will close the underlying iterators,
+        // releasing all resources and pruning remote segments
+        try {
+            currentRows.get().close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
