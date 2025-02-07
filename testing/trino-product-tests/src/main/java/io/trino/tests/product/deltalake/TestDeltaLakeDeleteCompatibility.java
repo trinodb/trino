@@ -595,8 +595,7 @@ public class TestDeltaLakeDeleteCompatibility
                     "LOCATION 's3://" + bucketName + "/databricks-compatibility-test-clone-" + baseTableName + "'");
 
             assertThat(onDelta().executeQuery("SELECT * FROM default." + tableName)).contains(expected);
-            assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM delta.default." + tableName))
-                    .hasMessageContaining("Unsupported storage type for deletion vector: p");
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + tableName)).contains(expected);
         }
         finally {
             dropDeltaTableWithRetry("default." + baseTableName);
