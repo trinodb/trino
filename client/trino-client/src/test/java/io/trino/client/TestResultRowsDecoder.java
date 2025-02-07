@@ -35,7 +35,7 @@ import java.util.OptionalDouble;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-import static io.trino.client.JsonResultRows.createJsonFactory;
+import static io.trino.client.JsonIterators.createJsonFactory;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
 import static java.nio.charset.StandardCharsets.UTF_8;
