@@ -98,7 +98,7 @@ public class ResultRowsDecoder
             }
             return () -> {
                 try {
-                    return JsonResultRows.forJsonParser(jsonData.getJsonParser(), columns);
+                    return JsonIterators.forJsonParser(jsonData.getJsonParser(), columns);
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
