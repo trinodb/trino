@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import static com.fasterxml.jackson.core.JsonParser.Feature.AUTO_CLOSE_SOURCE;
@@ -136,28 +137,16 @@ public final class JsonResultRows
         }
     }
 
-    public static ResultRows forJsonParser(JsonParser parser, List<Column> columns)
+    public static Iterator<List<Object>> forJsonParser(JsonParser parser, List<Column> columns)
+            throws IOException
     {
-        return () -> {
-            try {
-                return new RowWiseIterator(parser, createTypeDecoders(columns));
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        };
+        return new RowWiseIterator(parser, createTypeDecoders(columns));
     }
 
-    public static ResultRows forInputStream(InputStream stream, TypeDecoder[] decoders)
+    public static Iterator<List<Object>> forInputStream(InputStream stream, TypeDecoder[] decoders)
+            throws IOException
     {
-        return () -> {
-            try {
-                return new RowWiseIterator(stream, decoders);
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
-        };
+        return new RowWiseIterator(stream, decoders);
     }
 
     @SuppressModernizer // There is no JsonFactory in the client module

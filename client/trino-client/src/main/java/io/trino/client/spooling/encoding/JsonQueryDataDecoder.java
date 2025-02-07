@@ -17,10 +17,11 @@ import io.trino.client.Column;
 import io.trino.client.JsonDecodingUtils.TypeDecoder;
 import io.trino.client.JsonResultRows;
 import io.trino.client.QueryDataDecoder;
-import io.trino.client.ResultRows;
 import io.trino.client.spooling.DataAttributes;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 import java.util.List;
 
 import static io.trino.client.JsonDecodingUtils.createTypeDecoders;
@@ -37,7 +38,8 @@ public class JsonQueryDataDecoder
     }
 
     @Override
-    public ResultRows decode(InputStream stream, DataAttributes queryAttributes)
+    public Iterator<List<Object>> decode(InputStream stream, DataAttributes queryAttributes)
+            throws IOException
     {
         return JsonResultRows.forInputStream(stream, decoders);
     }

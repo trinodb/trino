@@ -41,7 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static io.trino.client.ResultRows.fromIterableRows;
+import static io.trino.client.ResultRows.wrapList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -64,7 +64,7 @@ class TestAsyncResultIterator
                     catch (InterruptedException e) {
                         interruptedButSwallowedLatch.countDown();
                     }
-                    return fromIterableRows(ImmutableList.of(ImmutableList.of(new Object())));
+                    return wrapList(ImmutableList.of(ImmutableList.of(new Object())));
                 }), ignored -> {},
                 new WarningsManager(),
                 Optional.of(new ArrayBlockingQueue<>(100)));
@@ -93,7 +93,7 @@ class TestAsyncResultIterator
         AsyncResultIterator iterator = new AsyncResultIterator(
                 new MockStatementClient(() -> {
                     thread.compareAndSet(null, Thread.currentThread());
-                    return fromIterableRows(ImmutableList.of(ImmutableList.of(new Object())));
+                    return wrapList(ImmutableList.of(ImmutableList.of(new Object())));
                 }), ignored -> {},
                 new WarningsManager(),
                 Optional.of(queue));
