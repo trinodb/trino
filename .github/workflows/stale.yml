@@ -21,7 +21,7 @@ jobs:
           stale-pr-label: 'stale'
           exempt-pr-labels: 'stale-ignore'
           start-date: '2020-01-01T00:00:00Z'
-          exempt-draft-pr: true
+          exempt-draft-pr: false
           operations-per-run: 200
           # Avoid processing issues completely, see https://github.com/actions/stale/issues/1112
           days-before-issue-stale: -1
