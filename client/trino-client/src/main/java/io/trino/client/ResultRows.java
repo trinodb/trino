@@ -23,6 +23,8 @@ import static java.util.Collections.emptyIterator;
 
 /**
  * Allows iterating over decoded result data in row-wise manner.
+ *
+ * Iterator can be acquired only once, and it should be closed after use.
  */
 public interface ResultRows
         extends Iterable<List<Object>>, Closeable
