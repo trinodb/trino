@@ -42,6 +42,7 @@ import static java.util.Objects.requireNonNull;
 public class JsonQueryDataEncoder
         implements QueryDataEncoder
 {
+    private static final JsonFactory JSON_FACTORY = jsonFactory();
     private static final String ENCODING = "json";
     private final Session session;
     private final TypeEncoder[] typeEncoders;
@@ -60,9 +61,8 @@ public class JsonQueryDataEncoder
     public DataAttributes encodeTo(OutputStream output, List<Page> pages)
             throws IOException
     {
-        JsonFactory jsonFactory = jsonFactory();
         ConnectorSession connectorSession = session.toConnectorSession();
-        try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = jsonFactory.createGenerator(wrapper)) {
+        try (CountingOutputStream wrapper = new CountingOutputStream(output); JsonGenerator generator = JSON_FACTORY.createGenerator(wrapper)) {
             writePagesToJsonGenerator(connectorSession, e -> { throw e; }, generator, typeEncoders, sourcePageChannels, pages);
             return DataAttributes.builder()
                     .set(SEGMENT_SIZE, toIntExact(wrapper.getCount()))
