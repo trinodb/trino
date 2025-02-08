@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Collections.emptyIterator;
 
 /**
@@ -74,6 +75,8 @@ public interface ResultRows
     static ResultRows wrapIterator(CloseableIterator<List<Object>> iterator)
     {
         return new ResultRows() {
+            private volatile boolean fetched;
+
             @Override
             public void close()
                     throws IOException
@@ -84,6 +87,8 @@ public interface ResultRows
             @Override
             public Iterator<List<Object>> iterator()
             {
+                verify(!fetched, "Iterator already fetched");
+                fetched = true;
                 return iterator;
             }
 
