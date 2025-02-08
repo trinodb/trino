@@ -18,7 +18,7 @@ The protocol is a sequence of REST API calls to the
    result set data is returned to the client or the client stops requesting
    more data.
 7. If the client fails to fetch the result set, the coordinator does not initiate
-   further processing, fails the query and returns a USER_CANCELED error.
+   further processing, fails the query and returns a `USER_CANCELED` error.
 
 The client protocol supports two modes. Configure the [spooling
 protocol](protocol-spooling) for optimal throughput for your clients.
