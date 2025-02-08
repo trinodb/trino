@@ -555,9 +555,9 @@ public class TestPhoenixConnectorTest
         assertThat(computeActual("SHOW CREATE TABLE test_create_table_with_properties").getOnlyValue())
                 .isEqualTo("CREATE TABLE phoenix.tpch.test_create_table_with_properties (\n" +
                         "   created_date date,\n" +
-                        "   a bigint NOT NULL,\n" +
-                        "   b double NOT NULL,\n" +
-                        "   c varchar(10) NOT NULL,\n" +
+                        "   a bigint NOT NULL WITH (primary_key = true),\n" +
+                        "   b double NOT NULL WITH (primary_key = true),\n" +
+                        "   c varchar(10) NOT NULL WITH (primary_key = true),\n" +
                         "   d varchar(10)\n" +
                         ")\n" +
                         "WITH (\n" +

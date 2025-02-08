@@ -253,7 +253,7 @@ public class TestIgniteConnectorTest
                 "(`a,b` bigint primary key, `c,d` bigint, `x` varchar(79))",
                 List.of("1, 1, 'a'", "2, 2, 'b'", "3, 3, null"))) {
             String pattern = "CREATE TABLE %s.%s.%s (\n" +
-                    "   \"a,b\" bigint,\n" +
+                    "   \"a,b\" bigint WITH (primary_key = true),\n" +
                     "   \"c,d\" bigint,\n" +
                     "   x varchar(79)\n" +
                     ")\n" +

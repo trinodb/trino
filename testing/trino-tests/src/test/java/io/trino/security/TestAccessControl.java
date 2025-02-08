@@ -1252,7 +1252,11 @@ public class TestAccessControl
         reset();
 
         getQueryRunner().getAccessControl().denyCatalogs(catalog -> !catalog.equals("mock"));
-        assertQueryReturnsEmptyResult("SELECT * FROM system.metadata.column_properties");
+        assertQuery(
+                "SELECT * FROM system.metadata.column_properties",
+                "VALUES " +
+                        "('jdbc', 'auto_increment', 'false', 'boolean', 'If primary key column can auto increment')," +
+                        "('jdbc', 'primary_key', 'false', 'boolean', 'If column belongs to primary key')");
     }
 
     @Test
