@@ -52,26 +52,6 @@ public interface ResultRows
         }
     };
 
-    static ResultRows wrapList(List<List<Object>> values)
-    {
-        return new ResultRows() {
-            @Override
-            public void close() {}
-
-            @Override
-            public Iterator<List<Object>> iterator()
-            {
-                return values.iterator();
-            }
-
-            @Override
-            public String toString()
-            {
-                return "ResultRows{values=" + values + "}";
-            }
-        };
-    }
-
     static ResultRows wrapIterator(CloseableIterator<List<Object>> iterator)
     {
         return new ResultRows() {
