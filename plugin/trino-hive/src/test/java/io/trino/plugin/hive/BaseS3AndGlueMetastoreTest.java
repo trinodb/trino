@@ -241,6 +241,20 @@ public abstract class BaseS3AndGlueMetastoreTest
         }
     }
 
+    @Test
+    public void testRowColumnNameContainingColon()
+    {
+        String tableName = "test_row_field_with_colon_" + randomNameSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (a row(\"b:c\" int), b row(\":b::c::\" int), \"::\" row(\":::\" int))");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (ROW(ROW(11), ROW(22), ROW(33)))", 1);
+            assertQuery("SELECT a.\"b:c\", b.\":b::c::\", \"::\".\":::\" FROM " + tableName, "VALUES (11, 22, 33)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     protected void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_optimize_" + randomNameSuffix();
