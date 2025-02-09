@@ -20,18 +20,18 @@ import io.trino.testing.StandaloneQueryRunner;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class PreviewUiQueryRunner
+public class WebUiPreviewQueryRunner
 {
-    private PreviewUiQueryRunner() {}
+    private WebUiPreviewQueryRunner() {}
 
     public static void main(String[] args)
     {
         StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema("tiny")
-                .build(), PreviewUiQueryRunner::configureTrinoServer);
+                .build(), WebUiPreviewQueryRunner::configureTrinoServer);
 
-        Logger log = Logger.get(PreviewUiQueryRunner.class);
+        Logger log = Logger.get(WebUiPreviewQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
