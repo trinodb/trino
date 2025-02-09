@@ -85,6 +85,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -1215,7 +1216,7 @@ public class TestIcebergV2
         assertThat(loadTable(tableName).newScan().planFiles()).hasSize(4);
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"state.name\"', '\"district.name\"']");
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
                 .containsExactlyInAnyOrder("state.name", "district.name");
 
@@ -1273,7 +1274,7 @@ public class TestIcebergV2
         assertThat(loadTable(tableName).newScan().planFiles()).hasSize(2);
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['\"country.state.district.name\"', '\"country.state.name\"']");
-        Table icebergTable = updateTableToV2(tableName);
+        Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.spec().fields().stream().map(PartitionField::name).toList())
                 .containsExactlyInAnyOrder("country.state.district.name", "country.state.name");
 
@@ -1564,6 +1565,7 @@ public class TestIcebergV2
         BaseTable table = loadTable(tableName);
         TableOperations operations = table.operations();
         TableMetadata currentMetadata = operations.current();
+        checkArgument(currentMetadata.formatVersion() != 2, "Format version is already 2: '%s'", tableName);
         operations.commit(currentMetadata, currentMetadata.upgradeToFormatVersion(2));
 
         return table;
