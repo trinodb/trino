@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.delete.PositionDeleteWriter;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -25,6 +26,7 @@ import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MergePage;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.VarcharType;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -55,8 +57,11 @@ public class IcebergMergeSink
     private final LocationProvider locationProvider;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final TrinoFileSystem fileSystem;
+    private final TrinoCatalog catalog;
+    private final SchemaTableName tableName;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
+    private final int formatVersion;
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> storageProperties;
     private final Schema schema;
@@ -69,8 +74,11 @@ public class IcebergMergeSink
             LocationProvider locationProvider,
             IcebergFileWriterFactory fileWriterFactory,
             TrinoFileSystem fileSystem,
+            TrinoCatalog catalog,
+            SchemaTableName tableName,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
+            int formatVersion,
             IcebergFileFormat fileFormat,
             Map<String, String> storageProperties,
             Schema schema,
@@ -81,8 +89,11 @@ public class IcebergMergeSink
         this.locationProvider = requireNonNull(locationProvider, "locationProvider is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        this.catalog = requireNonNull(catalog, "catalog is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
+        this.formatVersion = formatVersion;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.schema = requireNonNull(schema, "schema is null");
@@ -125,6 +136,7 @@ public class IcebergMergeSink
     {
         List<Slice> fragments = new ArrayList<>(insertPageSink.finish().join());
 
+        // TODO V3 doesn't allow several DV files par a data file
         fileDeletions.forEach((dataFilePath, deletion) -> {
             PositionDeleteWriter writer = createPositionDeleteWriter(
                     dataFilePath.toStringUtf8(),
@@ -154,6 +166,8 @@ public class IcebergMergeSink
         }
 
         return new PositionDeleteWriter(
+                catalog,
+                tableName,
                 dataFilePath,
                 partitionSpec,
                 partitionData,
@@ -162,6 +176,7 @@ public class IcebergMergeSink
                 fileSystem,
                 jsonCodec,
                 session,
+                formatVersion,
                 fileFormat,
                 storageProperties);
     }

@@ -32,13 +32,15 @@ public class IcebergRestCatalogBackendContainer
             String minioSessionToken)
     {
         super(
-                "tabulario/iceberg-rest:1.5.0",
+                // TODO Pin version once Iceberg community releases it
+                "apache/iceberg-rest-fixture:latest",
                 "iceberg-rest",
                 ImmutableSet.of(8181),
                 ImmutableMap.of(),
                 ImmutableMap.of(
                         "CATALOG_INCLUDE__CREDENTIALS", "true",
                         "CATALOG_WAREHOUSE", warehouseLocation,
+                        "CATALOG_URI", "jdbc:sqlite:file:/tmp/iceberg_rest_mode=memory",
                         "CATALOG_IO__IMPL", "org.apache.iceberg.aws.s3.S3FileIO",
                         "AWS_REGION", MINIO_REGION,
                         "CATALOG_S3_ACCESS__KEY__ID", minioAccessKey,

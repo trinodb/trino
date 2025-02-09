@@ -54,6 +54,7 @@ public class TestIcebergConnectorSmokeTest
                 .setInitialTables(NATION, ORDERS, REGION)
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.file-format", format.name(),
+                        "iceberg.format-version", "3",
                         "iceberg.register-table-procedure.enabled", "true",
                         "iceberg.writer-sort-buffer-size", "1MB",
                         "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
@@ -109,6 +110,26 @@ public class TestIcebergConnectorSmokeTest
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
         return checkOrcFileSorting(fileSystem, path, sortColumnName);
+    }
+
+    @Test
+    @Override // Override because the format version is 3
+    public void testShowCreateTable()
+    {
+        assertThat((String) computeScalar("SHOW CREATE TABLE region"))
+                .isEqualTo(
+                        """
+                        CREATE TABLE iceberg.tpch.region (
+                           regionkey bigint,
+                           name varchar,
+                           comment varchar
+                        )
+                        WITH (
+                           format = 'ORC',
+                           format_version = 3,
+                           location = '%s',
+                           max_commit_retry = 4
+                        )""".formatted(getTableLocation("region")));
     }
 
     @Test
