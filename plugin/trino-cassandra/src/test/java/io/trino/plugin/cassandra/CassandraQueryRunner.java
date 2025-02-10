@@ -38,14 +38,22 @@ public final class CassandraQueryRunner
 {
     private CassandraQueryRunner() {}
 
-    static {
-        Logging logging = Logging.initialize();
-        logging.setLevel("com.datastax.oss.driver.internal", Level.OFF);
-    }
-
     public static Builder builder(CassandraServer server)
     {
         return new Builder(server);
+    }
+
+    public static void main(String[] args)
+            throws Exception
+    {
+        QueryRunner queryRunner = builder(new TestingCassandraServer())
+                .addCoordinatorProperty("http-server.http.port", "8080")
+                .setInitialTables(TpchTable.getTables())
+                .build();
+
+        Logger log = Logger.get(CassandraQueryRunner.class);
+        log.info("======== SERVER STARTED ========");
+        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 
     public static final class Builder
@@ -111,16 +119,8 @@ public final class CassandraQueryRunner
         }
     }
 
-    public static void main(String[] args)
-            throws Exception
-    {
-        QueryRunner queryRunner = builder(new CassandraServer())
-                .addCoordinatorProperty("http-server.http.port", "8080")
-                .setInitialTables(TpchTable.getTables())
-                .build();
-
-        Logger log = Logger.get(CassandraQueryRunner.class);
-        log.info("======== SERVER STARTED ========");
-        log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("com.datastax.oss.driver.internal", Level.OFF);
     }
 }

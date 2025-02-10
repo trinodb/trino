@@ -32,10 +32,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 public final class CassandraCqlUtils
 {
-    private CassandraCqlUtils() {}
-
     public static final String ID_COLUMN_NAME = "id";
     public static final String EMPTY_COLUMN_NAME = "__empty__";
+
+    private CassandraCqlUtils() {}
 
     public static String validSchemaName(String identifier)
     {

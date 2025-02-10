@@ -75,11 +75,6 @@ public class TestCassandraTable
         }
     }
 
-    public String getTableName()
-    {
-        return format("%s.%s", keyspace, tableName);
-    }
-
     private static String tableDefinition(List<ColumnDefinition> columnDefinitions)
     {
         ImmutableList.Builder<String> partitionColumns = ImmutableList.builder();
@@ -105,12 +100,6 @@ public class TestCassandraTable
         return columnDefinitions.stream()
                 .map(columnDefinition -> columnDefinition.name + " " + columnDefinition.type)
                 .collect(joining(",", "(", ",PRIMARY KEY " + primaryKey + ")"));
-    }
-
-    @Override
-    public void close()
-    {
-        sqlExecutor.execute("DROP TABLE " + getTableName());
     }
 
     public static ColumnDefinition partitionColumn(String name, String type)
@@ -141,6 +130,22 @@ public class TestCassandraTable
         return rows.build();
     }
 
+    public String getTableName()
+    {
+        return format("%s.%s", keyspace, tableName);
+    }
+
+    @Override
+    public void close()
+    {
+        sqlExecutor.execute("DROP TABLE " + getTableName());
+    }
+
+    private enum PrimaryKeyType
+    {
+        PARTITION, CLUSTER, GENERAL
+    }
+
     public static class ColumnDefinition
     {
         private final String name;
@@ -153,10 +158,5 @@ public class TestCassandraTable
             this.type = type;
             this.primaryKeyType = primaryKeyType;
         }
-    }
-
-    private enum PrimaryKeyType
-    {
-        PARTITION, CLUSTER, GENERAL;
     }
 }

@@ -111,6 +111,24 @@ public class CassandraMetadata
         this.extraColumnMetadataCodec = requireNonNull(extraColumnMetadataCodec, "extraColumnMetadataCodec is null");
     }
 
+    private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
+    {
+        return ((CassandraTableHandle) tableHandle).getRequiredNamedRelation().getSchemaTableName();
+    }
+
+    private static SchemaTableName getSchemaTableName(CassandraTableHandle handle)
+    {
+        return handle.isNamedRelation()
+                ? handle.getRequiredNamedRelation().getSchemaTableName()
+                // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
+                : new SchemaTableName("_generated", "_generated_query");
+    }
+
+    private static boolean isHiddenIdColumn(CassandraColumnHandle columnHandle)
+    {
+        return columnHandle.hidden() && ID_COLUMN_NAME.equals(columnHandle.name());
+    }
+
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
@@ -136,11 +154,6 @@ public class CassandraMetadata
         }
     }
 
-    private static SchemaTableName getTableName(ConnectorTableHandle tableHandle)
-    {
-        return ((CassandraTableHandle) tableHandle).getRequiredNamedRelation().getSchemaTableName();
-    }
-
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
@@ -154,14 +167,6 @@ public class CassandraMetadata
             return new ConnectorTableMetadata(getSchemaTableName(handle), columns);
         }
         return getTableMetadata(getTableName(tableHandle));
-    }
-
-    private static SchemaTableName getSchemaTableName(CassandraTableHandle handle)
-    {
-        return handle.isNamedRelation()
-                ? handle.getRequiredNamedRelation().getSchemaTableName()
-                // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
-                : new SchemaTableName("_generated", "_generated_query");
     }
 
     private ConnectorTableMetadata getTableMetadata(SchemaTableName tableName)
@@ -463,11 +468,6 @@ public class CassandraMetadata
             Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
-    }
-
-    private static boolean isHiddenIdColumn(CassandraColumnHandle columnHandle)
-    {
-        return columnHandle.hidden() && ID_COLUMN_NAME.equals(columnHandle.name());
     }
 
     @Override

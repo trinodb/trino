@@ -44,6 +44,14 @@ public class CassandraClusteringPredicatesExtractor
         this.clusteringPushDownResult = getClusteringKeysSet(clusteringColumns, predicates, requireNonNull(cassandraVersion, "cassandraVersion is null"));
     }
 
+    /**
+     * IN restriction allowed only on last clustering column for Cassandra version <= 2.2.0
+     */
+    private static boolean isInExpressionNotAllowed(List<CassandraColumnHandle> clusteringColumns, Version cassandraVersion, int currentlyProcessedClusteringColumn)
+    {
+        return cassandraVersion.compareTo(Version.parse("2.2.0")) < 0 && currentlyProcessedClusteringColumn != (clusteringColumns.size() - 1);
+    }
+
     public String getClusteringKeyPredicates()
     {
         return clusteringPushDownResult.domainQuery();
@@ -124,14 +132,6 @@ public class CassandraClusteringPredicatesExtractor
         List<String> clusteringColumnPredicates = clusteringColumnSql.build();
 
         return new ClusteringPushDownResult(fullyPushedColumnPredicates.build(), Joiner.on(" AND ").join(clusteringColumnPredicates));
-    }
-
-    /**
-     * IN restriction allowed only on last clustering column for Cassandra version <= 2.2.0
-     */
-    private static boolean isInExpressionNotAllowed(List<CassandraColumnHandle> clusteringColumns, Version cassandraVersion, int currentlyProcessedClusteringColumn)
-    {
-        return cassandraVersion.compareTo(Version.parse("2.2.0")) < 0 && currentlyProcessedClusteringColumn != (clusteringColumns.size() - 1);
     }
 
     private String toCqlLiteral(CassandraColumnHandle columnHandle, Object value)

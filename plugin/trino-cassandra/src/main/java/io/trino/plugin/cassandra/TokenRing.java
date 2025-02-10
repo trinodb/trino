@@ -22,6 +22,16 @@ import static java.util.Objects.requireNonNull;
 
 public interface TokenRing
 {
+    static Optional<TokenRing> createForPartitioner(String partitioner)
+    {
+        requireNonNull(partitioner, "partitioner is null");
+        return switch (partitioner) {
+            case "org.apache.cassandra.dht.Murmur3Partitioner" -> Optional.of(Murmur3PartitionerTokenRing.INSTANCE);
+            case "org.apache.cassandra.dht.RandomPartitioner" -> Optional.of(RandomPartitionerTokenRing.INSTANCE);
+            default -> Optional.empty();
+        };
+    }
+
     /**
      * Returns ring fraction (value between 0 and 1) represented by the token range
      *
@@ -34,14 +44,4 @@ public interface TokenRing
      * Returns token count in a given range
      */
     BigInteger getTokenCountInRange(Token startToken, Token endToken);
-
-    static Optional<TokenRing> createForPartitioner(String partitioner)
-    {
-        requireNonNull(partitioner, "partitioner is null");
-        return switch (partitioner) {
-            case "org.apache.cassandra.dht.Murmur3Partitioner" -> Optional.of(Murmur3PartitionerTokenRing.INSTANCE);
-            case "org.apache.cassandra.dht.RandomPartitioner" -> Optional.of(RandomPartitionerTokenRing.INSTANCE);
-            default -> Optional.empty();
-        };
-    }
 }

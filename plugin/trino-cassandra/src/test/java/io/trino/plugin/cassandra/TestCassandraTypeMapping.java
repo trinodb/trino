@@ -99,6 +99,65 @@ public class TestCassandraTypeMapping
     private CassandraServer server;
     private CassandraSession session;
 
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        return zone.getRules().getValidOffsets(dateTime).isEmpty();
+    }
+
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
+    }
+
+    private static SqlDataTypeTest timeTypeTest(String inputType, Function<String, String> inputLiteralFactory)
+    {
+        return SqlDataTypeTest.create()
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'09:12:34'"), createTimeType(9), "TIME '09:12:34.000000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'10:12:34.000000000'"), createTimeType(9), "TIME '10:12:34.000000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'15:12:34.567000000'"), createTimeType(9), "TIME '15:12:34.567000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.000000000'"), createTimeType(9), "TIME '23:59:59.000000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999000000'"), createTimeType(9), "TIME '23:59:59.999000000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999900000'"), createTimeType(9), "TIME '23:59:59.999900000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999990000'"), createTimeType(9), "TIME '23:59:59.999990000'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999999999'"), createTimeType(9), "TIME '23:59:59.999999999'")
+                .addRoundTrip(inputType, inputLiteralFactory.apply("NULL"), createTimeType(9), "CAST(NULL AS TIME(9))");
+    }
+
+    private static Function<String, String> trinoTimeInputLiteralFactory()
+    {
+        return "CAST(%s AS TIME(9))"::formatted;
+    }
+
+    private static Function<String, String> cassandraTimeInputLiteralFactory()
+    {
+        return literal -> literal;
+    }
+
+    private static BiFunction<LocalDateTime, ZoneId, String> cassandraTimestampInputLiteralFactory()
+    {
+        return timestampInputLiteralFactory(Optional.empty());
+    }
+
+    private static BiFunction<LocalDateTime, ZoneId, String> trinoTimestampInputLiteralFactory()
+    {
+        return timestampInputLiteralFactory(Optional.of("TIMESTAMP "));
+    }
+
+    private static BiFunction<LocalDateTime, ZoneId, String> timestampInputLiteralFactory(Optional<String> inputLiteralPrefix)
+    {
+        return (inputLiteral, zone) -> format("%s'%s'", inputLiteralPrefix.orElse(""), DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(inputLiteral.atZone(zone)));
+    }
+
+    private static BiFunction<LocalDateTime, ZoneId, String> timestampExpectedLiteralFactory()
+    {
+        return (expectedLiteral, zone) -> format("AT_TIMEZONE(TIMESTAMP '%s', 'UTC')", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS VV").format(expectedLiteral.atZone(zone)));
+    }
+
     @BeforeAll
     public void setUp()
     {
@@ -119,26 +178,11 @@ public class TestCassandraTypeMapping
         checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
-    }
-
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        return zone.getRules().getValidOffsets(dateTime).isEmpty();
-    }
-
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
-    }
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new CassandraServer());
+        server = closeAfterClass(new TestingCassandraServer());
         session = server.getSession();
         return CassandraQueryRunner.builder(server)
                 .addConnectorProperties(ImmutableMap.<String, String>builder()
@@ -530,20 +574,6 @@ public class TestCassandraTypeMapping
         }
     }
 
-    private static SqlDataTypeTest timeTypeTest(String inputType, Function<String, String> inputLiteralFactory)
-    {
-        return SqlDataTypeTest.create()
-                .addRoundTrip(inputType, inputLiteralFactory.apply("'09:12:34'"), createTimeType(9), "TIME '09:12:34.000000000'")
-                .addRoundTrip(inputType, inputLiteralFactory.apply("'10:12:34.000000000'"), createTimeType(9), "TIME '10:12:34.000000000'")
-                .addRoundTrip(inputType, inputLiteralFactory.apply("'15:12:34.567000000'"), createTimeType(9), "TIME '15:12:34.567000000'")
-                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.000000000'"), createTimeType(9), "TIME '23:59:59.000000000'")
-                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999000000'"), createTimeType(9), "TIME '23:59:59.999000000'")
-                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999900000'"), createTimeType(9), "TIME '23:59:59.999900000'")
-                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999990000'"), createTimeType(9), "TIME '23:59:59.999990000'")
-                .addRoundTrip(inputType, inputLiteralFactory.apply("'23:59:59.999999999'"), createTimeType(9), "TIME '23:59:59.999999999'")
-                .addRoundTrip(inputType, inputLiteralFactory.apply("NULL"), createTimeType(9), "CAST(NULL AS TIME(9))");
-    }
-
     @Test
     public void testCassandraTimestamp()
     {
@@ -700,35 +730,5 @@ public class TestCassandraTypeMapping
     private void assertCassandraQueryFails(@Language("SQL") String sql, String expectedMessage)
     {
         assertThatThrownBy(() -> session.execute(sql)).hasMessageContaining(expectedMessage);
-    }
-
-    private static Function<String, String> trinoTimeInputLiteralFactory()
-    {
-        return "CAST(%s AS TIME(9))"::formatted;
-    }
-
-    private static Function<String, String> cassandraTimeInputLiteralFactory()
-    {
-        return literal -> literal;
-    }
-
-    private static BiFunction<LocalDateTime, ZoneId, String> cassandraTimestampInputLiteralFactory()
-    {
-        return timestampInputLiteralFactory(Optional.empty());
-    }
-
-    private static BiFunction<LocalDateTime, ZoneId, String> trinoTimestampInputLiteralFactory()
-    {
-        return timestampInputLiteralFactory(Optional.of("TIMESTAMP "));
-    }
-
-    private static BiFunction<LocalDateTime, ZoneId, String> timestampInputLiteralFactory(Optional<String> inputLiteralPrefix)
-    {
-        return (inputLiteral, zone) -> format("%s'%s'", inputLiteralPrefix.orElse(""), DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSZ").format(inputLiteral.atZone(zone)));
-    }
-
-    private static BiFunction<LocalDateTime, ZoneId, String> timestampExpectedLiteralFactory()
-    {
-        return (expectedLiteral, zone) -> format("AT_TIMEZONE(TIMESTAMP '%s', 'UTC')", DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSS VV").format(expectedLiteral.atZone(zone)));
     }
 }

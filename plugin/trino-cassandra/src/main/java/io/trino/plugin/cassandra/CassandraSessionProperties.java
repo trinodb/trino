@@ -40,13 +40,13 @@ public final class CassandraSessionProperties
                         false));
     }
 
-    public List<PropertyMetadata<?>> getSessionProperties()
-    {
-        return sessionProperties;
-    }
-
     public static Optional<Long> getSplitsPerNode(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(SPLITS_PER_NODE, Long.class));
+    }
+
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 }

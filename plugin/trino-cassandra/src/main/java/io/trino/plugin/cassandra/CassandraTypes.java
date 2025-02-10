@@ -32,8 +32,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public final class CassandraTypes
 {
-    private CassandraTypes() {}
-
     public static final CassandraType ASCII = primitiveType(Kind.ASCII, createUnboundedVarcharType());
     public static final CassandraType BIGINT = primitiveType(Kind.BIGINT, BigintType.BIGINT);
     public static final CassandraType BLOB = primitiveType(Kind.BLOB, VarbinaryType.VARBINARY);
@@ -57,4 +55,6 @@ public final class CassandraTypes
     public static final CassandraType UUID = primitiveType(Kind.UUID, UuidType.UUID);
     public static final CassandraType VARCHAR = primitiveType(Kind.VARCHAR, createUnboundedVarcharType());
     public static final CassandraType VARINT = primitiveType(Kind.VARINT, createUnboundedVarcharType());
+
+    private CassandraTypes() {}
 }

@@ -12,9 +12,9 @@ commitlog_segment_size: 1MiB
 commitlog_total_space: 1MiB
 
 seed_provider:
-    - class_name: org.apache.cassandra.locator.SimpleSeedProvider
-      parameters:
-          - seeds: "127.0.0.1:7000"
+    -   class_name: org.apache.cassandra.locator.SimpleSeedProvider
+        parameters:
+            -   seeds: "127.0.0.1:7000"
 
 concurrent_reads: 2
 concurrent_writes: 2
