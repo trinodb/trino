@@ -14,13 +14,14 @@
 package io.trino.execution.buffer;
 
 import io.airlift.compress.v3.lz4.Lz4Compressor;
+import io.airlift.compress.v3.snappy.SnappyCompressor;
 import io.airlift.compress.v3.zstd.ZstdCompressor;
 
 import java.util.OptionalInt;
 
 public enum CompressionCodec
 {
-    NONE, LZ4, ZSTD;
+    NONE, LZ4, ZSTD, SNAPPY;
 
     public OptionalInt maxCompressedLength(int inputSize)
     {
@@ -28,6 +29,7 @@ public enum CompressionCodec
             case NONE -> OptionalInt.empty();
             case LZ4 -> OptionalInt.of(Lz4Compressor.create().maxCompressedLength(inputSize));
             case ZSTD -> OptionalInt.of(ZstdCompressor.create().maxCompressedLength(inputSize));
+            case SNAPPY -> OptionalInt.of(SnappyCompressor.create().maxCompressedLength(inputSize));
         };
     }
 }

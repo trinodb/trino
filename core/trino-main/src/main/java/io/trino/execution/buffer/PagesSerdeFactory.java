@@ -17,6 +17,8 @@ import io.airlift.compress.v3.Compressor;
 import io.airlift.compress.v3.Decompressor;
 import io.airlift.compress.v3.lz4.Lz4Compressor;
 import io.airlift.compress.v3.lz4.Lz4Decompressor;
+import io.airlift.compress.v3.snappy.SnappyCompressor;
+import io.airlift.compress.v3.snappy.SnappyDecompressor;
 import io.airlift.compress.v3.zstd.ZstdCompressor;
 import io.airlift.compress.v3.zstd.ZstdDecompressor;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -29,6 +31,7 @@ import java.util.OptionalInt;
 
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.CompressionCodec.SNAPPY;
 import static io.trino.execution.buffer.CompressionCodec.ZSTD;
 import static java.util.Objects.requireNonNull;
 
@@ -39,7 +42,8 @@ public class PagesSerdeFactory
     private static final Map<CompressionCodec, OptionalInt> MAX_COMPRESSED_LENGTH = Map.of(
             NONE, NONE.maxCompressedLength(SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES),
             LZ4, LZ4.maxCompressedLength(SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES),
-            ZSTD, ZSTD.maxCompressedLength(SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES));
+            ZSTD, ZSTD.maxCompressedLength(SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES),
+            SNAPPY, SNAPPY.maxCompressedLength(SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES));
 
     private final BlockEncodingSerde blockEncodingSerde;
     private final CompressionCodec compressionCodec;
@@ -76,6 +80,7 @@ public class PagesSerdeFactory
             case NONE -> Optional.empty();
             case LZ4 -> Optional.of(Lz4Compressor.create());
             case ZSTD -> Optional.of(ZstdCompressor.create());
+            case SNAPPY -> Optional.of(SnappyCompressor.create());
         };
     }
 
@@ -85,6 +90,7 @@ public class PagesSerdeFactory
             case NONE -> Optional.empty();
             case LZ4 -> Optional.of(Lz4Decompressor.create());
             case ZSTD -> Optional.of(ZstdDecompressor.create());
+            case SNAPPY -> Optional.of(SnappyDecompressor.create());
         };
     }
 }
