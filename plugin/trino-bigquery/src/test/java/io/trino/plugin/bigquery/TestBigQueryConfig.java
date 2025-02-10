@@ -55,7 +55,7 @@ public class TestBigQueryConfig
                 .setQueryLabelFormat(null)
                 .setProxyEnabled(false)
                 .setProjectionPushdownEnabled(true)
-                .setMetadataParallelism(2));
+                .setMetadataParallelism(Runtime.getRuntime().availableProcessors()));
     }
 
     @Test
