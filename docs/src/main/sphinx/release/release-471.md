@@ -1,4 +1,4 @@
-# Release xyz (dd MMM 2025)
+# Release 471 (12 Feb 2025)
 
 ## General
 
@@ -24,6 +24,10 @@
 
 ## Delta Lake connector
 
+* Add support for reading `variant` type. ({issue}`22309`)
+* Support read `p`-type deletion vectors in Delta Lake. ({issue}`24946`)
+* Increase compatibility with S3-compatible storage solutions. ({issue}`24954`)
+
 ## Druid connector
 
 ## DuckDB connector
@@ -38,9 +42,17 @@
 
 ## Hive connector
 
+* Increase compatibility with S3-compatible storage solutions. ({issue}`24954`)
+
 ## Hudi connector
 
+* Increase compatibility with S3-compatible storage solutions. ({issue}`24954`)
+
 ## Iceberg connector
+
+* Add support for reading [S3
+  Tables](https://aws.amazon.com/s3/features/tables/). ({issue}`24815`)
+* Increase compatibility with S3-compatible storage solutions. ({issue}`24954`)
 
 ## Ignite connector
 
