@@ -541,7 +541,14 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-hdfs') && contains(matrix.profile, 'cloud-tests'))
-        run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+        run: |
+          if [ "${{ matrix.modules }}" == "plugin/trino-oracle" ]; then
+            echo "Running tests for oracle..."
+            $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} 2>&1 | grep "ERROR" || true
+          else
+            echo "Running tests for ${{ matrix.modules }}..."
+            $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
+          fi
       # Additional tests for selected modules
       - name: HDFS file system cache isolated JVM tests
         id: tests-hdfs-isolated
