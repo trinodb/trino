@@ -21,6 +21,7 @@ import com.google.inject.Singleton;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.CatalogProcedures;
+import io.trino.metadata.CatalogScalarFunctions;
 import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
 import io.trino.metadata.ColumnPropertyManager;
@@ -98,6 +99,13 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<CatalogTableProcedures> createTableProceduresProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("table procedures", connectorServicesProvider, ConnectorServices::getTableProcedures);
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<CatalogScalarFunctions> createScalarFunctionProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("scalar functions", connectorServicesProvider, ConnectorServices::getScalarFunctions);
     }
 
     @Provides
