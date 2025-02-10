@@ -307,6 +307,8 @@ public class TestHiveStorageFormats
                 .filter(format -> !"JSON".equals(format))
                 // OPENX is not supported in Hive by default
                 .filter(format -> !"OPENX_JSON".equals(format))
+                // Ion is not supported in Hive by default
+                .filter(format -> !"ION".equals(format))
                 .collect(toImmutableSet());
 
         assertThat(ImmutableSet.copyOf(storageFormats()))
