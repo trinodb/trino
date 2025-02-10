@@ -79,9 +79,9 @@ export const WorkersList = () => {
                 <Table sx={{ minWidth: 650 }} aria-label="simple table">
                     <TableHead>
                         <TableRow>
-                            <TableCell>Node Id</TableCell>
+                            <TableCell>Node ID</TableCell>
                             <TableCell align="right">Node IP</TableCell>
-                            <TableCell align="right">Node Version</TableCell>
+                            <TableCell align="right">Node version</TableCell>
                             <TableCell align="right">Coordinator</TableCell>
                             <TableCell align="right">State</TableCell>
                         </TableRow>
