@@ -1455,25 +1455,27 @@ public final class MathFunctions
     @ScalarFunction("chi_squared_cdf")
     @SqlType(StandardTypes.DOUBLE)
     public static double chiSquaredCdf(
-            @SqlType(StandardTypes.DOUBLE) double df,
+            @SqlType(StandardTypes.DOUBLE) double degreesOfFreedom,
             @SqlType(StandardTypes.DOUBLE) double value)
     {
-        checkCondition(value >= 0, INVALID_FUNCTION_ARGUMENT, "value must non-negative");
-        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
-        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        checkCondition(degreesOfFreedom > 0 && isFinite(degreesOfFreedom), INVALID_FUNCTION_ARGUMENT, "degreesOfFreedom must be greater than 0");
+        checkCondition(value >= 0 && isFinite(value), INVALID_FUNCTION_ARGUMENT, "value must be non-negative");
+
+        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, degreesOfFreedom, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
         return distribution.cumulativeProbability(value);
     }
 
-    @Description("inverse of ChiSquared cdf given df parameter and probability")
+    @Description("Inverse of ChiSquared cdf given df parameter and probability")
     @ScalarFunction("inverse_chi_squared_cdf")
     @SqlType(StandardTypes.DOUBLE)
     public static double inverseChiSquaredCdf(
-            @SqlType(StandardTypes.DOUBLE) double df,
-            @SqlType(StandardTypes.DOUBLE) double p)
+            @SqlType(StandardTypes.DOUBLE) double degreesOfFreedom,
+            @SqlType(StandardTypes.DOUBLE) double probability)
     {
-        checkCondition(p >= 0 && p <= 1, INVALID_FUNCTION_ARGUMENT, "p must be in the interval [0, 1]");
-        checkCondition(df > 0, INVALID_FUNCTION_ARGUMENT, "df must be greater than 0");
-        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, df, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
-        return distribution.inverseCumulativeProbability(p);
+        checkCondition(degreesOfFreedom > 0 && isFinite(degreesOfFreedom), INVALID_FUNCTION_ARGUMENT, "degreesOfFreedom must be greater than 0");
+        checkCondition(probability >= 0 && probability <= 1 && isFinite(probability), INVALID_FUNCTION_ARGUMENT, "probability must be in the interval [0, 1]");
+
+        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, degreesOfFreedom, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(probability);
     }
 }

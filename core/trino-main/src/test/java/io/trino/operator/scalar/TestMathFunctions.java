@@ -3649,9 +3649,22 @@ public class TestMathFunctions
                 .isEqualTo(0.7385358700508893);
 
         assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "-3", "0.3").evaluate())
-                .hasMessage("df must be greater than 0");
+                .hasMessage("degreesOfFreedom must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "DOUBLE 'NaN'", "0.3").evaluate())
+                .hasMessage("degreesOfFreedom must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "DOUBLE '+Infinity'", "0.3").evaluate())
+                .hasMessage("degreesOfFreedom must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "DOUBLE '-Infinity'", "0.3").evaluate())
+                .hasMessage("degreesOfFreedom must be greater than 0");
+
         assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "3", "-10").evaluate())
-                .hasMessage("value must non-negative");
+                .hasMessage("value must be non-negative");
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "3", "DOUBLE 'NaN'").evaluate())
+                .hasMessage("value must be non-negative");
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "3", "DOUBLE '+Infinity'").evaluate())
+                .hasMessage("value must be non-negative");
+        assertTrinoExceptionThrownBy(() -> assertions.function("chi_squared_cdf", "3", "DOUBLE '-Infinity'").evaluate())
+                .hasMessage("value must be non-negative");
     }
 
     @Test
@@ -3667,10 +3680,23 @@ public class TestMathFunctions
                 .isEqualTo(7.814727903124902);
 
         assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "-3", "0.3").evaluate())
-                .hasMessage("df must be greater than 0");
+                .hasMessage("degreesOfFreedom must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "DOUBLE 'NaN'", "0.3").evaluate())
+                .hasMessage("degreesOfFreedom must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "DOUBLE '+Infinity'", "0.3").evaluate())
+                .hasMessage("degreesOfFreedom must be greater than 0");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "DOUBLE '-Infinity'", "0.3").evaluate())
+                .hasMessage("degreesOfFreedom must be greater than 0");
+
         assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "-0.1").evaluate())
-                .hasMessage("p must be in the interval [0, 1]");
+                .hasMessage("probability must be in the interval [0, 1]");
         assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "1.1").evaluate())
-                .hasMessage("p must be in the interval [0, 1]");
+                .hasMessage("probability must be in the interval [0, 1]");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "DOUBLE 'NaN'").evaluate())
+                .hasMessage("probability must be in the interval [0, 1]");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "DOUBLE '+Infinity'").evaluate())
+                .hasMessage("probability must be in the interval [0, 1]");
+        assertTrinoExceptionThrownBy(() -> assertions.function("inverse_chi_squared_cdf", "3", "DOUBLE '-Infinity'").evaluate())
+                .hasMessage("probability must be in the interval [0, 1]");
     }
 }
