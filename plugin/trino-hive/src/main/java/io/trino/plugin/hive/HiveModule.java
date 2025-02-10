@@ -169,4 +169,12 @@ public class HiveModule
     {
         return hiveConfig.isTranslateHiveViews();
     }
+
+    @Provides
+    @Singleton
+    @HideDeltaLakeTables
+    public boolean hideDeltaLakeTables(HiveMetastoreConfig config)
+    {
+        return config.isHideDeltaLakeTables();
+    }
 }

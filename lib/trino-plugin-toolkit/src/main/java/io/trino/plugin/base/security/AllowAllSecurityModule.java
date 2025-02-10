@@ -11,21 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.deltalake;
+package io.trino.plugin.base.security;
 
-import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.security.AccessControlMetadata;
+import com.google.inject.Binder;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
+import io.trino.spi.connector.ConnectorAccessControl;
 
-public interface DeltaLakeAccessControlMetadataFactory
+public class AllowAllSecurityModule
+        implements Module
 {
-    DeltaLakeAccessControlMetadataFactory SYSTEM = metastore -> new AccessControlMetadata() {
-        @Override
-        public boolean isUsingSystemSecurity()
-        {
-            return true;
-        }
-    };
-    DeltaLakeAccessControlMetadataFactory DEFAULT = metastore -> new AccessControlMetadata() {};
-
-    AccessControlMetadata create(HiveMetastore metastore);
+    @Override
+    public void configure(Binder binder)
+    {
+        binder.bind(ConnectorAccessControl.class).to(AllowAllAccessControl.class).in(Scopes.SINGLETON);
+    }
 }

@@ -222,7 +222,6 @@ public class TestDeltaLakeSplitManager
                 hdfsFileSystemFactory,
                 transactionLogAccess,
                 typeManager,
-                DeltaLakeAccessControlMetadataFactory.DEFAULT,
                 new DeltaLakeConfig(),
                 JsonCodec.jsonCodec(DataFileInfo.class),
                 JsonCodec.jsonCodec(DeltaLakeMergeResult.class),
@@ -232,6 +231,7 @@ public class TestDeltaLakeSplitManager
                 checkpointWriterManager,
                 new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class))),
                 true,
+                false,
                 new NodeVersion("test_version"),
                 new DeltaLakeTableMetadataScheduler(new TestingNodeManager(), TESTING_TYPE_MANAGER, new DeltaLakeFileMetastoreTableOperationsProvider(hiveMetastoreFactory), Integer.MAX_VALUE, new DeltaLakeConfig()),
                 newDirectExecutorService());

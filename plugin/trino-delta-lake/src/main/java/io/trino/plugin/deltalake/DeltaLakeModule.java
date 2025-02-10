@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
@@ -48,6 +47,7 @@ import io.trino.plugin.deltalake.transactionlog.writer.NoIsolationSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizerManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
+import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
@@ -72,7 +72,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static io.trino.plugin.deltalake.DeltaLakeAccessControlMetadataFactory.SYSTEM;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -85,12 +84,13 @@ public class DeltaLakeModule
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
 
         configBinder(binder).bindConfig(DeltaLakeConfig.class);
-        binder.bind(Key.get(boolean.class, TranslateHiveViews.class)).toInstance(false);
         configBinder(binder).bindConfig(ParquetReaderConfig.class);
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
 
+        binder.bind(boolean.class).annotatedWith(TranslateHiveViews.class).toInstance(false);
+        binder.bind(boolean.class).annotatedWith(HideDeltaLakeTables.class).toInstance(false);
+
         install(new ConnectorAccessControlModule());
-        newOptionalBinder(binder, DeltaLakeAccessControlMetadataFactory.class).setDefault().toInstance(SYSTEM);
 
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);

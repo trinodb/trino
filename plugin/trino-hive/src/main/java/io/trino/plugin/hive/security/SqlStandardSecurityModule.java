@@ -18,8 +18,6 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.trino.spi.connector.ConnectorAccessControl;
 
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-
 public class SqlStandardSecurityModule
         implements Module
 {
@@ -28,7 +26,7 @@ public class SqlStandardSecurityModule
     {
         binder.bind(ConnectorAccessControl.class).to(SqlStandardAccessControl.class).in(Scopes.SINGLETON);
         binder.bind(AccessControlMetadataFactory.class).to(SqlStandardAccessControlMetadataFactory.class);
-        newOptionalBinder(binder, SqlStandardAccessControlMetastore.class).setDefault().to(SemiTransactionalSqlStandardAccessControlMetastore.class).in(Scopes.SINGLETON);
+        binder.bind(SqlStandardAccessControlMetastore.class).in(Scopes.SINGLETON);
     }
 
     private static final class SqlStandardAccessControlMetadataFactory

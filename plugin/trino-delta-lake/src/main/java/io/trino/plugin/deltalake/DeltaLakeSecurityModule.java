@@ -16,14 +16,12 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.security.AllowAllSecurityModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
-import io.trino.plugin.hive.security.AllowAllSecurityModule;
+import io.trino.plugin.hive.security.UsingSystemSecurity;
 
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
-import static io.trino.plugin.deltalake.DeltaLakeAccessControlMetadataFactory.DEFAULT;
 
 public class DeltaLakeSecurityModule
         extends AbstractConfigurationAwareModule
@@ -41,21 +39,16 @@ public class DeltaLakeSecurityModule
     protected void setup(Binder binder)
     {
         install(switch (buildConfigObject(DeltaLakeSecurityConfig.class).getSecuritySystem()) {
-            case ALLOW_ALL -> combine(new AllowAllSecurityModule(), new StaticAccessControlMetadataModule());
-            case READ_ONLY -> combine(new ReadOnlySecurityModule(), new StaticAccessControlMetadataModule());
-            case FILE -> combine(new FileBasedAccessControlModule(), new StaticAccessControlMetadataModule());
+            case ALLOW_ALL -> combine(new AllowAllSecurityModule(), usingSystemSecurity(false));
+            case READ_ONLY -> combine(new ReadOnlySecurityModule(), usingSystemSecurity(false));
+            case FILE -> combine(new FileBasedAccessControlModule(), usingSystemSecurity(false));
             // do not bind a ConnectorAccessControl so the engine will use system security with system roles
-            case SYSTEM -> EMPTY_MODULE;
+            case SYSTEM -> usingSystemSecurity(true);
         });
     }
 
-    private static class StaticAccessControlMetadataModule
-            implements Module
+    private static Module usingSystemSecurity(boolean system)
     {
-        @Override
-        public void configure(Binder binder)
-        {
-            newOptionalBinder(binder, DeltaLakeAccessControlMetadataFactory.class).setBinding().toInstance(DEFAULT);
-        }
+        return binder -> binder.bind(boolean.class).annotatedWith(UsingSystemSecurity.class).toInstance(system);
     }
 }
