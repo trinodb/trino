@@ -4171,6 +4171,7 @@ public abstract class BaseHiveConnectorTest
                             .setSystemProperty("scale_writers", "true")
                             .setSystemProperty("task_scale_writers_enabled", "false")
                             .setSystemProperty("writer_scaling_min_data_processed", "1MB")
+                            .setSystemProperty("exchange_compression_codec", "NONE")
                             .build(),
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
