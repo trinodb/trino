@@ -53,9 +53,9 @@ public class MergeOperator
         private final PlanNodeId sourceId;
         private final DirectExchangeClientSupplier directExchangeClientSupplier;
         private final PagesSerdeFactory serdeFactory;
-        private final List<Type> types;
         private final List<Integer> outputChannels;
         private final List<Type> outputTypes;
+        private final List<Type> sortTypes;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrder;
         private final OrderingCompiler orderingCompiler;
@@ -76,9 +76,10 @@ public class MergeOperator
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
             this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
             this.serdeFactory = requireNonNull(serdeFactory, "serdeFactory is null");
-            this.types = requireNonNull(types, "types is null");
             this.outputChannels = requireNonNull(outputChannels, "outputChannels is null");
+            requireNonNull(types, "types is null");
             this.outputTypes = mappedCopy(outputChannels, types::get);
+            this.sortTypes = mappedCopy(sortChannels, types::get);
             this.sortChannels = requireNonNull(sortChannels, "sortChannels is null");
             this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
@@ -95,13 +96,12 @@ public class MergeOperator
         {
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, sourceId, MergeOperator.class.getSimpleName());
-
             return new MergeOperator(
                     operatorContext,
                     sourceId,
                     directExchangeClientSupplier,
                     serdeFactory.createDeserializer(driverContext.getSession().getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey)),
-                    orderingCompiler.compilePageWithPositionComparator(types, sortChannels, sortOrder),
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
                     outputChannels,
                     outputTypes);
         }
