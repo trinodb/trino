@@ -109,12 +109,12 @@ public class HttpThriftMetastoreClientFactory
                     .register("https", socketFactory)
                     .build();
             httpClientBuilder.setConnectionManager(new BasicHttpClientConnectionManager(registry));
-            httpClientBuilder.addRequestInterceptorFirst((httpRequest, entityDetails, httpContext) -> httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.get()));
+            httpClientBuilder.addRequestInterceptorFirst((httpRequest, _, _) -> httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.get()));
         }
         else {
             checkArgument(token.isEmpty(), "'hive.metastore.http.client.bearer-token' must not be set while using http metastore URIs in 'hive.metastore.uri'");
         }
-        httpClientBuilder.addRequestInterceptorFirst((httpRequest, entityDetails, httpContext) -> additionalHeaders.forEach(httpRequest::addHeader));
+        httpClientBuilder.addRequestInterceptorFirst((httpRequest, _, _) -> additionalHeaders.forEach(httpRequest::addHeader));
         httpClientBuilder.setDefaultRequestConfig(RequestConfig.custom().setResponseTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS).build());
         return new THttpClient(uri.toString(), httpClientBuilder.build());
     }
