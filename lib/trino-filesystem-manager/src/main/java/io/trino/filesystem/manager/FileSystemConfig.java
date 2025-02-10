@@ -22,7 +22,7 @@ public class FileSystemConfig
     private boolean nativeAzureEnabled;
     private boolean nativeS3Enabled;
     private boolean nativeGcsEnabled;
-    private boolean cacheEnabled;
+    private FileSystemCacheType cacheType = FileSystemCacheType.NO_CACHE;
 
     public boolean isHadoopEnabled()
     {
@@ -84,15 +84,22 @@ public class FileSystemConfig
         return this;
     }
 
-    public boolean isCacheEnabled()
+    public FileSystemCacheType getFileSystemCacheType()
     {
-        return cacheEnabled;
+        return cacheType;
     }
 
-    @Config("fs.cache.enabled")
-    public FileSystemConfig setCacheEnabled(boolean enabled)
+    @Config("fs.cache.type")
+    public FileSystemConfig setFileSystemCacheType(FileSystemCacheType cacheType)
     {
-        this.cacheEnabled = enabled;
+        this.cacheType = cacheType;
         return this;
+    }
+
+    public enum FileSystemCacheType
+    {
+        LOCAL_CACHE,
+        REMOTE_CACHE,
+        NO_CACHE
     }
 }

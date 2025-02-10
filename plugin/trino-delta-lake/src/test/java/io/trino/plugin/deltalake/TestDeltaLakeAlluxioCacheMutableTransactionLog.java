@@ -47,7 +47,7 @@ public class TestDeltaLakeAlluxioCacheMutableTransactionLog
         return DeltaLakeQueryRunner.builder()
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
-                        .put("fs.cache.enabled", "true")
+                        .put("fs.cache.type", "LOCAL_CACHE")
                         .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                         .put("fs.cache.max-sizes", "100MB")
                         .put("delta.enable-non-concurrent-writes", "true")
