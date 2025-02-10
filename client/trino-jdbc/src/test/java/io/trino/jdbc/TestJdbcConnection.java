@@ -314,7 +314,7 @@ public class TestJdbcConnection
         try (Connection connection = createConnection()) {
             assertThat(listSession(connection))
                     .contains("join_distribution_type|AUTOMATIC|AUTOMATIC")
-                    .contains("exchange_compression_codec|NONE|NONE");
+                    .contains("exchange_compression_codec|LZ4|LZ4");
 
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SET SESSION join_distribution_type = 'BROADCAST'");
@@ -322,15 +322,15 @@ public class TestJdbcConnection
 
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                    .contains("exchange_compression_codec|NONE|NONE");
+                    .contains("exchange_compression_codec|LZ4|LZ4");
 
             try (Statement statement = connection.createStatement()) {
-                statement.execute("SET SESSION exchange_compression_codec = 'LZ4'");
+                statement.execute("SET SESSION exchange_compression_codec = 'ZSTD'");
             }
 
             assertThat(listSession(connection))
                     .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                    .contains("exchange_compression_codec|LZ4|NONE");
+                    .contains("exchange_compression_codec|ZSTD|LZ4");
 
             try (Statement statement = connection.createStatement()) {
                 // setting Hive session properties requires the admin role
@@ -346,7 +346,7 @@ public class TestJdbcConnection
 
                     assertThat(listSession(connection))
                             .contains("join_distribution_type|BROADCAST|AUTOMATIC")
-                            .contains("exchange_compression_codec|LZ4|NONE")
+                            .contains("exchange_compression_codec|ZSTD|LZ4")
                             .contains(format("spatial_partitioning_table_name|%s|", value));
                 }
                 catch (Exception e) {
