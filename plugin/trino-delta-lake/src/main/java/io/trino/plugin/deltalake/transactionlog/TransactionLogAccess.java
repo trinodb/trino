@@ -60,6 +60,7 @@ import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -76,6 +77,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -304,24 +306,22 @@ public class TransactionLogAccess
     {
         if (tableSnapshot.getCachedMetadata().isEmpty()) {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            try (Stream<MetadataEntry> metadataEntries = getEntries(
+            Optional<MetadataEntry> latestEntry = getLatestEntry(
                     session,
                     tableSnapshot,
                     ImmutableSet.of(METADATA),
-                    (checkpointStream, jsonTransactions) ->
-                            Stream.concat(
-                                    checkpointStream
-                                            .map(DeltaLakeTransactionLogEntry::getMetaData)
-                                            .filter(Objects::nonNull),
-                                    jsonTransactions.stream()
-                                            .map(transaction -> transaction.transactionEntries().getMetadataAndProtocol(fileSystem))
-                                            .filter(entry -> entry.metadata().isPresent())
-                                            .map(entry -> entry.metadata().get())),
+                    jsonTransactions -> jsonTransactions.reversed().stream()
+                            .map(transaction -> transaction.transactionEntries().getMetadataAndProtocol(fileSystem))
+                            .filter(entry -> entry.metadata().isPresent())
+                            .map(entry -> entry.metadata().get())
+                            .findFirst(),
+                    (checkpointStream, transactionResult) -> transactionResult.or(() -> checkpointStream
+                            .map(DeltaLakeTransactionLogEntry::getMetaData)
+                            .filter(Objects::nonNull)
+                            .reduce((_, second) -> second)),
                     fileSystem,
-                    fileFormatDataSourceStats)) {
-                // Get last entry in the stream
-                tableSnapshot.setCachedMetadata(metadataEntries.reduce((first, second) -> second));
-            }
+                    fileFormatDataSourceStats);
+            tableSnapshot.setCachedMetadata(latestEntry);
         }
         return tableSnapshot.getCachedMetadata()
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
@@ -488,90 +488,98 @@ public class TransactionLogAccess
     {
         if (tableSnapshot.getCachedMetadata().isEmpty() || tableSnapshot.getCachedProtocol().isEmpty()) {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            try (Stream<MetadataAndProtocolEntries> entries = getEntries(
+            Optional<MetadataAndProtocolEntries> latestEntry = getLatestEntry(
                     session,
                     tableSnapshot,
                     ImmutableSet.of(METADATA, PROTOCOL),
-                    (checkpointStream, jsonTransactions) ->
-                            Stream.concat(
-                                    checkpointStream
-                                            .filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
-                                            .map(entry -> new MetadataAndProtocolEntries(entry.getMetaData(), entry.getProtocol())),
-                                    jsonTransactions.stream()
-                                            .map(transaction -> transaction.transactionEntries().getMetadataAndProtocol(fileSystem))),
+                    jsonTransactions -> {
+                        Optional<MetadataEntry> metadataEntry = Optional.empty();
+                        Optional<ProtocolEntry> protocolEntry = Optional.empty();
+                        for (Transaction transaction : jsonTransactions.reversed()) {
+                            MetadataAndProtocolEntries metadataAndProtocol = transaction.transactionEntries().getMetadataAndProtocol(fileSystem);
+                            if (metadataEntry.isEmpty() && metadataAndProtocol.metadata().isPresent()) {
+                                metadataEntry = metadataAndProtocol.metadata();
+                            }
+                            if (protocolEntry.isEmpty() && metadataAndProtocol.protocol().isPresent()) {
+                                protocolEntry = metadataAndProtocol.protocol();
+                            }
+                            if (metadataEntry.isPresent() && protocolEntry.isPresent()) {
+                                return Optional.of(new MetadataAndProtocolEntries(metadataEntry, protocolEntry));
+                            }
+                        }
+                        return Optional.of(new MetadataAndProtocolEntries(metadataEntry, protocolEntry));
+                    },
+                    (checkpointStream, transactionResult) -> {
+                        checkArgument(transactionResult.isPresent());
+                        MetadataAndProtocolEntries entries = transactionResult.get();
+                        if (entries.metadata().isPresent() && entries.protocol().isPresent()) {
+                            return transactionResult;
+                        }
+
+                        MetadataEntry metadataEntry = null;
+                        ProtocolEntry protocolEntry = null;
+                        for (Iterator<DeltaLakeTransactionLogEntry> it = checkpointStream.iterator(); it.hasNext(); ) {
+                            DeltaLakeTransactionLogEntry transactionLogEntry = it.next();
+                            if (entries.metadata().isEmpty() && transactionLogEntry.getMetaData() != null) {
+                                metadataEntry = transactionLogEntry.getMetaData();
+                            }
+                            if (entries.protocol().isEmpty() && transactionLogEntry.getProtocol() != null) {
+                                protocolEntry = transactionLogEntry.getProtocol();
+                            }
+                        }
+                        return Optional.of(new MetadataAndProtocolEntries(entries.metadata().orElse(metadataEntry), entries.protocol().orElse(protocolEntry)));
+                    },
                     fileSystem,
-                    fileFormatDataSourceStats)) {
-                Map<Class<?>, Object> logEntries = entries
-                        .flatMap(MetadataAndProtocolEntries::stream)
-                        .collect(toImmutableMap(Object::getClass, Function.identity(), (_, second) -> second));
-                tableSnapshot.setCachedMetadata(Optional.ofNullable((MetadataEntry) logEntries.get(MetadataEntry.class)));
-                tableSnapshot.setCachedProtocol(Optional.ofNullable((ProtocolEntry) logEntries.get(ProtocolEntry.class)));
-            }
+                    fileFormatDataSourceStats);
+            tableSnapshot.setCachedMetadata(latestEntry.flatMap(MetadataAndProtocolEntries::metadata));
+            tableSnapshot.setCachedProtocol(latestEntry.flatMap(MetadataAndProtocolEntries::protocol));
         }
         return new MetadataAndProtocolEntries(tableSnapshot.getCachedMetadata(), tableSnapshot.getCachedProtocol());
     }
 
     public ProtocolEntry getProtocolEntry(ConnectorSession session, TableSnapshot tableSnapshot)
     {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         if (tableSnapshot.getCachedProtocol().isEmpty()) {
-            try (Stream<ProtocolEntry> protocolEntries = getProtocolEntries(session, tableSnapshot)) {
-                // Get last entry in the stream
-                tableSnapshot.setCachedProtocol(protocolEntries.reduce((first, second) -> second));
-            }
+            Optional<ProtocolEntry> latestEntry = getLatestEntry(
+                    session,
+                    tableSnapshot,
+                    ImmutableSet.of(PROTOCOL),
+                    jsonTransactions -> jsonTransactions.reversed().stream()
+                            .map(transaction -> transaction.transactionEntries().getMetadataAndProtocol(fileSystem))
+                            .filter(entry -> entry.protocol().isPresent())
+                            .map(entry -> entry.protocol().get())
+                            .findFirst(),
+                    (checkpointStream, transactionResult) -> transactionResult.or(() -> checkpointStream
+                            .map(DeltaLakeTransactionLogEntry::getProtocol)
+                            .filter(Objects::nonNull)
+                            .reduce((_, second) -> second)),
+                    fileSystem,
+                    fileFormatDataSourceStats);
+
+            tableSnapshot.setCachedProtocol(latestEntry);
         }
         return tableSnapshot.getCachedProtocol()
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
     }
 
-    public Stream<ProtocolEntry> getProtocolEntries(ConnectorSession session, TableSnapshot tableSnapshot)
-    {
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        return getEntries(
-                session,
-                tableSnapshot,
-                ImmutableSet.of(PROTOCOL),
-                (checkpointStream, jsonTransactions) ->
-                        Stream.concat(
-                                checkpointStream
-                                        .map(DeltaLakeTransactionLogEntry::getProtocol)
-                                        .filter(Objects::nonNull),
-                                jsonTransactions.stream()
-                                        .map(transaction -> transaction.transactionEntries().getMetadataAndProtocol(fileSystem))
-                                        .filter(entry -> entry.protocol().isPresent())
-                                        .map(entry -> entry.protocol().get())),
-                fileSystem,
-                fileFormatDataSourceStats);
-    }
-
-    /**
-     * Produces a stream of actions from the transaction log, combining the Parquet checkpoint and the JSON transactions.
-     * While {@link DeltaLakeTransactionLogEntry} has fields for multiple actions, only one can be populated in any instance.
-     * We take advantage of that by only reading one column from the Parquet checkpoint.
-     *
-     * @param session the current session
-     * @param entryTypes A set of transaction log entry types to retrieve
-     * @param entryMapper extracts and filters out the required elements from the TransactionLogEntries. Receives the actions from the checkpoint file, and the actions
-     * from the JSON commits in chronological order
-     * @param <T> the type of the action
-     * @return an object that encapsulates a stream of actions
-     */
-    private <T> Stream<T> getEntries(
+    private <T> Optional<T> getLatestEntry(
             ConnectorSession session,
             TableSnapshot tableSnapshot,
             Set<CheckpointEntryIterator.EntryType> entryTypes,
-            BiFunction<Stream<DeltaLakeTransactionLogEntry>, List<Transaction>, Stream<T>> entryMapper,
+            Function<List<Transaction>, Optional<T>> transactionMapper,
+            BiFunction<Stream<DeltaLakeTransactionLogEntry>, Optional<T>, Optional<T>> checkpointMapper,
             TrinoFileSystem fileSystem,
             FileFormatDataSourceStats stats)
     {
         try {
             List<Transaction> transactions = tableSnapshot.getTransactions();
-            // Passing TupleDomain.all() because this method is used for getting all entries
-            Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
-                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats, Optional.empty(), TupleDomain.all(), Optional.of(alwaysTrue()));
 
-            return entryMapper.apply(
-                    checkpointEntries,
-                    transactions);
+            // Passing TupleDomain.all() because this method is used for getting all entries
+            try (Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
+                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats, Optional.empty(), TupleDomain.all(), Optional.of(alwaysTrue()))) {
+                return checkpointMapper.apply(checkpointEntries, transactionMapper.apply(transactions));
+            }
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error reading transaction log for " + tableSnapshot.getTable(), e);
