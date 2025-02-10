@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.CatalogScalarFunctions;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
@@ -26,6 +27,7 @@ import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.ScalarFunctionRegistry;
 import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.TestMetadataManager;
 import io.trino.metadata.TypeRegistry;
@@ -146,7 +148,8 @@ public final class TestingPlannerContext
                 metadata = builder.build();
             }
 
-            FunctionManager functionManager = new FunctionManager(CatalogServiceProvider.fail(), globalFunctionCatalog, LanguageFunctionProvider.DISABLED);
+            ScalarFunctionRegistry scalarFunctionRegistry = new ScalarFunctionRegistry(_ -> new CatalogScalarFunctions(List.of()));
+            FunctionManager functionManager = new FunctionManager(CatalogServiceProvider.fail(), scalarFunctionRegistry, globalFunctionCatalog, LanguageFunctionProvider.DISABLED);
             globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
                     new JsonExistsFunction(functionManager, metadata, typeManager),
                     new JsonValueFunction(functionManager, metadata, typeManager),

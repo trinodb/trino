@@ -97,6 +97,7 @@ import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.ScalarFunctionRegistry;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.Split;
@@ -234,6 +235,7 @@ import static io.trino.connector.CatalogServiceProviderModule.createMaterialized
 import static io.trino.connector.CatalogServiceProviderModule.createNodePartitioningProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSinkProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createPageSourceProviderFactory;
+import static io.trino.connector.CatalogServiceProviderModule.createScalarFunctionProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createSchemaPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createSplitManagerProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createTableFunctionProvider;
@@ -364,6 +366,7 @@ public class PlanTester
                 groupProvider,
                 blockEncodingSerde,
                 new LanguageFunctionEngineManager());
+        ScalarFunctionRegistry scalarFunctionRegistry = new ScalarFunctionRegistry(createScalarFunctionProvider(catalogManager));
         TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         Metadata metadata = new MetadataManager(
                 new AllowAllAccessControl(),
@@ -371,6 +374,7 @@ public class PlanTester
                 transactionManager,
                 globalFunctionCatalog,
                 languageFunctionManager,
+                scalarFunctionRegistry,
                 tableFunctionRegistry,
                 typeManager,
                 new NotImplementedQueryManager());
@@ -406,7 +410,7 @@ public class PlanTester
         this.sessionPropertyManager = createSessionPropertyManager(catalogManager, taskManagerConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
-        FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
+        FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), scalarFunctionRegistry, globalFunctionCatalog, languageFunctionManager);
         this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
         this.columnPropertyManager = createColumnPropertyManager(catalogManager);
         this.tablePropertyManager = createTablePropertyManager(catalogManager);

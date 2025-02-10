@@ -125,6 +125,16 @@ public interface Connector
     }
 
     /**
+     * @return the set of functions provided by this connector
+     */
+    // TODO: Support window functions, aggregate functions, and scalar operators
+    @Experimental(eta = "2025-07-31")
+    default Set<Class<?>> getFunctions()
+    {
+        return Set.of();
+    }
+
+    /**
      * @return the set of procedures provided by this connector
      */
     @Experimental(eta = "2022-10-31")
