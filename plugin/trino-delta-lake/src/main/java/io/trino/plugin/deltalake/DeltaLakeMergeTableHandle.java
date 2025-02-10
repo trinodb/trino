@@ -19,13 +19,15 @@ import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public record DeltaLakeMergeTableHandle(
         DeltaLakeTableHandle tableHandle,
         DeltaLakeInsertTableHandle insertTableHandle,
-        Map<String, DeletionVectorEntry> deletionVectors)
+        Map<String, DeletionVectorEntry> deletionVectors,
+        Optional<String> shallowCloneSourceTableLocation)
         implements ConnectorMergeTableHandle
 {
     public DeltaLakeMergeTableHandle
@@ -33,6 +35,7 @@ public record DeltaLakeMergeTableHandle(
         requireNonNull(tableHandle, "tableHandle is null");
         requireNonNull(insertTableHandle, "insertTableHandle is null");
         deletionVectors = ImmutableMap.copyOf(requireNonNull(deletionVectors, "deletionVectors is null"));
+        requireNonNull(shallowCloneSourceTableLocation, "shallowCloneSourceTableLocation is null");
     }
 
     @Override
