@@ -92,7 +92,6 @@ import static java.util.stream.Collectors.joining;
 public class BigQueryClient
 {
     private static final Logger log = Logger.get(BigQueryClient.class);
-    private static final int PAGE_SIZE = 100;
 
     // BigQuery has different table_type in `INFORMATION_SCHEMA` than API responses that returns TableDefinition.Type
     // see https://cloud.google.com/bigquery/docs/information-schema-tables#schema
@@ -110,6 +109,7 @@ public class BigQueryClient
     private final ViewMaterializationCache materializationCache;
     private final boolean caseInsensitiveNameMatching;
     private final LoadingCache<String, List<DatasetId>> remoteDatasetIdCache;
+    private final int metadataPageSize;
     private final Cache<DatasetId, RemoteDatabaseObject> remoteDatasetCaseInsensitiveCache;
     private final Cache<TableId, RemoteDatabaseObject> remoteTableCaseInsensitiveCache;
     private final Optional<String> configProjectId;
@@ -122,6 +122,7 @@ public class BigQueryClient
             Duration caseInsensitiveNameMatchingCacheTtl,
             ViewMaterializationCache materializationCache,
             Duration metadataCacheTtl,
+            int metadataPageSize,
             Optional<String> configProjectId)
     {
         this.bigQuery = requireNonNull(bigQuery, "bigQuery is null");
@@ -133,6 +134,7 @@ public class BigQueryClient
                 .expireAfterWrite(metadataCacheTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
                 .build(CacheLoader.from(this::listDatasetIdsFromBigQuery));
+        this.metadataPageSize = metadataPageSize;
         this.remoteDatasetCaseInsensitiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
         this.remoteTableCaseInsensitiveCache = buildCache(caseInsensitiveNameMatchingCacheTtl);
         this.configProjectId = requireNonNull(configProjectId, "projectId is null");
@@ -323,7 +325,7 @@ public class BigQueryClient
     private List<DatasetId> listDatasetIdsFromBigQuery(String projectId)
     {
         // BigQuery.listDatasets returns partial information on each dataset. See javadoc for more details.
-        return stream(bigQuery.listDatasets(projectId, BigQuery.DatasetListOption.pageSize(PAGE_SIZE)).iterateAll())
+        return stream(bigQuery.listDatasets(projectId, BigQuery.DatasetListOption.pageSize(metadataPageSize)).iterateAll())
                 .map(Dataset::getDatasetId)
                 .collect(toImmutableList());
     }
@@ -333,7 +335,7 @@ public class BigQueryClient
         // BigQuery.listTables returns partial information on each table. See javadoc for more details.
         Iterable<Table> allTables;
         try {
-            allTables = bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(PAGE_SIZE)).iterateAll();
+            allTables = bigQuery.listTables(remoteDatasetId, BigQuery.TableListOption.pageSize(metadataPageSize)).iterateAll();
         }
         catch (BigQueryException e) {
             throw new TrinoException(BIGQUERY_LISTING_TABLE_ERROR, "Failed to retrieve tables from BigQuery", e);
