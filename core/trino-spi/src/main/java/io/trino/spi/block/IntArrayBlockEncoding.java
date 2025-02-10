@@ -15,6 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.trino.spi.block.vstream.IntStreamVByte;
 
 import static io.trino.spi.block.EncoderUtil.decodeNullBits;
 import static io.trino.spi.block.EncoderUtil.encodeNullsAsBits;
@@ -42,7 +43,7 @@ public class IntArrayBlockEncoding
         encodeNullsAsBits(sliceOutput, intArrayBlock);
 
         if (!intArrayBlock.mayHaveNull()) {
-            sliceOutput.writeInts(intArrayBlock.getRawValues(), intArrayBlock.getRawValuesOffset(), intArrayBlock.getPositionCount());
+            IntStreamVByte.writeInts(sliceOutput, intArrayBlock.getRawValues(), intArrayBlock.getRawValuesOffset(), intArrayBlock.getPositionCount());
         }
         else {
             int[] valuesWithoutNull = new int[positionCount];
@@ -55,7 +56,7 @@ public class IntArrayBlockEncoding
             }
 
             sliceOutput.writeInt(nonNullPositionCount);
-            sliceOutput.writeInts(valuesWithoutNull, 0, nonNullPositionCount);
+            IntStreamVByte.writeInts(sliceOutput, valuesWithoutNull, 0, nonNullPositionCount);
         }
     }
 
@@ -68,13 +69,14 @@ public class IntArrayBlockEncoding
         int[] values = new int[positionCount];
 
         if (valueIsNullPacked == null) {
-            sliceInput.readInts(values);
+            IntStreamVByte.readInts(sliceInput, values);
             return new IntArrayBlock(0, positionCount, null, values);
         }
         boolean[] valueIsNull = decodeNullBits(valueIsNullPacked, positionCount);
 
         int nonNullPositionCount = sliceInput.readInt();
-        sliceInput.readInts(values, 0, nonNullPositionCount);
+        IntStreamVByte.readInts(sliceInput, values, 0, nonNullPositionCount);
+
         int position = nonNullPositionCount - 1;
 
         // Handle Last (positionCount % 8) values

@@ -531,7 +531,7 @@ public class PageSerializer
         @Override
         public Slice getUnderlyingSlice()
         {
-            throw new UnsupportedOperationException();
+            return buffers[0].getSlice();
         }
 
         @Override
@@ -549,7 +549,7 @@ public class PageSerializer
         @Override
         public int size()
         {
-            throw new UnsupportedOperationException();
+            return buffers[0].getPosition();
         }
 
         @Override

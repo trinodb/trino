@@ -280,6 +280,15 @@
                                     <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
                                     <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long[] io.trino.spi.block.LongArrayBlock::getRawValues()</old>
+                                    <new>method long[] io.trino.spi.block.LongArrayBlock::getRawValues()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>Just a test</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
