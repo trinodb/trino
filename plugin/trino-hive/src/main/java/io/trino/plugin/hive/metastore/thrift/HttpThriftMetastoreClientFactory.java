@@ -17,7 +17,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.instrumentation.apachehttpclient.v5_2.ApacheHttpClient5Telemetry;
+import io.opentelemetry.instrumentation.apachehttpclient.v5_2.ApacheHttpClientTelemetry;
 import io.trino.spi.NodeManager;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
@@ -94,7 +94,7 @@ public class HttpThriftMetastoreClientFactory
     private TTransport createHttpTransport(URI uri)
             throws TTransportException
     {
-        HttpClientBuilder httpClientBuilder = ApacheHttpClient5Telemetry.builder(openTelemetry).build().newHttpClientBuilder();
+        HttpClientBuilder httpClientBuilder = ApacheHttpClientTelemetry.builder(openTelemetry).build().newHttpClientBuilder();
         if ("https".equals(uri.getScheme().toLowerCase(ENGLISH))) {
             checkArgument(token.isPresent(), "'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
             checkArgument(authenticationMode.isPresent(), "'hive.metastore.http.client.authentication.type' must be set while using http/https metastore URIs in 'hive.metastore.uri'");
