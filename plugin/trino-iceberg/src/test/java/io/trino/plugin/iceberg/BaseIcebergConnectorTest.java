@@ -1701,6 +1701,49 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testRollbackTimestamp()
+    {
+        testRollbackTimestamp("ALTER TABLE tpch.test_rollback_timestamp EXECUTE rollback_to_timestamp(TIMESTAMP '%s')");
+        testRollbackTimestamp("ALTER TABLE tpch.test_rollback_timestamp EXECUTE rollback_to_timestamp(snapshot_timestamp => TIMESTAMP '%s')");
+    }
+
+    private void testRollbackTimestamp(String rollbackToTimestampForamt)
+    {
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+
+        assertUpdate("CREATE TABLE test_rollback_timestamp (col0 INTEGER, col1 BIGINT)");
+        String afterCreateTableTimestamp = getCurrentCommitTimestamp("test_rollback_timestamp").format(timeFormatter);
+
+        assertUpdate("INSERT INTO test_rollback_timestamp (col0, col1) VALUES (123, CAST(987 AS BIGINT))", 1);
+        String afterFirstInsertTimestamp = getCurrentCommitTimestamp("test_rollback_timestamp").format(timeFormatter);
+        assertQuery("SELECT * FROM test_rollback_timestamp ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
+
+        // Check that rollback_to_timestamp can be executed also when it does not do any changes
+        assertUpdate(format(rollbackToTimestampForamt, afterFirstInsertTimestamp));
+        assertQuery("SELECT * FROM test_rollback_timestamp ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
+
+        assertUpdate("INSERT INTO test_rollback_timestamp (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
+        assertQuery("SELECT * FROM test_rollback_timestamp ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
+
+        assertUpdate(format(rollbackToTimestampForamt, afterFirstInsertTimestamp));
+        assertQuery("SELECT * FROM test_rollback_timestamp ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
+
+        assertUpdate(format(rollbackToTimestampForamt, afterCreateTableTimestamp));
+        assertThat((long) computeActual("SELECT COUNT(*) FROM test_rollback_timestamp").getOnlyValue()).isEqualTo(0);
+
+        assertUpdate("INSERT INTO test_rollback_timestamp (col0, col1) VALUES (789, CAST(987 AS BIGINT))", 1);
+        String afterSecondInsertTimestamp = getCurrentCommitTimestamp("test_rollback_timestamp").format(timeFormatter);
+
+        // extra insert which should be dropped on rollback
+        assertUpdate("INSERT INTO test_rollback_timestamp (col0, col1) VALUES (999, CAST(999 AS BIGINT))", 1);
+
+        assertUpdate(format(rollbackToTimestampForamt, afterSecondInsertTimestamp));
+        assertQuery("SELECT * FROM test_rollback_timestamp ORDER BY col0", "VALUES (789, CAST(987 AS BIGINT))");
+
+        assertUpdate("DROP TABLE test_rollback_timestamp");
+    }
+
+    @Test
     void testRollbackToSnapshotWithNullArgument()
     {
         assertQueryFails("CALL system.rollback_to_snapshot(NULL, 'customer_orders', 8954597067493422955)", ".*schema cannot be null.*");
@@ -8866,6 +8909,11 @@ public abstract class BaseIcebergConnectorTest
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
+    }
+
+    private ZonedDateTime getCurrentCommitTimestamp(String tableName)
+    {
+        return (ZonedDateTime) computeScalar("SELECT committed_at FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
     }
 
     private String getIcebergTableDataPath(String tableLocation)
