@@ -110,6 +110,7 @@ public final class IcebergSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED_SCHEMAS = "query_partition_filter_required_schemas";
     private static final String INCREMENTAL_REFRESH_ENABLED = "incremental_refresh_enabled";
     public static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
+    public static final String FILE_BASED_CONFLICT_DETECTION_ENABLED = "file_based_conflict_detection_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -398,6 +399,11 @@ public final class IcebergSessionProperties
                         "Enable bucket-aware execution: use physical bucketing information to optimize queries",
                         icebergConfig.isBucketExecutionEnabled(),
                         false))
+                .add(booleanProperty(
+                        FILE_BASED_CONFLICT_DETECTION_ENABLED,
+                        "Enable file-based conflict detection: take partition information from the actual written files as a source for the conflict detection system",
+                        icebergConfig.isFileBasedConflictDetectionEnabled(),
+                        false))
                 .build();
     }
 
@@ -645,5 +651,10 @@ public final class IcebergSessionProperties
     public static boolean isBucketExecutionEnabled(ConnectorSession session)
     {
         return session.getProperty(BUCKET_EXECUTION_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFileBasedConflictDetectionEnabled(ConnectorSession session)
+    {
+        return session.getProperty(FILE_BASED_CONFLICT_DETECTION_ENABLED, Boolean.class);
     }
 }
