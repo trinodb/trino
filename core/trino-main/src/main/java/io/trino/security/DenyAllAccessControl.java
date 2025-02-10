@@ -39,6 +39,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranchAndTag;
 import static io.trino.spi.security.AccessDeniedException.denyCreateCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
@@ -51,6 +52,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenyEntityPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranchAndTag;
 import static io.trino.spi.security.AccessDeniedException.denyDropCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
@@ -574,5 +576,17 @@ public class DenyAllAccessControl
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName)
     {
         denyShowCreateFunction(functionName.toString());
+    }
+
+    @Override
+    public void checkCanCreateBranchAndTag(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        denyCreateBranchAndTag(tableName.toString(), name);
+    }
+
+    @Override
+    public void canCanDropBranchAndTag(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        denyDropBranchAndTag(tableName.toString(), name);
     }
 }
