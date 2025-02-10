@@ -149,49 +149,49 @@ export const Dashboard = () => {
     return (
         <>
             <Box sx={{ pb: 2 }}>
-                <Typography variant="h4">Cluster Overview</Typography>
+                <Typography variant="h4">Cluster overview</Typography>
             </Box>
             <Box>
                 <Grid container spacing={3}>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
-                        <MetricCard title="Running Queries" values={clusterStats.runningQueries} />
+                        <MetricCard title="Running queries" values={clusterStats.runningQueries} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
-                        <MetricCard title="Active Workers" values={clusterStats.activeWorkers} link="/workers" />
+                        <MetricCard title="Active workers" values={clusterStats.activeWorkers} link="/workers" />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
-                        <MetricCard title="Rows/sec" values={clusterStats.rowInputRate} numberFormatter={formatCount} />
+                        <MetricCard title="rows/s" values={clusterStats.rowInputRate} numberFormatter={formatCount} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
-                        <MetricCard title="Queued Queries" values={clusterStats.queuedQueries} />
+                        <MetricCard title="Queued queries" values={clusterStats.queuedQueries} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                         <MetricCard
-                            title="Runnable Drivers"
+                            title="Runnable drivers"
                             values={clusterStats.runningDrivers}
                             numberFormatter={precisionRound}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                         <MetricCard
-                            title="Bytes/sec"
+                            title="bytes/s"
                             values={clusterStats.byteInputRate}
                             numberFormatter={formatDataSizeBytes}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
-                        <MetricCard title="Blocked Queries" values={clusterStats.blockedQueries} />
+                        <MetricCard title="Blocked queries" values={clusterStats.blockedQueries} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                         <MetricCard
-                            title="Reserved Memory (B)"
+                            title="Reserved memory (B)"
                             values={clusterStats.reservedMemory}
                             numberFormatter={formatDataSizeBytes}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                         <MetricCard
-                            title="Worker Parallelism"
+                            title="Worker parallelism"
                             values={clusterStats.perWorkerCpuTimeRate}
                             numberFormatter={precisionRound}
                         />

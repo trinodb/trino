@@ -29,12 +29,12 @@ export const Texts = {
         Logout: 'Log Out',
         InvalidUsernameOrPassword: 'Invalid username or password',
         NotAvailableAuthInfo: 'Authentication information not available',
-        NotImplementedAuthType: 'The configured authentication type is not implemented for the frontend',
+        NotImplementedAuthType: 'The configured authentication type is not supported',
     },
     Api: {
         FetchingData: 'Fetching data...',
         Stats: {
-            Name: 'Cluster Statistics',
+            Name: 'Cluster statistics',
         },
     },
     Error: {
@@ -54,8 +54,8 @@ export const Texts = {
         Drawer: {
             Dashboard: 'Dashboard',
             Workers: 'Workers',
-            QueryHistory: 'Query History',
-            DemoComponents: 'Demo Components',
+            QueryHistory: 'Query history',
+            DemoComponents: 'Demo components',
         },
     },
 }

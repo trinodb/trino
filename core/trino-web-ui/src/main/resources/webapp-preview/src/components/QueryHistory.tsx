@@ -17,9 +17,9 @@ export const QueryHistory = () => {
     return (
         <>
             <Box sx={{ pb: 2 }}>
-                <Typography variant="h4">Query History</Typography>
+                <Typography variant="h4">Query history</Typography>
             </Box>
-            <Typography paragraph>Placeholder for Query History</Typography>
+            <Typography paragraph>Placeholder for query history</Typography>
         </>
     )
 }
