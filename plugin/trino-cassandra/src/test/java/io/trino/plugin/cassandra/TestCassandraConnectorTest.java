@@ -23,6 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.eventlistener.NamedClosable;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -39,6 +40,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.function.Supplier;
 
 import static com.datastax.oss.driver.api.core.data.ByteUtils.toHexString;
 import static com.google.common.io.BaseEncoding.base16;
@@ -1571,6 +1573,40 @@ public class TestCassandraConnectorTest
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(9);
             assertThat(computeActual("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount()).isEqualTo(0);
         }
+    }
+
+    @Test
+    @Override
+    public void testDeleteStatsWithRaisedEvents()
+    {
+        Supplier<NamedClosable> supplier = () -> {
+            TestCassandraTable testCassandraTable = testTable(
+                    "table_delete_data",
+                    ImmutableList.of(
+                            partitionColumn("partition_one", "bigint"),
+                            partitionColumn("partition_two", "int"),
+                            clusterColumn("clust_one", "text"),
+                            generalColumn("data", "text")),
+                    ImmutableList.of(
+                            "1, 1, 'clust_one_1', null",
+                            "2, 2, 'clust_one_2', null",
+                            "3, 3, 'clust_one_3', null",
+                            "4, 4, 'clust_one_4', null",
+                            "5, 5, 'clust_one_5', null",
+                            "6, 6, 'clust_one_6', null",
+                            "7, 7, 'clust_one_7', null",
+                            "8, 8, 'clust_one_8', null",
+                            "9, 9, 'clust_one_9', null",
+                            "1, 1, 'clust_one_2', null",
+                            "1, 1, 'clust_one_3', null",
+                            "1, 2, 'clust_one_1', null",
+                            "1, 2, 'clust_one_2', null",
+                            "1, 2, 'clust_one_3', null",
+                            "2, 2, 'clust_one_1', null"));
+            return new NamedClosable(testCassandraTable.getTableName(), testCassandraTable);
+        };
+        String wherePrimaryKey = " WHERE partition_one=3 AND partition_two=3 AND clust_one='clust_one_3'";
+        runUpdateDeleteStatsWithRaisedEvents(supplier, name -> "DELETE FROM " + name + wherePrimaryKey);
     }
 
     @Test

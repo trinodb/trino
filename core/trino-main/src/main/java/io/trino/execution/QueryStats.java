@@ -118,6 +118,7 @@ public class QueryStats
     private final DataSize outputDataSize;
     private final DataSize failedOutputDataSize;
     private final long outputPositions;
+    private final long updatedPositions;
     private final long failedOutputPositions;
 
     private final Duration outputBlockedTime;
@@ -213,6 +214,7 @@ public class QueryStats
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("failedOutputDataSize") DataSize failedOutputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+            @JsonProperty("updatedPositions") long updatedPositions,
             @JsonProperty("failedOutputPositions") long failedOutputPositions,
 
             @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
@@ -323,6 +325,8 @@ public class QueryStats
         this.failedOutputDataSize = requireNonNull(failedOutputDataSize, "failedOutputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+        checkArgument(updatedPositions >= 0, "updatedPositions is negative");
+        this.updatedPositions = updatedPositions;
         checkArgument(failedOutputPositions >= 0, "failedOutputPositions is negative");
         this.failedOutputPositions = failedOutputPositions;
 
@@ -741,6 +745,12 @@ public class QueryStats
     public long getOutputPositions()
     {
         return outputPositions;
+    }
+
+    @JsonProperty
+    public long getUpdatedPositions()
+    {
+        return updatedPositions;
     }
 
     @JsonProperty
