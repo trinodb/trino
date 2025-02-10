@@ -5050,16 +5050,22 @@ public abstract class BaseIcebergConnectorTest
     public void testGetIcebergTableProperties()
     {
         assertUpdate("CREATE TABLE test_iceberg_get_table_props (x BIGINT)");
-        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""));
+        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""), HiveCompressionCodec.ZSTD);
         assertUpdate("DROP TABLE test_iceberg_get_table_props");
     }
 
-    protected void verifyIcebergTableProperties(MaterializedResult actual)
+    protected void verifyIcebergTableProperties(MaterializedResult actual, HiveCompressionCodec codec)
     {
         assertThat(actual).isNotNull();
+        String codecName = switch (format) {
+            case AVRO -> codec.getAvroCompressionKind().orElseThrow().name();
+            case ORC -> codec.getOrcCompressionKind().name();
+            case PARQUET -> codec.getParquetCompressionCodec().orElseThrow().name();
+        };
         MaterializedResult expected = resultBuilder(getSession())
                 .row("write.format.default", format.name())
-                .row("write.parquet.compression-codec", "zstd")
+                // this is incorrectly persisted in Iceberg: https://github.com/trinodb/trino/issues/20401
+                .row("write.%s.compression-codec".formatted(format.name().toLowerCase(ENGLISH)), codecName)
                 .row("commit.retry.num-retries", "4")
                 .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
@@ -8271,6 +8277,7 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(session, createTableSql, 25);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
+        verifyIcebergTableProperties(computeActual("SELECT * FROM \"%s$properties\"".formatted(tableName)), compressionCodec);
         assertUpdate("DROP TABLE " + tableName);
     }
 

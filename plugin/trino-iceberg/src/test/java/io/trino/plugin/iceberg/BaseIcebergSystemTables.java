@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.spi.type.ArrayType;
@@ -28,6 +29,7 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.FileContent;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.parquet.format.CompressionCodec;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -50,6 +52,7 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
@@ -392,6 +395,35 @@ public abstract class BaseIcebergSystemTables
                                 "(1, BIGINT '0', BIGINT '1', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-02-02', '2022-02-02')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))), " +
                                 // INSERT on '2022-03-03', '2022-04-04' partitions
                                 "(2, BIGINT '0', BIGINT '2', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2022-03-03', '2022-04-04')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+    }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        try (TestTable table = newTrinoTable("test_properties_table", "AS SELECT 1 x")) {
+            assertThat(query("SELECT * FROM \"%s$properties\"".formatted(table.getName())))
+                    .matches("""
+                            VALUES (VARCHAR 'write.format.default', VARCHAR '%s'),
+                            (VARCHAR 'commit.retry.num-retries', VARCHAR '4'),
+                            (VARCHAR 'write.parquet.compression-codec', VARCHAR 'zstd')""".formatted(format.name()));
+        }
+        if (format == PARQUET) {
+            String tableName = "test_table_codec" + randomNameSuffix();
+            Session snappySession = Session.builder(getSession())
+                    .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "compression_codec", CompressionCodec.SNAPPY.name())
+                    .build();
+            try {
+                assertUpdate(snappySession, "CREATE TABLE test_schema.%s (_varchar VARCHAR, _date DATE) WITH (partitioning = ARRAY['_date'])".formatted(tableName));
+                assertThat(query("SELECT * FROM test_schema.\"%s$properties\"".formatted(tableName)))
+                        .matches("""
+                                VALUES (VARCHAR 'write.format.default', VARCHAR '%s'),
+                                (VARCHAR 'commit.retry.num-retries', VARCHAR '4'),
+                                (VARCHAR 'write.parquet.compression-codec', VARCHAR 'snappy')""".formatted(format.name()));
+            }
+            finally {
+                assertUpdate("DROP TABLE IF EXISTS test_schema.%s".formatted(tableName));
+            }
+        }
     }
 
     @Test
