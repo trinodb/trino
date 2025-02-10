@@ -18,8 +18,11 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
+import io.trino.spi.type.Decimals;
 import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.ir.Between;
 import io.trino.sql.ir.Call;
+import io.trino.sql.ir.Case;
 import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Comparison;
 import io.trino.sql.ir.Constant;
@@ -28,10 +31,13 @@ import io.trino.sql.ir.IrExpressions;
 import io.trino.sql.ir.IsNull;
 import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.type.DateTimes;
 import io.trino.util.DateTimeUtils;
 import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
 
 import static io.trino.SystemSessionProperties.PUSH_FILTER_INTO_VALUES_MAX_ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -345,6 +351,116 @@ public class TestUnwrapCastInComparison
     }
 
     @Test
+    public void testBetween()
+    {
+        // representable
+        testUnwrap("smallint", "a BETWEEN DOUBLE '1' AND DOUBLE '2'", new Between(new Reference(SMALLINT, "a"), new Constant(SMALLINT, 1L), new Constant(SMALLINT, 2L)));
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1' AND DOUBLE '2'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)));
+        testUnwrap("decimal(7, 2)", "a BETWEEN DOUBLE '1.23' AND DOUBLE '4.56'", new Between(new Reference(createDecimalType(7, 2), "a"), new Constant(createDecimalType(7, 2), Decimals.valueOfShort(new BigDecimal("1.23"))), new Constant(createDecimalType(7, 2), Decimals.valueOfShort(new BigDecimal("4.56")))));
+        // cast down is possible
+        testUnwrap("decimal(7, 2)", "CAST(a AS DECIMAL(12,2)) BETWEEN CAST(DECIMAL '111.00' AS decimal(12,2)) AND CAST(DECIMAL '222.0' AS decimal(12,2))", new Between(new Reference(createDecimalType(7, 2), "a"), new Constant(createDecimalType(7, 2), Decimals.valueOfShort(new BigDecimal("111.00"))), new Constant(createDecimalType(7, 2), Decimals.valueOfShort(new BigDecimal("222.00")))));
+
+        // non-representable, min cast round up, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '2.2'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L), new Constant(BIGINT, 2L)));
+        // non-representable, min cast round up, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '1.1'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new Constant(BOOLEAN, null))));
+        // non-representable, min cast round up, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '1.9'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new Constant(BOOLEAN, null))));
+        // non-representable, min cast round up, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.9' AND DOUBLE '1.9'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(BIGINT, "a")), new Constant(BOOLEAN, null))));
+        // non-representable, min cast round down, max cast no rounding
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.1' AND DOUBLE '2'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L), new Constant(BIGINT, 2L)));
+        // non-representable, min cast round up, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.9' AND DOUBLE '2.2'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L), new Constant(BIGINT, 2L)));
+        // non-representable, min cast round up, max cast round up
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.9' AND DOUBLE '2.9'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L), new Constant(BIGINT, 2L)));
+        // non-representable, min cast round up, max cast no rounding
+        testUnwrap("bigint", "a BETWEEN DOUBLE '1.9' AND DOUBLE '3'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L)));
+        // non-representable, min cast no rounding, max cast round down
+        testUnwrap("bigint", "a BETWEEN DOUBLE '2' AND DOUBLE '3.2'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L)));
+        // non-representable, min cast no rounding, max cast round up
+        testUnwrap("bigint", "a BETWEEN DOUBLE '2' AND DOUBLE '2.9'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L), new Constant(BIGINT, 2L)));
+        // non-representable, min cast no rounding, max cast no rounding
+        testUnwrap("bigint", "a BETWEEN DOUBLE '2' AND DOUBLE '3'", new Between(new Reference(BIGINT, "a"), new Constant(BIGINT, 2L), new Constant(BIGINT, 3L)));
+
+        // cast down not possible
+        testUnwrap(
+                "decimal(7, 2)",
+                "CAST(a AS DECIMAL(12,2)) BETWEEN CAST(DECIMAL '1111111111.00' AS decimal(12,2)) AND CAST(DECIMAL '2222222222.0' AS decimal(12,2))",
+                new Logical(AND, ImmutableList.of(new IsNull(new Reference(createDecimalType(7, 2), "a")), new Constant(BOOLEAN, null))));
+
+        // illegal range
+        testUnwrap(
+                "smallint",
+                "a BETWEEN DOUBLE '5' AND DOUBLE '4'",
+                new Case(ImmutableList.of(
+                        new WhenClause(not(new IsNull(new Cast(new Reference(SMALLINT, "a"), DOUBLE))), new Constant(BOOLEAN, false))),
+                        new Constant(BOOLEAN, null)));
+
+        // NULL
+        testUnwrap(
+                "smallint",
+                "a BETWEEN NULL AND DOUBLE '2'",
+                new Case(ImmutableList.of(
+                        new WhenClause(new Comparison(GREATER_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)), new Constant(BOOLEAN, false))),
+                        new Constant(BOOLEAN, null)));
+        testUnwrap(
+                "smallint",
+                "a BETWEEN DOUBLE '2' AND NULL",
+                new Case(ImmutableList.of(
+                        new WhenClause(new Comparison(LESS_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 2L)), new Constant(BOOLEAN, false))),
+                        new Constant(BOOLEAN, null)));
+
+        // nan
+        testUnwrap(
+                "smallint",
+                "a BETWEEN nan() AND DOUBLE '2'",
+                new Case(ImmutableList.of(
+                        new WhenClause(not(new IsNull(new Cast(new Reference(SMALLINT, "a"), DOUBLE))), new Constant(BOOLEAN, false))),
+                        new Constant(BOOLEAN, null)));
+        testUnwrap(
+                "smallint",
+                "a BETWEEN DOUBLE '2' AND nan()",
+                new Case(ImmutableList.of(
+                        new WhenClause(not(new IsNull(new Cast(new Reference(SMALLINT, "a"), DOUBLE))), new Constant(BOOLEAN, false))),
+                        new Constant(BOOLEAN, null)));
+
+        // min and max below bottom of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-50000' AND DOUBLE '-40000'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(SMALLINT, "a")), new Constant(BOOLEAN, null))));
+        // min below bottom of range, max at the bottom of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32768.1' AND DOUBLE '-32768'", new Comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32768.1' AND DOUBLE '-32767.9'", new Comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32768L)));
+        // min below bottom of range, max within range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32768.1' AND DOUBLE '0'", new Comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 0L)));
+        // min at the bottom of range, max within range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32768' AND DOUBLE '0'", new Comparison(LESS_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 0L)));
+        // min round to bottom of range, max within range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32767.9' AND DOUBLE '0'", new Between(new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L), new Constant(SMALLINT, 0L)));
+        // min above bottom of range, max within range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-32767' AND DOUBLE '0'", new Between(new Reference(SMALLINT, "a"), new Constant(SMALLINT, -32767L), new Constant(SMALLINT, 0L)));
+        // min & max below within of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32765' AND DOUBLE '32766'", new Between(new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32765L), new Constant(SMALLINT, 32766L)));
+        // min within and max round to top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32765.9' AND DOUBLE '32766.9'", new Between(new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32766L), new Constant(SMALLINT, 32766L)));
+        // min below and max at the top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32760' AND DOUBLE '32767'", new Comparison(GREATER_THAN_OR_EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32760L)));
+        // min below and max above top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32760.1' AND DOUBLE '32768.1'", new Comparison(GREATER_THAN, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32760L)));
+        // min at the top of range and max above top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32767' AND DOUBLE '32768.1'", new Comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
+        testUnwrap("smallint", "a BETWEEN DOUBLE '32766.9' AND DOUBLE '32768.1'", new Comparison(EQUAL, new Reference(SMALLINT, "a"), new Constant(SMALLINT, 32767L)));
+        // min and max above top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '40000' AND DOUBLE '50000'", new Logical(AND, ImmutableList.of(new IsNull(new Reference(SMALLINT, "a")), new Constant(BOOLEAN, null))));
+        // min below range and max at the top of range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-40000' AND DOUBLE '32767'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+        // min below range and max above range
+        testUnwrap("smallint", "a BETWEEN DOUBLE '-40000' AND DOUBLE '40000'", new Logical(OR, ImmutableList.of(not(new IsNull(new Reference(SMALLINT, "a"))), new Constant(BOOLEAN, null))));
+
+        // -2^64 constant
+        testUnwrap("bigint", "a BETWEEN DOUBLE '-18446744073709551616' AND DOUBLE '0'", new Comparison(LESS_THAN_OR_EQUAL, new Reference(BIGINT, "a"), new Constant(BIGINT, 0L)));
+    }
+
+    @Test
     public void testDistinctFrom()
     {
         // representable
@@ -591,6 +707,7 @@ public class TestUnwrapCastInComparison
 
         // long timestamp, long timestamp with time zone
         testUnwrap(warsawSession, "timestamp(9)", "a > TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", new Comparison(GREATER_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-26 12:02:18.123456000"))));
+        testUnwrap(warsawSession, "timestamp(9)", "a BETWEEN TIMESTAMP '2020-10-26 11:02:18.123456 UTC' AND TIMESTAMP '2020-10-26 12:03:20.345678 UTC'", new Between(new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-26 12:02:18.123456000")), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-26 13:03:20.345678000"))));
         testUnwrap(losAngelesSession, "timestamp(9)", "a > TIMESTAMP '2020-10-26 11:02:18.123456 UTC'", new Comparison(GREATER_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "2020-10-26 04:02:18.123456000"))));
 
         // maximum precision
@@ -726,6 +843,12 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(9)", "CAST(a AS DATE) >= DATE '1981-06-22'", new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-22 00:00:00.000000000"))));
         testUnwrap("timestamp(12)", "CAST(a AS DATE) >= DATE '1981-06-22'", new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))));
 
+        // between
+        testUnwrap("timestamp(3)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000")), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-07-23 23:59:59.999"))));
+        testUnwrap("timestamp(6)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000")), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-07-23 23:59:59.999999"))));
+        testUnwrap("timestamp(9)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-22 00:00:00.000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-07-24 00:00:00.000000000"))))));
+        testUnwrap("timestamp(12)", "CAST(a AS DATE) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-07-24 00:00:00.000000000000"))))));
+
         // is distinct
         testUnwrap("timestamp(3)", "CAST(a AS DATE) IS DISTINCT FROM DATE '1981-06-22'", new Logical(OR, ImmutableList.of(new IsNull(new Reference(createTimestampType(3), "a")), new Comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))));
         testUnwrap("timestamp(6)", "CAST(a AS DATE) IS DISTINCT FROM DATE '1981-06-22'", new Logical(OR, ImmutableList.of(new IsNull(new Reference(createTimestampType(6), "a")), new Comparison(LESS_THAN, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-23 00:00:00.000000"))))));
@@ -791,6 +914,21 @@ public class TestUnwrapCastInComparison
         testUnwrap("timestamp(6)", "date(a) >= DATE '1981-06-22'", new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000"))));
         testUnwrap("timestamp(9)", "date(a) >= DATE '1981-06-22'", new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-22 00:00:00.000000000"))));
         testUnwrap("timestamp(12)", "date(a) >= DATE '1981-06-22'", new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))));
+
+        // between
+        testUnwrap("timestamp(0)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(0), "a"), new Constant(createTimestampType(0), DateTimes.parseTimestamp(0, "1981-06-22 00:00:00")), new Constant(createTimestampType(0), DateTimes.parseTimestamp(0, "1981-07-23 23:59:59"))));
+        testUnwrap("timestamp(1)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(1), "a"), new Constant(createTimestampType(1), DateTimes.parseTimestamp(1, "1981-06-22 00:00:00.0")), new Constant(createTimestampType(1), DateTimes.parseTimestamp(1, "1981-07-23 23:59:59.9"))));
+        testUnwrap("timestamp(2)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(2), "a"), new Constant(createTimestampType(2), DateTimes.parseTimestamp(2, "1981-06-22 00:00:00.00")), new Constant(createTimestampType(2), DateTimes.parseTimestamp(2, "1981-07-23 23:59:59.99"))));
+        testUnwrap("timestamp(3)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000")), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-07-23 23:59:59.999"))));
+        testUnwrap("timestamp(4)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(4), "a"), new Constant(createTimestampType(4), DateTimes.parseTimestamp(4, "1981-06-22 00:00:00.0000")), new Constant(createTimestampType(4), DateTimes.parseTimestamp(4, "1981-07-23 23:59:59.9999"))));
+        testUnwrap("timestamp(5)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(5), "a"), new Constant(createTimestampType(5), DateTimes.parseTimestamp(5, "1981-06-22 00:00:00.00000")), new Constant(createTimestampType(5), DateTimes.parseTimestamp(5, "1981-07-23 23:59:59.99999"))));
+        testUnwrap("timestamp(6)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Between(new Reference(createTimestampType(6), "a"), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-06-22 00:00:00.000000")), new Constant(createTimestampType(6), DateTimes.parseTimestamp(6, "1981-07-23 23:59:59.999999"))));
+        testUnwrap("timestamp(7)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(7), "a"), new Constant(createTimestampType(7), DateTimes.parseTimestamp(7, "1981-06-22 00:00:00.0000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(7), "a"), new Constant(createTimestampType(7), DateTimes.parseTimestamp(7, "1981-07-24 00:00:00.0000000"))))));
+        testUnwrap("timestamp(8)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(8), "a"), new Constant(createTimestampType(8), DateTimes.parseTimestamp(8, "1981-06-22 00:00:00.00000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(8), "a"), new Constant(createTimestampType(8), DateTimes.parseTimestamp(8, "1981-07-24 00:00:00.00000000"))))));
+        testUnwrap("timestamp(9)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-06-22 00:00:00.000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(9), "a"), new Constant(createTimestampType(9), DateTimes.parseTimestamp(9, "1981-07-24 00:00:00.000000000"))))));
+        testUnwrap("timestamp(10)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(10), "a"), new Constant(createTimestampType(10), DateTimes.parseTimestamp(10, "1981-06-22 00:00:00.0000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(10), "a"), new Constant(createTimestampType(10), DateTimes.parseTimestamp(10, "1981-07-24 00:00:00.0000000000"))))));
+        testUnwrap("timestamp(11)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(11), "a"), new Constant(createTimestampType(11), DateTimes.parseTimestamp(11, "1981-06-22 00:00:00.00000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(11), "a"), new Constant(createTimestampType(11), DateTimes.parseTimestamp(11, "1981-07-24 00:00:00.00000000000"))))));
+        testUnwrap("timestamp(12)", "date(a) BETWEEN DATE '1981-06-22' AND DATE '1981-07-23'", new Logical(AND, ImmutableList.of(new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-06-22 00:00:00.000000000000"))), new Comparison(LESS_THAN, new Reference(createTimestampType(12), "a"), new Constant(createTimestampType(12), DateTimes.parseTimestamp(12, "1981-07-24 00:00:00.000000000000"))))));
 
         // is distinct
         testUnwrap("timestamp(3)", "date(a) IS DISTINCT FROM DATE '1981-06-22'", new Logical(OR, ImmutableList.of(new IsNull(new Reference(createTimestampType(3), "a")), new Comparison(LESS_THAN, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-22 00:00:00.000"))), new Comparison(GREATER_THAN_OR_EQUAL, new Reference(createTimestampType(3), "a"), new Constant(createTimestampType(3), DateTimes.parseTimestamp(3, "1981-06-23 00:00:00.000"))))));
