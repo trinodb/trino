@@ -38,6 +38,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.CompressionCodec.SNAPPY;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 
 @DefunctConfig({
@@ -93,7 +94,7 @@ public class FeaturesConfig
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
-    private CompressionCodec exchangeCompressionCodec = NONE;
+    private CompressionCodec exchangeCompressionCodec = SNAPPY;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
