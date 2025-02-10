@@ -3485,7 +3485,7 @@ public class TestDeltaLakeConnectorTest
 
         assertAccessDenied(
                 "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '" + tableName + "', 0))",
-                "Cannot select from columns .*",
+                "Cannot select from table or view .*" + tableName,
                 privilege(tableName, SELECT_COLUMN));
 
         assertUpdate("DROP TABLE " + tableName);
