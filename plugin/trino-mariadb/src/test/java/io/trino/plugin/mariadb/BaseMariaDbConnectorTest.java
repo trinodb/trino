@@ -41,7 +41,9 @@ public abstract class BaseMariaDbConnectorTest
     {
         return switch (connectorBehavior) {
             case SUPPORTS_ADD_COLUMN_WITH_POSITION,
-                 SUPPORTS_JOIN_PUSHDOWN -> true;
+                 SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_CREATE_TABLE_WITH_PRIMARY_KEY,
+                 SUPPORTS_CREATE_TABLE_WITH_COLUMN_AUTO_INCREMENT -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,

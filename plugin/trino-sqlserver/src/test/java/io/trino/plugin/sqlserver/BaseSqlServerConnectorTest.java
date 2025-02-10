@@ -508,7 +508,7 @@ public abstract class BaseSqlServerConnectorTest
         try {
             assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue())
                     .isEqualTo("CREATE TABLE sqlserver.dbo." + tableName + " (\n" +
-                            "   key1 bigint NOT NULL,\n" +
+                            "   key1 bigint NOT NULL WITH (primary_key = true),\n" +
                             "   key2 bigint NOT NULL,\n" +
                             "   key3 bigint NOT NULL,\n" +
                             "   key4 bigint NOT NULL,\n" +

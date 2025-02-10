@@ -136,6 +136,8 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.jdbc.properties.JdbcColumnProperties.AUTO_INCREMENT;
+import static io.trino.plugin.jdbc.properties.JdbcColumnProperties.PRIMARY_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -349,6 +351,37 @@ public class MariaDbClient
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 mariaDbVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MariaDB
         execute(session, sql);
+    }
+
+    @Override
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
+
+        Map<String, Object> columnProperties = column.getProperties();
+        boolean key = (boolean) columnProperties.getOrDefault(PRIMARY_KEY, false);
+        boolean autoIncrement = (boolean) columnProperties.getOrDefault(AUTO_INCREMENT, false);
+
+        if (autoIncrement && !key) {
+            throw new TrinoException(JDBC_ERROR, "Only support using AUTO_INCREMENT on a column which must be a key in mariadb");
+        }
+
+        ColumnMetadata newColumn = column;
+        if (key) {
+            // primary key must be NOT NULL in mariadb
+            newColumn = ColumnMetadata.builderFrom(column)
+                    .setNullable(false)
+                    .build();
+        }
+
+        return "%s %s %s %s %s".formatted(
+                quoted(columnName),
+                toWriteMapping(session, newColumn.getType()).getDataType(),
+                newColumn.isNullable() ? "NULL" : "NOT NULL",
+                autoIncrement ? "AUTO_INCREMENT" : "",
+                key ? "PRIMARY KEY" : "");
     }
 
     @Override
