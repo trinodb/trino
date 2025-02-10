@@ -22,11 +22,11 @@ import io.trino.spi.NodeManager;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.io.BasicHttpClientConnectionManager;
-import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy;
 import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
-import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.TlsSocketStrategy;
 import org.apache.hc.core5.http.HttpHeaders;
-import org.apache.hc.core5.http.config.Registry;
+import org.apache.hc.core5.http.config.Lookup;
 import org.apache.hc.core5.http.config.RegistryBuilder;
 import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.transport.TTransport;
@@ -98,17 +98,15 @@ public class HttpThriftMetastoreClientFactory
         if ("https".equals(uri.getScheme().toLowerCase(ENGLISH))) {
             checkArgument(token.isPresent(), "'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
             checkArgument(authenticationMode.isPresent(), "'hive.metastore.http.client.authentication.type' must be set while using http/https metastore URIs in 'hive.metastore.uri'");
-            SSLConnectionSocketFactory socketFactory;
+            TlsSocketStrategy tlsStrategy;
             try {
-                socketFactory = new SSLConnectionSocketFactory(SSLContext.getDefault(), new DefaultHostnameVerifier());
+                tlsStrategy = new DefaultClientTlsStrategy(SSLContext.getDefault(), new DefaultHostnameVerifier());
             }
             catch (NoSuchAlgorithmException e) {
                 throw new TTransportException(e);
             }
-            Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
-                    .register("https", socketFactory)
-                    .build();
-            httpClientBuilder.setConnectionManager(new BasicHttpClientConnectionManager(registry));
+            Lookup<TlsSocketStrategy> registry = RegistryBuilder.<TlsSocketStrategy>create().register("https", tlsStrategy).build();
+            httpClientBuilder.setConnectionManager(BasicHttpClientConnectionManager.create(registry));
             httpClientBuilder.addRequestInterceptorFirst((httpRequest, _, _) -> httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.get()));
         }
         else {
