@@ -1,0 +1,153 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nI love Trino\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:55:46.886364Z\",\"response\":\"\\\"positive\\\"\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,4823,21136,9382,25,510,330,31587,498,330,43324,498,330,60668,498,330,57785,1,5243,5207,279,2440,439,264,4823,925,320,1962,264,4823,1665,4390,5207,1193,279,2440,627,65997,40,3021,1183,3394,198,128009,128006,78191,128007,271,1,31587,1],\"total_duration\":1889741500,\"load_duration\":13597250,\"prompt_eval_count\":62,\"prompt_eval_duration\":1418000000,\"eval_count\":4,\"eval_duration\":457000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "586" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:55:46 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nI am sad\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:55:48.815737Z\",\"response\":\"\\\"negative\\\"\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,4823,21136,9382,25,510,330,31587,498,330,43324,498,330,60668,498,330,57785,1,5243,5207,279,2440,439,264,4823,925,320,1962,264,4823,1665,4390,5207,1193,279,2440,627,65997,40,1097,12703,198,128009,128006,78191,128007,271,1,43324,1],\"total_duration\":1207220125,\"load_duration\":16200083,\"prompt_eval_count\":61,\"prompt_eval_duration\":733000000,\"eval_count\":4,\"eval_duration\":457000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "581" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:55:48 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe sky is blue\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:55:50.76738Z\",\"response\":\"\\\"neutral\\\"\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,4823,21136,9382,25,510,330,31587,498,330,43324,498,330,60668,498,330,57785,1,5243,5207,279,2440,439,264,4823,925,320,1962,264,4823,1665,4390,5207,1193,279,2440,627,65997,791,13180,374,6437,198,128009,128006,78191,128007,271,1,60668,1],\"total_duration\":1251698417,\"load_duration\":16563292,\"prompt_eval_count\":62,\"prompt_eval_duration\":776000000,\"eval_count\":4,\"eval_duration\":457000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "584" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:55:50 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    }, {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Classify the text below into one of the following JSON encoded labels: [ \\\"positive\\\", \\\"negative\\\", \\\"neutral\\\", \\\"mixed\\\" ]\\nOutput the label as a JSON string (not a JSON object).\\nOutput only the label.\\n=====\\nThe food tasted good but was too salty\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T04:55:52.798287Z\",\"response\":\"\\\"mixed\\\"\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,1999,1463,279,1495,3770,1139,832,315,279,2768,4823,21136,9382,25,510,330,31587,498,330,43324,498,330,60668,498,330,57785,1,5243,5207,279,2440,439,264,4823,925,320,1962,264,4823,1665,4390,5207,1193,279,2440,627,65997,791,3691,61580,1695,719,574,2288,74975,198,128009,128006,78191,128007,271,1,57785,1],\"total_duration\":1260598417,\"load_duration\":16404375,\"prompt_eval_count\":66,\"prompt_eval_duration\":785000000,\"eval_count\":4,\"eval_duration\":458000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "603" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 04:55:52 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-08T20:55:53-08:00"
+  }
+}

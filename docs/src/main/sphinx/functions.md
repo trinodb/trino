@@ -32,6 +32,7 @@ functions/list-by-topic
 :maxdepth: 1
 
 Aggregate           <functions/aggregate>
+AI                  <functions/ai>
 Array               <functions/array>
 Binary              <functions/binary>
 Bitwise             <functions/bitwise>

@@ -1,0 +1,48 @@
+{
+  "data" : {
+    "pairs" : [ {
+      "request" : {
+        "path" : [ {
+          "matcher" : "exact",
+          "value" : "/api/generate"
+        } ],
+        "method" : [ {
+          "matcher" : "exact",
+          "value" : "POST"
+        } ],
+        "destination" : [ {
+          "matcher" : "exact",
+          "value" : "localhost:11434"
+        } ],
+        "scheme" : [ {
+          "matcher" : "exact",
+          "value" : "http"
+        } ],
+        "body" : [ {
+          "matcher" : "exact",
+          "value" : "{\n  \"model\" : \"llama3.3\",\n  \"prompt\" : \"Extract a value for each of the JSON encoded labels from the text below.\\nFor each label, only extract a single value.\\nLabels: [ \\\"date\\\" ]\\nOutput the extracted values as a JSON object.\\nOutput only the JSON.\\nDo not output a code block for the JSON.\\n=====\\nThe deadline is 2022-12-31 and the meeting is on 2022-12-30\\n\",\n  \"stream\" : false,\n  \"options\" : {\n    \"seed\" : 0\n  }\n}"
+        } ]
+      },
+      "response" : {
+        "status" : 200,
+        "body" : "{\"model\":\"llama3.3\",\"created_at\":\"2025-02-09T10:28:14.716458Z\",\"response\":\"{\\\"date\\\": \\\"2022-12-31\\\"}\",\"done\":true,\"done_reason\":\"stop\",\"context\":[128006,882,128007,271,30059,264,907,369,1855,315,279,4823,21136,9382,505,279,1495,3770,627,2520,1855,2440,11,1193,8819,264,3254,907,627,24600,25,510,330,1045,1,5243,5207,279,28532,2819,439,264,4823,1665,627,5207,1193,279,4823,627,5519,539,2612,264,2082,2565,369,279,4823,627,65997,791,22143,374,220,2366,17,12,717,12,2148,323,279,6574,374,389,220,2366,17,12,717,12,966,198,128009,128006,78191,128007,271,5018,1045,794,330,2366,17,12,717,12,2148,9388],\"total_duration\":3116329042,\"load_duration\":14556000,\"prompt_eval_count\":90,\"prompt_eval_duration\":1424000000,\"eval_count\":12,\"eval_duration\":1676000000}",
+        "encodedBody" : false,
+        "templated" : false,
+        "headers" : {
+          "Content-Length" : [ "751" ],
+          "Content-Type" : [ "application/json; charset=utf-8" ],
+          "Date" : [ "Sun, 09 Feb 2025 10:28:14 GMT" ],
+          "Hoverfly" : [ "Was-Here" ]
+        }
+      }
+    } ],
+    "globalActions" : {
+      "delays" : [ ]
+    }
+  },
+  "meta" : {
+    "schemaVersion" : "v5.2",
+    "hoverflyVersion" : "v1.5.3",
+    "timeExported" : "2025-02-09T02:28:16-08:00"
+  }
+}
