@@ -135,8 +135,7 @@ public final class JdbcColumnHandle
         }
 
         if (!properties.isEmpty()) {
-            columnMetadataBuilder.setExtraInfo(Optional.of(String.join(",", properties.keySet())))
-                    .setProperties(properties);
+            columnMetadataBuilder.setProperties(properties);
         }
 
         return columnMetadataBuilder.build();

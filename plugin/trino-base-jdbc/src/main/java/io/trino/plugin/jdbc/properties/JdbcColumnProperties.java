@@ -35,7 +35,7 @@ public class JdbcColumnProperties
                     false))
             .add(booleanProperty(
                     AUTO_INCREMENT,
-                    "If primary key column can auto increment",
+                    "If column can auto increment",
                     false,
                     false))
             .build();

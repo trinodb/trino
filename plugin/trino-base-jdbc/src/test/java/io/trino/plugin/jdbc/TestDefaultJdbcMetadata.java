@@ -177,7 +177,7 @@ public class TestDefaultJdbcMetadata
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
         assertThat(tableMetadata.getTable()).isEqualTo(new SchemaTableName("example", "numbers"));
         assertThat(tableMetadata.getColumns()).isEqualTo(ImmutableList.of(
-                ColumnMetadata.builder().setName("text").setType(VARCHAR).setNullable(false).setExtraInfo(Optional.of("primary_key")).setProperties(ImmutableMap.of("primary_key", true)).build(), // primary key is not null in H2
+                ColumnMetadata.builder().setName("text").setType(VARCHAR).setNullable(false).setProperties(ImmutableMap.of("primary_key", true)).build(), // primary key is not null in H2
                 new ColumnMetadata("text_short", createVarcharType(32)),
                 new ColumnMetadata("value", BIGINT)));
 
@@ -186,7 +186,7 @@ public class TestDefaultJdbcMetadata
         ConnectorTableMetadata specialTableMetadata = metadata.getTableMetadata(SESSION, specialTableHandle);
         assertThat(specialTableMetadata.getTable()).isEqualTo(new SchemaTableName("exa_ple", "num_ers"));
         assertThat(specialTableMetadata.getColumns()).isEqualTo(ImmutableList.of(
-                ColumnMetadata.builder().setName("te_t").setType(VARCHAR).setNullable(false).setExtraInfo(Optional.of("primary_key")).setProperties(ImmutableMap.of("primary_key", true)).build(), // primary key is not null in H2
+                ColumnMetadata.builder().setName("te_t").setType(VARCHAR).setNullable(false).setProperties(ImmutableMap.of("primary_key", true)).build(), // primary key is not null in H2
                 new ColumnMetadata("va%ue", BIGINT)));
 
         // unknown tables should produce null
