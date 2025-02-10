@@ -13,8 +13,9 @@
  */
 import { useEffect, useState } from 'react'
 import Typography from '@mui/material/Typography'
-import { Box, Grid2 as Grid } from '@mui/material'
+import { Box, Divider, Grid2 as Grid } from '@mui/material'
 import { MetricCard } from './MetricCard.tsx'
+import { QueryList } from './QueryList.tsx'
 import { useSnackbar } from './SnackbarContext.ts'
 import { ApiResponse } from '../api/base.ts'
 import { statsApi, Stats } from '../api/webapp/api.ts'
@@ -69,9 +70,11 @@ export const Dashboard = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        getClusterStats()
-        const intervalId = setInterval(getClusterStats, 1000)
-        return () => clearInterval(intervalId)
+        const runLoop = () => {
+            getClusterStats()
+            setTimeout(runLoop, 1000)
+        }
+        runLoop()
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
@@ -89,7 +92,7 @@ export const Dashboard = () => {
                 setClusterStats((prevClusterStats) => {
                     let newRowInputRate: number[] = initialFilledHistory
                     let newByteInputRate: number[] = initialFilledHistory
-                    let newPerWorkerCpuTimeRate: number[] = []
+                    let newPerWorkerCpuTimeRate: number[] = initialFilledHistory
                     if (prevClusterStats.lastRefresh !== null) {
                         const rowsInputSinceRefresh = newClusterStats.totalInputRows - prevClusterStats.lastInputRows
                         const bytesInputSinceRefresh = newClusterStats.totalInputBytes - prevClusterStats.lastInputBytes
@@ -97,15 +100,15 @@ export const Dashboard = () => {
                         const secsSinceRefresh = (Date.now() - prevClusterStats.lastRefresh) / 1000.0
 
                         newRowInputRate = addExponentiallyWeightedToHistory(
-                            rowsInputSinceRefresh / secsSinceRefresh,
+                            rowsInputSinceRefresh / (secsSinceRefresh || 1),
                             prevClusterStats.rowInputRate
                         )
                         newByteInputRate = addExponentiallyWeightedToHistory(
-                            bytesInputSinceRefresh / secsSinceRefresh,
+                            bytesInputSinceRefresh / (secsSinceRefresh || 1),
                             prevClusterStats.byteInputRate
                         )
                         newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory(
-                            cpuTimeSinceRefresh / newClusterStats.activeWorkers / secsSinceRefresh,
+                            cpuTimeSinceRefresh / (newClusterStats.activeWorkers || 1) / (secsSinceRefresh || 1),
                             prevClusterStats.perWorkerCpuTimeRate
                         )
                     }
@@ -151,7 +154,7 @@ export const Dashboard = () => {
             <Box sx={{ pb: 2 }}>
                 <Typography variant="h4">Cluster Overview</Typography>
             </Box>
-            <Box>
+            <>
                 <Grid container spacing={3}>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                         <MetricCard title="Running Queries" values={clusterStats.runningQueries} />
@@ -184,7 +187,7 @@ export const Dashboard = () => {
                     </Grid>
                     <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
                         <MetricCard
-                            title="Reserved Memory (B)"
+                            title="Reserved Memory"
                             values={clusterStats.reservedMemory}
                             numberFormatter={formatDataSizeBytes}
                         />
@@ -197,7 +200,13 @@ export const Dashboard = () => {
                         />
                     </Grid>
                 </Grid>
-            </Box>
+
+                <Box sx={{ pt: 2 }}>
+                    <Typography variant="h6">Query Details</Typography>
+                    <Divider />
+                </Box>
+                <QueryList />
+            </>
         </>
     )
 }

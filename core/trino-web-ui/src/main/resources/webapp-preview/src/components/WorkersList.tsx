@@ -44,9 +44,11 @@ export const WorkersList = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        getWorkersList()
-        const intervalId = setInterval(getWorkersList, 1000)
-        return () => clearInterval(intervalId)
+        const runLoop = () => {
+            getWorkersList()
+            setTimeout(runLoop, 1000)
+        }
+        runLoop()
     }, [])
 
     useEffect(() => {

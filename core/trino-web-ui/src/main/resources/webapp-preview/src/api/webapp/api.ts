@@ -78,6 +78,66 @@ export interface WorkerStatusInfo {
     uptime: string
 }
 
+export interface QueryStats {
+    analysisTime: string
+    blockedDrivers: number
+    completedDrivers: number
+    createTime: string
+    cumulativeUserMemory: number
+    elapsedTime: string
+    endTime: string
+    executionTime: string
+    failedCpuTime: string
+    failedCumulativeUserMemory: number
+    failedScheduledTime: string
+    failedTasks: number
+    finishingTime: string
+    fullyBlocked: boolean
+    internalNetworkInputDataSize: string
+    peakTotalMemoryReservation: string
+    peakUserMemoryReservation: string
+    physicalInputDataSize: string
+    physicalInputReadTime: string
+    physicalWrittenDataSize: string
+    planningTime: string
+    progressPercentage: number
+    queuedDrivers: number
+    queuedTime: string
+    rawInputDataSize: string
+    rawInputPositions: number
+    runningDrivers: number
+    runningPercentage: number
+    spilledDataSize: string
+    totalCpuTime: string
+    totalDrivers: number
+    totalMemoryReservation: string
+    totalScheduledTime: string
+    userMemoryReservation: string
+    blockedReasons: string[]
+}
+
+export interface QueryInfo {
+    clientTags: string[]
+    queryId: string
+    queryStats: QueryStats
+    queryTextPreview: string
+    queryType: string
+    resourceGroupId: string[]
+    retryPolicy: string
+    scheduled: boolean
+    self: string
+    sessionPrincipal: string
+    sessionSource: string
+    sessionUser: string
+    state: string
+    memoryPool: string
+    queryDataEncoding: string
+    errorType: string
+    errorCode: {
+        name: string
+    }
+}
+
 export async function statsApi(): Promise<ApiResponse<Stats>> {
     return await api.get<Stats>('/ui/api/stats')
 }
@@ -88,4 +148,8 @@ export async function workerApi(): Promise<ApiResponse<Worker[]>> {
 
 export async function workerStatusApi(nodeId: string): Promise<ApiResponse<WorkerStatusInfo>> {
     return await api.get<WorkerStatusInfo>(`/ui/api/worker/${nodeId}/status`)
+}
+
+export async function queryApi(): Promise<ApiResponse<QueryInfo[]>> {
+    return await api.get<QueryInfo[]>('/ui/api/query')
 }
