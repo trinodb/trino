@@ -64,7 +64,7 @@ public class BigQueryConfig
     private String queryLabelFormat;
     private boolean proxyEnabled;
     private boolean projectionPushDownEnabled = true;
-    private int metadataParallelism = 2;
+    private int metadataParallelism = Runtime.getRuntime().availableProcessors();
 
     public Optional<String> getProjectId()
     {
