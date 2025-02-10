@@ -19,9 +19,9 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
+import io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType;
 import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
-import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import java.util.Map;
 
@@ -50,7 +50,7 @@ public class TestS3FileSystemConfig
                 .setExternalId(null)
                 .setStsEndpoint(null)
                 .setStsRegion(null)
-                .setStorageClass(StorageClass.STANDARD)
+                .setStorageClass(StorageClassType.STANDARD)
                 .setCannedAcl(ObjectCannedAcl.NONE)
                 .setSseType(S3SseType.NONE)
                 .setRetryMode(LEGACY)
@@ -127,7 +127,7 @@ public class TestS3FileSystemConfig
                 .setExternalId("myid")
                 .setStsEndpoint("sts.example.com")
                 .setStsRegion("us-west-2")
-                .setStorageClass(StorageClass.STANDARD_IA)
+                .setStorageClass(StorageClassType.STANDARD_IA)
                 .setCannedAcl(ObjectCannedAcl.BUCKET_OWNER_FULL_CONTROL)
                 .setStreamingPartSize(DataSize.of(42, MEGABYTE))
                 .setRetryMode(STANDARD)

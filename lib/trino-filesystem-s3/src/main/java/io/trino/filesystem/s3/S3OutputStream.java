@@ -47,6 +47,7 @@ import java.util.concurrent.Future;
 import static com.google.common.base.Verify.verify;
 import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl.getCannedAcl;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
+import static io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType.getStorageClass;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static io.trino.filesystem.s3.S3SseRequestConfigurator.setEncryptionSettings;
@@ -99,7 +100,7 @@ final class S3OutputStream
         this.context = requireNonNull(context, "context is null");
         this.partSize = context.partSize();
         this.requestPayer = context.requestPayer();
-        this.storageClass = context.storageClass();
+        this.storageClass = getStorageClass(context.storageClass());
         this.cannedAcl = getCannedAcl(context.cannedAcl());
         this.key = requireNonNull(key, "key is null");
 

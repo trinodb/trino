@@ -47,6 +47,22 @@ public class S3FileSystemConfig
         NONE, S3, KMS, CUSTOMER
     }
 
+    public enum StorageClassType
+    {
+        STANDARD,
+        STANDARD_IA,
+        INTELLIGENT_TIERING;
+
+        public static StorageClass getStorageClass(S3FileSystemConfig.StorageClassType storageClass)
+        {
+            return switch (storageClass) {
+                case STANDARD -> StorageClass.STANDARD;
+                case STANDARD_IA -> StorageClass.STANDARD_IA;
+                case INTELLIGENT_TIERING -> StorageClass.INTELLIGENT_TIERING;
+            };
+        }
+    }
+
     public enum ObjectCannedAcl
     {
         NONE,
@@ -92,7 +108,7 @@ public class S3FileSystemConfig
     private String endpoint;
     private String region;
     private boolean pathStyleAccess;
-    private StorageClass storageClass = StorageClass.STANDARD;
+    private StorageClassType storageClass = StorageClassType.STANDARD;
     private String iamRole;
     private String roleSessionName = "trino-filesystem";
     private String externalId;
@@ -184,14 +200,14 @@ public class S3FileSystemConfig
         return this;
     }
 
-    public StorageClass getStorageClass()
+    public StorageClassType getStorageClass()
     {
         return storageClass;
     }
 
     @Config("s3.storage-class")
     @ConfigDescription("The S3 storage class to use when writing the data")
-    public S3FileSystemConfig setStorageClass(StorageClass storageClass)
+    public S3FileSystemConfig setStorageClass(StorageClassType storageClass)
     {
         this.storageClass = storageClass;
         return this;

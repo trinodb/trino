@@ -15,13 +15,13 @@ package io.trino.filesystem.s3;
 
 import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
+import io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType;
 import io.trino.spi.security.ConnectorIdentity;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
-import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import java.util.Optional;
 
@@ -38,7 +38,7 @@ record S3Context(
         boolean requesterPays,
         S3SseContext s3SseContext,
         Optional<AwsCredentialsProvider> credentialsProviderOverride,
-        StorageClass storageClass,
+        StorageClassType storageClass,
         ObjectCannedAcl cannedAcl,
         boolean exclusiveWriteSupported)
 {
