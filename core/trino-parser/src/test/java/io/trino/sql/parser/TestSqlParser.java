@@ -159,6 +159,7 @@ import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.RenameCatalog;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -176,6 +177,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SessionProperty;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -1928,6 +1930,75 @@ public class TestSqlParser
 
         assertThat(statement("DROP CATALOG \"some catalog that contains space\"")).isEqualTo(
                 new DropCatalog(location(1, 1), new Identifier(location(1, 14), "some catalog that contains space", true), false, false));
+    }
+
+    @Test
+    public void testRenameCatalog()
+    {
+        assertThat(statement("ALTER CATALOG a RENAME TO b")).isEqualTo(
+                new RenameCatalog(location(1, 1), new Identifier(location(1, 15), "a", false), new Identifier(location(1, 27), "b", false)));
+    }
+
+    @Test
+    public void testSetCatalogProperties()
+    {
+        assertThat(statement("ALTER CATALOG a SET PROPERTIES foo='bar'")).isEqualTo(
+                new SetCatalogProperties(
+                        location(1, 1),
+                        new Identifier(location(1, 15), "a", false),
+                        ImmutableList.of(
+                                new Property(location(1, 32), new Identifier(location(1, 32), "foo", false), new StringLiteral(location(1, 36), "bar")))));
+        assertThat(statement("ALTER CATALOG a SET PROPERTIES foo=true")).isEqualTo(
+                new SetCatalogProperties(
+                        location(1, 1),
+                        new Identifier(location(1, 15), "a", false),
+                        ImmutableList.of(
+                                new Property(location(1, 32), new Identifier(location(1, 32), "foo", false), new BooleanLiteral(location(1, 36), "true")))));
+        assertThat(statement("ALTER CATALOG a SET PROPERTIES foo=123")).isEqualTo(
+                new SetCatalogProperties(
+                        location(1, 1),
+                        new Identifier(location(1, 15), "a", false),
+                        ImmutableList.of(
+                                new Property(location(1, 32), new Identifier(location(1, 32), "foo", false), new LongLiteral(location(1, 36), "123")))));
+        assertThat(statement("ALTER CATALOG a SET PROPERTIES foo=123, bar=456")).isEqualTo(
+                new SetCatalogProperties(
+                        location(1, 1),
+                        new Identifier(location(1, 15), "a", false),
+                        ImmutableList.of(
+                                new Property(location(1, 32), new Identifier(location(1, 32), "foo", false), new LongLiteral(location(1, 36), "123")),
+                                new Property(location(1, 41), new Identifier(location(1, 41), "bar", false), new LongLiteral(location(1, 45), "456")))));
+        assertThat(statement("ALTER CATALOG a SET PROPERTIES \" s p a c e \"='bar'")).isEqualTo(
+                new SetCatalogProperties(
+                        location(1, 1),
+                        new Identifier(location(1, 15), "a", false),
+                        ImmutableList.of(
+                                new Property(location(1, 32), new Identifier(location(1, 32), " s p a c e ", true), new StringLiteral(location(1, 46), "bar")))));
+        assertThat(statement("ALTER CATALOG a SET PROPERTIES foo=123, bar=DEFAULT")).isEqualTo(
+                new SetCatalogProperties(
+                        location(1, 1),
+                        new Identifier(location(1, 15), "a", false),
+                        ImmutableList.of(
+                                new Property(location(1, 32), new Identifier(location(1, 32), "foo", false), new LongLiteral(location(1, 36), "123")),
+                                new Property(location(1, 41), new Identifier(location(1, 41), "bar", false)))));
+        assertThat(statement("ALTER CATALOG a SET PROPERTIES foo=lower('FOO')")).isEqualTo(
+                new SetCatalogProperties(
+                        location(1, 1),
+                        new Identifier(location(1, 15), "a", false),
+                        ImmutableList.of(
+                                new Property(
+                                        location(1, 32),
+                                        new Identifier(location(1, 32), "foo", false),
+                                        new FunctionCall(
+                                                location(1, 36),
+                                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 36), "lower", false))),
+                                                ImmutableList.of(new StringLiteral(location(1, 42), "FOO")))))));
+
+        assertStatementIsInvalid("ALTER CATALOG a SET PROPERTIES")
+                .withMessage("line 1:31: mismatched input '<EOF>'. Expecting: <identifier>");
+        assertStatementIsInvalid("ALTER CATALOG a SET PROPERTIES ()")
+                .withMessage("line 1:32: mismatched input '('. Expecting: <identifier>");
+        assertStatementIsInvalid("ALTER CATALOG a SET PROPERTIES (foo='bar')")
+                .withMessage("line 1:32: mismatched input '('. Expecting: <identifier>");
     }
 
     @Test

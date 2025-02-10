@@ -71,6 +71,7 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRenameCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -81,6 +82,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
+import static io.trino.spi.security.AccessDeniedException.denySetCatalogProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
@@ -166,6 +168,18 @@ public class DenyAllAccessControl
     public void checkCanDropCatalog(SecurityContext context, String catalog)
     {
         denyDropCatalog(catalog);
+    }
+
+    @Override
+    public void checkCanRenameCatalog(SecurityContext context, String catalog, String newCatalog)
+    {
+        denyRenameCatalog(catalog, newCatalog);
+    }
+
+    @Override
+    public void checkCanSetCatalogProperties(SecurityContext context, String catalog, Map<String, Optional<String>> properties)
+    {
+        denySetCatalogProperties(catalog);
     }
 
     @Override
