@@ -343,6 +343,7 @@ jobs:
             !:trino-duckdb,
             !:trino-elasticsearch,
             !:trino-exasol,
+            !:trino-faker,
             !:trino-faulttolerant-tests,
             !:trino-filesystem,
             !:trino-filesystem-alluxio,
@@ -351,9 +352,11 @@ jobs:
             !:trino-filesystem-gcs,
             !:trino-filesystem-manager,
             !:trino-filesystem-s3,
+            !:trino-geospatial,
             !:trino-google-sheets,
             !:trino-hdfs,
             !:trino-hive,
+            !:trino-hive-formats,
             !:trino-hudi,
             !:trino-iceberg,
             !:trino-ignite,
@@ -365,6 +368,7 @@ jobs:
             !:trino-memory,
             !:trino-mongodb,
             !:trino-mysql,
+            !:trino-openlineage,
             !:trino-opensearch,
             !:trino-oracle,
             !:trino-orc,
@@ -379,11 +383,13 @@ jobs:
             !:trino-server-rpm,
             !:trino-singlestore,
             !:trino-snowflake,
+            !:trino-spi,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
             !:trino-thrift,
-            !:trino-vertica'
+            !:trino-vertica,
+            !:trino-web-ui'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
@@ -429,8 +435,14 @@ jobs:
           include:
             - modules:
                 - client/trino-jdbc
+                - core/trino-spi
+                - core/trino-web-ui
+            - modules:
                 - plugin/trino-base-jdbc
+                - plugin/trino-faker
+                - plugin/trino-geospatial
                 - plugin/trino-memory
+                - plugin/trino-openlineage
                 - plugin/trino-thrift
             - modules:
                 - lib/trino-orc
@@ -444,6 +456,7 @@ jobs:
                 - lib/trino-filesystem-manager
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
+                - lib/trino-hive-formats
             - { modules: core/trino-main }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
