@@ -25,6 +25,8 @@ import io.trino.plugin.base.classloader.ForClassLoaderSafe;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.kafka.schema.confluent.ConfluentModule;
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryTableDescriptionSupplier;
+import io.trino.plugin.kafka.schema.dynamic.DynamicTableDescriptionSupplier;
+import io.trino.plugin.kafka.schema.dynamic.DynamicTableDescriptionSupplierModule;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplierModule;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -68,6 +70,7 @@ public class KafkaConnectorModule
         configBinder(binder).bindConfig(KafkaConfig.class);
         bindTopicSchemaProviderModule(FileTableDescriptionSupplier.NAME, new FileTableDescriptionSupplierModule());
         bindTopicSchemaProviderModule(ConfluentSchemaRegistryTableDescriptionSupplier.NAME, new ConfluentModule(typeManager));
+        bindTopicSchemaProviderModule(DynamicTableDescriptionSupplier.NAME, new DynamicTableDescriptionSupplierModule());
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(KafkaSessionProperties.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(KafkaTopicDescription.class);
     }
