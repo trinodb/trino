@@ -361,14 +361,26 @@ public class MariaDbClient
         }
 
         Map<String, Object> columnProperties = column.getProperties();
-        boolean key = columnProperties.containsKey(PRIMARY_KEY) && (boolean) columnProperties.get(PRIMARY_KEY);
-        boolean autoIncrement = columnProperties.containsKey(AUTO_INCREMENT) && (boolean) columnProperties.get(AUTO_INCREMENT);
+        boolean key = (boolean) columnProperties.getOrDefault(PRIMARY_KEY, false);
+        boolean autoIncrement = (boolean) columnProperties.getOrDefault(AUTO_INCREMENT, false);
+
+        if (autoIncrement && !key) {
+            throw new TrinoException(JDBC_ERROR, "Only support using AUTO_INCREMENT on a column which must be a key in mariadb");
+        }
+
+        ColumnMetadata newColumn = column;
+        if (key) {
+            // primary key must be NOT NULL in mariadb
+            newColumn = ColumnMetadata.builderFrom(column)
+                    .setNullable(false)
+                    .build();
+        }
 
         return "%s %s %s %s %s".formatted(
                 quoted(columnName),
-                toWriteMapping(session, column.getType()).getDataType(),
-                column.isNullable() && !key ? "NULL" : "NOT NULL",
-                autoIncrement && key ? "AUTO_INCREMENT" : "",
+                toWriteMapping(session, newColumn.getType()).getDataType(),
+                newColumn.isNullable() ? "NULL" : "NOT NULL",
+                autoIncrement ? "AUTO_INCREMENT" : "",
                 key ? "PRIMARY KEY" : "");
     }
 
