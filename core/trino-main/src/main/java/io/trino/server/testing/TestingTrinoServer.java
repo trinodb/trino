@@ -88,6 +88,7 @@ import io.trino.server.StartupStatus;
 import io.trino.server.protocol.spooling.SpoolingManagerRegistry;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
+import io.trino.server.tracing.DynamicTracingModule;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
@@ -304,6 +305,7 @@ public class TestingTrinoServer
                 .add(new TestingJmxModule())
                 .add(new JmxOpenMetricsModule())
                 .add(new TracingModule("trino", VERSION))
+                .add(new DynamicTracingModule())
                 .add(new ServerSecurityModule())
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
