@@ -79,9 +79,12 @@ public class IonFileWriterFactory
             WriterKind writerKind)
     {
         if (!nativeTrinoEnabled
-                || !ION_OUTPUT_FORMAT.equals(storageFormat.getOutputFormat())
-                || IonSerDeProperties.hasUnsupportedProperty(schema)) {
+                || !ION_OUTPUT_FORMAT.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
+        }
+
+        if (IonSerDeProperties.hasUnsupportedProperty(schema)) {
+            throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating Ion Output, Table contains unsupported SerDe properties for native Ion");
         }
 
         try {

@@ -51,6 +51,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.ION_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
@@ -85,9 +86,12 @@ public class IonPageSourceFactory
             AcidTransaction transaction)
     {
         if (!nativeTrinoEnabled
-                || !ION_SERDE_CLASS.equals(schema.serializationLibraryName())
-                || IonSerDeProperties.hasUnsupportedProperty(schema.serdeProperties())) {
+                || !ION_SERDE_CLASS.equals(schema.serializationLibraryName())) {
             return Optional.empty();
+        }
+
+        if (IonSerDeProperties.hasUnsupportedProperty(schema.serdeProperties())) {
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Error creating Ion Input, Table contains unsupported SerDe properties for native Ion");
         }
 
         checkArgument(acidInfo.isEmpty(), "Acid is not supported for Ion files");

@@ -271,14 +271,10 @@ public class IonPageSourceSmokeTest
         TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
                 .withSerdeProperty(property.getKey(), property.getValue());
 
-        Assertions.assertTrue(
-                fixture.getOptionalFileWriter().isEmpty(),
-                "Expected empty file writer when there are unsupported Serde properties");
+        Assertions.assertThrows(TrinoException.class, fixture::getOptionalFileWriter);
 
         fixture.writeIonTextFile("{ }");
-        Assertions.assertTrue(
-                fixture.getOptionalPageSource().isEmpty(),
-                "Expected empty page source when there are unsupported Serde properties");
+        Assertions.assertThrows(TrinoException.class, fixture::getOptionalPageSource);
     }
 
     @ParameterizedTest

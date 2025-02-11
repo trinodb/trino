@@ -17,6 +17,7 @@ import com.amazon.ion.IonWriter;
 import com.amazon.ion.system.IonBinaryWriterBuilder;
 import com.amazon.ion.system.IonTextWriterBuilder;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.hive.formats.ion.IonDecoderConfig;
 import io.trino.spi.TrinoException;
 
@@ -30,6 +31,8 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 
 public final class IonSerDeProperties
 {
+    private static final Logger log = Logger.get(IonSerDeProperties.class);
+
     // Reader properties
     public static final String STRICT_PATH_TYPING_PROPERTY = "ion.path_extractor.strict";
     public static final String STRICT_PATH_TYPING_DEFAULT = "false";
@@ -41,7 +44,7 @@ public final class IonSerDeProperties
     // unimplemented reader properties
     public static final String FAIL_ON_OVERFLOW_PROPERTY = "ion.fail_on_overflow";
     public static final String FAIL_ON_OVERFLOW_PROPERTY_DEFAULT = "true";
-    public static final String COLUMN_FAIL_ON_OVERFLOW_PROPERTY = "ion.\\w+.fail_on_overflow";
+    public static final String FAIL_ON_OVERFLOW_COLUMN_PROPERTY = "ion.\\w+.fail_on_overflow";
     public static final String IGNORE_MALFORMED = "ion.ignore_malformed";
     public static final String IGNORE_MALFORMED_DEFAULT = "false";
 
@@ -55,10 +58,10 @@ public final class IonSerDeProperties
     public static final String ION_TIMESTAMP_OFFSET_DEFAULT = "Z";
     public static final String ION_SERIALIZE_NULL_AS_PROPERTY = "ion.serialize_null";
     public static final String ION_SERIALIZE_NULL_AS_DEFAULT = "OMIT";
-    public static final String ION_SERIALIZE_AS_PROPERTY = "ion.\\w+.serialize_as";
+    public static final String ION_SERIALIZE_NULL_AS_COLUMN_PROPERTY = "ion.\\w+.serialize_as";
 
     private static final Pattern unsupportedPropertiesRegex = Pattern.compile(
-            ION_SERIALIZE_AS_PROPERTY + "|" + COLUMN_FAIL_ON_OVERFLOW_PROPERTY);
+            ION_SERIALIZE_NULL_AS_COLUMN_PROPERTY + "|" + FAIL_ON_OVERFLOW_COLUMN_PROPERTY);
 
     private static final Map<String, String> defaultOnlyProperties = Map.of(
             // reader properties
@@ -124,19 +127,23 @@ public final class IonSerDeProperties
 
     public static boolean hasUnsupportedProperty(Map<String, String> properties)
     {
-        return properties.entrySet().stream()
-                .anyMatch((entry) -> {
-                    String key = entry.getKey();
-                    String value = entry.getValue();
-                    if (!key.startsWith("ion.")) {
-                        return false;
-                    }
-
-                    if (!defaultOnlyProperties.getOrDefault(key, value).equals(value)) {
-                        return true;
-                    }
-
-                    return unsupportedPropertiesRegex.matcher(key).matches();
-                });
+        boolean unsupported = false;
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (!key.startsWith("ion.")) {
+                continue;
+            }
+            String defaultValue = defaultOnlyProperties.get(key);
+            if (defaultValue != null && !defaultValue.equals(value)) {
+                log.error("Ion Table contains unsupported SerDe property: %s => %s", key, value);
+                unsupported = true;
+            }
+            if (unsupportedPropertiesRegex.matcher(key).matches()) {
+                log.error("Ion Table contains unsupported SerDe property: %s => %s", key, value);
+                unsupported = true;
+            }
+        }
+        return unsupported;
     }
 }
