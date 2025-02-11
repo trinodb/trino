@@ -215,7 +215,7 @@ public class RegularTableFunctionPartition
     /**
      * There are two types of table function's source semantics: set and row.
      * <p>
-     * For a source with row semantics, the table function result depends on the whole partition,
+     * For a source with set semantics, the table function result depends on the whole partition,
      * so it is not always possible to associate an output row with a specific input row.
      * The TableFunctionProcessor can return null as the pass-through index to indicate that
      * the output row is not associated with any row from the given source.
