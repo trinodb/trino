@@ -25,9 +25,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.table.TableFunctionDataProcessor;
-import io.trino.spi.function.table.TableFunctionProcessorState;
-import io.trino.spi.function.table.TableFunctionProcessorState.Blocked;
-import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
 import io.trino.spi.type.Type;
 
 import java.util.Arrays;
@@ -41,10 +38,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -114,34 +108,21 @@ public class RegularTableFunctionPartition
     }
 
     @Override
-    public WorkProcessor<Page> toOutputPages()
+    public WorkProcessor<TableFunctionWorkProcessor.TableFunctionProcessorInput> toOutputPages()
     {
         return WorkProcessor.create(new WorkProcessor.Process<>()
         {
             List<Optional<Page>> inputPages = prepareInputPages();
 
             @Override
-            public WorkProcessor.ProcessState<Page> process()
+            public WorkProcessor.ProcessState<TableFunctionWorkProcessor.TableFunctionProcessorInput> process()
             {
-                TableFunctionProcessorState state = tableFunction.process(inputPages);
-                boolean functionGotNoData = inputPages == null;
-                if (state == FINISHED) {
+                if (inputPages == null) {
                     return WorkProcessor.ProcessState.finished();
                 }
-                if (state instanceof Blocked blocked) {
-                    return WorkProcessor.ProcessState.blocked(toListenableFuture(blocked.getFuture()));
-                }
-                Processed processed = (Processed) state;
-                if (processed.isUsedInput()) {
-                    inputPages = prepareInputPages();
-                }
-                if (processed.getResult() != null) {
-                    return WorkProcessor.ProcessState.ofResult(appendPassThroughColumns(processed.getResult()));
-                }
-                if (functionGotNoData) {
-                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "When function got no input, it should either produce output or return Blocked state");
-                }
-                return WorkProcessor.ProcessState.blocked(immediateFuture(null));
+                var result = WorkProcessor.ProcessState.ofResult(new TableFunctionWorkProcessor.TableFunctionProcessorInput(inputPages, page -> appendPassThroughColumns(page)));
+                inputPages = prepareInputPages();
+                return result;
             }
         });
     }

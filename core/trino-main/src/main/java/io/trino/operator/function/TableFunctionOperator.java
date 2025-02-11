@@ -299,7 +299,8 @@ public class TableFunctionOperator
                         markerChannels,
                         passThroughSpecifications,
                         processEmptyInput))
-                .flatMap(TableFunctionPartition::toOutputPages);
+                .flatMap(TableFunctionPartition::toOutputPages)
+                .transform(new TableFunctionWorkProcessor(tableFunctionProvider.getDataProcessor(session, functionHandle)));
     }
 
     @Override

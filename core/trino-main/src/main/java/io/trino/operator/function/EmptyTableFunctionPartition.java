@@ -19,16 +19,11 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.function.table.TableFunctionDataProcessor;
-import io.trino.spi.function.table.TableFunctionProcessorState;
-import io.trino.spi.function.table.TableFunctionProcessorState.Blocked;
-import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -57,22 +52,9 @@ public class EmptyTableFunctionPartition
     }
 
     @Override
-    public WorkProcessor<Page> toOutputPages()
+    public WorkProcessor<TableFunctionWorkProcessor.TableFunctionProcessorInput> toOutputPages()
     {
-        return WorkProcessor.create(() -> {
-            TableFunctionProcessorState state = tableFunction.process(null);
-            if (state == FINISHED) {
-                return WorkProcessor.ProcessState.finished();
-            }
-            if (state instanceof Blocked blocked) {
-                return WorkProcessor.ProcessState.blocked(toListenableFuture(blocked.getFuture()));
-            }
-            Processed processed = (Processed) state;
-            if (processed.getResult() != null) {
-                return WorkProcessor.ProcessState.ofResult(appendNullsForPassThroughColumns(processed.getResult()));
-            }
-            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "When function got no input, it should either produce output or return Blocked state");
-        });
+        return WorkProcessor.create(() -> WorkProcessor.ProcessState.ofResult(new TableFunctionWorkProcessor.TableFunctionProcessorInput(null, this::appendNullsForPassThroughColumns)));
     }
 
     private Page appendNullsForPassThroughColumns(Page page)
