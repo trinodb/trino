@@ -12,45 +12,59 @@
  * limitations under the License.
  */
 import { Box, useMediaQuery } from '@mui/material'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { materialLight, materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { LightAsync as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { a11yLight, a11yDark } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import { Theme as ThemeStore, useConfigStore } from '../store'
 
 export interface ICodeBlockProps {
     code: string
     language: string
+    height?: string
 }
 
 export const CodeBlock = (props: ICodeBlockProps) => {
     const config = useConfigStore()
-    const { code, language } = props
+    const { code, language, height } = props
     const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)')
 
     const styleToUse = () => {
         if (config.theme === ThemeStore.Auto) {
-            return prefersDarkMode ? materialDark : materialLight
+            return prefersDarkMode ? a11yDark : a11yLight
         } else if (config.theme === ThemeStore.Dark) {
-            return materialDark
+            return a11yDark
         } else {
-            return materialLight
+            return a11yLight
         }
     }
 
     return (
         <Box
-            sx={{
+            display="flex"
+            flexDirection="column"
+            flexGrow={1}
+            sx={(theme) => ({
                 padding: 0,
                 borderRadius: 0,
-                backgroundColor: '#f5f5f5',
-                overflow: 'auto',
-                maxHeight: '400px',
-                border: '1px solid #ddd',
-            }}
+                border: `1px solid ${theme.palette.mode === 'dark' ? '#3f3f3f' : '#ddd'}`,
+                borderBottom: 'none',
+                width: '100%',
+                height: {
+                    xs: '100%',
+                    lg: height,
+                },
+            })}
         >
             <SyntaxHighlighter
                 language={language}
                 style={styleToUse()}
-                customStyle={{ padding: '4px', margin: 0, borderRadius: 0 }}
+                customStyle={{
+                    padding: '4px',
+                    margin: 0,
+                    borderRadius: 0,
+                    height: '100%',
+                    overflow: 'auto',
+                }}
+                wrapLongLines
             >
                 {code}
             </SyntaxHighlighter>

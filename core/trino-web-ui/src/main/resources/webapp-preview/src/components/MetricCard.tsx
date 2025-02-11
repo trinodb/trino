@@ -12,10 +12,7 @@
  * limitations under the License.
  */
 import { Link as RouterLink } from 'react-router-dom'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
-import Typography from '@mui/material/Typography'
-import { Grid2 as Grid } from '@mui/material'
+import { Card, CardActionArea, CardContent, Grid2 as Grid, Tooltip, Typography } from '@mui/material'
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart'
 import { styled } from '@mui/material/styles'
 
@@ -24,6 +21,7 @@ interface IMetricCardProps {
     values: number[]
     numberFormatter?: (n: number | null) => string
     link?: string
+    tooltip?: string
 }
 
 const StyledLink = styled(RouterLink)(({ theme }) => ({
@@ -35,52 +33,45 @@ const StyledLink = styled(RouterLink)(({ theme }) => ({
 }))
 
 export const MetricCard = (props: IMetricCardProps) => {
-    const { title, values, numberFormatter, link } = props
+    const { title, values, numberFormatter, link, tooltip } = props
     const lastValue = values[values.length - 1]
+    const maxValue = Math.max(...values, 1)
 
     return (
-        <Card variant="outlined" sx={{ minWidth: 275 }}>
-            <CardContent sx={{ flex: '1 0 auto' }}>
-                {link ? (
-                    <StyledLink to={link}>
-                        <Typography variant="h6" gutterBottom>
-                            {title}
-                        </Typography>
-                    </StyledLink>
-                ) : (
-                    <Typography variant="h6" color="info" gutterBottom>
-                        {title}
-                    </Typography>
-                )}
-                <Grid container>
-                    <Grid sx={{ display: 'flex', flexGrow: 1 }}>
-                        <Grid
-                            sx={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                flexBasis: '0',
-                                flexGrow: 1,
-                            }}
-                        >
-                            <Typography variant="h3" color="textSecondary" sx={{ fontWeight: 'bold' }}>
+        <Card variant="outlined">
+            <CardActionArea disableRipple>
+                <CardContent sx={{ padding: 1 }}>
+                    <Grid container>
+                        <Grid size={8}>
+                            <Tooltip placement="top-start" title={tooltip}>
+                                {link ? (
+                                    <StyledLink to={link}>
+                                        <Typography variant="h6">{title}</Typography>
+                                    </StyledLink>
+                                ) : (
+                                    <Typography variant="h6" color="info">
+                                        {title}
+                                    </Typography>
+                                )}
+                            </Tooltip>
+                        </Grid>
+                        <Grid size={4}>
+                            <Typography
+                                variant="h5"
+                                color="textSecondary"
+                                sx={{ fontWeight: 'bold', textAlign: 'right' }}
+                            >
                                 {numberFormatter ? numberFormatter(lastValue) : lastValue}
                             </Typography>
                         </Grid>
-                    </Grid>
-                    <Grid sx={{ display: 'flex', flexGrow: 1 }}>
-                        <Grid
-                            sx={{
-                                display: 'flex',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                                flexBasis: '0',
-                                flexGrow: 1,
-                            }}
-                        >
+                        <Grid size={12}>
                             <SparkLineChart
                                 data={values}
                                 valueFormatter={numberFormatter}
+                                yAxis={{
+                                    min: 0,
+                                    max: maxValue,
+                                }}
                                 height={50}
                                 area
                                 showHighlight
@@ -88,8 +79,8 @@ export const MetricCard = (props: IMetricCardProps) => {
                             />
                         </Grid>
                     </Grid>
-                </Grid>
-            </CardContent>
+                </CardContent>
+            </CardActionArea>
         </Card>
     )
 }

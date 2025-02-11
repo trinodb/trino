@@ -44,9 +44,11 @@ export const WorkersList = () => {
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        getWorkersList()
-        const intervalId = setInterval(getWorkersList, 1000)
-        return () => clearInterval(intervalId)
+        const runLoop = () => {
+            getWorkersList()
+            setTimeout(runLoop, 1000)
+        }
+        runLoop()
     }, [])
 
     useEffect(() => {
@@ -59,7 +61,16 @@ export const WorkersList = () => {
         setError(null)
         workerApi().then((apiResponse: ApiResponse<Worker[]>) => {
             if (apiResponse.status === 200 && apiResponse.data) {
-                setWorkersList(apiResponse.data)
+                if (apiResponse.data) {
+                    const sortedWorkers: Worker[] = apiResponse.data.sort((workerA, workerB) =>
+                        workerA.coordinator === workerB.coordinator
+                            ? workerA.nodeId.localeCompare(workerB.nodeId)
+                            : workerA.coordinator
+                              ? -1
+                              : 1
+                    )
+                    setWorkersList(sortedWorkers)
+                }
             } else {
                 setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
             }
