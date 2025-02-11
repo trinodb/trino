@@ -38,6 +38,7 @@ public class TableFunctionProcessorBuilder
     private List<Symbol> properOutputs = ImmutableList.of();
     private Optional<PlanNode> source = Optional.empty();
     private boolean pruneWhenEmpty;
+    private boolean supportsStreaming;
     private List<PassThroughSpecification> passThroughSpecifications = ImmutableList.of();
     private List<List<Symbol>> requiredSymbols = ImmutableList.of();
     private Optional<Map<Symbol, Symbol>> markerSymbols = Optional.empty();
@@ -69,6 +70,12 @@ public class TableFunctionProcessorBuilder
     public TableFunctionProcessorBuilder pruneWhenEmpty()
     {
         this.pruneWhenEmpty = true;
+        return this;
+    }
+
+    public TableFunctionProcessorBuilder supportsStreaming()
+    {
+        this.supportsStreaming = true;
         return this;
     }
 
@@ -122,6 +129,7 @@ public class TableFunctionProcessorBuilder
                 properOutputs,
                 source,
                 pruneWhenEmpty,
+                supportsStreaming,
                 passThroughSpecifications,
                 requiredSymbols,
                 markerSymbols,
