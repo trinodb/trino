@@ -290,20 +290,24 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                 <Toolbar />
                 <Box sx={{ overflowX: 'hidden', flexGrow: 1 }}>
                     <List>
-                        {routers.map((routerItem: RouterItem) => (
-                            <ListItem key={routerItem.text} disablePadding>
-                                {/*@ts-expect-error TS2769*/}
-                                <ListItemButton
-                                    key={routerItem.itemKey}
-                                    component={Link}
-                                    to={routerItem.routeProps.path}
-                                    selected={routerItem.itemKey === selectedDrawerItemKey}
-                                >
-                                    <ListItemIcon>{routerItem.icon}</ListItemIcon>
-                                    <ListItemText primary={routerItem.text} />
-                                </ListItemButton>
-                            </ListItem>
-                        ))}
+                        {routers.map((routerItem: RouterItem) =>
+                            routerItem.hidden ? (
+                                <></>
+                            ) : (
+                                <ListItem key={routerItem.text} disablePadding>
+                                    {/*@ts-expect-error TS2769*/}
+                                    <ListItemButton
+                                        key={routerItem.itemKey}
+                                        component={Link}
+                                        to={routerItem.routeProps.path}
+                                        selected={routerItem.itemKey === selectedDrawerItemKey}
+                                    >
+                                        <ListItemIcon>{routerItem.icon}</ListItemIcon>
+                                        <ListItemText primary={routerItem.text} />
+                                    </ListItemButton>
+                                </ListItem>
+                            )
+                        )}
                     </List>
                 </Box>
                 <DrawerFooter>

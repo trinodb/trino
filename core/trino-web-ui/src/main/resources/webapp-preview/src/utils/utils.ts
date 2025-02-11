@@ -11,6 +11,57 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { QueryInfo } from '../api/webapp/api.ts'
+
+export const getHumanReadableState = (queryInfo: QueryInfo) => {
+    if (queryInfo.state === 'RUNNING') {
+        let title = 'RUNNING'
+
+        if (queryInfo.scheduled && queryInfo.queryStats.totalDrivers > 0 && queryInfo.queryStats.runningDrivers >= 0) {
+            if (queryInfo.queryStats.fullyBlocked) {
+                title = 'BLOCKED'
+
+                if (queryInfo.queryStats.blockedReasons?.length > 0) {
+                    title += ' (' + queryInfo.queryStats.blockedReasons.join(', ') + ')'
+                }
+            }
+
+            if (queryInfo.memoryPool === 'reserved') {
+                title += ' (RESERVED)'
+            }
+
+            return title
+        }
+    }
+
+    if (queryInfo.state === 'FAILED') {
+        let errorMsg = ''
+        switch (queryInfo.errorType) {
+            case 'USER_ERROR':
+                errorMsg = 'USER ERROR'
+                if (queryInfo.errorCode.name === 'USER_CANCELED') {
+                    errorMsg = 'USER CANCELED'
+                }
+                break
+            case 'INTERNAL_ERROR':
+                errorMsg = 'INTERNAL ERROR'
+                break
+            case 'INSUFFICIENT_RESOURCES':
+                errorMsg = 'INSUFFICIENT RESOURCES'
+                break
+            case 'EXTERNAL':
+                errorMsg = 'EXTERNAL ERROR'
+                break
+        }
+        if (queryInfo.errorCode && queryInfo.errorCode.name) {
+            errorMsg += ` - ${queryInfo.errorCode.name}`
+        }
+        return errorMsg
+    }
+
+    return queryInfo.state
+}
+
 // Sparkline-related functions
 // ===========================
 
@@ -37,6 +88,17 @@ export function addExponentiallyWeightedToHistory(value: number, valuesArray: nu
     }
 
     return valuesArray.concat([movingAverage]).slice(Math.max(valuesArray.length - MAX_HISTORY, 0))
+}
+
+// Utility functions
+// =================
+
+export function truncateString(inputString: string, length: number): string {
+    if (inputString && inputString.length > length) {
+        return inputString.substring(0, length) + '...'
+    }
+
+    return inputString
 }
 
 export function precisionRound(n: number | null): string {
@@ -123,4 +185,73 @@ function formatDataSizeMinUnit(size: number | null, minUnit: string): string {
         unit = 'P' + minUnit
     }
     return precisionRound(size) + unit
+}
+
+export function parseDataSize(value: string): number | null {
+    const DATA_SIZE_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
+    const match = DATA_SIZE_PATTERN.exec(value)
+    if (match === null) {
+        return null
+    }
+    const number = parseFloat(match[1])
+    switch (match[2]) {
+        case 'B':
+            return number
+        case 'kB':
+            return number * Math.pow(2, 10)
+        case 'MB':
+            return number * Math.pow(2, 20)
+        case 'GB':
+            return number * Math.pow(2, 30)
+        case 'TB':
+            return number * Math.pow(2, 40)
+        case 'PB':
+            return number * Math.pow(2, 50)
+        default:
+            return null
+    }
+}
+
+export function parseAndFormatDataSize(value: string): string {
+    const parsed = parseDataSize(value)
+
+    if (parsed == null) {
+        return ''
+    }
+
+    return formatDataSize(parsed)
+}
+
+export function parseDuration(value: string): number | null {
+    const DURATION_PATTERN = /^\s*(\d+(?:\.\d+)?)\s*([a-zA-Z]+)\s*$/
+
+    const match = DURATION_PATTERN.exec(value)
+    if (match === null) {
+        return null
+    }
+    const number = parseFloat(match[1])
+    switch (match[2]) {
+        case 'ns':
+            return number / 1000000.0
+        case 'us':
+            return number / 1000.0
+        case 'ms':
+            return number
+        case 's':
+            return number * 1000
+        case 'm':
+            return number * 1000 * 60
+        case 'h':
+            return number * 1000 * 60 * 60
+        case 'd':
+            return number * 1000 * 60 * 60 * 24
+        default:
+            return null
+    }
+}
+
+export function formatShortTime(date: Date): string {
+    const hours = date.getHours() % 12 || 12
+    const minutes = (date.getMinutes() < 10 ? '0' : '') + date.getMinutes()
+    return hours + ':' + minutes + (date.getHours() >= 12 ? 'pm' : 'am')
 }
