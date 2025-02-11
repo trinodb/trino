@@ -1790,6 +1790,11 @@ public class LocalExecutionPlanner
                 sortOrders = orderingScheme.orderingList();
             }
 
+            // Enforce streaming only for row semantics function which has a single table argument and without any pass-through options
+            boolean supportsStreaming = node.getPassThroughSpecifications().isEmpty()
+                    && node.getSpecification().isEmpty()
+                    && requiredChannels.size() == 1;
+
             OperatorFactory operator = new TableFunctionOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
@@ -1802,6 +1807,7 @@ public class LocalExecutionPlanner
                     markerChannels,
                     passThroughColumnSpecifications.build(),
                     node.isPruneWhenEmpty(),
+                    supportsStreaming,
                     partitionChannels,
                     getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitioned()), source.getLayout()),
                     sortChannels,

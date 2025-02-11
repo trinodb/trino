@@ -48,6 +48,7 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.PositionSearcher.findEndPosition;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static java.util.Collections.nCopies;
@@ -92,6 +93,8 @@ public class TableFunctionOperator
         // pruneWhenEmpty is false if and only if all original input tables are KEEP WHEN EMPTY
         private final boolean pruneWhenEmpty;
 
+        private final boolean supportsStreaming;
+
         // partitioning channels from all sources
         private final List<Integer> partitionChannels;
 
@@ -125,6 +128,7 @@ public class TableFunctionOperator
                 Optional<Map<Integer, Integer>> markerChannels,
                 List<PassThroughColumnSpecification> passThroughSpecifications,
                 boolean pruneWhenEmpty,
+                boolean supportsStreaming,
                 List<Integer> partitionChannels,
                 List<Integer> prePartitionedChannels,
                 List<Integer> sortChannels,
@@ -164,6 +168,7 @@ public class TableFunctionOperator
             this.markerChannels = markerChannels.map(ImmutableMap::copyOf);
             this.passThroughSpecifications = ImmutableList.copyOf(passThroughSpecifications);
             this.pruneWhenEmpty = pruneWhenEmpty;
+            this.supportsStreaming = supportsStreaming;
             this.partitionChannels = ImmutableList.copyOf(partitionChannels);
             this.prePartitionedChannels = ImmutableList.copyOf(prePartitionedChannels);
             this.sortChannels = ImmutableList.copyOf(sortChannels);
@@ -191,6 +196,7 @@ public class TableFunctionOperator
                     markerChannels,
                     passThroughSpecifications,
                     pruneWhenEmpty,
+                    supportsStreaming,
                     partitionChannels,
                     prePartitionedChannels,
                     sortChannels,
@@ -222,6 +228,7 @@ public class TableFunctionOperator
                     markerChannels,
                     passThroughSpecifications,
                     pruneWhenEmpty,
+                    supportsStreaming,
                     partitionChannels,
                     prePartitionedChannels,
                     sortChannels,
@@ -250,6 +257,7 @@ public class TableFunctionOperator
             Optional<Map<Integer, Integer>> markerChannels,
             List<PassThroughColumnSpecification> passThroughSpecifications,
             boolean pruneWhenEmpty,
+            boolean supportsStreaming,
             List<Integer> partitionChannels,
             List<Integer> prePartitionedChannels,
             List<Integer> sortChannels,
@@ -285,21 +293,28 @@ public class TableFunctionOperator
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
         HashStrategies hashStrategies = new HashStrategies(pagesIndex, partitionChannels, prePartitionedChannels, sortChannels, sortOrders, preSortedPrefix);
 
-        this.outputPages = pageBuffer.pages()
-                .transform(new PartitionAndSort(pagesIndex, hashStrategies, processEmptyInput))
-                .flatMap(groupPagesIndex -> pagesIndexToTableFunctionPartitions(
-                        groupPagesIndex,
-                        hashStrategies,
-                        tableFunctionProvider,
-                        session,
-                        functionHandle,
-                        properChannelsCount,
-                        passThroughSourcesCount,
-                        requiredChannels,
-                        markerChannels,
-                        passThroughSpecifications,
-                        processEmptyInput))
-                .flatMap(TableFunctionPartition::toOutputPages);
+        if (supportsStreaming) {
+            this.outputPages = pageBuffer.pages()
+                    .transform(new StreamingTableFunctionInputProvider(processEmptyInput, getOnlyElement(requiredChannels)))
+                    .transform(new TableFunctionProcessor(tableFunctionProvider.getDataProcessor(session, functionHandle)));
+        }
+        else {
+            this.outputPages = pageBuffer.pages()
+                    .transform(new PartitionAndSort(pagesIndex, hashStrategies, processEmptyInput))
+                    .flatMap(groupPagesIndex -> pagesIndexToTableFunctionPartitions(
+                            groupPagesIndex,
+                            hashStrategies,
+                            tableFunctionProvider,
+                            session,
+                            functionHandle,
+                            properChannelsCount,
+                            passThroughSourcesCount,
+                            requiredChannels,
+                            markerChannels,
+                            passThroughSpecifications,
+                            processEmptyInput))
+                    .flatMap(TableFunctionPartition::toOutputPages);
+        }
     }
 
     @Override
