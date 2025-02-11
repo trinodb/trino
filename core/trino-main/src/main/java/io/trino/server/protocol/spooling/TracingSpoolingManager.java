@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spooling.filesystem;
+package io.trino.server.protocol.spooling;
 
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.common.AttributeKey;
@@ -32,9 +32,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.opentelemetry.api.common.AttributeKey.booleanKey;
 import static io.opentelemetry.api.common.AttributeKey.longKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
-import static io.trino.filesystem.tracing.Tracing.EXCEPTION_ESCAPED;
 import static java.util.Objects.requireNonNull;
 
 public class TracingSpoolingManager
@@ -136,7 +136,7 @@ public class TracingSpoolingManager
         }
         catch (Throwable t) {
             span.setStatus(StatusCode.ERROR, t.getMessage());
-            span.recordException(t, Attributes.of(EXCEPTION_ESCAPED, true));
+            span.recordException(t, Attributes.of(booleanKey("exception.escaped"), true));
             throw t;
         }
         finally {
