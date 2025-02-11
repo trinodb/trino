@@ -361,6 +361,7 @@ public class UnaliasSymbolReferences
                                 mapper.map(node.getProperOutputs()),
                                 Optional.empty(),
                                 node.isPruneWhenEmpty(),
+                                node.isRowSemantics(),
                                 ImmutableList.of(),
                                 ImmutableList.of(),
                                 Optional.empty(),

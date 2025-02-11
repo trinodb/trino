@@ -50,6 +50,8 @@ public class TableFunctionProcessorNode
     // pruneWhenEmpty is false if and only if all original input tables are KEEP WHEN EMPTY
     private final boolean pruneWhenEmpty;
 
+    private final boolean rowSemantics;
+
     // all source symbols to be produced on output, ordered as table argument specifications
     private final List<PassThroughSpecification> passThroughSpecifications;
 
@@ -77,6 +79,7 @@ public class TableFunctionProcessorNode
             @JsonProperty("properOutputs") List<Symbol> properOutputs,
             @JsonProperty("source") Optional<PlanNode> source,
             @JsonProperty("pruneWhenEmpty") boolean pruneWhenEmpty,
+            @JsonProperty("rowSemantics") boolean rowSemantics,
             @JsonProperty("passThroughSpecifications") List<PassThroughSpecification> passThroughSpecifications,
             @JsonProperty("requiredSymbols") List<List<Symbol>> requiredSymbols,
             @JsonProperty("markerSymbols") Optional<Map<Symbol, Symbol>> markerSymbols,
@@ -91,6 +94,7 @@ public class TableFunctionProcessorNode
         this.properOutputs = ImmutableList.copyOf(properOutputs);
         this.source = requireNonNull(source, "source is null");
         this.pruneWhenEmpty = pruneWhenEmpty;
+        this.rowSemantics = rowSemantics;
         this.passThroughSpecifications = ImmutableList.copyOf(passThroughSpecifications);
         this.requiredSymbols = requiredSymbols.stream()
                 .map(ImmutableList::copyOf)
@@ -138,6 +142,12 @@ public class TableFunctionProcessorNode
     public boolean isPruneWhenEmpty()
     {
         return pruneWhenEmpty;
+    }
+
+    @JsonProperty
+    public boolean isRowSemantics()
+    {
+        return rowSemantics;
     }
 
     @JsonProperty
@@ -227,6 +237,7 @@ public class TableFunctionProcessorNode
                 properOutputs,
                 newSource,
                 pruneWhenEmpty,
+                rowSemantics,
                 passThroughSpecifications,
                 requiredSymbols,
                 markerSymbols,

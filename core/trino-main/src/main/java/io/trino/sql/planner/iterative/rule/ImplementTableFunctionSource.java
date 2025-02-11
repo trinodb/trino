@@ -159,6 +159,7 @@ public class ImplementTableFunctionSource
                     node.getProperOutputs(),
                     Optional.empty(),
                     false,
+                    false,
                     ImmutableList.of(),
                     ImmutableList.of(),
                     Optional.empty(),
@@ -181,6 +182,7 @@ public class ImplementTableFunctionSource
                     node.getProperOutputs(),
                     Optional.of(getOnlyElement(node.getSources())),
                     sourceProperties.pruneWhenEmpty(),
+                    sourceProperties.rowSemantics(),
                     ImmutableList.of(sourceProperties.passThroughSpecification()),
                     ImmutableList.of(sourceProperties.requiredColumns()),
                     Optional.empty(),
@@ -260,6 +262,8 @@ public class ImplementTableFunctionSource
         // derive the prune when empty property
         boolean pruneWhenEmpty = node.getTableArgumentProperties().stream().anyMatch(TableArgumentProperties::pruneWhenEmpty);
 
+        boolean isRowSemantics = node.getTableArgumentProperties().stream().allMatch(TableArgumentProperties::rowSemantics);
+
         // Combine the pass through specifications from all sources
         List<PassThroughSpecification> passThroughSpecifications = node.getTableArgumentProperties().stream()
                 .map(TableArgumentProperties::passThroughSpecification)
@@ -276,6 +280,7 @@ public class ImplementTableFunctionSource
                 node.getProperOutputs(),
                 Optional.of(marked.node()),
                 pruneWhenEmpty,
+                isRowSemantics,
                 passThroughSpecifications,
                 requiredSymbols,
                 Optional.of(markerSymbols),
