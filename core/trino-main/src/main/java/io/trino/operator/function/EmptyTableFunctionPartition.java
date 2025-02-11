@@ -18,17 +18,12 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.function.table.TableFunctionDataProcessor;
-import io.trino.spi.function.table.TableFunctionProcessorState;
-import io.trino.spi.function.table.TableFunctionProcessorState.Blocked;
-import io.trino.spi.function.table.TableFunctionProcessorState.Processed;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 
-import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -43,14 +38,14 @@ import static java.util.Objects.requireNonNull;
 public class EmptyTableFunctionPartition
         implements TableFunctionPartition
 {
-    private final TableFunctionDataProcessor tableFunction;
+    private final TableFunctionProcessor tableFunctionProcessor;
     private final int properChannelsCount;
     private final int passThroughSourcesCount;
     private final Type[] passThroughTypes;
 
-    public EmptyTableFunctionPartition(TableFunctionDataProcessor tableFunction, int properChannelsCount, int passThroughSourcesCount, List<Type> passThroughTypes)
+    public EmptyTableFunctionPartition(TableFunctionProcessor tableFunctionProcessor, int properChannelsCount, int passThroughSourcesCount, List<Type> passThroughTypes)
     {
-        this.tableFunction = requireNonNull(tableFunction, "tableFunction is null");
+        this.tableFunctionProcessor = requireNonNull(tableFunctionProcessor, "tableFunctionProcessor is null");
         this.properChannelsCount = properChannelsCount;
         this.passThroughSourcesCount = passThroughSourcesCount;
         this.passThroughTypes = passThroughTypes.toArray(new Type[] {});
@@ -59,20 +54,9 @@ public class EmptyTableFunctionPartition
     @Override
     public WorkProcessor<Page> toOutputPages()
     {
-        return WorkProcessor.create(() -> {
-            TableFunctionProcessorState state = tableFunction.process(null);
-            if (state == FINISHED) {
-                return WorkProcessor.ProcessState.finished();
-            }
-            if (state instanceof Blocked blocked) {
-                return WorkProcessor.ProcessState.blocked(toListenableFuture(blocked.getFuture()));
-            }
-            Processed processed = (Processed) state;
-            if (processed.getResult() != null) {
-                return WorkProcessor.ProcessState.ofResult(appendNullsForPassThroughColumns(processed.getResult()));
-            }
-            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "When function got no input, it should either produce output or return Blocked state");
-        });
+        return WorkProcessor.create((WorkProcessor.Process<List<Optional<Page>>>) WorkProcessor.ProcessState::finished)
+                .transform(tableFunctionProcessor)
+                .map(this::appendNullsForPassThroughColumns);
     }
 
     private Page appendNullsForPassThroughColumns(Page page)
