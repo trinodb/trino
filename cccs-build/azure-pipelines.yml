@@ -17,9 +17,13 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
+  - bash: |
+      # List all installed Java versions
+      update-alternatives --display java
+    displayName: 'Check Installed Java Versions'
   - task: JavaToolInstaller@0
     inputs:
-      versionSpec: 23
+      versionSpec: 21
       jdkArchitectureOption: x64
       jdkSourceOption: PreInstalled
     displayName: 'Install Eclipse Temurin JDK'
