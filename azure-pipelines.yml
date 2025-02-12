@@ -39,7 +39,7 @@ jobs:
       MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dmaven.source.skip=true"
       SKIPPED_PROJECTS: "!:trino-docs,!:trino-server-rpm,!:trino-blackhole,!:trino-duckdb,!:trino-exasol,!:trino-faker,!:trino-hdfs,!:trino-hive,!:trino-hudi,!:trino-ignite,!:trino-kafka,!:trino-kafka-event-listener,!:trino-loki,!:trino-phoenix5,!:trino-pinot,!:trino-ranger,!:trino-snowflake,!:trino-example-http,!:trino-google-sheets,!:trino-druid,!:trino-exchange-hdfs,!:trino-openlineage,!:trino-thrift-api,!:trino-thrift-testing-server,!:trino-thrift,!:trino-clickhouse,!:trino-spooling-filesystem,!:trino-opensearch,!:trino-vertica,!:trino-singlestore,!:trino-teradata-functions,!:trino-elasticsearch,!:trino-kudu,!:trino-bigquery,!:trino-testing-resources,!:trino-delta-lake,!:trino-prometheus,!:trino-cassandra,!:trino-sqlserver,!:trino-mariadb,!:trino-redis,!:trino-redshift,!:trino-example-jdbc,!:trino-proxy,!:trino-verifier,!:trino-benchmark-queries,!:trino-benchto-benchmarks,!:trino-tests,!:trino-faulttolerant-tests,!:trino-plugin-reader,!:trino-product-tests-groups,!:trino-product-tests,!:trino-product-tests-launcher,!:trino-server-dev,!:trino-test-jdbc-compatibility-old-driver,!:trino-test-jdbc-compatibility-old-server,!:trino-testing-services,!:trino-testing,!:trino-testing-containers,!:trino-testing-kafka"
     container:
-      image: uchimera.azurecr.io/cccs/dev/trino-build:465_cccs-main_20241205164426_b11358
+      image: uchimera.azurecr.io/cccs/dev/trino-build:470_trino-470-merge-fixes
       options: --entrypoint="" --user=0
       endpoint: uchimera
       volumes:
