@@ -11,7 +11,6 @@ information, in the following sections:
 installation/deployment
 installation/containers
 installation/kubernetes
-installation/rpm
 installation/query-resiliency
 ```
 
