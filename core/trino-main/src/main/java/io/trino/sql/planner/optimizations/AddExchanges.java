@@ -27,14 +27,17 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.cost.TaskCountEstimator;
+import io.trino.metadata.Metadata;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
@@ -42,6 +45,7 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
+import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
@@ -114,6 +118,7 @@ import static io.trino.SystemSessionProperties.isScaleWriters;
 import static io.trino.SystemSessionProperties.isUseCostBasedPartitioning;
 import static io.trino.SystemSessionProperties.isUseExactPartitioning;
 import static io.trino.SystemSessionProperties.isUsePartialDistinctLimit;
+import static io.trino.SystemSessionProperties.isUseTableScanNodePartitioning;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
@@ -141,12 +146,14 @@ public class AddExchanges
     private final PlannerContext plannerContext;
     private final StatsCalculator statsCalculator;
     private final TaskCountEstimator taskCountEstimator;
+    private final NodePartitioningManager nodePartitioningManager;
 
-    public AddExchanges(PlannerContext plannerContext, StatsCalculator statsCalculator, TaskCountEstimator taskCountEstimator)
+    public AddExchanges(PlannerContext plannerContext, StatsCalculator statsCalculator, TaskCountEstimator taskCountEstimator, NodePartitioningManager nodePartitioningManager)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
+        this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
     }
 
     @Override
@@ -677,7 +684,53 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitTableScan(TableScanNode node, PreferredProperties preferredProperties)
         {
+            // attempt to push preferred partitioning into the table scan
+            var partitioningProperties = preferredProperties.getGlobalProperties().flatMap(PreferredProperties.Global::getPartitioningProperties);
+            if (isUseTableScanNodePartitioning(session) && partitioningProperties.isPresent()) {
+                Optional<TableScanNode> partitionedNode = pushPartitioningIntoTableScan(plannerContext.getMetadata(), session, node, partitioningProperties.get());
+                if (partitionedNode.isPresent()) {
+                    node = partitionedNode.get();
+                }
+            }
             return new PlanWithProperties(node, deriveProperties(node, ImmutableList.of()));
+        }
+
+        private Optional<TableScanNode> pushPartitioningIntoTableScan(Metadata metadata, Session session, TableScanNode node, PreferredProperties.PartitioningProperties partitioningProperties)
+        {
+            verify(node.getAssignments().keySet().containsAll(partitioningProperties.getPartitioningColumns()), "TableScanNode does not read all partitioning columns");
+
+            List<ColumnHandle> partitionColumns;
+            if (partitioningProperties.getPartitioning().isPresent()) {
+                Partitioning partitioning = partitioningProperties.getPartitioning().get();
+                // Partitioning with a required function that has constant arguments cannot be pushed into the table scan.
+                // The APIs do not support this, and it would require the connectors support evaluation with provided constants.
+                if (!partitioning.getArguments().stream().allMatch(Partitioning.ArgumentBinding::isVariable)) {
+                    return Optional.empty();
+                }
+                partitionColumns = partitioning.getArguments().stream()
+                        .map(Partitioning.ArgumentBinding::getColumn)
+                        .map(node.getAssignments()::get)
+                        .collect(toImmutableList());
+            }
+            else {
+                partitionColumns = partitioningProperties.getPartitioningColumns().stream()
+                        .map(node.getAssignments()::get)
+                        .collect(toImmutableList());
+            }
+
+            if (partitionColumns.isEmpty()) {
+                return Optional.empty();
+            }
+
+            return metadata.applyPartitioning(session, node.getTable(), partitioningProperties.getPartitioning().map(Partitioning::getHandle), partitionColumns)
+                    .map(node::withTableHandle)
+                    // Activate the partitioning if it passes the rules defined in DetermineTableScanNodePartitioning
+                    .map(newNode -> DetermineTableScanNodePartitioning.setUseConnectorNodePartitioning(
+                            plannerContext.getMetadata(),
+                            nodePartitioningManager,
+                            taskCountEstimator,
+                            session,
+                            newNode));
         }
 
         @Override
@@ -926,10 +979,15 @@ public class AddExchanges
             SetMultimap<Symbol, Symbol> leftToRight = createMapping(leftSymbols, rightSymbols);
 
             PlanWithProperties right;
-
             if (isNodePartitionedOn(left.getProperties(), leftSymbols) && !left.getProperties().isSingleNode()) {
                 Partitioning rightPartitioning = left.getProperties().translate(createTranslator(leftToRight)).getNodePartitioning().get();
                 right = node.getRight().accept(this, PreferredProperties.partitioned(rightPartitioning));
+
+                // At this point the left and right might have different but compatible partitioning schemes.  This can happen in Hive/Iceberg hash bucket
+                // partitioning with different bucket counts.
+                // The inconsistencies in the partitioning schemes will be resolved in PlanFragmenter.PartitioningHandleReassigner.
+
+                // If right partitioning is not compatible with left partitioning, add an exchange to repartition the right
                 if (!right.getProperties().isCompatibleTablePartitioningWith(left.getProperties(), rightToLeft::get, plannerContext.getMetadata(), session)) {
                     right = withDerivedProperties(
                             partitionedExchange(idAllocator.getNextId(), REMOTE, right.getNode(), new PartitioningScheme(rightPartitioning, right.getNode().getOutputSymbols())),
@@ -1074,6 +1132,12 @@ public class AddExchanges
                 if (isNodePartitionedOn(source.getProperties(), sourceSymbols) && !source.getProperties().isSingleNode()) {
                     Partitioning filteringPartitioning = source.getProperties().translate(createTranslator(sourceToFiltering)).getNodePartitioning().get();
                     filteringSource = node.getFilteringSource().accept(this, PreferredProperties.partitionedWithNullsAndAnyReplicated(filteringPartitioning));
+
+                    // At this point the source and filteringSource might have different but compatible partitioning schemes.  This can happen in Hive/Iceberg hash bucket
+                    // partitioning with different bucket counts
+                    // The inconsistencies in the partitioning schemes will be resolved in PlanFragmenter.PartitioningHandleReassigner.
+
+                    // If filteringSource partitioning is not compatible with source partitioning, add an exchange to repartition the filteringSource
                     if (!source.getProperties().withReplicatedNulls(true).isCompatibleTablePartitioningWith(filteringSource.getProperties(), sourceToFiltering::get, plannerContext.getMetadata(), session)) {
                         filteringSource = withDerivedProperties(
                                 partitionedExchange(idAllocator.getNextId(), REMOTE, filteringSource.getNode(), new PartitioningScheme(

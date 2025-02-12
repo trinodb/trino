@@ -20,6 +20,10 @@ import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.sql.routine.ir.IrRoutine;
 
 import java.util.Map;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public interface LanguageFunctionProvider
 {
@@ -32,7 +36,7 @@ public interface LanguageFunctionProvider
         }
 
         @Override
-        public void registerTask(TaskId taskId, Map<FunctionId, IrRoutine> languageFunctions)
+        public void registerTask(TaskId taskId, Map<FunctionId, LanguageFunctionData> languageFunctions)
         {
             if (!languageFunctions.isEmpty()) {
                 throw new UnsupportedOperationException("SQL language functions are disabled");
@@ -45,7 +49,27 @@ public interface LanguageFunctionProvider
 
     ScalarFunctionImplementation specialize(FunctionId functionId, InvocationConvention invocationConvention, FunctionManager functionManager);
 
-    void registerTask(TaskId taskId, Map<FunctionId, IrRoutine> languageFunctions);
+    void registerTask(TaskId taskId, Map<FunctionId, LanguageFunctionData> languageFunctions);
 
     void unregisterTask(TaskId taskId);
+
+    record LanguageFunctionData(Optional<IrRoutine> irRoutine, Optional<LanguageFunctionDefinition> definition)
+    {
+        public LanguageFunctionData
+        {
+            requireNonNull(irRoutine, "irRoutine is null");
+            requireNonNull(definition, "definition is null");
+            checkArgument(irRoutine.isPresent() != definition.isPresent(), "exactly one of irRoutine and metadata must be present");
+        }
+
+        public static LanguageFunctionData ofIrRoutine(IrRoutine irRoutine)
+        {
+            return new LanguageFunctionData(Optional.of(irRoutine), Optional.empty());
+        }
+
+        public static LanguageFunctionData ofDefinition(LanguageFunctionDefinition metadata)
+        {
+            return new LanguageFunctionData(Optional.empty(), Optional.of(metadata));
+        }
+    }
 }

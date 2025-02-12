@@ -35,6 +35,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
@@ -50,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -96,7 +99,8 @@ public class TestTrinoGlueCatalog
                 useSystemSecurity,
                 Optional.empty(),
                 useUniqueTableLocations,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                directExecutor());
     }
 
     /**
@@ -137,7 +141,9 @@ public class TestTrinoGlueCatalog
                     new TableStatisticsWriter(new NodeVersion("test-version")),
                     Optional.empty(),
                     false,
-                    _ -> false);
+                    _ -> false,
+                    newDirectExecutorService(),
+                    directExecutor());
             assertThat(icebergMetadata.schemaExists(SESSION, databaseName)).as("icebergMetadata.schemaExists(databaseName)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, trinoSchemaName)).as("icebergMetadata.schemaExists(trinoSchemaName)")
@@ -231,7 +237,8 @@ public class TestTrinoGlueCatalog
                 false,
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
                 false,
-                new IcebergConfig().isHideMaterializedViewStorageTable());
+                new IcebergConfig().isHideMaterializedViewStorageTable(),
+                directExecutor());
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";
@@ -250,5 +257,27 @@ public class TestTrinoGlueCatalog
                 LOG.warn("Failed to clean up namespace: %s", namespace);
             }
         }
+    }
+
+    @Override
+    protected void createMaterializedView(
+            ConnectorSession session,
+            TrinoCatalog catalog,
+            SchemaTableName materializedView,
+            ConnectorMaterializedViewDefinition materializedViewDefinition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
+    {
+        catalog.createMaterializedView(
+                session,
+                materializedView,
+                materializedViewDefinition,
+                ImmutableMap.<String, Object>builder()
+                        .putAll(properties)
+                        .put(LOCATION_PROPERTY, "file:///tmp/a/path/" + materializedView.getTableName())
+                        .buildOrThrow(),
+                replace,
+                ignoreExisting);
     }
 }

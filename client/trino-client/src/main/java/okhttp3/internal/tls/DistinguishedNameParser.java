@@ -177,12 +177,6 @@ final class DistinguishedNameParser
             throw new IllegalStateException("Unexpected end of DN: " + dn);
         }
 
-        // get byte encoding from string representation
-        byte[] encoded = new byte[hexLen / 2];
-        for (int i = 0, p = beg + 1; i < encoded.length; p += 2, i++) {
-            encoded[i] = (byte) getByte(p);
-        }
-
         return new String(chars, beg, hexLen);
     }
 

@@ -14,12 +14,12 @@
 package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -31,6 +31,7 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -48,7 +49,6 @@ import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.expression.Constant;
-import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -74,7 +74,6 @@ import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.SaveMode.REPLACE;
-import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
@@ -247,6 +246,7 @@ public class PhoenixMetadata
 
         List<JdbcColumnHandle> columnHandles = columns.stream()
                 .map(JdbcColumnHandle.class::cast)
+                .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .collect(toImmutableList());
 
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
@@ -270,19 +270,25 @@ public class PhoenixMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         if (column.getComment() != null) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with comments");
         }
 
-        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
-        phoenixClient.execute(session, format(
-                "ALTER TABLE %s ADD %s %s",
-                getEscapedTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
-                phoenixClient.quoted(column.getName()),
-                phoenixClient.toWriteMapping(session, column.getType()).getDataType()));
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> {
+                JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+                RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
+                phoenixClient.execute(session, format(
+                        "ALTER TABLE %s ADD %s %s",
+                        getEscapedTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
+                        phoenixClient.quoted(column.getName()),
+                        phoenixClient.toWriteMapping(session, column.getType()).getDataType()));
+            }
+        }
     }
 
     @Override
@@ -318,7 +324,7 @@ public class PhoenixMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
 
-        List<RowType.Field> fields = phoenixClient.getPrimaryKeyColumnHandles(session, handle).stream()
+        List<RowType.Field> fields = phoenixClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName()).stream()
                 .map(columnHandle -> new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getColumnType()))
                 .collect(toImmutableList());
         verify(!fields.isEmpty(), "Phoenix primary key is empty");
@@ -330,31 +336,45 @@ public class PhoenixMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
-        JdbcTableHandle plainTable = phoenixClient.buildPlainTable(handle);
-        JdbcColumnHandle mergeRowIdColumnHandle = getMergeRowIdColumnHandle(session, plainTable);
+        JdbcMergeTableHandle mergeTableHandle = (JdbcMergeTableHandle) super.beginMerge(session, tableHandle, updateColumnHandles, retryMode);
 
-        List<JdbcColumnHandle> columns = getColumns(session, phoenixClient, plainTable).stream()
+        List<JdbcColumnHandle> primaryKeys = mergeTableHandle.getPrimaryKeys();
+        List<JdbcColumnHandle> columns = phoenixClient.getColumns(session,
+                        handle.getRequiredNamedRelation().getSchemaTableName(),
+                        handle.getRequiredNamedRelation().getRemoteTableName()).stream()
                 .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .collect(toImmutableList());
-        PhoenixOutputTableHandle phoenixOutputTableHandle = (PhoenixOutputTableHandle) beginInsert(session, plainTable, ImmutableList.copyOf(columns), retryMode);
 
-        // The TupleDomain for building the conjuncts of the primary keys
-        ImmutableMap.Builder<ColumnHandle, Domain> primaryKeysDomainBuilder = ImmutableMap.builder();
-        // This value is to build the TupleDomain, but it won't affect the query field in result of the `DefaultQueryBuilder#prepareDeleteQuery`
-        Domain dummy = Domain.singleValue(BIGINT, 0L);
-        for (JdbcColumnHandle columnHandle : phoenixClient.getPrimaryKeyColumnHandles(session, plainTable)) {
-            primaryKeysDomainBuilder.put(columnHandle, dummy);
+        for (Collection<ColumnHandle> updateColumns : updateColumnHandles.values()) {
+            for (ColumnHandle column : updateColumns) {
+                checkArgument(columns.contains(column), "the update column not found in the target table");
+                checkArgument(!primaryKeys.contains(column), "Phoenix does not allow update primary key");
+            }
+        }
+
+        if (handle.getColumns().isPresent()) {
+            handle = new JdbcTableHandle(
+                    handle.getRelationHandle(),
+                    handle.getConstraint(),
+                    handle.getConstraintExpressions(),
+                    handle.getSortOrder(),
+                    handle.getLimit(),
+                    Optional.of(columns),
+                    handle.getOtherReferencedTables(),
+                    handle.getNextSyntheticColumnId(),
+                    handle.getAuthorization(),
+                    handle.getUpdateAssignments());
         }
 
         return new PhoenixMergeTableHandle(
-                phoenixClient.updatedScanColumnTable(session, handle, handle.getColumns(), mergeRowIdColumnHandle),
-                phoenixOutputTableHandle,
-                mergeRowIdColumnHandle,
-                TupleDomain.withColumnDomains(primaryKeysDomainBuilder.buildOrThrow()));
+                handle,
+                (PhoenixOutputTableHandle) mergeTableHandle.getOutputTableHandle(),
+                primaryKeys,
+                columns,
+                mergeTableHandle.getUpdateCaseColumns());
     }
 
     @Override

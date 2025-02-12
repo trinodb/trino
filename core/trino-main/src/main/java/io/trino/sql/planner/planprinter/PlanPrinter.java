@@ -914,9 +914,10 @@ public class PlanPrinter
                 String frameInfo = formatFrame(function.getFrame());
 
                 nodeOutput.appendDetails(
-                        "%s := %s(%s%s) %s",
+                        "%s := %s(%s%s%s) %s",
                         anonymizer.anonymize(entry.getKey()),
                         formatFunctionName(function.getResolvedFunction()),
+                        function.isDistinct() ? "DISTINCT " : "",
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())),
                         function.getOrderingScheme().map(this::formatOrderingScheme).orElse(""),
                         frameInfo);

@@ -25,17 +25,17 @@ import io.trino.client.spooling.EncodedQueryData;
 import java.io.IOException;
 
 /**
- * Decodes the direct and spooled protocols.
+ * Decodes the direct and spooling protocols.
  *
  * If the "data" fields starts with an array - this is the direct protocol which requires obtaining JsonParser
  * and then parsing rows lazily.
  *
- * Otherwise, this is an spooled protocol.
+ * Otherwise, this is a spooling protocol.
  */
 public class QueryDataClientJacksonModule
         extends SimpleModule
 {
-    private static final TypeReference<EncodedQueryData> ENCODED_FORMAT = new TypeReference<EncodedQueryData>(){};
+    private static final TypeReference<EncodedQueryData> ENCODED_FORMAT = new TypeReference<>() {};
 
     public QueryDataClientJacksonModule()
     {

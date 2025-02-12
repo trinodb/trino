@@ -8,7 +8,9 @@ and "Customers") then Trino fails to query them due to ambiguity.
 
 In these cases, use the `case-insensitive-name-matching.config-file` catalog
 configuration property to specify a configuration file that maps these remote
-schemas/tables to their respective Trino schemas/tables:
+schemas and tables to their respective Trino schemas and tables. Additionally,
+the JSON file must include both the `schemas` and `tables` properties, even if
+only as empty arrays.
 
 ```json
 {
@@ -47,9 +49,9 @@ configured above is forwarded to `CaseSensitiveName.tablex`, and a query on
 
 By default, when a change is made to the mapping configuration file, Trino must
 be restarted to load the changes. Optionally, you can set the
-`case-insensitive-name-mapping.refresh-period` to have Trino refresh the
-properties without requiring a restart:
+`case-insensitive-name-matching.config-file.refresh-period` to have Trino
+refresh the properties without requiring a restart:
 
 ```properties
-case-insensitive-name-mapping.refresh-period=30s
+case-insensitive-name-matching.config-file.refresh-period=30s
 ```

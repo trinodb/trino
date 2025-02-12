@@ -67,7 +67,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.Iterables.transform;
-import static com.google.common.util.concurrent.Futures.withTimeout;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
@@ -83,6 +82,7 @@ import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_TASK_FAILED;
 import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
+import static jakarta.ws.rs.core.Response.status;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -91,6 +91,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  * Manages tasks on this worker node
  */
 @Path("/v1/task")
+@ResourceSecurity(INTERNAL_ONLY)
 public class TaskResource
 {
     private static final Logger log = Logger.get(TaskResource.class);
@@ -127,7 +128,6 @@ public class TaskResource
         this.failureInjector = requireNonNull(failureInjector, "failureInjector is null");
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<TaskInfo> getAllTaskInfo(@Context UriInfo uriInfo)
@@ -139,7 +139,6 @@ public class TaskResource
         return allTaskInfo;
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -178,7 +177,6 @@ public class TaskResource
         asyncResponse.resume(Response.ok().entity(taskInfo).build());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -221,12 +219,13 @@ public class TaskResource
             futureTaskInfo = Futures.transform(futureTaskInfo, TaskInfo::summarize, directExecutor());
         }
 
+        ListenableFuture<Response> response = Futures.transform(futureTaskInfo, taskInfo ->
+                Response.ok(taskInfo).build(), directExecutor());
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, withTimeout(futureTaskInfo, timeout.toMillis(), MILLISECONDS, timeoutExecutor), responseExecutor);
+        bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/status")
     @Produces(MediaType.APPLICATION_JSON)
@@ -266,10 +265,11 @@ public class TaskResource
 
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
-        bindAsyncResponse(asyncResponse, withTimeout(futureTaskStatus, timeout.toMillis(), MILLISECONDS, timeoutExecutor), responseExecutor);
+
+        ListenableFuture<Response> response = Futures.transform(futureTaskStatus, taskStatus -> Response.ok(taskStatus).build(), directExecutor());
+        bindAsyncResponse(asyncResponse, withFallbackAfterTimeout(response, timeout, () -> serviceUnavailable(timeout), timeoutExecutor), responseExecutor);
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/dynamicfilters")
     @Produces(MediaType.APPLICATION_JSON)
@@ -291,7 +291,6 @@ public class TaskResource
         asyncResponse.resume(taskManager.acknowledgeAndGetNewDynamicFilterDomains(taskId, currentDynamicFiltersVersion));
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -316,7 +315,6 @@ public class TaskResource
         return taskInfo;
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("{taskId}/fail")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -330,7 +328,6 @@ public class TaskResource
         return taskManager.failTask(taskId, failTaskRequest.getFailureInfo().toException());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
     @Produces(TRINO_PAGES)
@@ -367,14 +364,13 @@ public class TaskResource
         // For hard timeout, add an additional time to max wait for thread scheduling contention and GC
         Duration timeout = new Duration(waitTime.toMillis() + ADDITIONAL_WAIT_TIME.toMillis(), MILLISECONDS);
         bindAsyncResponse(asyncResponse,
-                withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), responseExecutor, timeoutExecutor), responseExecutor);
+                withFallbackAfterTimeout(responseFuture, timeout, () -> createBufferResultResponse(pagesInputStreamFactory, taskWithResults, emptyBufferResults), timeoutExecutor), responseExecutor);
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}/acknowledge")
-    public void acknowledgeResults(
+    public Response acknowledgeResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") PipelinedOutputBuffers.OutputBufferId bufferId,
             @PathParam("token") long token)
@@ -383,9 +379,9 @@ public class TaskResource
         requireNonNull(bufferId, "bufferId is null");
 
         taskManager.acknowledgeTaskResults(taskId, bufferId, token);
+        return Response.ok().build();
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @DELETE
     @Path("{taskId}/results/{bufferId}")
     public void destroyTaskResults(
@@ -404,7 +400,6 @@ public class TaskResource
         asyncResponse.resume(Response.noContent().build());
     }
 
-    @ResourceSecurity(INTERNAL_ONLY)
     @POST
     @Path("pruneCatalogs")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -559,6 +554,13 @@ public class TaskResource
                 .type(TRINO_PAGES)
                 .entity((StreamingOutput) output ->
                         pagesInputStreamFactory.write(output, serializedPages))
+                .build();
+    }
+
+    private static Response serviceUnavailable(Duration timeout)
+    {
+        return status(Response.Status.SERVICE_UNAVAILABLE)
+                .entity("Timed out after waiting for " + timeout.convertToMostSuccinctTimeUnit())
                 .build();
     }
 }

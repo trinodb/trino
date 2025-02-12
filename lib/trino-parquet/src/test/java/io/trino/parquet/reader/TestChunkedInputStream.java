@@ -14,7 +14,6 @@
 package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.testng.annotations.DataProvider;
@@ -67,7 +66,7 @@ public class TestChunkedInputStream
 
         // rad more than total length
         ChunkedInputStream input = input(slices);
-        int bytesRead = ByteStreams.read(input, buffer, 0, buffer.length);
+        int bytesRead = input.readNBytes(buffer, 0, buffer.length);
         assertThat(bytesRead).isEqualTo(expectedBytes.length > 0 ? expectedBytes.length : -1);
 
         // read after input is done returns -1

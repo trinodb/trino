@@ -16,6 +16,7 @@ package io.trino.plugin.eventlistener.mysql;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodecFactory;
+import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.StandardWarningCode;
@@ -125,6 +126,8 @@ final class TestMysqlEventListener
             Collections.emptyList(),
             130,
             true,
+            // not stored
+            Collections.emptyList(),
             // not stored
             Collections.emptyList(),
             // not stored
@@ -292,6 +295,8 @@ final class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
+            // not stored
+            Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
             // not stored
@@ -349,7 +354,7 @@ final class TestMysqlEventListener
         mysqlContainer.start();
         mysqlContainerUrl = getJdbcUrl(mysqlContainer);
         eventListener = new MysqlEventListenerFactory()
-                .create(Map.of("mysql-event-listener.db.url", mysqlContainerUrl));
+                .create(Map.of("mysql-event-listener.db.url", mysqlContainerUrl), new TestingEventListenerContext());
         jsonCodecFactory = new JsonCodecFactory();
     }
 

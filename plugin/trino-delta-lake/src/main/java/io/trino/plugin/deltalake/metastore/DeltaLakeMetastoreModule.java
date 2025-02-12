@@ -39,7 +39,7 @@ public class DeltaLakeMetastoreModule
         bindMetastoreModule("glue", new DeltaLakeGlueMetastoreModule());
         bindMetastoreModule("glue-v1", new DeltaLakeGlueV1MetastoreModule());
 
-        install(new CachingHiveMetastoreModule(false));
+        install(new CachingHiveMetastoreModule());
     }
 
     private void bindMetastoreModule(String name, Module module)

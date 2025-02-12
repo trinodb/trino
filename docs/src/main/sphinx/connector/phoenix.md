@@ -45,11 +45,12 @@ to load custom Phoenix client connection properties.
 
 The following Phoenix-specific configuration properties are available:
 
-| Property name                 | Required | Description                                                                                                                                                                                                                                                                                                                                                                                      |
-| ----------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `phoenix.connection-url`      | Yes      | `jdbc:phoenix[:zk_quorum][:zk_port][:zk_hbase_path]`. The `zk_quorum` is a comma separated list of ZooKeeper servers. The `zk_port` is the ZooKeeper port. The `zk_hbase_path` is the HBase root znode path, that is configurable using `hbase-site.xml`.  By default the location is `/hbase`                                                                                                   |
-| `phoenix.config.resources`    | No       | Comma-separated list of configuration files (e.g. `hbase-site.xml`) to use for connection properties.  These files must exist on the machines running Trino.                                                                                                                                                                                                                                     |
-| `phoenix.max-scans-per-split` | No       | Maximum number of HBase scans that will be performed in a single split. Default is 20. Lower values will lead to more splits in Trino. Can also be set via session propery `max_scans_per_split`. For details see: [https://phoenix.apache.org/update_statistics.html](https://phoenix.apache.org/update_statistics.html). (This setting has no effect when guideposts are disabled in Phoenix.) |
+| Property name                      | Required | Description                                                                                                                                                                                                                                                                                                                                                                                      |
+|------------------------------------| -------- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `phoenix.connection-url`           | Yes      | `jdbc:phoenix[:zk_quorum][:zk_port][:zk_hbase_path]`. The `zk_quorum` is a comma separated list of ZooKeeper servers. The `zk_port` is the ZooKeeper port. The `zk_hbase_path` is the HBase root znode path, that is configurable using `hbase-site.xml`.  By default the location is `/hbase`                                                                                                   |
+| `phoenix.config.resources`         | No       | Comma-separated list of configuration files (e.g. `hbase-site.xml`) to use for connection properties.  These files must exist on the machines running Trino.                                                                                                                                                                                                                                     |
+| `phoenix.max-scans-per-split`      | No       | Maximum number of HBase scans that will be performed in a single split. Default is 20. Lower values will lead to more splits in Trino. Can also be set via session propery `max_scans_per_split`. For details see: [https://phoenix.apache.org/update_statistics.html](https://phoenix.apache.org/update_statistics.html). (This setting has no effect when guideposts are disabled in Phoenix.) |
+| `phoenix.server-scan-page-timeout` | No       | The time limit on the amount of work single RPC request can do before it times out. Type: [](prop-type-duration).                                                                                                                                                                                                                                                                                |
 
 ```{include} jdbc-common-configurations.fragment
 ```
@@ -61,9 +62,6 @@ The following Phoenix-specific configuration properties are available:
 ```
 
 ```{include} jdbc-case-insensitive-matching.fragment
-```
-
-```{include} non-transactional-insert.fragment
 ```
 
 ## Querying Phoenix tables
@@ -268,24 +266,35 @@ Use them in the same way as above: in the `WITH` clause of the `CREATE TABLE` st
 (phoenix-sql-support)=
 ## SQL support
 
-The connector provides read and write access to data and metadata in
-Phoenix. In addition to the {ref}`globally available
-<sql-globally-available>` and {ref}`read operation <sql-read-operations>`
-statements, the connector supports the following features:
+The connector provides read and write access to data and metadata in Phoenix. In
+addition to the [globally available](sql-globally-available) and [read
+operation](sql-read-operations) statements, the connector supports the following
+features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/merge`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](phoenix-insert)
+- [](/sql/update)
+- [](/sql/delete), see also [](phoenix-delete)
+- [](/sql/merge), see also [](phoenix-merge)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](phoenix-procedures)
 
+(phoenix-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(phoenix-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(phoenix-merge)=
+```{include} non-transactional-merge.fragment
+```
+
+(phoenix-procedures)=
 ### Procedures
 
 ```{include} procedures-execute.fragment

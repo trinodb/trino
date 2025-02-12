@@ -21,6 +21,7 @@ import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
+import io.trino.tests.product.launcher.env.Ipv6;
 import io.trino.tests.product.launcher.env.ServerPackage;
 import io.trino.tests.product.launcher.env.Tracing;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
@@ -52,6 +53,7 @@ public final class EnvMultinodeTlsKerberos
     private final File serverPackage;
     private final boolean debug;
     private final boolean tracing;
+    private final boolean ipv6;
 
     @Inject
     public EnvMultinodeTlsKerberos(
@@ -62,10 +64,12 @@ public final class EnvMultinodeTlsKerberos
             @ServerPackage File serverPackage,
             JdkProvider jdkProvider,
             @Debug boolean debug,
-            @Tracing boolean tracing)
+            @Tracing boolean tracing,
+            @Ipv6 boolean ipv6)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+        this.ipv6 = ipv6;
         String hadoopBaseImage = config.getHadoopBaseImage();
         String hadoopImagesVersion = config.getHadoopImagesVersion();
         this.trinoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
@@ -93,7 +97,7 @@ public final class EnvMultinodeTlsKerberos
     @SuppressWarnings("resource")
     private DockerContainer createTrinoWorker(String workerName)
     {
-        return createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, trinoDockerImageName, workerName)
+        return createTrinoContainer(dockerFiles, serverPackage, jdkProvider, debug, tracing, ipv6, trinoDockerImageName, workerName)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties")), CONTAINER_TRINO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_TRINO_HIVE_PROPERTIES)

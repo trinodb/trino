@@ -42,12 +42,6 @@ We recommend using the Eclipse Temurin OpenJDK distribution from
 against that distribution. Eclipse Temurin is also the JDK used by the [Trino
 Docker image](https://hub.docker.com/r/trinodb/trino).
 
-(requirements-python)=
-### Python
-
-- version 2.6.x, 2.7.x, or 3.x
-- required by the `bin/launcher` script only
-
 ## Installing Trino
 
 Download the Trino server tarball, {maven_download}`server`, and unpack it. The
@@ -247,24 +241,9 @@ properties for topics such as {doc}`/admin/properties-general`,
 {doc}`/admin/properties-query-management`,
 {doc}`/admin/properties-web-interface`, and others.
 
-(log-levels)=
-### Log levels
-
-The optional log levels file, `etc/log.properties`, allows setting the
-minimum log level for named logger hierarchies. Every logger has a name,
-which is typically the fully qualified name of the class that uses the logger.
-Loggers have a hierarchy based on the dots in the name, like Java packages.
-For example, consider the following log levels file:
-
-```text
-io.trino=INFO
-```
-
-This would set the minimum level to `INFO` for both
-`io.trino.server` and `io.trino.plugin.hive`.
-The default minimum level is `INFO`,
-thus the above example does not actually change anything.
-There are four levels: `DEBUG`, `INFO`, `WARN` and `ERROR`.
+Further configuration can include [](/admin/logging), [](/admin/opentelemetry),
+[](/admin/jmx), [](/admin/openmetrics), and other functionality described in the
+[](/admin) section.
 
 (catalog-properties)=
 ### Catalog properties
@@ -293,9 +272,8 @@ See {doc}`/connector` for more information about configuring catalogs.
 (running-trino)=
 ## Running Trino
 
-The installation provides a `bin/launcher` script, which requires Python in
-the `PATH`. The script can be used manually or as a daemon startup script. It
-accepts the following commands:
+The installation provides a `bin/launcher` script that can be used manually 
+or as a daemon startup script. It accepts the following commands:
 
 :::{list-table} `launcher` commands
 :widths: 15, 85

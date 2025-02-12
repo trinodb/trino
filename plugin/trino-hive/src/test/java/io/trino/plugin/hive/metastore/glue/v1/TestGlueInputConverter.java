@@ -27,8 +27,6 @@ import io.trino.metastore.HiveBucketProperty;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
 import io.trino.metastore.Table;
-import io.trino.plugin.hive.metastore.glue.v1.converter.GlueInputConverter;
-import io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter;
 import io.trino.spi.function.LanguageFunction;
 import org.junit.jupiter.api.Test;
 

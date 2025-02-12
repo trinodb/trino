@@ -20,6 +20,7 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
@@ -28,11 +29,10 @@ public class GeometryType
         extends AbstractVariableWidthType
 {
     public static final GeometryType GEOMETRY = new GeometryType();
-    public static final String GEOMETRY_TYPE_NAME = "Geometry";
 
     private GeometryType()
     {
-        super(new TypeSignature(GEOMETRY_TYPE_NAME), Slice.class);
+        super(new TypeSignature(StandardTypes.GEOMETRY), Slice.class);
     }
 
     protected GeometryType(TypeSignature signature)

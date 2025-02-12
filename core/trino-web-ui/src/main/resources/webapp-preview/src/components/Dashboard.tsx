@@ -11,119 +11,193 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import Typography from '@mui/material/Typography';
+import { useEffect, useState } from 'react'
+import Typography from '@mui/material/Typography'
+import { Box, Grid2 as Grid } from '@mui/material'
+import { MetricCard } from './MetricCard.tsx'
+import { useSnackbar } from './SnackbarContext.ts'
+import { ApiResponse } from '../api/base.ts'
+import { statsApi, Stats } from '../api/webapp/api.ts'
+import { Texts } from '../constant.ts'
 import {
-  Box,
-  Button,
-  Checkbox,
-  Grid2 as Grid,
-  Link,
-  Paper,
-  Stack,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow
-} from "@mui/material";
+    MAX_HISTORY,
+    addExponentiallyWeightedToHistory,
+    addToHistory,
+    formatCount,
+    formatDataSizeBytes,
+    precisionRound,
+} from '../utils/utils.ts'
+
+interface ClusterStats {
+    runningQueries: number[]
+    queuedQueries: number[]
+    blockedQueries: number[]
+    activeWorkers: number[]
+    runningDrivers: number[]
+    reservedMemory: number[]
+    rowInputRate: number[]
+    byteInputRate: number[]
+    perWorkerCpuTimeRate: number[]
+
+    lastRefresh: number | null
+
+    lastInputRows: number
+    lastInputBytes: number
+    lastCpuTime: number
+}
 
 export const Dashboard = () => {
-  const createData = (
-    name: string,
-    calories: number,
-    fat: number,
-    carbs: number,
-    protein: number,
-  ) => {
-    return { name, calories, fat, carbs, protein };
-  }
+    const { showSnackbar } = useSnackbar()
+    const initialFilledHistory = Array(MAX_HISTORY).fill(0)
+    const [clusterStats, setClusterStats] = useState<ClusterStats>({
+        runningQueries: initialFilledHistory,
+        queuedQueries: initialFilledHistory,
+        blockedQueries: initialFilledHistory,
+        activeWorkers: initialFilledHistory,
+        runningDrivers: initialFilledHistory,
+        reservedMemory: initialFilledHistory,
+        rowInputRate: initialFilledHistory,
+        byteInputRate: initialFilledHistory,
+        perWorkerCpuTimeRate: initialFilledHistory,
 
-  const rows = [
-    createData('Frozen yoghurt', 159, 6.0, 24, 4.0),
-    createData('Ice cream sandwich', 237, 9.0, 37, 4.3),
-    createData('Eclair', 262, 16.0, 24, 6.0),
-  ];
+        lastRefresh: null,
 
-  return (
-    <>
-      <Box sx={{ pb: 2 }}>
-        <Typography variant="h4">
-          Dashboard
-        </Typography>
-      </Box>
-      <Grid container>
-        <Grid sx={{ py: 1 }} size={12} container>
-          <Grid size={3}>Buttons</Grid>
-          <Stack direction="row" spacing={2}>
-            <Button variant="contained">Contained</Button>
-            <Button variant="outlined">Outlined</Button>
-            <Button variant="contained" disabled>Disabled</Button>
-          </Stack>
-        </Grid>
+        lastInputRows: 0,
+        lastInputBytes: 0,
+        lastCpuTime: 0,
+    })
+    const [error, setError] = useState<string | null>(null)
 
-        <Grid sx={{ py: 1 }} size={12} container>
-          <Grid size={3}>Secondary Button</Grid>
-          <Stack direction="row" spacing={2}>
-            <Button color="secondary" variant="contained">Contained</Button>
-            <Button color="secondary" variant="outlined">Outlined</Button>
-          </Stack>
-        </Grid>
+    useEffect(() => {
+        getClusterStats()
+        const intervalId = setInterval(getClusterStats, 1000)
+        return () => clearInterval(intervalId)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
-        <Grid sx={{ py: 1 }} size={12} container>
-          <Grid size={3}>Colored Button</Grid>
-          <Stack direction="row" spacing={2}>
-            <Button variant="contained" color="success">Success</Button>
-            <Button variant="contained" color="error">Error</Button>
-          </Stack>
-        </Grid>
+    useEffect(() => {
+        if (error) {
+            showSnackbar(error, 'error')
+        }
+    }, [error, showSnackbar])
 
-        <Grid sx={{ py: 1 }} size={12} container>
-          <Grid size={3}>Link</Grid>
-          <Link href="https://trino.io">Trino Website</Link>
-        </Grid>
+    const getClusterStats = () => {
+        setError(null)
+        statsApi().then((apiResponse: ApiResponse<Stats>) => {
+            if (apiResponse.status === 200 && apiResponse.data) {
+                const newClusterStats: Stats = apiResponse.data
+                setClusterStats((prevClusterStats) => {
+                    let newRowInputRate: number[] = initialFilledHistory
+                    let newByteInputRate: number[] = initialFilledHistory
+                    let newPerWorkerCpuTimeRate: number[] = []
+                    if (prevClusterStats.lastRefresh !== null) {
+                        const rowsInputSinceRefresh = newClusterStats.totalInputRows - prevClusterStats.lastInputRows
+                        const bytesInputSinceRefresh = newClusterStats.totalInputBytes - prevClusterStats.lastInputBytes
+                        const cpuTimeSinceRefresh = newClusterStats.totalCpuTimeSecs - prevClusterStats.lastCpuTime
+                        const secsSinceRefresh = (Date.now() - prevClusterStats.lastRefresh) / 1000.0
 
-        <Grid sx={{ py: 1 }} size={12} container>
-          <Grid size={3}>Switch</Grid>
-          <Switch />
-        </Grid>
+                        newRowInputRate = addExponentiallyWeightedToHistory(
+                            rowsInputSinceRefresh / secsSinceRefresh,
+                            prevClusterStats.rowInputRate
+                        )
+                        newByteInputRate = addExponentiallyWeightedToHistory(
+                            bytesInputSinceRefresh / secsSinceRefresh,
+                            prevClusterStats.byteInputRate
+                        )
+                        newPerWorkerCpuTimeRate = addExponentiallyWeightedToHistory(
+                            cpuTimeSinceRefresh / newClusterStats.activeWorkers / secsSinceRefresh,
+                            prevClusterStats.perWorkerCpuTimeRate
+                        )
+                    }
 
-        <Grid sx={{ py: 1 }} size={12} container>
-          <Grid size={3}>Checkbox</Grid>
-          <Checkbox defaultChecked />
-        </Grid>
-      </Grid>
+                    return {
+                        // instantaneous stats
+                        runningQueries: addToHistory(newClusterStats.runningQueries, prevClusterStats.runningQueries),
+                        queuedQueries: addToHistory(newClusterStats.queuedQueries, prevClusterStats.queuedQueries),
+                        blockedQueries: addToHistory(newClusterStats.blockedQueries, prevClusterStats.blockedQueries),
+                        activeWorkers: addToHistory(newClusterStats.activeWorkers, prevClusterStats.activeWorkers),
 
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="simple table">
-          <TableHead>
-            <TableRow>
-              <TableCell>Dessert (100g serving)</TableCell>
-              <TableCell align="right">Calories</TableCell>
-              <TableCell align="right">Fat&nbsp;(g)</TableCell>
-              <TableCell align="right">Carbs&nbsp;(g)</TableCell>
-              <TableCell align="right">Protein&nbsp;(g)</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow
-                key={row.name}
-                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-              >
-                <TableCell component="th" scope="row">
-                  {row.name}
-                </TableCell>
-                <TableCell align="right">{row.calories}</TableCell>
-                <TableCell align="right">{row.fat}</TableCell>
-                <TableCell align="right">{row.carbs}</TableCell>
-                <TableCell align="right">{row.protein}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </>
-  );
+                        // moving averages
+                        runningDrivers: addExponentiallyWeightedToHistory(
+                            newClusterStats.runningDrivers,
+                            prevClusterStats.runningDrivers
+                        ),
+                        reservedMemory: addExponentiallyWeightedToHistory(
+                            newClusterStats.reservedMemory,
+                            prevClusterStats.reservedMemory
+                        ),
+
+                        // moving averages for diffs
+                        rowInputRate: newRowInputRate,
+                        byteInputRate: newByteInputRate,
+                        perWorkerCpuTimeRate: newPerWorkerCpuTimeRate,
+
+                        lastInputRows: newClusterStats.totalInputRows,
+                        lastInputBytes: newClusterStats.totalInputBytes,
+                        lastCpuTime: newClusterStats.totalCpuTimeSecs,
+
+                        lastRefresh: Date.now(),
+                    }
+                })
+                setError(null)
+            } else {
+                setError(`${Texts.Error.Communication} ${apiResponse.status}: ${apiResponse.message}`)
+            }
+        })
+    }
+
+    return (
+        <>
+            <Box sx={{ pb: 2 }}>
+                <Typography variant="h4">Cluster Overview</Typography>
+            </Box>
+            <Box>
+                <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard title="Running Queries" values={clusterStats.runningQueries} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard title="Active Workers" values={clusterStats.activeWorkers} link="/workers" />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard title="Rows/sec" values={clusterStats.rowInputRate} numberFormatter={formatCount} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard title="Queued Queries" values={clusterStats.queuedQueries} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard
+                            title="Runnable Drivers"
+                            values={clusterStats.runningDrivers}
+                            numberFormatter={precisionRound}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard
+                            title="Bytes/sec"
+                            values={clusterStats.byteInputRate}
+                            numberFormatter={formatDataSizeBytes}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard title="Blocked Queries" values={clusterStats.blockedQueries} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard
+                            title="Reserved Memory (B)"
+                            values={clusterStats.reservedMemory}
+                            numberFormatter={formatDataSizeBytes}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 12, md: 6, lg: 4 }}>
+                        <MetricCard
+                            title="Worker Parallelism"
+                            values={clusterStats.perWorkerCpuTimeRate}
+                            numberFormatter={precisionRound}
+                        />
+                    </Grid>
+                </Grid>
+            </Box>
+        </>
+    )
 }

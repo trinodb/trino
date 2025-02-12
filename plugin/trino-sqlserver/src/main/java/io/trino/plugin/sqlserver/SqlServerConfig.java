@@ -15,6 +15,7 @@ package io.trino.plugin.sqlserver;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 
 public class SqlServerConfig
 {
@@ -67,7 +68,8 @@ public class SqlServerConfig
         return storedProcedureTableFunctionEnabled;
     }
 
-    @Config("sqlserver.experimental.stored-procedure-table-function-enabled")
+    @Config("sqlserver.stored-procedure-table-function-enabled")
+    @LegacyConfig("sqlserver.experimental.stored-procedure-table-function-enabled")
     @ConfigDescription("Allows accessing Stored procedure as a table function")
     public SqlServerConfig setStoredProcedureTableFunctionEnabled(boolean storedProcedureTableFunctionEnabled)
     {

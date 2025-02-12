@@ -43,6 +43,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 
 @DefunctConfig({
         "iceberg.allow-legacy-snapshot-syntax",
@@ -60,11 +61,12 @@ public class IcebergConfig
 
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = ZSTD;
+    private int maxCommitRetry = COMMIT_NUM_RETRIES_DEFAULT;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
     private CatalogType catalogType = HIVE_METASTORE;
-    private Duration dynamicFilteringWaitTimeout = new Duration(0, SECONDS);
+    private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
@@ -91,6 +93,9 @@ public class IcebergConfig
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
+    private boolean objectStoreLayoutEnabled;
+    private int metadataParallelism = 8;
+    private boolean bucketExecutionEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -127,6 +132,20 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxCommitRetry()
+    {
+        return maxCommitRetry;
+    }
+
+    @Config("iceberg.max-commit-retry")
+    @ConfigDescription("Number of times to retry a commit before failing")
+    public IcebergConfig setMaxCommitRetry(int maxCommitRetry)
+    {
+        this.maxCommitRetry = maxCommitRetry;
         return this;
     }
 
@@ -404,12 +423,14 @@ public class IcebergConfig
         return this;
     }
 
+    @Deprecated
     @NotNull
     public Optional<String> getMaterializedViewsStorageSchema()
     {
         return materializedViewsStorageSchema;
     }
 
+    @Deprecated
     @Config("iceberg.materialized-views.storage-schema")
     @ConfigDescription("Schema for creating materialized views storage tables")
     public IcebergConfig setMaterializedViewsStorageSchema(String materializedViewsStorageSchema)
@@ -517,6 +538,46 @@ public class IcebergConfig
     public IcebergConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
     {
         this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
+    }
+
+    public boolean isObjectStoreLayoutEnabled()
+    {
+        return objectStoreLayoutEnabled;
+    }
+
+    @Config("iceberg.object-store-layout.enabled")
+    @ConfigDescription("Enable the Iceberg object store file layout")
+    public IcebergConfig setObjectStoreLayoutEnabled(boolean objectStoreLayoutEnabled)
+    {
+        this.objectStoreLayoutEnabled = objectStoreLayoutEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetadataParallelism()
+    {
+        return metadataParallelism;
+    }
+
+    @ConfigDescription("Limits metadata enumeration calls parallelism")
+    @Config("iceberg.metadata.parallelism")
+    public IcebergConfig setMetadataParallelism(int metadataParallelism)
+    {
+        this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    public boolean isBucketExecutionEnabled()
+    {
+        return bucketExecutionEnabled;
+    }
+
+    @Config("iceberg.bucket-execution")
+    @ConfigDescription("Enable bucket-aware execution: use physical bucketing information to optimize queries")
+    public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
+    {
+        this.bucketExecutionEnabled = bucketExecutionEnabled;
         return this;
     }
 }

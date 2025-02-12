@@ -108,7 +108,7 @@ public final class JsonResponse<T>
                 .toString();
     }
 
-    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, Call.Factory client, Request request, OptionalLong materializedJsonSizeLimit)
+    public static <T> JsonResponse<T> execute(TrinoJsonCodec<T> codec, Call.Factory client, Request request, OptionalLong materializedJsonSizeLimit)
     {
         try (Response response = client.newCall(request).execute()) {
             ResponseBody responseBody = requireNonNull(response.body());

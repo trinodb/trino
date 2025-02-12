@@ -115,6 +115,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, LoggingLevel> HTTP_LOGGING_LEVEL = new HttpLoggingLevel();
     public static final ConnectionProperty<String, Map<String, String>> RESOURCE_ESTIMATES = new ResourceEstimates();
     public static final ConnectionProperty<String, List<String>> SQL_PATH = new SqlPath();
+    public static final ConnectionProperty<String, Boolean> VALIDATE_CONNECTION = new ValidateConnection();
 
     private static final Set<ConnectionProperty<?, ?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?, ?>>builder()
             // Keep sorted
@@ -172,6 +173,7 @@ final class ConnectionProperties
             .add(TIMEZONE)
             .add(TRACE_TOKEN)
             .add(USER)
+            .add(VALIDATE_CONNECTION)
             .build();
 
     private static final Map<String, ConnectionProperty<?, ?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -302,7 +304,7 @@ final class ConnectionProperties
             extends AbstractConnectionProperty<String, HostAndPort>
     {
         private static final Validator<Properties> NO_HTTP_PROXY = validator(
-                properties -> !HTTP_PROXY.getValue(properties).isPresent(),
+                properties -> HTTP_PROXY.getValue(properties).isEmpty(),
                 format("Connection property %s cannot be used when %s is set", PropertyName.SOCKS_PROXY, PropertyName.HTTP_PROXY));
 
         public SocksProxy()
@@ -315,7 +317,7 @@ final class ConnectionProperties
             extends AbstractConnectionProperty<String, HostAndPort>
     {
         private static final Validator<Properties> NO_SOCKS_PROXY = validator(
-                properties -> !SOCKS_PROXY.getValue(properties).isPresent(),
+                properties -> SOCKS_PROXY.getValue(properties).isEmpty(),
                 format("Connection property %s cannot be used when %s is set", PropertyName.HTTP_PROXY, PropertyName.SOCKS_PROXY));
 
         public HttpProxy()
@@ -587,6 +589,15 @@ final class ConnectionProperties
         public KerberosRemoteServiceName()
         {
             super(PropertyName.KERBEROS_REMOTE_SERVICE_NAME, NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class ValidateConnection
+            extends AbstractConnectionProperty<String, Boolean>
+    {
+        public ValidateConnection()
+        {
+            super(PropertyName.VALIDATE_CONNECTION, NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

@@ -16,10 +16,10 @@ package io.trino.spooling.filesystem;
 import io.azam.ulidj.ULID;
 import io.trino.filesystem.encryption.EncryptionKey;
 import io.trino.spi.QueryId;
-import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingContext;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpooledLocation;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingContext;
+import io.trino.spi.spool.SpoolingManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 

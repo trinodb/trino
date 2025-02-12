@@ -14,6 +14,7 @@
 package io.trino.server.protocol.spooling;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -21,6 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
 class TestQueryDataEncodingConfig
 {
@@ -30,7 +33,8 @@ class TestQueryDataEncodingConfig
         assertRecordedDefaults(recordDefaults(QueryDataEncodingConfig.class)
                 .setJsonEnabled(true)
                 .setJsonLz4Enabled(true)
-                .setJsonZstdEnabled(true));
+                .setJsonZstdEnabled(true)
+                .setCompressionThreshold(DataSize.of(8, KILOBYTE)));
     }
 
     @Test
@@ -40,12 +44,14 @@ class TestQueryDataEncodingConfig
                 .put("protocol.spooling.encoding.json.enabled", "false")
                 .put("protocol.spooling.encoding.json+lz4.enabled", "false")
                 .put("protocol.spooling.encoding.json+zstd.enabled", "false")
+                .put("protocol.spooling.encoding.compression.threshold", "1MB")
                 .buildOrThrow();
 
         QueryDataEncodingConfig expected = new QueryDataEncodingConfig()
                 .setJsonEnabled(false)
                 .setJsonLz4Enabled(false)
-                .setJsonZstdEnabled(false);
+                .setJsonZstdEnabled(false)
+                .setCompressionThreshold(DataSize.of(1, MEGABYTE));
 
         assertFullMapping(properties, expected);
     }

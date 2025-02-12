@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>465</version>
+        <version>470</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -70,6 +70,11 @@
 
         <dependency>
             <groupId>org.jdbi</groupId>
+            <artifactId>jdbi3-opentelemetry</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-sqlobject</artifactId>
         </dependency>
 
@@ -112,6 +117,13 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-plugin-toolkit</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 

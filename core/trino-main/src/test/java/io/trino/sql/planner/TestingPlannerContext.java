@@ -22,6 +22,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.LanguageFunctionProvider;
 import io.trino.metadata.Metadata;
@@ -126,7 +127,12 @@ public final class TestingPlannerContext
 
             BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
 
-            LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(new SqlParser(), typeManager, user -> ImmutableSet.of(), blockEncodingSerde);
+            LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(
+                    new SqlParser(),
+                    typeManager,
+                    _ -> ImmutableSet.of(),
+                    blockEncodingSerde,
+                    new LanguageFunctionEngineManager());
 
             Metadata metadata = this.metadata;
             if (metadata == null) {

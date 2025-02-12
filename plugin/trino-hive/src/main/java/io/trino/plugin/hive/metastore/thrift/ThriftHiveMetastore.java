@@ -69,11 +69,10 @@ import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.StatisticsUpdateMode;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
-import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -254,6 +253,30 @@ public final class ThriftHiveMetastore
                     .run("getTables", () -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
                             return client.getTableMeta(databaseName);
+                        }
+                    });
+        }
+        catch (NoSuchObjectException e) {
+            return ImmutableList.of();
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
+    {
+        try {
+            return retry()
+                    .stopOn(NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getTableNamesWithParameters", () -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return client.getTableNamesWithParameters(databaseName, parameterKey, parameterValues);
                         }
                     });
         }

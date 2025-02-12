@@ -150,20 +150,16 @@ public final class DynamicFilters
 
     public static boolean isDynamicFilter(Expression expression)
     {
-        return getDescriptor(expression).isPresent();
+        return (expression instanceof Call call) && isDynamicFilterFunction(call);
     }
 
     public static Optional<Descriptor> getDescriptor(Expression expression)
     {
-        if (!(expression instanceof Call call)) {
+        if (!isDynamicFilter(expression)) {
             return Optional.empty();
         }
 
-        if (!isDynamicFilterFunction(call)) {
-            return Optional.empty();
-        }
-
-        List<Expression> arguments = call.arguments();
+        List<Expression> arguments = ((Call) expression).arguments();
         checkArgument(arguments.size() == 4, "invalid arguments count: %s", arguments.size());
 
         Expression probeSymbol = arguments.get(0);

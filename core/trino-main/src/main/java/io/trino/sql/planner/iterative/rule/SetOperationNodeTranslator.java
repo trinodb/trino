@@ -196,6 +196,7 @@ public class SetOperationNodeTranslator
                     ImmutableList.of(markers.get(i).toSymbolReference()),
                     Optional.empty(),
                     defaultFrame,
+                    false,
                     false));
         }
 
@@ -204,6 +205,7 @@ public class SetOperationNodeTranslator
                 ImmutableList.of(),
                 Optional.empty(),
                 defaultFrame,
+                false,
                 false));
 
         return new WindowNode(

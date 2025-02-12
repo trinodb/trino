@@ -24,7 +24,7 @@ import io.trino.plugin.eventlistener.kafka.producer.SSLKafkaProducerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
-import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.InvalidRecordException;
 import org.apache.kafka.common.errors.RecordTooLargeException;
@@ -41,7 +41,7 @@ public class KafkaEventPublisher
 {
     private static final Logger LOG = Logger.get(KafkaEventPublisher.class);
 
-    private final KafkaProducer<String, String> kafkaProducer;
+    private final Producer<String, String> kafkaProducer;
     private final KafkaRecordBuilder kafkaRecordBuilder;
     private final KafkaEventListenerJmxStats stats;
 

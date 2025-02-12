@@ -57,7 +57,6 @@ public final class TestingPolarisCatalog
         polarisCatalog.addExposedPort(POLARIS_PORT);
         polarisCatalog.withFileSystemBind(warehouseLocation, warehouseLocation, BindMode.READ_WRITE);
         polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*o.eclipse.jetty.server.Server: Started.*"));
-        polarisCatalog.withCommand("java", "-jar", "polaris-service/build/libs/polaris-service-999-SNAPSHOT.jar", "server", "polaris-server.yml");
         polarisCatalog.start();
 
         clientId = findClientId();

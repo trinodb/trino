@@ -118,10 +118,10 @@ connector to connector:
 - {doc}`/sql/drop-materialized-view`
 - {doc}`/sql/refresh-materialized-view`
 
-(sql-routine-management)=
-### Routine management
+(udf-management)=
+### User-defined function management
 
-The following statements are used to manage [catalog routines](routine-catalog):
+The following statements are used to manage [](udf-catalog):
 
 - [](/sql/create-function)
 - [](/sql/drop-function)

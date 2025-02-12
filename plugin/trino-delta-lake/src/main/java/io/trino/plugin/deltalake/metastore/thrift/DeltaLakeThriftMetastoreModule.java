@@ -20,7 +20,6 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.deltalake.MaxTableParameterLength;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperationsProvider;
-import io.trino.plugin.deltalake.metastore.file.DeltaLakeFileMetastoreTableOperationsProvider;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 public class DeltaLakeThriftMetastoreModule
@@ -30,7 +29,7 @@ public class DeltaLakeThriftMetastoreModule
     protected void setup(Binder binder)
     {
         install(new ThriftMetastoreModule());
-        binder.bind(DeltaLakeTableOperationsProvider.class).to(DeltaLakeFileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
+        binder.bind(DeltaLakeTableOperationsProvider.class).to(DeltaLakeThriftMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
         // Limit per Hive metastore code (https://github.com/apache/hive/tree/7f6367e0c6e21b11ef62da1ea6681a54d547de07/standalone-metastore/metastore-server/src/main/sql as of this writing)
         // - MySQL: mediumtext (16777215)

@@ -55,6 +55,7 @@ public abstract class BaseOracleConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_SET_COLUMN_TYPE,
@@ -197,8 +198,7 @@ public abstract class BaseOracleConnectorTest
     {
         // test overridden because super uses all-space char values ('  ') that are null-out by Oracle
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_char_varchar",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS char(3))), " +
@@ -221,8 +221,7 @@ public abstract class BaseOracleConnectorTest
     {
         // test overridden because Oracle nulls-out '' varchar value, impacting results
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_varchar_char",
                 "(k, v) AS VALUES" +
                         "   (-1, CAST(NULL AS varchar(3))), " +
@@ -499,8 +498,8 @@ public abstract class BaseOracleConnectorTest
     @Test
     public void testJoinPushdownWithImplicitCast()
     {
-        try (TestTable leftTable = new TestTable(getQueryRunner()::execute, "left_table", "(id int, varchar_50 varchar(50))", ImmutableList.of("(1, 'India')", "(2, 'Poland')"));
-                TestTable rightTable = new TestTable(getQueryRunner()::execute, "right_table_", "(varchar_100 varchar(100), varchar_unbounded varchar)", ImmutableList.of("('India', 'Japan')", "('France', 'Poland')"))) {
+        try (TestTable leftTable = newTrinoTable("left_table", "(id int, varchar_50 varchar(50))", ImmutableList.of("(1, 'India')", "(2, 'Poland')"));
+                TestTable rightTable = newTrinoTable("right_table_", "(varchar_100 varchar(100), varchar_unbounded varchar)", ImmutableList.of("('India', 'Japan')", "('France', 'Poland')"))) {
             String leftTableName = leftTable.getName();
             String rightTableName = rightTable.getName();
             Session session = joinPushdownEnabled(getSession());

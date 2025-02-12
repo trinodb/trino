@@ -40,9 +40,11 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -81,7 +83,9 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
                 .addIcebergProperty("iceberg.file-format", format.name())
                 .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
+                .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
+                .addIcebergProperty("iceberg.rest-catalog.nested-namespace-enabled", "true")
                 .addIcebergProperty("iceberg.rest-catalog.uri", polarisCatalog.restUri() + "/api/catalog")
                 .addIcebergProperty("iceberg.rest-catalog.warehouse", TestingPolarisCatalog.WAREHOUSE)
                 .addIcebergProperty("iceberg.rest-catalog.security", "OAUTH2")
@@ -145,6 +149,21 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Test
+    void testNestedNamespace()
+    {
+        String parentNamespace = "level1_" + randomNameSuffix();
+        String nestedNamespace = parentNamespace + ".level2_" + randomNameSuffix();
+
+        assertUpdate("CREATE SCHEMA " + parentNamespace);
+        assertUpdate("CREATE SCHEMA \"" + nestedNamespace + "\"");
+        assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet())
+                .contains(parentNamespace, nestedNamespace);
+
+        assertUpdate("DROP SCHEMA \"" + nestedNamespace + "\"");
+        assertUpdate("DROP SCHEMA " + parentNamespace);
     }
 
     @Test

@@ -40,6 +40,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.cloud.bigquery.TableDefinition.Type.MATERIALIZED_VIEW;
@@ -50,6 +51,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.bigquery.BigQueryClient.TABLE_TYPES;
 import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryErrorCode.BIGQUERY_FAILED_TO_EXECUTE_QUERY;
+import static io.trino.plugin.bigquery.BigQueryUtil.buildNativeQuery;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -134,45 +136,40 @@ public class BigQuerySplitSource
     {
         TupleDomain<ColumnHandle> tableConstraint = bigQueryTableHandle.constraint();
         Optional<String> filter = BigQueryFilterQueryBuilder.buildFilter(tableConstraint);
+        OptionalLong limit = bigQueryTableHandle.limit();
+
+        TableId remoteTableId;
+        TableDefinition.Type tableType;
+        boolean useStorageApi;
 
         if (bigQueryTableHandle.isQueryRelation()) {
             BigQueryQueryRelationHandle bigQueryQueryRelationHandle = bigQueryTableHandle.getRequiredQueryRelation();
             List<BigQueryColumnHandle> columns = bigQueryTableHandle.projectedColumns().orElse(ImmutableList.of());
-            boolean useStorageApi = bigQueryQueryRelationHandle.isUseStorageApi();
-
-            // projectedColumnsNames can not be used for generating select sql because the query fails if it does not
-            // include a column name. eg: query => 'SELECT 1'
-            String query = filter
-                    .map(whereClause -> "SELECT * FROM (" + bigQueryQueryRelationHandle.getQuery() + " ) WHERE " + whereClause)
-                    .orElseGet(bigQueryQueryRelationHandle::getQuery);
-
-            if (emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())) {
-                String sql = "SELECT COUNT(*) FROM (" + query + ")";
-                return createEmptyProjection(session, sql);
-            }
+            useStorageApi = bigQueryQueryRelationHandle.isUseStorageApi();
 
             if (!useStorageApi) {
-                log.debug("Using Rest API for running query: %s", query);
+                log.debug("Using Rest API for running query: %s", bigQueryQueryRelationHandle.getQuery());
                 return List.of(BigQuerySplit.forViewStream(columns, filter));
             }
+            String query = buildNativeQuery(bigQueryQueryRelationHandle.getQuery(), filter, limit);
 
             TableId destinationTable = bigQueryQueryRelationHandle.getDestinationTableName().toTableId();
             TableInfo tableInfo = new ViewMaterializationCache.DestinationTableBuilder(bigQueryClientFactory.create(session), viewExpiration, query, destinationTable).get();
 
             log.debug("Using Storage API for running query: %s", query);
-            // filter is already used while constructing the select query
-            ReadSession readSession = createReadSession(session, tableInfo.getTableId(), ImmutableList.copyOf(columns), Optional.empty());
-            return readSession.getStreamsList().stream()
-                    .map(stream -> BigQuerySplit.forStream(stream.getName(), getSchemaAsString(readSession), columns, OptionalInt.of(stream.getSerializedSize())))
-                    .collect(toImmutableList());
+            remoteTableId = tableInfo.getTableId();
+            tableType = tableInfo.getDefinition().getType();
+        }
+        else {
+            BigQueryNamedRelationHandle namedRelation = bigQueryTableHandle.getRequiredNamedRelation();
+            remoteTableId = namedRelation.getRemoteTableName().toTableId();
+            tableType = TableDefinition.Type.valueOf(namedRelation.getType());
+            useStorageApi = namedRelation.isUseStorageApi();
         }
 
-        BigQueryNamedRelationHandle namedRelation = bigQueryTableHandle.getRequiredNamedRelation();
-        TableId remoteTableId = namedRelation.getRemoteTableName().toTableId();
-        TableDefinition.Type tableType = TableDefinition.Type.valueOf(bigQueryTableHandle.asPlainTable().getType());
         return emptyProjectionIsRequired(bigQueryTableHandle.projectedColumns())
-                ? createEmptyProjection(session, tableType, remoteTableId, filter)
-                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint, namedRelation.isUseStorageApi());
+                ? createEmptyProjection(session, tableType, remoteTableId, filter, limit)
+                : readFromBigQuery(session, tableType, remoteTableId, bigQueryTableHandle.projectedColumns(), tableConstraint, useStorageApi);
     }
 
     private static boolean emptyProjectionIsRequired(Optional<List<BigQueryColumnHandle>> projectedColumns)
@@ -226,7 +223,7 @@ public class BigQuerySplitSource
         return columns.stream().map(BigQueryColumnHandle::name).collect(toImmutableList());
     }
 
-    private List<BigQuerySplit> createEmptyProjection(ConnectorSession session, TableDefinition.Type tableType, TableId remoteTableId, Optional<String> filter)
+    private List<BigQuerySplit> createEmptyProjection(ConnectorSession session, TableDefinition.Type tableType, TableId remoteTableId, Optional<String> filter, OptionalLong limit)
     {
         if (!TABLE_TYPES.containsKey(tableType)) {
             throw new TrinoException(NOT_SUPPORTED, "Unsupported table type: " + tableType);
@@ -234,7 +231,8 @@ public class BigQuerySplitSource
 
         // Note that we cannot use row count from TableInfo because for writes via insertAll/streaming API the number is incorrect until the streaming buffer is flushed
         // (and there's no mechanism to trigger an on-demand flush). This can lead to incorrect results for queries with empty projections.
-        String sql = selectSql(remoteTableId, "COUNT(*)", filter);
+        String sql = "SELECT COUNT(*) FROM (%s)".formatted(selectSql(remoteTableId, "true", filter, limit));
+
         return createEmptyProjection(session, sql);
     }
 

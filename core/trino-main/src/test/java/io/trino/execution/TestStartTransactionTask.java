@@ -268,6 +268,7 @@ public class TestStartTransactionTask
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
                 true,
+                Optional.empty(),
                 new NodeVersion("test"));
     }
 

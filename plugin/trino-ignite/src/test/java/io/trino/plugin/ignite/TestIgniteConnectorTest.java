@@ -14,6 +14,7 @@
 package io.trino.plugin.ignite;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -29,6 +30,7 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -53,6 +55,15 @@ public class TestIgniteConnectorTest
     }
 
     @Override
+    protected Session getSession()
+    {
+        Session session = super.getSession();
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
+                .build();
+    }
+
+    @Override
     protected SqlExecutor onRemoteDatabase()
     {
         return igniteServer::execute;
@@ -64,7 +75,9 @@ public class TestIgniteConnectorTest
         return switch (connectorBehavior) {
             case SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
+                 SUPPORTS_MERGE,
                  SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN_WITH_LIKE,
+                 SUPPORTS_ROW_LEVEL_UPDATE,
                  SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                  SUPPORTS_ADD_COLUMN_WITH_COMMENT,
@@ -81,6 +94,7 @@ public class TestIgniteConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_NATIVE_QUERY,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_RENAME_COLUMN,
@@ -95,8 +109,7 @@ public class TestIgniteConnectorTest
     @Test
     public void testLikeWithEscape()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_like_with_escape",
                 "(id int, a varchar(4))",
                 List.of(
@@ -126,8 +139,7 @@ public class TestIgniteConnectorTest
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL")).isFullyPushedDown();
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NULL OR name = 'a' OR regionkey = 4")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_null_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(1))",
                 List.of(
@@ -144,8 +156,7 @@ public class TestIgniteConnectorTest
     {
         assertThat(query("SELECT nationkey FROM nation WHERE name IS NOT NULL OR regionkey = 4")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_not_null_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(1))",
                 List.of(
@@ -162,8 +173,7 @@ public class TestIgniteConnectorTest
     {
         assertThat(query("SELECT nationkey FROM nation WHERE NOT(name LIKE '%A%')")).isFullyPushedDown();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_is_not_predicate_pushdown",
                 "(a_int integer, a_varchar varchar(2))",
                 List.of(
@@ -318,8 +328,7 @@ public class TestIgniteConnectorTest
     @Test
     public void testAvgDecimalExceedingSupportedPrecision()
     {
-        try (TestTable testTable = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable testTable = newTrinoTable(
                 "test_avg_decimal_exceeding_supported_precision",
                 "(a decimal(38, 38), b bigint)",
                 List.of(
@@ -391,7 +400,7 @@ public class TestIgniteConnectorTest
     {
         // Override because Ignite can access old data after dropping and adding a column with same name
         executeExclusively(() -> {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
+            try (TestTable table = newTrinoTable("test_drop_add_column", "AS SELECT 1 x, 2 y, 3 z")) {
                 assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
                 assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
 
@@ -543,5 +552,12 @@ public class TestIgniteConnectorTest
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + schemaTableName);
         }
+    }
+
+    @Test
+    @Override
+    public void testMergeTargetWithoutPrimaryKeys()
+    {
+        abort("Ignite table always has primary key");
     }
 }

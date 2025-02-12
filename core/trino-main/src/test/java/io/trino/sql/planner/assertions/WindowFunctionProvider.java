@@ -35,20 +35,23 @@ final class WindowFunctionProvider
     private final WindowNode.Frame frame;
     private final List<PlanTestSymbol> args;
     private final List<PlanMatchPattern.Ordering> orderBy;
+    private final boolean distinct;
 
-    public WindowFunctionProvider(String name, WindowNode.Frame frame, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy)
+    public WindowFunctionProvider(String name, WindowNode.Frame frame, List<PlanTestSymbol> args, List<PlanMatchPattern.Ordering> orderBy, boolean distinct)
     {
         this.name = requireNonNull(name, "name is null");
         this.frame = requireNonNull(frame, "frame is null");
         this.args = requireNonNull(args, "args is null");
         this.orderBy = ImmutableList.copyOf(orderBy);
+        this.distinct = distinct;
     }
 
     @Override
     public String toString()
     {
-        return "%s(%s%s) %s".formatted(
+        return "%s(%s%s%s) %s".formatted(
                 name,
+                distinct ? "DISTINCT " : "",
                 Joiner.on(", ").join(args),
                 orderBy.isEmpty() ? "" : " ORDER BY " + Joiner.on(", ").join(orderBy),
                 frame);
@@ -71,6 +74,6 @@ final class WindowFunctionProvider
             orderingScheme = Optional.of(new OrderingScheme(fields.build(), orders.buildOrThrow()));
         }
 
-        return new WindowFunction(name, frame, toSymbolReferences(args, aliases), orderingScheme);
+        return new WindowFunction(name, frame, toSymbolReferences(args, aliases), orderingScheme, distinct);
     }
 }

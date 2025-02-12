@@ -53,6 +53,7 @@ import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
+import io.trino.sql.SessionPropertyResolver.SessionPropertiesApplier;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.tracing.TrinoAttributes;
@@ -88,6 +89,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isSpoolingEnabled;
 import static io.trino.execution.BasicStageStats.EMPTY_STAGE_STATS;
 import static io.trino.execution.QueryState.DISPATCHING;
 import static io.trino.execution.QueryState.FAILED;
@@ -244,6 +246,7 @@ public class QueryStateMachine
             PlanOptimizersStatsCollector queryStatsCollector,
             Optional<QueryType> queryType,
             boolean faultTolerantExecutionExchangeEncryptionEnabled,
+            Optional<SessionPropertiesApplier> sessionPropertiesApplier,
             NodeVersion version)
     {
         return beginWithTicker(
@@ -263,6 +266,7 @@ public class QueryStateMachine
                 queryStatsCollector,
                 queryType,
                 faultTolerantExecutionExchangeEncryptionEnabled,
+                sessionPropertiesApplier,
                 version);
     }
 
@@ -283,6 +287,7 @@ public class QueryStateMachine
             PlanOptimizersStatsCollector queryStatsCollector,
             Optional<QueryType> queryType,
             boolean faultTolerantExecutionExchangeEncryptionEnabled,
+            Optional<SessionPropertiesApplier> sessionPropertiesApplier,
             NodeVersion version)
     {
         // if there is an existing transaction, activate it
@@ -309,8 +314,13 @@ public class QueryStateMachine
             session = session.withExchangeEncryption(serializeAesEncryptionKey(createRandomAesEncryptionKey()));
         }
 
-        if (!queryType.map(SELECT::equals).orElse(false)) {
+        if (!queryType.map(SELECT::equals).orElse(false) || !isSpoolingEnabled(session)) {
             session = session.withoutSpooling();
+        }
+
+        // Apply WITH SESSION properties which require transaction to be started to resolve catalog handles
+        if (sessionPropertiesApplier.isPresent()) {
+            session = sessionPropertiesApplier.orElseThrow().apply(session);
         }
 
         Span querySpan = session.getQuerySpan();
@@ -547,6 +557,7 @@ public class QueryStateMachine
                 stageStats.getSpilledDataSize(),
                 stageStats.getPhysicalInputDataSize(),
                 stageStats.getPhysicalWrittenDataSize(),
+                stageStats.getInternalNetworkInputDataSize(),
 
                 stageStats.getCumulativeUserMemory(),
                 stageStats.getFailedCumulativeUserMemory(),
@@ -555,10 +566,14 @@ public class QueryStateMachine
                 succinctBytes(getPeakUserMemoryInBytes()),
                 succinctBytes(getPeakTotalMemoryInBytes()),
 
+                queryStateTimer.getPlanningTime(),
+                queryStateTimer.getAnalysisTime(),
                 stageStats.getTotalCpuTime(),
                 stageStats.getFailedCpuTime(),
                 stageStats.getTotalScheduledTime(),
                 stageStats.getFailedScheduledTime(),
+                queryStateTimer.getFinishingTime(),
+                stageStats.getPhysicalInputReadTime(),
 
                 stageStats.isFullyBlocked(),
                 stageStats.getBlockedReasons(),

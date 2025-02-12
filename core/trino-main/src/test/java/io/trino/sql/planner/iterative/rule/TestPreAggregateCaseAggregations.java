@@ -48,7 +48,6 @@ import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.function.Predicate;
 
-import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -92,7 +91,6 @@ public class TestPreAggregateCaseAggregations
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("default")
-                .setSystemProperty(OPTIMIZE_HASH_GENERATION, "false") // remove hash computing projections for simplicity
                 .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false") // remove partial aggregations for simplicity
                 .setSystemProperty(TASK_CONCURRENCY, "1"); // these tests don't handle exchanges from local parallel
 

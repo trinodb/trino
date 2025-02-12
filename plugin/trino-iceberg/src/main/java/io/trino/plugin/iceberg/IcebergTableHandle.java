@@ -65,6 +65,9 @@ public class IcebergTableHandle
     private final Set<IcebergColumnHandle> projectedColumns;
     private final Optional<String> nameMappingJson;
 
+    // Coordinator-only - table partitioning applied to the table splits if available and active
+    private final Optional<IcebergTablePartitioning> tablePartitioning;
+
     // OPTIMIZE only. Coordinator-only
     private final boolean recordScannedFiles;
     private final Optional<DataSize> maxScannedFileSize;
@@ -107,6 +110,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                Optional.empty(),
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
@@ -129,6 +133,7 @@ public class IcebergTableHandle
             Optional<String> nameMappingJson,
             String tableLocation,
             Map<String, String> storageProperties,
+            Optional<IcebergTablePartitioning> tablePartitioning,
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize,
             Set<IcebergColumnHandle> constraintColumns,
@@ -149,6 +154,7 @@ public class IcebergTableHandle
         this.nameMappingJson = requireNonNull(nameMappingJson, "nameMappingJson is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
+        this.tablePartitioning = requireNonNull(tablePartitioning, "tablePartitioning is null");
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
@@ -246,6 +252,15 @@ public class IcebergTableHandle
         return storageProperties;
     }
 
+    /**
+     * Get the partitioning for the table splits.
+     */
+    @JsonIgnore
+    public Optional<IcebergTablePartitioning> getTablePartitioning()
+    {
+        return tablePartitioning;
+    }
+
     @JsonIgnore
     public boolean isRecordScannedFiles()
     {
@@ -298,6 +313,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                tablePartitioning,
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
@@ -322,6 +338,7 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                tablePartitioning,
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
@@ -346,8 +363,34 @@ public class IcebergTableHandle
                 nameMappingJson,
                 tableLocation,
                 storageProperties,
+                tablePartitioning,
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize),
+                constraintColumns,
+                forAnalyze);
+    }
+
+    public IcebergTableHandle withTablePartitioning(Optional<IcebergTablePartitioning> requiredTablePartitioning)
+    {
+        return new IcebergTableHandle(
+                catalog,
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                limit,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                requiredTablePartitioning,
+                recordScannedFiles,
+                maxScannedFileSize,
                 constraintColumns,
                 forAnalyze);
     }

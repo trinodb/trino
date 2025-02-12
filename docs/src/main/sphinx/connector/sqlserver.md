@@ -111,9 +111,6 @@ behavior of the connector and the issues queries to the database.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 (sqlserver-fte-support)=
 ### Fault-tolerant execution support
 
@@ -325,25 +322,37 @@ For Trino `VARCHAR(n)`:
 ## SQL support
 
 The connector provides read access and write access to data and metadata in SQL
-Server. In addition to the {ref}`globally available <sql-globally-available>`
-and {ref}`read operation <sql-read-operations>` statements, the connector
-supports the following features:
+Server. In addition to the [globally available](sql-globally-available) and
+[read operation](sql-read-operations) statements, the connector supports the
+following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {ref}`sql-schema-table-management`
+- [](/sql/insert), see also [](sqlserver-insert)
+- [](/sql/update), see also [](sqlserver-update)
+- [](/sql/delete), see also [](sqlserver-delete)
+- [](/sql/truncate)
+- [](sql-schema-table-management), see also:
+  - [](sqlserver-alter-table)
+- [](sqlserver-procedures)
+- [](sqlserver-table-functions)
 
+
+(sqlserver-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(sqlserver-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(sqlserver-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(sqlserver-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(sqlserver-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -351,6 +360,7 @@ supports the following features:
 ```{include} procedures-execute.fragment
 ```
 
+(sqlserver-table-functions)=
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to
@@ -393,7 +403,7 @@ FROM
 The `procedure` function allows you to run stored procedures on the underlying
 database directly. It requires syntax native to SQL Server, because the full query
 is pushed down and processed in SQL Server. In order to use this table function set
-`sqlserver.experimental.stored-procedure-table-function-enabled` to `true`.
+`sqlserver.stored-procedure-table-function-enabled` to `true`.
 
 :::{note}
 The `procedure` function does not support running StoredProcedures that return multiple statements,

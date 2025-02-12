@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
+import io.airlift.units.Duration;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
+import java.util.Optional;
 
 public class PhoenixConfig
 {
@@ -40,6 +42,11 @@ public class PhoenixConfig
      */
     private int maxScansPerSplit = 20;
     private boolean reuseConnection = true;
+
+    /**
+     * By default, let Phoenix client derive Page size from HBase RPC timeout configs.
+     */
+    private Optional<Duration> serverScanPageTimeout = Optional.empty();
 
     @NotNull
     public String getConnectionUrl()
@@ -92,6 +99,19 @@ public class PhoenixConfig
     public PhoenixConfig setReuseConnection(boolean reuseConnection)
     {
         this.reuseConnection = reuseConnection;
+        return this;
+    }
+
+    public Optional<Duration> getServerScanPageTimeout()
+    {
+        return serverScanPageTimeout;
+    }
+
+    @Config("phoenix.server-scan-page-timeout")
+    @ConfigDescription("Phoenix scan page timeout to reflect the time limit on the amount of work single Scan RPC request can do")
+    public PhoenixConfig setServerScanPageTimeout(Duration serverScanPageTimeout)
+    {
+        this.serverScanPageTimeout = Optional.ofNullable(serverScanPageTimeout);
         return this;
     }
 }

@@ -263,7 +263,7 @@ public class JsonEncodingUtils
                 return;
             }
             Slice slice = VARCHAR.getSlice(block, position);
-            generator.writeString(slice.toStringUtf8());
+            generator.writeUTF8String(slice.byteArray(), slice.byteArrayOffset(), slice.length());
         }
     }
 
@@ -367,8 +367,9 @@ public class JsonEncodingUtils
             verify(keyBlock.getPositionCount() == valueBlock.getPositionCount(), "Key and value blocks have different number of positions");
             generator.writeStartObject();
             for (int i = 0; i < map.getSize(); i++) {
-                // Field name is always written as String for backward compatibility,
-                // only value is properly encoded.
+                // Map keys are always serialized as strings for backward compatibility with existing clients.
+                // Map values are always properly encoded using their types.
+                // TODO: improve in v2 JSON format
                 generator.writeFieldName(mapType.getKeyType().getObjectValue(session, keyBlock, offset + i).toString());
                 valueEncoder.encode(generator, session, valueBlock, offset + i);
             }

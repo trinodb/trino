@@ -25,6 +25,7 @@ import com.google.inject.TypeLiteral;
 import com.mysql.cj.jdbc.Driver;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
@@ -32,6 +33,7 @@ import io.trino.spi.eventlistener.QueryInputMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.opentelemetry.JdbiOpenTelemetryPlugin;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.util.Map;
@@ -51,12 +53,13 @@ public class MysqlEventListenerFactory
     }
 
     @Override
-    public EventListener create(Map<String, String> config)
+    public EventListener create(Map<String, String> config, EventListenerContext context)
     {
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new MysqlDataSourceModule(),
                 binder -> {
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                     jsonCodecBinder(binder).bindJsonCodec(new TypeLiteral<Set<String>>() {});
                     jsonCodecBinder(binder).bindMapJsonCodec(String.class, String.class);
                     jsonCodecBinder(binder).bindListJsonCodec(QueryInputMetadata.class);
@@ -92,10 +95,11 @@ public class MysqlEventListenerFactory
 
         @Singleton
         @Provides
-        public static Jdbi createJdbi(ConnectionFactory connectionFactory)
+        public static Jdbi createJdbi(ConnectionFactory connectionFactory, OpenTelemetry openTelemetry)
         {
             return Jdbi.create(connectionFactory)
-                    .installPlugin(new SqlObjectPlugin());
+                    .installPlugin(new SqlObjectPlugin())
+                    .installPlugin(new JdbiOpenTelemetryPlugin(openTelemetry));
         }
     }
 

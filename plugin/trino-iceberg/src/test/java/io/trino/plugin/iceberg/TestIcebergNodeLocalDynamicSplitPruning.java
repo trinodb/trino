@@ -28,7 +28,7 @@ import io.trino.orc.OrcWriter;
 import io.trino.orc.OrcWriterOptions;
 import io.trino.orc.OrcWriterStats;
 import io.trino.orc.OutputStreamOrcDataSink;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -171,6 +171,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             tablePath,
                             ImmutableMap.of(),
+                            Optional.empty(),
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
@@ -231,6 +232,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             tablePath,
                             ImmutableMap.of(),
+                            Optional.empty(),
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
@@ -341,6 +343,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             tablePath,
                             ImmutableMap.of(),
+                            Optional.empty(),
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
@@ -502,6 +505,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             Optional.empty(),
                             tablePath,
                             ImmutableMap.of(),
+                            Optional.empty(),
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),

@@ -62,15 +62,15 @@ public final class MergePage
     {
         // see page description in ConnectorMergeSink
         int inputChannelCount = inputPage.getChannelCount();
-        if (inputChannelCount != dataColumnCount + 2) {
-            throw new IllegalArgumentException(format("inputPage channelCount (%s) == dataColumns size (%s) + 2", inputChannelCount, dataColumnCount));
+        if (inputChannelCount != dataColumnCount + 3) {
+            throw new IllegalArgumentException(format("inputPage channelCount (%s) == dataColumns size (%s) + 3", inputChannelCount, dataColumnCount));
         }
 
         int positionCount = inputPage.getPositionCount();
         if (positionCount <= 0) {
             throw new IllegalArgumentException("positionCount should be > 0, but is " + positionCount);
         }
-        Block operationBlock = inputPage.getBlock(inputChannelCount - 2);
+        Block operationBlock = inputPage.getBlock(dataColumnCount);
 
         int[] deletePositions = new int[positionCount];
         int[] insertPositions = new int[positionCount];
@@ -99,7 +99,7 @@ public final class MergePage
             for (int i = 0; i < dataColumnCount; i++) {
                 columns[i] = i;
             }
-            columns[dataColumnCount] = dataColumnCount + 1; // row ID channel
+            columns[dataColumnCount] = dataColumnCount + 2; // row ID channel
             deletePage = Optional.of(inputPage
                     .getColumns(columns)
                     .getPositions(deletePositions, 0, deletePositionCount));

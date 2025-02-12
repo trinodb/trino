@@ -80,7 +80,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
         DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
                 .setInitialTables(TpchTable.getTables())
                 .setTestingTrinoClientFactory((trinoServer, session) -> createClient(trinoServer, session, encoding()))
-                .addExtraProperty("experimental.protocol.spooling.enabled", "true")
+                .addExtraProperty("protocol.spooling.enabled", "true")
                 .addExtraProperty("protocol.spooling.shared-secret-key", randomAES256Key())
                 .addExtraProperties(spoolingConfig())
                 .setAdditionalSetup(runner -> {

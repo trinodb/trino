@@ -22,6 +22,7 @@ import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.cache.CacheKeyProvider;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.security.ConnectorAccessControlModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.cache.DeltaLakeCacheKeyProvider;
@@ -47,7 +48,6 @@ import io.trino.plugin.deltalake.transactionlog.writer.NoIsolationSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizerManager;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.PropertiesSystemTableProvider;
 import io.trino.plugin.hive.SystemTableProvider;
 import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
@@ -126,9 +126,6 @@ public class DeltaLakeModule
         binder.bind(TransactionLogSynchronizerManager.class).in(Scopes.SINGLETON);
         binder.bind(NoIsolationSynchronizer.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, TransactionLogSynchronizer.class);
-
-        newOptionalBinder(binder, DeltaLakeRedirectionsProvider.class)
-                .setDefault().toInstance(DeltaLakeRedirectionsProvider.NOOP);
 
         jsonCodecBinder(binder).bindJsonCodec(DataFileInfo.class);
         jsonCodecBinder(binder).bindJsonCodec(DeltaLakeMergeResult.class);

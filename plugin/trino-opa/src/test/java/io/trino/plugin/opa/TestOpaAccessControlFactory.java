@@ -15,6 +15,7 @@ package io.trino.plugin.opa;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.bootstrap.ApplicationConfigurationException;
+import io.trino.plugin.base.security.TestingSystemAccessControlContext;
 import io.trino.spi.security.SystemAccessControl;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +28,7 @@ public class TestOpaAccessControlFactory
     public void testCreatesSimpleAuthorizerIfNoBatchUriProvided()
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
-        SystemAccessControl opaAuthorizer = factory.create(ImmutableMap.of("opa.policy.uri", "foo"));
+        SystemAccessControl opaAuthorizer = factory.create(ImmutableMap.of("opa.policy.uri", "foo"), new TestingSystemAccessControlContext());
 
         assertThat(opaAuthorizer).isInstanceOf(OpaAccessControl.class);
         assertThat(opaAuthorizer).isNotInstanceOf(OpaBatchAccessControl.class);
@@ -41,7 +42,8 @@ public class TestOpaAccessControlFactory
                 ImmutableMap.<String, String>builder()
                         .put("opa.policy.uri", "foo")
                         .put("opa.policy.batched-uri", "bar")
-                        .buildOrThrow());
+                        .buildOrThrow(),
+                new TestingSystemAccessControlContext());
 
         assertThat(opaAuthorizer).isInstanceOf(OpaBatchAccessControl.class);
         assertThat(opaAuthorizer).isInstanceOf(OpaAccessControl.class);
@@ -52,7 +54,7 @@ public class TestOpaAccessControlFactory
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
 
-        assertThatThrownBy(() -> factory.create(ImmutableMap.of())).isInstanceOf(ApplicationConfigurationException.class);
+        assertThatThrownBy(() -> factory.create(ImmutableMap.of(), new TestingSystemAccessControlContext())).isInstanceOf(ApplicationConfigurationException.class);
     }
 
     @Test
@@ -60,7 +62,7 @@ public class TestOpaAccessControlFactory
     {
         OpaAccessControlFactory factory = new OpaAccessControlFactory();
 
-        assertThatThrownBy(() -> factory.create(null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> factory.create(null, new TestingSystemAccessControlContext())).isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -71,7 +73,8 @@ public class TestOpaAccessControlFactory
                 ImmutableMap.<String, String>builder()
                         .put("opa.policy.uri", "foo")
                         .put("opa.http-client.log.enabled", "true")
-                        .buildOrThrow());
+                        .buildOrThrow(),
+                new TestingSystemAccessControlContext());
 
         assertThat(opaAuthorizer).isInstanceOf(OpaAccessControl.class);
         assertThat(opaAuthorizer).isNotInstanceOf(OpaBatchAccessControl.class);

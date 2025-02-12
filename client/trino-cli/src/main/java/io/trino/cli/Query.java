@@ -215,7 +215,7 @@ public class Query
 
     private boolean isInteractive(Optional<String> pager)
     {
-        return pager.map(name -> name.trim().length() != 0).orElse(true);
+        return pager.map(name -> !name.trim().isEmpty()).orElse(true);
     }
 
     private void processInitialStatusUpdates(WarningsPrinter warningsPrinter)

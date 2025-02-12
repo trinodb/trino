@@ -75,9 +75,6 @@ configured connector to create a catalog named `sales`.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 ## Table properties
 
 Table property usage example:
@@ -173,20 +170,33 @@ Ignite.  In addition to the {ref}`globally available
 <sql-globally-available>` and {ref}`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
+- [](/sql/insert), see also [](ignite-insert)
+- [](/sql/update), see also [](ignite-update)
+- [](/sql/delete)
+- [](/sql/merge), see also [](ignite-merge)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/alter-table), see also [](ignite-alter-table)
+- [](ignite-procedures)
 
+(ignite-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(ignite-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(ignite-merge)=
+```{include} non-transactional-merge.fragment
+```
+
+(ignite-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(ignite-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment

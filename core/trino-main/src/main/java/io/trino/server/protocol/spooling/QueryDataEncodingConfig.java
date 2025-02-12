@@ -15,12 +15,18 @@ package io.trino.server.protocol.spooling;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.DataSize;
+import io.airlift.units.MaxDataSize;
+import io.airlift.units.MinDataSize;
+
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
 
 public class QueryDataEncodingConfig
 {
     private boolean jsonEnabled = true;
     private boolean jsonZstdEnabled = true;
     private boolean jsonLz4Enabled = true;
+    private DataSize compressionThreshold = DataSize.of(8, KILOBYTE);
 
     public boolean isJsonEnabled()
     {
@@ -58,6 +64,21 @@ public class QueryDataEncodingConfig
     public QueryDataEncodingConfig setJsonLz4Enabled(boolean jsonLz4Enabled)
     {
         this.jsonLz4Enabled = jsonLz4Enabled;
+        return this;
+    }
+
+    @MinDataSize("1kB")
+    @MaxDataSize("4MB")
+    public DataSize getCompressionThreshold()
+    {
+        return compressionThreshold;
+    }
+
+    @Config("protocol.spooling.encoding.compression.threshold")
+    @ConfigDescription("Do not compress segments smaller than threshold")
+    public QueryDataEncodingConfig setCompressionThreshold(DataSize compressionThreshold)
+    {
+        this.compressionThreshold = compressionThreshold;
         return this;
     }
 }

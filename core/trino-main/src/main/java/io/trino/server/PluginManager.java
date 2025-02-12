@@ -27,6 +27,7 @@ import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
+import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
@@ -41,7 +42,7 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.exchange.ExchangeManagerFactory;
-import io.trino.spi.protocol.SpoolingManagerFactory;
+import io.trino.spi.function.LanguageFunctionEngine;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 import io.trino.spi.security.CertificateAuthenticatorFactory;
 import io.trino.spi.security.GroupProviderFactory;
@@ -49,6 +50,7 @@ import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.spi.spool.SpoolingManagerFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 
@@ -83,6 +85,7 @@ public class PluginManager
     private final Optional<CatalogStoreManager> catalogStoreManager;
     private final CatalogFactory connectorFactory;
     private final GlobalFunctionCatalog globalFunctionCatalog;
+    private final LanguageFunctionEngineManager languageFunctionEngineManager;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager;
@@ -104,6 +107,7 @@ public class PluginManager
             Optional<CatalogStoreManager> catalogStoreManager,
             CatalogFactory connectorFactory,
             GlobalFunctionCatalog globalFunctionCatalog,
+            LanguageFunctionEngineManager languageFunctionEngineManager,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager,
@@ -122,6 +126,7 @@ public class PluginManager
         this.catalogStoreManager = requireNonNull(catalogStoreManager, "catalogStoreManager is null");
         this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
         this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
+        this.languageFunctionEngineManager = requireNonNull(languageFunctionEngineManager, "languageFunctionEngineManager is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
@@ -222,6 +227,11 @@ public class PluginManager
             InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
             functions.forEach(builder::functions);
             globalFunctionCatalog.addFunctions(builder.build());
+        }
+
+        for (LanguageFunctionEngine languageFunctionEngine : plugin.getLanguageFunctionEngines()) {
+            log.info("Registering language function engine %s", languageFunctionEngine.getLanguage());
+            languageFunctionEngineManager.addLanguageFunctionEngine(languageFunctionEngine);
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {

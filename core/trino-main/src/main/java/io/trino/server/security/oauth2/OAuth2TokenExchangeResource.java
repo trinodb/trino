@@ -44,6 +44,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static com.google.common.util.concurrent.Futures.transform;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.trino.server.AsyncResponseUtils.withFallbackAfterTimeout;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
@@ -54,6 +55,7 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE;
 import static java.util.Objects.requireNonNull;
 
 @Path(OAuth2TokenExchangeResource.TOKEN_ENDPOINT)
+@ResourceSecurity(PUBLIC)
 public class OAuth2TokenExchangeResource
 {
     static final String TOKEN_ENDPOINT = "/oauth2/token/";
@@ -74,7 +76,6 @@ public class OAuth2TokenExchangeResource
         this.timeoutExecutor = executor.getScheduledExecutor();
     }
 
-    @ResourceSecurity(PUBLIC)
     @Path("initiate/{authIdHash}")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
@@ -83,7 +84,6 @@ public class OAuth2TokenExchangeResource
         return service.startOAuth2Challenge(externalUriInfo.absolutePath(CALLBACK_ENDPOINT), Optional.ofNullable(authIdHash));
     }
 
-    @ResourceSecurity(PUBLIC)
     @Path("{authId}")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
@@ -97,8 +97,8 @@ public class OAuth2TokenExchangeResource
         // hang if the client retries the request. The response will timeout eventually.
         ListenableFuture<TokenPoll> tokenFuture = tokenExchange.getTokenPoll(authId);
         ListenableFuture<Response> responseFuture = withFallbackAfterTimeout(
-                transform(tokenFuture, OAuth2TokenExchangeResource::toResponse, responseExecutor),
-                MAX_POLL_TIME, () -> pendingResponse(request), responseExecutor, timeoutExecutor);
+                transform(tokenFuture, OAuth2TokenExchangeResource::toResponse, directExecutor()),
+                MAX_POLL_TIME, () -> pendingResponse(request), timeoutExecutor);
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor);
     }
 
@@ -118,7 +118,6 @@ public class OAuth2TokenExchangeResource
         return Response.ok(jsonMap("nextUri", request.getRequestURL()), APPLICATION_JSON_TYPE).build();
     }
 
-    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{authId}")
     public Response deleteAuthenticationToken(@PathParam("authId") UUID authId)

@@ -24,6 +24,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.WebIdentityTokenFileCredentialsProvider;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.http.SdkHttpClient;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
@@ -46,11 +47,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_REQUIRED;
 
 final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
@@ -108,7 +111,12 @@ final class S3FileSystemLoader
             S3Context context = this.context.withCredentials(identity);
 
             if (mapping.isPresent() && mapping.get().kmsKeyId().isPresent()) {
+                checkState(mapping.get().sseCustomerKey().isEmpty(), "Both SSE-C and KMS-managed keys cannot be used at the same time");
                 context = context.withKmsKeyId(mapping.get().kmsKeyId().get());
+            }
+
+            if (mapping.isPresent() && mapping.get().sseCustomerKey().isPresent()) {
+                context = context.withSseCustomerKey(mapping.get().sseCustomerKey().get());
             }
 
             return new S3FileSystem(uploadExecutor, client, preSigner, context);
@@ -170,6 +178,8 @@ final class S3FileSystemLoader
             S3ClientBuilder s3 = S3Client.builder();
             s3.overrideConfiguration(overrideConfiguration);
             s3.httpClient(httpClient);
+            s3.responseChecksumValidation(WHEN_REQUIRED);
+            s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
 
             region.map(Region::of).ifPresent(s3::region);
             endpoint.map(URI::create).ifPresent(s3::endpointOverride);
@@ -271,6 +281,7 @@ final class S3FileSystemLoader
                 .retryStrategy(getRetryStrategy(config.getRetryMode()).toBuilder()
                         .maxAttempts(config.getMaxErrorRetries())
                         .build())
+                .appId(config.getApplicationId())
                 .addMetricPublisher(metricPublisher)
                 .build();
     }

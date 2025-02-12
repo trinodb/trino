@@ -23,15 +23,15 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
@@ -280,7 +280,7 @@ public final class MigrationUtils
         try (CloseableIterable<FileScanTask> iterator = table.newScan().planFiles()) {
             for (FileScanTask fileScanTask : iterator) {
                 DataFile dataFile = fileScanTask.file();
-                existingFilesBuilder.add(dataFile.path().toString());
+                existingFilesBuilder.add(dataFile.location());
             }
         }
         catch (IOException e) {
@@ -312,8 +312,8 @@ public final class MigrationUtils
             log.debug("Append data %d data files", dataFiles.size());
             AppendFiles appendFiles = isMergeManifestsOnWrite(session) ? transaction.newAppend() : transaction.newFastAppend();
             for (DataFile dataFile : dataFiles) {
-                if (existingFiles.contains(dataFile.path().toString())) {
-                    throw new TrinoException(ALREADY_EXISTS, "File already exists: " + dataFile.path());
+                if (existingFiles.contains(dataFile.location())) {
+                    throw new TrinoException(ALREADY_EXISTS, "File already exists: " + dataFile.location());
                 }
                 appendFiles.appendFile(dataFile);
             }

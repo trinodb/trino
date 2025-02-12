@@ -20,7 +20,9 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
 import org.apache.hadoop.hbase.StartMiniClusterOption;
+import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.zookeeper.MiniZooKeeperCluster;
+import org.apache.phoenix.query.HBaseFactoryProvider;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -86,6 +88,12 @@ public final class TestingPhoenixServer
         catch (Exception e) {
             throw new RuntimeException("Can't start phoenix server.", e);
         }
+    }
+
+    public Connection getConnection()
+            throws IOException
+    {
+        return HBaseFactoryProvider.getHConnectionFactory().createConnection(this.conf);
     }
 
     @Override

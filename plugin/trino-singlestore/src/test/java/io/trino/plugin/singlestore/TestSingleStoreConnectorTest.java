@@ -78,6 +78,7 @@ public class TestSingleStoreConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
                  SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY,
                  SUPPORTS_RENAME_SCHEMA,
@@ -115,34 +116,20 @@ public class TestSingleStoreConnectorTest
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
 
-        if (typeName.equals("boolean")) {
+        return switch (typeName) {
             // SingleStore does not have built-in support for boolean type. SingleStore provides BOOLEAN as the synonym of TINYINT(1)
             // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
-            return Optional.empty();
-        }
-
-        if (typeName.equals("time")) {
+            case "boolean" -> Optional.empty();
             // SingleStore supports only second precision
             // Skip 'time' that is alias of time(3) here and add test cases in TestSingleStoreTypeMapping.testTime instead
-            return Optional.empty();
-        }
-
-        if (typeName.equals("timestamp(3) with time zone") ||
-                typeName.equals("timestamp(6) with time zone")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
-        if (typeName.equals("timestamp")) {
+            case "time" -> Optional.empty();
+            case "timestamp(3) with time zone", "timestamp(6) with time zone" -> Optional.of(dataMappingTestSetup.asUnsupported());
             // TODO this should either work or fail cleanly
-            return Optional.empty();
-        }
-
-        if (typeName.equals("varchar")) {
+            case "timestamp" -> Optional.empty();
             // TODO fails due to case insensitive UTF-8 comparisons
-            return Optional.empty();
-        }
-
-        return Optional.of(dataMappingTestSetup);
+            case "varchar" -> Optional.empty();
+            default -> Optional.of(dataMappingTestSetup);
+        };
     }
 
     @Test
@@ -220,7 +207,7 @@ public class TestSingleStoreConnectorTest
     @Override
     public void testInsertIntoNotNullColumn()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
+        try (TestTable table = newTrinoTable("insert_not_null", "(nullable_col INTEGER, not_null_col INTEGER NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             assertQueryFails(format("INSERT INTO %s (nullable_col) VALUES (1)", table.getName()), errorMessageForInsertIntoNotNullColumn("not_null_col"));
@@ -233,7 +220,7 @@ public class TestSingleStoreConnectorTest
             assertQueryFails(format("INSERT INTO %s (nullable_col) SELECT nationkey FROM nation WHERE regionkey < 0", table.getName()), ".*Field 'not_null_col' doesn't have a default value.*");
         }
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
+        try (TestTable table = newTrinoTable("commuted_not_null", "(nullable_col BIGINT, not_null_col BIGINT NOT NULL)")) {
             assertUpdate(format("INSERT INTO %s (not_null_col) VALUES (2)", table.getName()), 1);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (NULL, 2)");
             // This is enforced by the engine and not the connector
@@ -269,7 +256,7 @@ public class TestSingleStoreConnectorTest
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("Should fail to add not null column without a default value to a non-empty table");
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_nn_col", "(a_varchar varchar)")) {
+        try (TestTable table = newTrinoTable("test_add_nn_col", "(a_varchar varchar)")) {
             String tableName = table.getName();
 
             assertUpdate("INSERT INTO " + tableName + " VALUES ('a')", 1);

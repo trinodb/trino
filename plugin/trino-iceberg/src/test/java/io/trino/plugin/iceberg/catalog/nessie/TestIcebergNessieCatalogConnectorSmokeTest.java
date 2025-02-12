@@ -103,7 +103,8 @@ public class TestIcebergNessieCatalogConnectorSmokeTest
                                 "iceberg.catalog.type", "nessie",
                                 "iceberg.nessie-catalog.uri", nessieContainer.getRestApiUri(),
                                 "iceberg.nessie-catalog.default-warehouse-dir", tempDir.toString(),
-                                "iceberg.writer-sort-buffer-size", "1MB"))
+                                "iceberg.writer-sort-buffer-size", "1MB",
+                                "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(ImmutableList.<TpchTable<?>>builder()

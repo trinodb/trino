@@ -13,6 +13,7 @@
  */
 package io.trino.metastore.tracing;
 
+import com.google.common.collect.ImmutableSet;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.metastore.AcidOperation;
@@ -159,6 +160,20 @@ public class TracingHiveMetastore
                 .startSpan();
         return withTracing(span, () -> {
             List<TableInfo> tables = delegate.getTables(databaseName);
+            span.setAttribute(TABLE_RESPONSE_COUNT, tables.size());
+            return tables;
+        });
+    }
+
+    @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    {
+        Span span = tracer.spanBuilder("HiveMetastore.getTableNamesWithParameters")
+                .setAttribute(SCHEMA, databaseName)
+                .setAttribute(TABLE, parameterKey)
+                .startSpan();
+        return withTracing(span, () -> {
+            List<String> tables = delegate.getTableNamesWithParameters(databaseName, parameterKey, parameterValues);
             span.setAttribute(TABLE_RESPONSE_COUNT, tables.size());
             return tables;
         });

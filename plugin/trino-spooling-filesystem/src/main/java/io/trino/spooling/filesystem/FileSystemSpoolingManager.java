@@ -26,12 +26,12 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.encryption.EncryptionKey;
-import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledLocation.DirectLocation;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingContext;
-import io.trino.spi.protocol.SpoolingManager;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.spool.SpooledLocation;
+import io.trino.spi.spool.SpooledLocation.DirectLocation;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingContext;
+import io.trino.spi.spool.SpoolingManager;
 import io.trino.spooling.filesystem.encryption.EncryptionHeadersTranslator;
 import io.trino.spooling.filesystem.encryption.ExceptionMappingInputStream;
 
@@ -42,21 +42,18 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_SHORT;
-import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
-import static io.trino.spi.protocol.SpooledLocation.coordinatorLocation;
+import static io.trino.spi.spool.SpooledLocation.coordinatorLocation;
 import static io.trino.spooling.filesystem.encryption.EncryptionHeadersTranslator.encryptionHeadersTranslator;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.Duration.between;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class FileSystemSpoolingManager
         implements SpoolingManager
@@ -66,6 +63,7 @@ public class FileSystemSpoolingManager
     private final TrinoFileSystem fileSystem;
     private final FileSystemLayout fileSystemLayout;
     private final Duration ttl;
+    private final Duration directAccessTtl;
     private final boolean encryptionEnabled;
     private final boolean explicitAckEnabled;
     private final Random random = ThreadLocalRandom.current();
@@ -80,6 +78,7 @@ public class FileSystemSpoolingManager
         this.fileSystemLayout = requireNonNull(fileSystemLayout, "fileSystemLayout is null");
         this.encryptionHeadersTranslator = encryptionHeadersTranslator(location);
         this.ttl = config.getTtl();
+        this.directAccessTtl = config.getDirectAccessTtl();
         this.encryptionEnabled = config.isEncryptionEnabled();
         this.explicitAckEnabled = config.isExplicitAckEnabled();
     }
@@ -147,12 +146,12 @@ public class FileSystemSpoolingManager
     }
 
     @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
             throws IOException
     {
         FileSystemSpooledSegmentHandle fileHandle = (FileSystemSpooledSegmentHandle) handle;
         Location storageLocation = fileSystemLayout.location(location, fileHandle);
-        Duration ttl = remainingTtl(fileHandle.expirationTime(), ttlSeconds);
+        Duration ttl = remainingTtl(fileHandle.expirationTime(), directAccessTtl);
         Optional<EncryptionKey> key = fileHandle.encryptionKey();
 
         Optional<DirectLocation> directLocation;
@@ -220,17 +219,13 @@ public class FileSystemSpoolingManager
         return new FileSystemSpooledSegmentHandle(encoding, uuid, Optional.of(encryptionHeadersTranslator.extractKey(headers)));
     }
 
-    private Duration remainingTtl(Instant expiresAt, OptionalInt ttlSeconds)
+    private Duration remainingTtl(Instant expiresAt, Duration accessTtl)
     {
-        Duration maxTtl = new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
-        if (ttlSeconds.isPresent()) {
-            Duration ttl = succinctDuration(ttlSeconds.getAsInt(), SECONDS);
-            if (ttl.compareTo(maxTtl) > 0) {
-                return maxTtl;
-            }
-            return ttl;
+        Duration remainingTTL = new Duration(between(Instant.now(), expiresAt).toMillis(), MILLISECONDS);
+        if (accessTtl.compareTo(remainingTTL) < 0) {
+            return accessTtl;
         }
-        return maxTtl;
+        return remainingTTL;
     }
 
     private void checkExpiration(FileSystemSpooledSegmentHandle handle)
