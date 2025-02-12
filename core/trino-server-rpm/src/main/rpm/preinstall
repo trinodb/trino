@@ -1,4 +1,0 @@
-# Pre installation script
-
-getent group trino >/dev/null || /usr/sbin/groupadd -r trino
-getent passwd trino >/dev/null || /usr/sbin/useradd --comment "Trino" -s /sbin/nologin -g trino -r -d /var/lib/trino trino

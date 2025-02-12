@@ -8,8 +8,6 @@
 
 ## JDBC driver
 
-## Server RPM
-
 ## Docker image
 
 ## CLI
