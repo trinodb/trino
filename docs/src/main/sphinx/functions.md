@@ -17,7 +17,7 @@ functions](/develop/table-functions) provided by a plugin, and creation of
 ## Functions by name
 
 If you are looking for a specific function or operator by name use
-[](/sql/show-functions), or refer the to the following resources:
+[](/sql/show-functions), or refer to the following resources:
 
 :::{toctree}
 :maxdepth: 1
