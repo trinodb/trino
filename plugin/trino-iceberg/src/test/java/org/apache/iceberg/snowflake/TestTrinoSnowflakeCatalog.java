@@ -254,7 +254,7 @@ public class TestTrinoSnowflakeCatalog
                                 new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                                 PartitionSpec.unpartitioned(),
                                 SortOrder.unsorted(),
-                                tableLocation,
+                                Optional.of(tableLocation),
                                 tableProperties)
                         .commitTransaction())
                 .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");
@@ -293,7 +293,7 @@ public class TestTrinoSnowflakeCatalog
                                 tableSchema,
                                 PartitionSpec.unpartitioned(),
                                 sortOrder,
-                                tableLocation,
+                                Optional.of(tableLocation),
                                 ImmutableMap.of())
                         .commitTransaction())
                 .hasMessageContaining("Snowflake managed Iceberg tables do not support modifications");

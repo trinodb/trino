@@ -270,7 +270,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                         new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                         PartitionSpec.unpartitioned(),
                         SortOrder.unsorted(),
-                        arbitraryTableLocation(catalog, SESSION, lowerCaseTableTypeTable),
+                        Optional.of(arbitraryTableLocation(catalog, SESSION, lowerCaseTableTypeTable)),
                         ImmutableMap.of())
                 .commitTransaction();
 
