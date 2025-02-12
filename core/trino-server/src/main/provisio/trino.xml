@@ -33,16 +33,15 @@
     </artifactSet>
 
     <!-- Plugins -->
-<<<<<<< HEAD
 <!--
-=======
     <artifactSet to="plugin/apache-ranger">
         <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
+-->
 
->>>>>>> tags/470
+<!--
     <artifactSet to="plugin/bigquery">
         <artifact id="${project.groupId}:trino-bigquery:zip:${project.version}">
             <unpack />
@@ -93,16 +92,15 @@
     </artifactSet>
 -->
 
-<<<<<<< HEAD
 <!--
-=======
     <artifactSet to="plugin/duckdb">
         <artifact id="${project.groupId}:trino-duckdb:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
+-->
 
->>>>>>> tags/470
+<!--
     <artifactSet to="plugin/elasticsearch">
         <artifact id="${project.groupId}:trino-elasticsearch:zip:${project.version}">
             <unpack />
@@ -241,27 +239,17 @@
     </artifactSet>
 -->
 
-<<<<<<< HEAD
 <!--
-    <artifactSet to="plugin/kinesis">
-        <artifact id="${project.groupId}:trino-kinesis:zip:${project.version}">
-=======
     <artifactSet to="plugin/kudu">
         <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
->>>>>>> tags/470
             <unpack />
         </artifact>
     </artifactSet>
 -->
 
-<<<<<<< HEAD
 <!--
-    <artifactSet to="plugin/kudu">
-        <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
-=======
     <artifactSet to="plugin/loki">
         <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
->>>>>>> tags/470
             <unpack />
         </artifact>
     </artifactSet>
