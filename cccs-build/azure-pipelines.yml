@@ -20,7 +20,8 @@ steps:
   - task: JavaToolInstaller@0
     inputs:
       versionSpec: '23'
-      jdkArchitecture: 'x64'
+      jdkArchitectureOption: 'x64'
+      jdkSourceOption: 'AzureStorage'
     displayName: 'Install Eclipse Temurin JDK'
   - bash: |
       java -version
