@@ -247,7 +247,9 @@ public class MongoSession
                 .collect(toSet()));
         builder.addAll(getTableMetadataNames(schemaName));
 
-        return builder.build();
+        return builder.build().stream()
+                .map(name -> name.toLowerCase(ENGLISH))
+                .collect(toImmutableSet());
     }
 
     public MongoTable getTable(SchemaTableName tableName)
