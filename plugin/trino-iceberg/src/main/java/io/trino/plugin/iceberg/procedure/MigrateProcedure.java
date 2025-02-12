@@ -231,7 +231,7 @@ public class MigrateProcedure
                     schema,
                     parsePartitionFields(schema, toPartitionFields(hiveTable)),
                     unsorted(),
-                    location,
+                    Optional.of(location),
                     properties);
 
             List<DataFile> dataFiles = dataFilesBuilder.build();

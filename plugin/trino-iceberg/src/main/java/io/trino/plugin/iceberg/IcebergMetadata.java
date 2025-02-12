@@ -233,6 +233,7 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Sets.difference;
+import static io.trino.filesystem.Locations.isS3Tables;
 import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
@@ -1231,12 +1232,15 @@ public class IcebergMetadata
         }
         transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation, allowedExtraProperties);
         Location location = Location.of(transaction.table().location());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
         try {
-            if (!replace && fileSystem.listFiles(location).hasNext()) {
-                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
-                        "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
-                        "to use unique table locations for every table.", location));
+            // S3 Tables internally assigns a unique location for each table
+            if (!isS3Tables(location.toString())) {
+                TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), transaction.table().io().properties());
+                if (!replace && fileSystem.listFiles(location).hasNext()) {
+                    throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, format("" +
+                            "Cannot create a table on a non-empty location: %s, set 'iceberg.unique-table-location=true' in your Iceberg catalog properties " +
+                            "to use unique table locations for every table.", location));
+                }
             }
             return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
         }
@@ -1462,7 +1466,10 @@ public class IcebergMetadata
         beforeWriteSnapshotId.ifPresent(previous ->
                 verify(previous != newSnapshotId, "Failed to get new snapshot ID"));
 
-        if (!computedStatistics.isEmpty()) {
+        if (isS3Tables(icebergTable.location())) {
+            log.debug("S3 Tables does not support statistics: %s", table.name());
+        }
+        else if (!computedStatistics.isEmpty()) {
             try {
                 beginTransaction(catalog.loadTable(session, table.name()));
                 Table reloadedTable = transaction.table();
@@ -2901,6 +2908,9 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
+        if (isS3Tables(icebergTable.location())) {
+            throw new TrinoException(NOT_SUPPORTED, "S3 Tables does not support analyze");
+        }
         beginTransaction(icebergTable);
         return handle;
     }

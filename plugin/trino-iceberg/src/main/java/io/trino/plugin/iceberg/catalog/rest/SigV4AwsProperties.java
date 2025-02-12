@@ -16,12 +16,9 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.s3.S3FileSystemConfig;
-import io.trino.plugin.iceberg.IcebergSecurityConfig;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.READ_ONLY;
 import static java.util.Objects.requireNonNull;
 
 public class SigV4AwsProperties
@@ -30,10 +27,8 @@ public class SigV4AwsProperties
     private final Map<String, String> properties;
 
     @Inject
-    public SigV4AwsProperties(IcebergSecurityConfig securityConfig, IcebergRestCatalogSigV4Config sigV4Config, S3FileSystemConfig s3Config)
+    public SigV4AwsProperties(IcebergRestCatalogSigV4Config sigV4Config, S3FileSystemConfig s3Config)
     {
-        // TODO https://github.com/trinodb/trino/issues/24916 Allow write operations with SigV4
-        checkArgument(securityConfig.getSecuritySystem() == READ_ONLY, "Read-only security system is required");
         this.properties = ImmutableMap.<String, String>builder()
                 .put("rest.sigv4-enabled", "true")
                 .put("rest.signing-name", sigV4Config.getSigningName())

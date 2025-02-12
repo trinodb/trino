@@ -16,13 +16,20 @@ package io.trino.plugin.iceberg.catalog.rest;
 import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
+import io.trino.plugin.iceberg.IcebergConnector;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -57,14 +64,16 @@ final class TestIcebergS3TablesConnectorSmokeTest
             throws Exception
     {
         return IcebergQueryRunner.builder("tpch")
-                .addIcebergProperty("iceberg.security", "read_only")
                 .addIcebergProperty("iceberg.file-format", format.name())
+                .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
                 .addIcebergProperty("iceberg.rest-catalog.uri", "https://glue.%s.amazonaws.com/iceberg".formatted(AWS_REGION))
                 .addIcebergProperty("iceberg.rest-catalog.warehouse", "s3tablescatalog/" + S3_TABLES_BUCKET)
                 .addIcebergProperty("iceberg.rest-catalog.view-endpoints-enabled", "false")
                 .addIcebergProperty("iceberg.rest-catalog.sigv4-enabled", "true")
                 .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
+                .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
+                .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                 .addIcebergProperty("fs.hadoop.enabled", "false")
                 .addIcebergProperty("fs.native-s3.enabled", "true")
                 .addIcebergProperty("s3.region", AWS_REGION)
@@ -75,15 +84,12 @@ final class TestIcebergS3TablesConnectorSmokeTest
     }
 
     @Override
-    protected void dropTableFromMetastore(String tableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     protected String getMetadataLocation(String tableName)
     {
-        throw new UnsupportedOperationException();
+        TrinoCatalogFactory catalogFactory = ((IcebergConnector) getQueryRunner().getCoordinator().getConnector("iceberg")).getInjector().getInstance(TrinoCatalogFactory.class);
+        TrinoCatalog trinoCatalog = catalogFactory.create(getSession().getIdentity().toConnectorIdentity());
+        BaseTable table = trinoCatalog.loadTable(getSession().toConnectorSession(), new SchemaTableName(getSession().getSchema().orElseThrow(), tableName));
+        return table.operations().current().metadataFileLocation();
     }
 
     @Override
@@ -110,6 +116,12 @@ final class TestIcebergS3TablesConnectorSmokeTest
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    protected void dropTableFromMetastore(String tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     @Test
     @Override // Override because the location pattern differs
     public void testShowCreateTable()
@@ -129,26 +141,10 @@ final class TestIcebergS3TablesConnectorSmokeTest
 
     @Test
     @Override
-    public void testView()
+    public void testRenameSchema()
     {
-        assertThatThrownBy(super::testView)
-                .hasStackTraceContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testCommentView()
-    {
-        assertThatThrownBy(super::testCommentView)
-                .hasStackTraceContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testCommentViewColumn()
-    {
-        assertThatThrownBy(super::testCommentViewColumn)
-                .hasStackTraceContaining("Access Denied");
+        assertThatThrownBy(super::testRenameSchema)
+                .hasMessageContaining("renameNamespace is not supported for Iceberg REST catalog");
     }
 
     @Test
@@ -156,15 +152,19 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testMaterializedView()
     {
         assertThatThrownBy(super::testMaterializedView)
-                .hasStackTraceContaining("Access Denied");
+                .hasMessageContaining("createMaterializedView is not supported for Iceberg REST catalog");
     }
 
     @Test
-    @Override
-    public void testRenameSchema()
+    @Override // Override because S3 Tables does not support specifying the location
+    public void testCreateTableWithTrailingSpaceInLocation()
     {
-        assertThatThrownBy(super::testRenameSchema)
-                .hasStackTraceContaining("Access Denied");
+        String tableName = "test_create_table_with_trailing_space_" + randomNameSuffix();
+        String tableLocationWithTrailingSpace = schemaPath() + tableName + " ";
+
+        assertQueryFails(
+                format("CREATE TABLE %s WITH (location = '%s') AS SELECT 1 AS a, 'INDIA' AS b, true AS c", tableName, tableLocationWithTrailingSpace),
+                "Failed to create transaction");
     }
 
     @Test
@@ -172,7 +172,7 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testRenameTable()
     {
         assertThatThrownBy(super::testRenameTable)
-                .hasStackTraceContaining("Access Denied");
+                .hasStackTraceContaining("Unable to process: RenameTable endpoint is not supported for Glue Catalog");
     }
 
     @Test
@@ -180,358 +180,122 @@ final class TestIcebergS3TablesConnectorSmokeTest
     public void testRenameTableAcrossSchemas()
     {
         assertThatThrownBy(super::testRenameTableAcrossSchemas)
-                .hasStackTraceContaining("Access Denied");
+                .hasStackTraceContaining("Unable to process: RenameTable endpoint is not supported for Glue Catalog");
     }
 
     @Test
     @Override
-    public void testCreateTable()
+    public void testView()
     {
-        assertThatThrownBy(super::testCreateTable)
-                .hasMessageContaining("Access Denied");
+        assertThatThrownBy(super::testView)
+                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
     }
 
     @Test
     @Override
-    public void testCreateTableAsSelect()
+    public void testCommentViewColumn()
     {
-        assertThatThrownBy(super::testCreateTableAsSelect)
-                .hasMessageContaining("Access Denied");
+        assertThatThrownBy(super::testCommentViewColumn)
+                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
     }
 
     @Test
     @Override
-    public void testUpdate()
+    public void testCommentView()
     {
-        assertThatThrownBy(super::testUpdate)
-                .hasMessageContaining("Access Denied");
+        assertThatThrownBy(super::testCommentView)
+                .hasMessageContaining("Server does not support endpoint: POST /v1/{prefix}/namespaces/{namespace}/views");
     }
 
     @Test
-    @Override
-    public void testInsert()
-    {
-        assertThatThrownBy(super::testInsert)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The locationExists helper method is unsupported
+    public void testCreateTableWithNonExistingSchemaVerifyLocation() {}
 
     @Test
-    @Override
-    public void testHiddenPathColumn()
-    {
-        assertThatThrownBy(super::testHiddenPathColumn)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The TrinoFileSystem.deleteFile is unsupported
+    public void testDropTableWithMissingMetadataFile() {}
 
     @Test
-    @Override
-    public void testRowLevelDelete()
-    {
-        assertThatThrownBy(super::testRowLevelDelete)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The TrinoFileSystem.deleteFile is unsupported
+    public void testDropTableWithMissingManifestListFile() {}
 
     @Test
-    @Override
-    public void testDeleteAllDataFromTable()
-    {
-        assertThatThrownBy(super::testDeleteAllDataFromTable)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The TrinoFileSystem.listFiles is unsupported
+    public void testMetadataDeleteAfterCommitEnabled() {}
 
     @Test
-    @Override
-    public void testDeleteRowsConcurrently()
-    {
-        assertThatThrownBy(super::testDeleteRowsConcurrently)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The TrinoFileSystem.deleteFile is unsupported
+    public void testDropTableWithMissingSnapshotFile() {}
 
     @Test
-    @Override
-    public void testCreateOrReplaceTable()
-    {
-        assertThatThrownBy(super::testCreateOrReplaceTable)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The TrinoFileSystem.listFiles is unsupported
+    public void testDropTableWithMissingDataFile() {}
 
     @Test
-    @Override
-    public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
-    {
-        assertThatThrownBy(super::testCreateOrReplaceTableChangeColumnNamesAndTypes)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The TrinoFileSystem.deleteDirectory is unsupported
+    public void testDropTableWithNonExistentTableLocation() {}
 
     @Test
-    @Override
-    public void testRegisterTableWithTableLocation()
-    {
-        assertThatThrownBy(super::testRegisterTableWithTableLocation)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // BaseIcebergConnectorSmokeTest.isFileSorted method is unsupported
+    public void testSortedNationTable() {}
 
     @Test
-    @Override
-    public void testRegisterTableWithComments()
-    {
-        assertThatThrownBy(super::testRegisterTableWithComments)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The TrinoFileSystem.deleteFile is unsupported
+    public void testFileSortingWithLargerTable() {}
 
     @Test
-    @Override
-    public void testRowLevelUpdate()
-    {
-        assertThatThrownBy(super::testRowLevelUpdate)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRegisterTableWithTableLocation() {}
 
     @Test
-    @Override
-    public void testMerge()
-    {
-        assertThatThrownBy(super::testMerge)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRegisterTableWithComments() {}
 
     @Test
-    @Override
-    public void testCreateSchema()
-    {
-        assertThatThrownBy(super::testCreateSchema)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRegisterTableWithShowCreateTable() {}
 
     @Test
-    @Override
-    public void testCreateSchemaWithNonLowercaseOwnerName()
-    {
-        assertThatThrownBy(super::testCreateSchemaWithNonLowercaseOwnerName)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRegisterTableWithReInsert() {}
 
     @Test
-    @Override
-    public void testRegisterTableWithShowCreateTable()
-    {
-        assertThatThrownBy(super::testRegisterTableWithShowCreateTable)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRegisterTableWithDroppedTable() {}
 
     @Test
-    @Override
-    public void testRegisterTableWithReInsert()
-    {
-        assertThatThrownBy(super::testRegisterTableWithReInsert)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRegisterTableWithDifferentTableName() {}
 
     @Test
-    @Override
-    public void testRegisterTableWithDroppedTable()
-    {
-        assertThatThrownBy(super::testRegisterTableWithDroppedTable)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRegisterTableWithMetadataFile() {}
 
     @Test
-    @Override
-    public void testRegisterTableWithDifferentTableName()
-    {
-        assertThatThrownBy(super::testRegisterTableWithDifferentTableName)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRegisterTableWithTrailingSpaceInLocation() {}
 
     @Test
-    @Override
-    public void testRegisterTableWithMetadataFile()
-    {
-        assertThatThrownBy(super::testRegisterTableWithMetadataFile)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testUnregisterTable() {}
 
     @Test
-    @Override
-    public void testCreateTableWithTrailingSpaceInLocation()
-    {
-        assertThatThrownBy(super::testCreateTableWithTrailingSpaceInLocation)
-                .hasStackTraceContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testUnregisterBrokenTable() {}
 
     @Test
-    @Override
-    public void testRegisterTableWithTrailingSpaceInLocation()
-    {
-        assertThatThrownBy(super::testRegisterTableWithTrailingSpaceInLocation)
-                .hasStackTraceContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testUnregisterTableNotExistingSchema() {}
 
     @Test
-    @Override
-    public void testUnregisterTable()
-    {
-        assertThatThrownBy(super::testUnregisterTable)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testUnregisterTableNotExistingTable() {}
 
     @Test
-    @Override
-    public void testUnregisterBrokenTable()
-    {
-        assertThatThrownBy(super::testUnregisterBrokenTable)
-                .hasMessageContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testRepeatUnregisterTable() {}
 
     @Test
-    @Override
-    public void testUnregisterTableNotExistingTable()
-    {
-        assertThatThrownBy(super::testUnregisterTableNotExistingTable)
-                .hasStackTraceContaining("Table .* not found");
-    }
-
-    @Test
-    @Override
-    public void testUnregisterTableNotExistingSchema()
-    {
-        assertThatThrownBy(super::testUnregisterTableNotExistingSchema)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testRepeatUnregisterTable()
-    {
-        assertThatThrownBy(super::testRepeatUnregisterTable)
-                .hasStackTraceContaining("Table .* not found");
-    }
-
-    @Test
-    @Override
-    public void testUnregisterTableAccessControl()
-    {
-        assertThatThrownBy(super::testUnregisterTableAccessControl)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testCreateTableWithNonExistingSchemaVerifyLocation()
-    {
-        assertThatThrownBy(super::testCreateTableWithNonExistingSchemaVerifyLocation)
-                .hasStackTraceContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testSortedNationTable()
-    {
-        assertThatThrownBy(super::testSortedNationTable)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testFileSortingWithLargerTable()
-    {
-        assertThatThrownBy(super::testFileSortingWithLargerTable)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testDropTableWithMissingMetadataFile()
-    {
-        assertThatThrownBy(super::testDropTableWithMissingMetadataFile)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testDropTableWithMissingSnapshotFile()
-    {
-        assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testDropTableWithMissingManifestListFile()
-    {
-        assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testDropTableWithMissingDataFile()
-    {
-        assertThatThrownBy(super::testDropTableWithMissingDataFile)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testDropTableWithNonExistentTableLocation()
-    {
-        assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testMetadataTables()
-    {
-        assertThatThrownBy(super::testMetadataTables)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testPartitionFilterRequired()
-    {
-        assertThatThrownBy(super::testPartitionFilterRequired)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testTableChangesFunction()
-    {
-        assertThatThrownBy(super::testTableChangesFunction)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testRowLevelDeletesWithTableChangesFunction()
-    {
-        assertThatThrownBy(super::testRowLevelDeletesWithTableChangesFunction)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testCreateOrReplaceWithTableChangesFunction()
-    {
-        assertThatThrownBy(super::testCreateOrReplaceWithTableChangesFunction)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testTruncateTable()
-    {
-        assertThatThrownBy(super::testTruncateTable)
-                .hasMessageContaining("Access Denied");
-    }
-
-    @Test
-    @Override
-    public void testMetadataDeleteAfterCommitEnabled()
-    {
-        assertThatThrownBy(super::testMetadataDeleteAfterCommitEnabled)
-                .hasStackTraceContaining("Access Denied");
-    }
+    @Override // The procedure is unsupported in S3 Tables
+    public void testUnregisterTableAccessControl() {}
 }
