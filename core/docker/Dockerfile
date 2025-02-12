@@ -20,6 +20,13 @@ ENV JAVA_HOME="/usr/lib/jvm/${JDK_VERSION}"
 
 RUN \
     set -xeuo pipefail && \
+    # Configure BoH AlmaLinux 9 BaseOS repo
+    echo "[alma-9-baseos]" > /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "name=AlmaLinux 9 BaseOS" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "baseurl=https://bagofholding-u.cse-cst.gc.ca/repository/AlmaLinux9-BaseOS/" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "gpgcheck=0" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    rm -f /etc/yum.repos.d/ubi.repo /etc/yum.repos.d/redhat.repo && \
     microdnf install -y tar gzip && \
     # Install JDK from the provided archive link \
     echo "Downloading JDK from ${JDK_DOWNLOAD_LINK}" && \
@@ -36,6 +43,13 @@ COPY --from=jdk-download $JAVA_HOME $JAVA_HOME
 
 RUN \
     set -xeu && \
+    # Configure BoH AlmaLinux 9 BaseOS repo
+    echo "[alma-9-baseos]" > /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "name=AlmaLinux 9 BaseOS" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "baseurl=https://bagofholding-u.cse-cst.gc.ca/repository/AlmaLinux9-BaseOS/" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    echo "gpgcheck=0" >> /etc/yum.repos.d/alma-9-baseos.repo && \
+    rm -f /etc/yum.repos.d/ubi.repo /etc/yum.repos.d/redhat.repo && \
     microdnf update -y && \
     microdnf install -y tar less python3 shadow-utils && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
