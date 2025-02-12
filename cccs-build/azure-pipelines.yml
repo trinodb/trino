@@ -17,6 +17,11 @@ pool:
   vmImage: ubuntu-latest
 
 steps:
+  - task: JavaToolInstaller@0
+    inputs:
+      versionSpec: '23'
+      jdkArchitecture: 'x64'
+    displayName: 'Install Eclipse Temurin JDK'
   - bash: |
       java -version
       BRANCH_NAME=$(echo "$SYSTEM_PULLREQUEST_SOURCEBRANCH $BUILD_SOURCEBRANCH" | sed -r 's/^\s*(refs\/heads\/)?(\S*).*$/\2/' | sed 's/\//_/g')
