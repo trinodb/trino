@@ -13,10 +13,13 @@
  */
 package io.trino.client;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParseException;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -51,5 +54,28 @@ public class TestTrinoJsonCodec
         assertThatThrownBy(() -> codec.fromJson(new ByteArrayInputStream(jsonWithTrailingJsonContent.getBytes(UTF_8))))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Found characters after the expected end of input");
+    }
+
+    @Test
+    public void testUndecodableUtf8()
+            throws IOException
+    {
+        byte[] data = new byte[] {'{', '"', 't', 'e', 's', 't', '"', ':', '"', 0xa, 0x43, 0x41, 0x44, 0x5f, 0x43, 0x41, 0x44, 0x08, '"', '}'};
+
+        TrinoJsonCodec<TestClass> codec = jsonCodec(TestClass.class);
+        TestClass value = codec.fromJson(new ByteArrayInputStream(data));
+
+        assertThat(value.test).isEqualTo(new String(new byte[] {0xa, 0x43, 0x41, 0x44, 0x5f, 0x43, 0x41, 0x44, 0x08}, UTF_8));
+    }
+
+    public static class TestClass
+    {
+        private String test;
+
+        @JsonCreator
+        public TestClass(@JsonProperty("test") String test)
+        {
+            this.test = test;
+        }
     }
 }

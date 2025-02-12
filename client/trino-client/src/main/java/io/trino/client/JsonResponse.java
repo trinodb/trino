@@ -23,12 +23,18 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonResponse<T>
@@ -110,6 +116,9 @@ public final class JsonResponse<T>
 
     public static <T> JsonResponse<T> execute(TrinoJsonCodec<T> codec, Call.Factory client, Request request, OptionalLong materializedJsonSizeLimit)
     {
+        CharsetDecoder charsetDecoder = UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.IGNORE);
+
         try (Response response = client.newCall(request).execute()) {
             ResponseBody responseBody = requireNonNull(response.body());
             if (isJson(responseBody.contentType())) {
@@ -120,12 +129,16 @@ public final class JsonResponse<T>
                     if (materializedJsonSizeLimit.isPresent() && (responseBody.contentLength() < 0 || responseBody.contentLength() > materializedJsonSizeLimit.getAsLong())) {
                         // Parse from input stream, response is either of unknown size or too large to materialize. Raw response body
                         // will not be available if parsing fails
-                        value = codec.fromJson(responseBody.byteStream());
+                        try (InputStreamReader reader = new InputStreamReader(responseBody.byteStream(), charsetDecoder)) {
+                            value = codec.fromJson(reader);
+                        }
                     }
                     else {
                         // parse from materialized response body string
-                        body = responseBody.string();
-                        value = codec.fromJson(body);
+                        try (InputStream inputStream = responseBody.byteStream()) {
+                            body = String.valueOf(charsetDecoder.decode(ByteBuffer.wrap(inputStream.readAllBytes())));
+                            value = codec.fromJson(body);
+                        }
                     }
                 }
                 catch (JsonProcessingException e) {

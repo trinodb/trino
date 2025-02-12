@@ -27,10 +27,12 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.util.function.Supplier;
 
+import static com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -59,6 +61,7 @@ public class TrinoJsonCodec<T>
                 .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
                 .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
                 .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
+                .configure(ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature(), true)
                 .addModule(new Jdk8Module())
                 .addModule(new QueryDataClientJacksonModule())
                 .build();
@@ -105,6 +108,16 @@ public class TrinoJsonCodec<T>
             throws IOException
     {
         try (JsonParser parser = mapper.createParser(inputStream)) {
+            T value = mapper.readerFor(javaType).readValue(parser);
+            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
+            return value;
+        }
+    }
+
+    public T fromJson(InputStreamReader inputReader)
+            throws IOException
+    {
+        try (JsonParser parser = mapper.createParser(inputReader)) {
             T value = mapper.readerFor(javaType).readValue(parser);
             checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
             return value;
