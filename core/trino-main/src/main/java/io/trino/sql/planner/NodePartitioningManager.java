@@ -51,7 +51,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
-import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.TaskManagerConfig.MAX_WRITER_COUNT;
 import static io.trino.operator.exchange.LocalExchange.SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
@@ -136,12 +135,7 @@ public class NodePartitioningManager
         return bucketFunction;
     }
 
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
-    {
-        return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>(), Optional.empty());
-    }
-
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount)
+    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)
     {
         return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>(), partitionCount);
     }
@@ -155,7 +149,7 @@ public class NodePartitioningManager
             PartitioningHandle partitioningHandle,
             Map<Integer, List<InternalNode>> bucketToNodeCache,
             AtomicReference<List<InternalNode>> systemPartitioningCache,
-            Optional<Integer> partitionCount)
+            int partitionCount)
     {
         requireNonNull(session, "session is null");
         requireNonNull(partitioningHandle, "partitioningHandle is null");
@@ -188,9 +182,10 @@ public class NodePartitioningManager
             }
             else {
                 CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
+                List<InternalNode> allNodes = getAllNodes(session, catalogHandle);
                 bucketToNode = bucketToNodeCache.computeIfAbsent(
                         connectorBucketNodeMap.getBucketCount(),
-                        bucketCount -> createArbitraryBucketToNode(connectorBucketNodeMap.getCacheKeyHint(), getAllNodes(session, catalogHandle), bucketCount));
+                        bucketCount -> createArbitraryBucketToNode(connectorBucketNodeMap.getCacheKeyHint(), allNodes.subList(0, Math.min(allNodes.size(), partitionCount)), bucketCount));
             }
         }
 
@@ -215,7 +210,7 @@ public class NodePartitioningManager
         return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle, bucketToNode.size()));
     }
 
-    private List<InternalNode> systemBucketToNode(Session session, PartitioningHandle partitioningHandle, AtomicReference<List<InternalNode>> nodesCache, Optional<Integer> partitionCount)
+    private List<InternalNode> systemBucketToNode(Session session, PartitioningHandle partitioningHandle, AtomicReference<List<InternalNode>> nodesCache, int partitionCount)
     {
         SystemPartitioning partitioning = ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitioning();
 
@@ -227,7 +222,7 @@ public class NodePartitioningManager
             case FIXED -> {
                 List<InternalNode> value = nodesCache.get();
                 if (value == null) {
-                    value = nodeSelector.selectRandomNodes(partitionCount.orElse(getMaxHashPartitionCount(session)));
+                    value = nodeSelector.selectRandomNodes(partitionCount);
                     nodesCache.set(value);
                 }
                 yield value;
@@ -238,7 +233,13 @@ public class NodePartitioningManager
         return nodes;
     }
 
-    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
+    public int getBucketCount(Session session, PartitioningHandle partitioningHandle)
+    {
+        // we don't care about partition count at all, just bucket count
+        return getBucketNodeMap(session, partitioningHandle, 1000).getBucketCount();
+    }
+
+    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)
     {
         Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
         int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
@@ -250,6 +251,7 @@ public class NodePartitioningManager
 
         long seed = bucketNodeMap.map(ConnectorBucketNodeMap::getCacheKeyHint).orElse(ThreadLocalRandom.current().nextLong());
         List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
+        nodes = nodes.subList(0, Math.min(nodes.size(), partitionCount));
         return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(seed, nodes, bucketCount));
     }
 
