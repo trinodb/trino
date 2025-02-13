@@ -69,6 +69,7 @@ public final class MinimalFlatHash
     private final UpdateMemory checkMemoryReservation;
 
     private final boolean hasPrecomputedHash;
+    private final boolean cacheHashValue;
     private final int fixedRecordSize;
     private final int variableWidthOffset;
     private final int fixedValueOffset;
@@ -84,19 +85,21 @@ public final class MinimalFlatHash
     private int nextGroupId;
     private int maxFill;
 
-    public MinimalFlatHash(MinimalFlatHashStrategy flatHashStrategy, boolean hasPrecomputedHash, int expectedSize, UpdateMemory checkMemoryReservation)
+    public MinimalFlatHash(MinimalFlatHashStrategy flatHashStrategy, FlatGroupByHash.HashMode hashMode, int expectedSize, UpdateMemory checkMemoryReservation)
     {
         this.flatHashStrategy = requireNonNull(flatHashStrategy, "flatHashStrategy is null");
         this.checkMemoryReservation = requireNonNull(checkMemoryReservation, "checkMemoryReservation is null");
         boolean hasVariableData = flatHashStrategy.isAnyVariableWidth();
         this.variableWidthData = hasVariableData ? new MinimalVariableWidthData() : null;
-        this.hasPrecomputedHash = hasPrecomputedHash;
+        requireNonNull(hashMode, "hashMode is null");
+        this.hasPrecomputedHash = hashMode.isHashPrecomputed();
+        this.cacheHashValue = hashMode.isHashCached();
 
         // the record is laid out as follows:
         // 1. optional raw hash (long)
         // 2. optional variable width pointer (int chunkIndex, int chunkOffset)
         // 3. fixed data for each type
-        this.variableWidthOffset = hasPrecomputedHash ? Long.BYTES : 0;
+        this.variableWidthOffset = cacheHashValue ? Long.BYTES : 0;
         this.fixedValueOffset = variableWidthOffset + (hasVariableData ? MinimalVariableWidthData.POINTER_SIZE : 0);
         this.fixedRecordSize = fixedValueOffset + flatHashStrategy.getTotalFlatFixedLength();
 
@@ -117,6 +120,7 @@ public final class MinimalFlatHash
         this.checkMemoryReservation = other.checkMemoryReservation;
         this.variableWidthData = other.variableWidthData == null ? null : new MinimalVariableWidthData(other.variableWidthData);
         this.hasPrecomputedHash = other.hasPrecomputedHash;
+        this.cacheHashValue = other.cacheHashValue;
         this.fixedRecordSize = other.fixedRecordSize;
         this.variableWidthOffset = other.variableWidthOffset;
         this.fixedValueOffset = other.fixedValueOffset;
@@ -161,7 +165,7 @@ public final class MinimalFlatHash
         }
         byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
         int fixedRecordOffset = getFixedRecordOffset(groupId);
-        if (hasPrecomputedHash) {
+        if (cacheHashValue) {
             return (long) LONG_HANDLE.get(fixedSizeRecords, fixedRecordOffset);
         }
         byte[] variableWidthChunk = null;
@@ -311,7 +315,7 @@ public final class MinimalFlatHash
             fixedRecordGroupsRetainedSize = addExact(fixedRecordGroupsRetainedSize, sizeOf(fixedSizeRecords));
         }
 
-        if (hasPrecomputedHash) {
+        if (cacheHashValue) {
             LONG_HANDLE.set(fixedSizeRecords, fixedRecordOffset, hash);
         }
 
@@ -434,7 +438,7 @@ public final class MinimalFlatHash
         byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
         int fixedRecordsOffset = getFixedRecordOffset(groupId);
 
-        if (hasPrecomputedHash) {
+        if (cacheHashValue) {
             if (rightHash != (long) LONG_HANDLE.get(fixedSizeRecords, fixedRecordsOffset)) {
                 return false;
             }

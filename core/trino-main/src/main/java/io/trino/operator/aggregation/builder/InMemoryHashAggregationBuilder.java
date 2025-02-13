@@ -124,6 +124,7 @@ public class InMemoryHashAggregationBuilder
                 operatorContext.getSession(),
                 groupByTypes,
                 hashChannel.isPresent(),
+                false,
                 expectedGroups,
                 hashStrategyCompiler,
                 updateMemory);

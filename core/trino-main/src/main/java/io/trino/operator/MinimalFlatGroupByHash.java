@@ -35,6 +35,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.FlatHash.sumExact;
 import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
+import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
 public class MinimalFlatGroupByHash
@@ -45,9 +46,9 @@ public class MinimalFlatGroupByHash
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = 0.25;
 
+    private final FlatGroupByHash.HashMode hashMode;
     private final MinimalFlatHash flatHash;
     private final int groupByChannelCount;
-    private final boolean hasPrecomputedHash;
 
     private final boolean processDictionary;
 
@@ -63,19 +64,19 @@ public class MinimalFlatGroupByHash
 
     public MinimalFlatGroupByHash(
             List<Type> hashTypes,
-            boolean hasPrecomputedHash,
+            FlatGroupByHash.HashMode hashMode,
             int expectedSize,
             boolean processDictionary,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory checkMemoryReservation)
     {
-        this.flatHash = new MinimalFlatHash(hashStrategyCompiler.getMinimalFlatHashStrategy(hashTypes), hasPrecomputedHash, expectedSize, checkMemoryReservation);
+        this.hashMode = requireNonNull(hashMode, "hashMode is null");
+        this.flatHash = new MinimalFlatHash(hashStrategyCompiler.getMinimalFlatHashStrategy(hashTypes), hashMode, expectedSize, checkMemoryReservation);
         this.groupByChannelCount = hashTypes.size();
-        this.hasPrecomputedHash = hasPrecomputedHash;
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
 
-        int totalChannels = hashTypes.size() + (hasPrecomputedHash ? 1 : 0);
+        int totalChannels = hashTypes.size() + (hashMode.isHashPrecomputed() ? 1 : 0);
         this.currentBlocks = new Block[totalChannels];
         this.currentBlockBuilders = new BlockBuilder[totalChannels];
 
@@ -84,9 +85,9 @@ public class MinimalFlatGroupByHash
 
     public MinimalFlatGroupByHash(MinimalFlatGroupByHash other)
     {
+        this.hashMode = other.hashMode;
         this.flatHash = other.flatHash.copy();
         groupByChannelCount = other.groupByChannelCount;
-        hasPrecomputedHash = other.hasPrecomputedHash;
         processDictionary = other.processDictionary;
         dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
         currentPageSizeInBytes = other.currentPageSizeInBytes;
@@ -233,7 +234,7 @@ public class MinimalFlatGroupByHash
             return false;
         }
 
-        if (!hasPrecomputedHash) {
+        if (!hashMode.isHashPrecomputed()) {
             return true;
         }
 

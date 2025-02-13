@@ -85,6 +85,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         GroupByHash groupByHash = GroupByHash.createGroupByHash(
                 data.getTypes(),
                 false,
+                false,
                 EXPECTED_GROUP_COUNT,
                 false,
                 data.useMinimalGroupByHash(),
