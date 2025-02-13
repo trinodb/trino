@@ -32,17 +32,19 @@ public interface GroupByHash
             Session session,
             List<Type> types,
             boolean hasPrecomputedHash,
+            boolean cacheHashValues,
             int expectedSize,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory updateMemory)
     {
         boolean dictionaryAggregationEnabled = isDictionaryAggregationEnabled(session);
-        return createGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
+        return createGroupByHash(types, hasPrecomputedHash, cacheHashValues, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
     }
 
     static GroupByHash createGroupByHash(
             List<Type> types,
             boolean hasPrecomputedHash,
+            boolean cacheHashValues,
             int expectedSize,
             boolean dictionaryAggregationEnabled,
             FlatHashStrategyCompiler hashStrategyCompiler,
@@ -51,7 +53,23 @@ public interface GroupByHash
         if (types.size() == 1 && types.get(0).equals(BIGINT)) {
             return new BigintGroupByHash(hasPrecomputedHash, expectedSize, updateMemory);
         }
-        return new FlatGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
+        FlatGroupByHash.HashMode hashMode;
+        if (hasPrecomputedHash) {
+            hashMode = FlatGroupByHash.HashMode.PRECOMPUTED;
+        }
+        else if (cacheHashValues) {
+            hashMode = FlatGroupByHash.HashMode.CACHED;
+        }
+        else {
+            hashMode = FlatGroupByHash.HashMode.ON_DEMAND;
+        }
+        return new FlatGroupByHash(
+                types,
+                hashMode,
+                expectedSize,
+                dictionaryAggregationEnabled,
+                hashStrategyCompiler,
+                updateMemory);
     }
 
     long getEstimatedSize();

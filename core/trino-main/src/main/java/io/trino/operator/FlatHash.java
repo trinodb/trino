@@ -39,6 +39,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.util.Objects.requireNonNull;
 
 public final class FlatHash
 {
@@ -62,6 +63,7 @@ public final class FlatHash
 
     private final FlatHashStrategy flatHashStrategy;
     private final boolean hasPrecomputedHash;
+    private final boolean cacheHashValue;
 
     private final int recordSize;
     private final int recordGroupIdOffset;
@@ -86,10 +88,12 @@ public final class FlatHash
     private int nextGroupId;
     private int maxFill;
 
-    public FlatHash(FlatHashStrategy flatHashStrategy, boolean hasPrecomputedHash, int expectedSize, UpdateMemory checkMemoryReservation)
+    public FlatHash(FlatHashStrategy flatHashStrategy, FlatGroupByHash.HashMode hashMode, int expectedSize, UpdateMemory checkMemoryReservation)
     {
         this.flatHashStrategy = flatHashStrategy;
-        this.hasPrecomputedHash = hasPrecomputedHash;
+        requireNonNull(hashMode, "hashMode is null");
+        this.hasPrecomputedHash = hashMode.isHashPrecomputed();
+        this.cacheHashValue = hashMode.isHashCached();
         this.checkMemoryReservation = checkMemoryReservation;
 
         capacity = max(VECTOR_LENGTH, computeCapacity(expectedSize, DEFAULT_LOAD_FACTOR));
@@ -107,7 +111,7 @@ public final class FlatHash
         variableWidthData = variableWidth ? new AppendOnlyVariableWidthData() : null;
         recordGroupIdOffset = (variableWidth ? POINTER_SIZE : 0);
         recordHashOffset = recordGroupIdOffset + Integer.BYTES;
-        recordValueOffset = recordHashOffset + (hasPrecomputedHash ? Long.BYTES : 0);
+        recordValueOffset = recordHashOffset + (cacheHashValue ? Long.BYTES : 0);
         recordSize = recordValueOffset + flatHashStrategy.getTotalFlatFixedLength();
 
         recordGroups = createRecordGroups(capacity, recordSize);
@@ -118,6 +122,7 @@ public final class FlatHash
     {
         flatHashStrategy = other.flatHashStrategy;
         hasPrecomputedHash = other.hasPrecomputedHash;
+        cacheHashValue = other.cacheHashValue;
 
         recordSize = other.recordSize;
         recordGroupIdOffset = other.recordGroupIdOffset;
@@ -163,7 +168,7 @@ public final class FlatHash
 
         int index = groupRecordIndex[groupId];
         byte[] records = getRecords(index);
-        if (hasPrecomputedHash) {
+        if (cacheHashValue) {
             return (long) LONG_HANDLE.get(records, getRecordOffset(index) + recordHashOffset);
         }
         else {
@@ -303,7 +308,7 @@ public final class FlatHash
         INT_HANDLE.set(records, recordOffset + recordGroupIdOffset, groupId);
         groupRecordIndex[groupId] = index;
 
-        if (hasPrecomputedHash) {
+        if (cacheHashValue) {
             LONG_HANDLE.set(records, recordOffset + recordHashOffset, hash);
         }
 
@@ -387,7 +392,7 @@ public final class FlatHash
                 }
 
                 long hash;
-                if (hasPrecomputedHash) {
+                if (cacheHashValue) {
                     hash = (long) LONG_HANDLE.get(oldRecords, getRecordOffset(oldIndex) + recordHashOffset);
                 }
                 else {
@@ -495,7 +500,7 @@ public final class FlatHash
         byte[] leftRecords = getRecords(leftIndex);
         int leftRecordOffset = getRecordOffset(leftIndex);
 
-        if (hasPrecomputedHash) {
+        if (cacheHashValue) {
             long leftHash = (long) LONG_HANDLE.get(leftRecords, leftRecordOffset + recordHashOffset);
             if (leftHash != rightHash) {
                 return false;
