@@ -31,6 +31,7 @@ import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.util.function.Supplier;
 
+import static com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -59,6 +60,7 @@ public class TrinoJsonCodec<T>
                 .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
                 .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
                 .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
+                .configure(ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature(), true) // Accept unescaped control characters
                 .addModule(new Jdk8Module())
                 .addModule(new QueryDataClientJacksonModule())
                 .build();
