@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.StageInfo;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -43,10 +44,12 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
@@ -100,6 +103,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -109,9 +113,12 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -5290,6 +5297,40 @@ public abstract class BaseIcebergConnectorTest
         // Query with predicates on nested columns only
         assertQuery("SELECT id, root.f2 FROM test_projection_pushdown_comments WHERE root.f1 = 2", "VALUES (1, 3)");
         assertUpdate("DROP TABLE IF EXISTS test_projection_pushdown_comments");
+    }
+
+    @Test
+    public void testMaxWriterTaskCount()
+    {
+        int workerCount = getQueryRunner().getNodeCount();
+        checkState(workerCount > 1, "testMaxWriterTaskCount requires multiple workers");
+
+        assertUpdate("CREATE TABLE test_max_writer_task_count_insert (id BIGINT) WITH (partitioning = ARRAY['id'])");
+
+        Session session = Session.builder(getSession())
+                // disable writer scaling for the test
+                .setSystemProperty(SCALE_WRITERS, "false")
+                .setSystemProperty(TASK_SCALE_WRITERS_ENABLED, "false")
+                // limit number of writer tasks to 1
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, "1")
+                .setSystemProperty(MAX_HASH_PARTITION_COUNT, Integer.toString(workerCount))
+                .build();
+        QueryId id = getDistributedQueryRunner()
+                .executeWithPlan(session, """
+                        INSERT INTO test_max_writer_task_count_insert
+                        SELECT * FROM TABLE(sequence(start => 0, stop => 100, step => 1))
+                        """)
+                .queryId();
+        StageInfo writerStage = getDistributedQueryRunner().getCoordinator()
+                .getFullQueryInfo(id)
+                .getOutputStage()
+                .orElseThrow()
+                .getSubStages()
+                .getFirst();
+        assertThat(PlanNodeSearcher.searchFrom(writerStage.getPlan().getRoot()).whereIsInstanceOfAny(TableWriterNode.class).matches()).isTrue();
+        assertThat(writerStage.getTasks().size()).isEqualTo(1);
+
+        assertUpdate("DROP TABLE IF EXISTS test_max_writer_task_count_insert");
     }
 
     @Test
