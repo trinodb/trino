@@ -30,7 +30,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public final class JdbcColumnHandle
+public class JdbcColumnHandle
         implements ColumnHandle
 {
     private static final int INSTANCE_SIZE = instanceSize(JdbcColumnHandle.class);
@@ -162,7 +162,7 @@ public final class JdbcColumnHandle
         return new Builder(handle);
     }
 
-    public static final class Builder
+    public static class Builder
     {
         private String columnName;
         private JdbcTypeHandle jdbcTypeHandle;
