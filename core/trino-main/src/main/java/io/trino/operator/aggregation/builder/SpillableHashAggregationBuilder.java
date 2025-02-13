@@ -325,6 +325,7 @@ public class SpillableHashAggregationBuilder
                 groupByTypes,
                 groupByChannels,
                 hashChannel,
+                true, // cache hash values to ensure that hashAggregationBuilder.buildHashSortedResult() can be done efficiently
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 hashStrategyCompiler,

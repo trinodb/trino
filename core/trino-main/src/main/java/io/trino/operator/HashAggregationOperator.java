@@ -399,6 +399,7 @@ public class HashAggregationOperator
                         groupByTypes,
                         groupByChannels,
                         hashChannel,
+                        false,
                         operatorContext,
                         maxPartialMemory,
                         flatHashStrategyCompiler,
