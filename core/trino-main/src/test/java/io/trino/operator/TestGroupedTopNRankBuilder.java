@@ -259,6 +259,7 @@ public class TestGroupedTopNRankBuilder
         return GroupByHash.createGroupByHash(
                 ImmutableList.of(partitionType),
                 false,
+                false,
                 1,
                 false,
                 new FlatHashStrategyCompiler(typeOperators),

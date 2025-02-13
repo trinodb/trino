@@ -259,6 +259,7 @@ public class TopNRankingOperator
                 session,
                 partitionTypes,
                 hasPrecomputedHash,
+                false,
                 expectedPositions,
                 hashStrategyCompiler,
                 updateMemory);
