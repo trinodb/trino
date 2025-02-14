@@ -1003,6 +1003,12 @@
                 <version>1.1.26</version>
             </dependency>
 
+            <dependency>
+                <groupId>io.projectreactor.netty</groupId>
+                <artifactId>reactor-netty-core</artifactId>
+                <version>1.1.21</version>
+            </dependency>
+
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
             <dependency>
                 <groupId>io.swagger.core.v3</groupId>
