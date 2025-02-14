@@ -197,6 +197,68 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Test
+    public void testCreateTableWithPrimaryKey()
+    {
+        String tablePrefix = "test_create_with_primary_key_";
+
+        verifyCreateTableDefinition(
+                tablePrefix,
+                "(a bigint NOT NULL, b bigint, c bigint) with (primary_key = ARRAY['a'])",
+                """
+                CREATE TABLE %s.%s.%s (
+                   a bigint NOT NULL,
+                   b bigint,
+                   c bigint
+                )
+                WITH (
+                   primary_key = ARRAY['a']
+                )\
+                """
+        );
+
+        verifyCreateTableDefinition(
+                tablePrefix,
+                "(a bigint NOT NULL, b bigint NOT NULL, c bigint) with (primary_key = ARRAY['a', 'b'])",
+                """
+                CREATE TABLE %s.%s.%s (
+                   a bigint NOT NULL,
+                   b bigint NOT NULL,
+                   c bigint
+                )
+                WITH (
+                   primary_key = ARRAY['a','b']
+                )\
+                """
+        );
+    }
+
+    private void verifyCreateTableDefinition(String tablePrefix, String tableDefinition, String showCreateTableFormat) {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+
+        try (TestTable table = newTrinoTable(tablePrefix, tableDefinition)) {
+            String tableName = table.getName();
+
+            assertThat(computeScalar("SHOW CREATE TABLE " + tableName))
+                    .isEqualTo(format(showCreateTableFormat, catalogName, schemaName, tableName));
+        }
+    }
+
+    @Test
+    public void testCreateTableWithInvalidPrimaryKey()
+    {
+        String tableName = "test_create_with_invalid_primary_key";
+        // check primary key must be not null
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['a'])",
+                "Primary key must be NOT NULL in MySQL");
+        // check primary key must in column list
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['d'])",
+                "Column 'd' specified in property 'primary_key' doesn't exist in table");
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['A'])",
+                "Column 'A' specified in property 'primary_key' doesn't exist in table");
+    }
+
+    @Test
     public void testViews()
     {
         onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
