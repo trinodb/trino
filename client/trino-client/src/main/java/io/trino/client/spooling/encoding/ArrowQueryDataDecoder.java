@@ -21,8 +21,6 @@ import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.encoding.ArrowDecodingUtils.TypeDecoder;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 
@@ -56,7 +54,7 @@ public class ArrowQueryDataDecoder
     {
         BufferAllocator allocator = ROOT_ALLOCATOR.newChildAllocator(randomUUID().toString(), Integer.MAX_VALUE, Integer.MAX_VALUE);
         ArrowStreamReader streamReader = new ArrowStreamReader(input, allocator, new AirliftCompressionCodecFactory());
-        return new ArrowRowIterator(allocator, streamReader, createTypeDecoders(columns));
+        return new ArrowRowIterator(allocator, streamReader, createTypeDecoders(columns, streamReader.getVectorSchemaRoot()));
     }
 
     public static class ArrowRowIterator
@@ -67,12 +65,15 @@ public class ArrowQueryDataDecoder
         private final TypeDecoder[] decoders;
 
         private int currentRow;
+        private int currentMaxRows;
 
         public ArrowRowIterator(BufferAllocator allocator, ArrowReader reader, TypeDecoder[] decoders)
+                throws IOException
         {
             this.allocator = requireNonNull(allocator, "allocator is null");
             this.reader = requireNonNull(reader, "reader is null");
             this.decoders = requireNonNull(decoders, "decoders is null");
+            this.currentMaxRows = reader.getVectorSchemaRoot().getRowCount();
         }
 
         private boolean advance()
@@ -80,6 +81,7 @@ public class ArrowQueryDataDecoder
             try {
                 if (reader.loadNextBatch()) {
                     currentRow = 0;
+                    currentMaxRows = reader.getVectorSchemaRoot().getRowCount();
                     return true;
                 }
                 return false;
@@ -92,12 +94,7 @@ public class ArrowQueryDataDecoder
         @Override
         public boolean hasNext()
         {
-            try {
-                return currentRow < reader.getVectorSchemaRoot().getRowCount() || advance();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            return currentRow < currentMaxRows || advance();
         }
 
         @Override
@@ -107,27 +104,16 @@ public class ArrowQueryDataDecoder
                 throw new NoSuchElementException();
             }
 
-            try {
-                List<Object> row = getRow(reader.getVectorSchemaRoot());
-                currentRow++;
-                return row;
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
+            List<Object> row = getRow();
+            currentRow++;
+            return row;
         }
 
-        public List<Object> getRow(VectorSchemaRoot vectorSchemaRoot)
+        public List<Object> getRow()
         {
             ArrayList<Object> row = new ArrayList<>();
-            for (int i = 0; i < decoders.length; i++) {
-                FieldVector vector = vectorSchemaRoot.getVector(i);
-                if (vector.isNull(currentRow)) {
-                    row.add(null);
-                }
-                else {
-                    row.add(decoders[i].decode(vector, currentRow));
-                }
+            for (TypeDecoder decoder : decoders) {
+                row.add(decoder.decode(currentRow));
             }
             return row;
         }
