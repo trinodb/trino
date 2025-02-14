@@ -81,6 +81,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
         ConnectionProvider provider = ConnectionProvider.create("TestDeltaLakeAdsl");
         closeAfterClass(provider::dispose);
+
         EventLoopGroup eventLoopGroup = new NioEventLoopGroup();
         closeAfterClass(eventLoopGroup::shutdownGracefully);
 
