@@ -14,6 +14,7 @@
 package io.trino.tracing;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
@@ -55,6 +56,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -247,11 +249,11 @@ public class TracingMetadata
     }
 
     @Override
-    public TableHandle makeCompatiblePartitioning(Session session, TableHandle table, PartitioningHandle partitioningHandle)
+    public Optional<TableHandle> applyPartitioning(Session session, TableHandle tableHandle, Optional<PartitioningHandle> partitioning, List<ColumnHandle> columns)
     {
-        Span span = startSpan("makeCompatiblePartitioning", table);
+        Span span = startSpan("applyPartitioning", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.makeCompatiblePartitioning(session, table, partitioningHandle);
+            return delegate.applyPartitioning(session, tableHandle, partitioning, columns);
         }
     }
 
@@ -484,11 +486,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column)
+    public void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position)
     {
         Span span = startSpan("addColumn", table);
         try (var _ = scopedSpan(span)) {
-            delegate.addColumn(session, tableHandle, table, column);
+            delegate.addColumn(session, tableHandle, table, column, position);
         }
     }
 
@@ -822,11 +824,11 @@ public class TracingMetadata
     }
 
     @Override
-    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle, Multimap<Integer, ColumnHandle> updateCaseColumns)
     {
         Span span = startSpan("beginMerge", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginMerge(session, tableHandle);
+            return delegate.beginMerge(session, tableHandle, updateCaseColumns);
         }
     }
 

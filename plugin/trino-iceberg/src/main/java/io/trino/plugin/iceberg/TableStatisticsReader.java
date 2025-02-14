@@ -157,11 +157,11 @@ public final class TableStatisticsReader
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
             fileScanTasks.forEach(fileScanTask -> {
-                if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().path().toString()))) {
+                if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
                     return;
                 }
                 if (!fileModifiedTimeDomain.isAll()) {
-                    long fileModifiedTime = getModificationTime(fileScanTask.file().path().toString(), fileSystem);
+                    long fileModifiedTime = getModificationTime(fileScanTask.file().location(), fileSystem);
                     if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
                         return;
                     }

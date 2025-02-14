@@ -25,6 +25,7 @@ import io.airlift.units.Duration;
 import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import org.joda.time.DateTime;
 
 import java.util.List;
@@ -106,6 +107,7 @@ public class StageStats
     private final DataSize failedOutputDataSize;
     private final long outputPositions;
     private final long failedOutputPositions;
+    private final Metrics outputBufferMetrics;
 
     private final Duration outputBlockedTime;
     private final Duration failedOutputBlockedTime;
@@ -181,6 +183,7 @@ public class StageStats
             @JsonProperty("failedOutputDataSize") DataSize failedOutputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
             @JsonProperty("failedOutputPositions") long failedOutputPositions,
+            @JsonProperty("outputBufferMetrics") Metrics outputBufferMetrics,
 
             @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
             @JsonProperty("failedOutputBlockedTime") Duration failedOutputBlockedTime,
@@ -272,6 +275,7 @@ public class StageStats
         this.outputPositions = outputPositions;
         checkArgument(failedOutputPositions >= 0, "failedOutputPositions is negative");
         this.failedOutputPositions = failedOutputPositions;
+        this.outputBufferMetrics = requireNonNull(outputBufferMetrics, "outputBufferMetrics is null");
 
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
         this.failedOutputBlockedTime = requireNonNull(failedOutputBlockedTime, "failedOutputBlockedTime is null");
@@ -591,6 +595,12 @@ public class StageStats
     }
 
     @JsonProperty
+    public Metrics getOutputBufferMetrics()
+    {
+        return outputBufferMetrics;
+    }
+
+    @JsonProperty
     public Duration getOutputBlockedTime()
     {
         return outputBlockedTime;
@@ -726,6 +736,7 @@ public class StageStats
                 zeroBytes,
                 0,
                 0,
+                Metrics.EMPTY,
                 zeroSeconds,
                 zeroSeconds,
                 zeroBytes,

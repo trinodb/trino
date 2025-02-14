@@ -116,6 +116,9 @@ To implement access control, use:
   the catalog, schema, or table level.
 - [](opa-access-control), where you use Open Policy Agent to make access control
   decisions on a fined-grained level.
+- [](ranger-access-control), where you use Apache Ranger to make fine-grained
+  access control decisions, apply dynamic row-filters and column-masking at
+  query execution time, and generate audit logs.
 
 In addition, Trino {doc}`provides an API </develop/system-access-control>` that
 allows you to create a custom access control method, or to extend an existing

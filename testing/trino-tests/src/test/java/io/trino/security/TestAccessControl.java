@@ -40,12 +40,14 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
@@ -550,6 +552,183 @@ public class TestAccessControl
                 .hasMessageMatching(errorMessage);
 
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + viewName);
+    }
+
+    @Test
+    public void testAllowCallFunction()
+    {
+        reset();
+
+        String functionOwner = "function_owner";
+        CatalogSchemaFunctionName outerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_allow_outer"));
+        CatalogSchemaFunctionName innerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_allow_inner"));
+
+        Session functionOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        // simply create a function
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_allow_inner (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(innerFunction)).isEqualTo(functionOwner);
+
+        // assert that function can be called for both definer session and default session
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_allow_inner(2)");
+        assertAccessAllowed("SELECT memory.default.function_allow_inner(2)");
+
+        // simply create another function, internally calls the first function
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_allow_outer (x integer) RETURNS bigint RETURN x + memory.default.function_allow_inner(58)");
+        assertThat(systemSecurityMetadata.getFunctionOwner(outerFunction)).isEqualTo(functionOwner);
+
+        // assert that THE outer function can be called for both definer session and default session
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_allow_outer(2)");
+        assertAccessAllowed("SELECT memory.default.function_allow_outer(2)");
+
+        // assert that lack of privileges to execute inner function doesn't block calling it through outer one
+        assertAccessAllowed(
+                "SELECT memory.default.function_allow_outer(2)",
+                privilege(getSession().getUser(), "memory.default.function_allow_inner", EXECUTE_FUNCTION));
+
+        assertAccessDenied(
+                "SELECT memory.default.function_allow_inner(2)",
+                "Cannot execute function memory.default.function_allow_inner",
+                privilege(getSession().getUser(), "memory.default.function_allow_inner", EXECUTE_FUNCTION));
+    }
+
+    @Test
+    public void testAllowCallFunctionWithRoleGrant()
+    {
+        reset();
+
+        String functionOwner = "function_owner";
+        CatalogSchemaFunctionName outerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_deny_outer"));
+        CatalogSchemaFunctionName innerFunction = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_deny_inner"));
+        TrinoPrincipal functionOwnerPrincipal = new TrinoPrincipal(USER, functionOwner);
+        systemSecurityMetadata.grantRoles(getSession(), ImmutableSet.of("function_owner_role"), ImmutableSet.of(functionOwnerPrincipal), false, Optional.empty());
+
+        Session functionOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.forUser(functionOwner)
+                        .withEnabledRoles(Set.of("function_owner_role"))
+                        .build())
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        // simply create a function
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_deny_inner (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(innerFunction)).isEqualTo(functionOwner);
+
+        // simply create another function that internally calls the first function
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_deny_outer (x integer) RETURNS bigint RETURN x + memory.default.function_deny_inner(58)");
+        assertThat(systemSecurityMetadata.getFunctionOwner(outerFunction)).isEqualTo(functionOwner);
+
+        // assert that outer function can be called for both definer session and default session
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_deny_outer(2)");
+        assertAccessAllowed("SELECT memory.default.function_deny_outer(2)");
+
+        // block role function_owner_role_without_access from calling inner function
+        getQueryRunner().getAccessControl()
+                .denyIdentityFunction((identity, function) -> !(identity.getEnabledRoles().contains("function_owner_role_without_access") && "default.function_deny_inner".equals(function)));
+        // assign function_owner_role_without_access to function definer
+        systemSecurityMetadata.grantRoles(getSession(), ImmutableSet.of("function_owner_role_without_access"), ImmutableSet.of(functionOwnerPrincipal), false, Optional.empty());
+
+        // assert that because definer has function_owner_role_without_access role assigned it is impossible to call outer function
+        assertAccessDenied(
+                functionOwnerSession,
+                "SELECT memory.default.function_deny_outer(2)",
+                "Cannot execute function memory.default.function_deny_inner");
+        assertAccessDenied(
+                "SELECT memory.default.function_deny_outer(2)",
+                "Cannot execute function memory.default.function_deny_inner");
+
+        systemSecurityMetadata.revokeRoles(getSession(), ImmutableSet.of("function_owner_role_without_access"), ImmutableSet.of(functionOwnerPrincipal), false, Optional.empty());
+
+        // assert that after revoking function_owner_role_without_access from definer function can be called once more
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_deny_outer(2)");
+        assertAccessAllowed("SELECT memory.default.function_deny_outer(2)");
+    }
+
+    @Test
+    public void testFunctionOwnerWhenDroppingFunction()
+    {
+        reset();
+
+        String functionOwner1 = "function_owner1";
+        String functionOwner2 = "function_owner2";
+        CatalogSchemaFunctionName functionName = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "my_function"));
+
+        Session functionOwnerSession1 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner1))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        Session functionOwnerSession2 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner2))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        assertAccessAllowed(
+                functionOwnerSession1,
+                "CREATE FUNCTION memory.default.my_function (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(functionName)).isEqualTo(functionOwner1);
+
+        assertAccessAllowed(
+                functionOwnerSession1,
+                "DROP FUNCTION memory.default.my_function(integer)");
+
+        assertAccessAllowed(
+                functionOwnerSession2,
+                "CREATE FUNCTION memory.default.my_function (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(functionName)).isEqualTo(functionOwner2);
+    }
+
+    @Test
+    public void testFunctionOwnerWhenReplacingFunction()
+    {
+        reset();
+
+        String functionOwner1 = "function_owner1";
+        String functionOwner2 = "function_owner2";
+        CatalogSchemaFunctionName functionName = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "my_replace_function"));
+
+        Session functionOwnerSession1 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner1))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+        Session functionOwnerSession2 = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner2))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        assertAccessAllowed(
+                functionOwnerSession1,
+                "CREATE FUNCTION memory.default.my_replace_function (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(functionName)).isEqualTo(functionOwner1);
+
+        assertAccessAllowed(
+                functionOwnerSession2,
+                "CREATE OR REPLACE FUNCTION memory.default.my_replace_function (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(functionName)).isEqualTo(functionOwner2);
     }
 
     @Test

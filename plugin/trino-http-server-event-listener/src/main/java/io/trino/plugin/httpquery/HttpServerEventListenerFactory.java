@@ -22,6 +22,8 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.json.JsonModule;
 import io.airlift.node.NodeInfo;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -42,19 +44,21 @@ public class HttpServerEventListenerFactory
     }
 
     @Override
-    public EventListener create(Map<String, String> config)
+    public EventListener create(Map<String, String> config, EventListenerContext context)
     {
-        return createInternal(config, false);
+        return createInternal(config, context, false);
     }
 
     @VisibleForTesting
-    HttpServerEventListener createInternal(Map<String, String> config, boolean testing)
+    HttpServerEventListener createInternal(Map<String, String> config, EventListenerContext context, boolean testing)
     {
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new JaxrsModule(),
                 testing ? new TestingHttpServerModule() : new HttpServerModule(),
                 binder -> {
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
+                    binder.bind(OpenTelemetry.class).toInstance(context.getOpenTelemetry());
                     jsonCodecBinder(binder).bindJsonCodec(QueryCompletedEvent.class);
                     configBinder(binder).bindConfig(HttpServerEventListenerConfig.class);
                     binder.bind(HttpServerEventListener.class).in(Scopes.SINGLETON);

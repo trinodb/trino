@@ -35,7 +35,7 @@ public final class FailureFunction
     @SqlType("unknown")
     public static boolean failWithException(@SqlType(StandardTypes.JSON) Slice failureInfoSlice)
     {
-        FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
+        FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getInput());
         // wrap the failure in a new exception to append the current stack trace
         throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, failureInfo.toException());
     }

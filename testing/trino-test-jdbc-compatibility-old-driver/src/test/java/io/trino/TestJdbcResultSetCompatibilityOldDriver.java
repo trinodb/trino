@@ -37,4 +37,18 @@ public class TestJdbcResultSetCompatibilityOldDriver
         assertThat(TestJdbcResultSet.class.getPackage().getImplementationVersion())
                 .isEqualTo(VERSION_UNDER_TEST.get().toString());
     }
+
+    @Override
+    @Test
+    public void testDate()
+            throws Exception
+    {
+        try {
+            super.testDate();
+        }
+        catch (AssertionError e) {
+            // Old drivers are bundled with outdated tzdata which causes some of the tested dates to have a different representation
+            assertThat(e).hasMessageContaining("1970-01-01");
+        }
+    }
 }

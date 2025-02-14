@@ -70,7 +70,7 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
                 .addIcebergProperty("iceberg.security", "read_only")
                 .addIcebergProperty("iceberg.catalog.type", "rest")
                 .addIcebergProperty("iceberg.rest-catalog.uri", unityCatalog.uri() + "/iceberg")
-                .addIcebergProperty("iceberg.rest-catalog.parent-namespace", "unity")
+                .addIcebergProperty("iceberg.rest-catalog.warehouse", "unity")
                 .addIcebergProperty("iceberg.register-table-procedure.enabled", "true")
                 .disableSchemaInitializer()
                 .build();
@@ -519,5 +519,13 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     {
         assertThatThrownBy(super::testTruncateTable)
                 .hasMessageContaining("Access Denied");
+    }
+
+    @Test
+    @Override
+    public void testMetadataDeleteAfterCommitEnabled()
+    {
+        assertThatThrownBy(super::testMetadataDeleteAfterCommitEnabled)
+                .hasStackTraceContaining("Access Denied");
     }
 }

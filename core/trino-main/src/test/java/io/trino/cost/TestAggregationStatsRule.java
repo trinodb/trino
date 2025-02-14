@@ -185,4 +185,46 @@ public class TestAggregationStatsRule
                         .build())
                 .check(PlanNodeStatsAssertion::outputRowsCountUnknown);
     }
+
+    @Test
+    void testAggregationStep()
+    {
+        testAggregationStep(AggregationNode.Step.PARTIAL);
+        testAggregationStep(AggregationNode.Step.INTERMEDIATE);
+        testAggregationStep(AggregationNode.Step.FINAL);
+        testAggregationStep(AggregationNode.Step.SINGLE);
+    }
+
+    void testAggregationStep(AggregationNode.Step step)
+    {
+        tester().assertStatsFor(pb -> pb
+                        .aggregation(ab -> ab
+                                .step(step)
+                                .addAggregation(pb.symbol("sum", BIGINT), aggregation("sum", ImmutableList.of(new Reference(BIGINT, "x"))), ImmutableList.of(BIGINT))
+                                .singleGroupingSet(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT))
+                                .source(pb.values(pb.symbol("y", BIGINT), pb.symbol("z", BIGINT)))))
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(100)
+                        .addSymbolStatistics(new Symbol(BIGINT, "y"), SymbolStatsEstimate.builder()
+                                .setLowValue(1)
+                                .setHighValue(10)
+                                .setDistinctValuesCount(5)
+                                .setNullsFraction(0.3)
+                                .build())
+                        .addSymbolStatistics(new Symbol(BIGINT, "z"), SymbolStatsEstimate.builder()
+                                .setLowValue(0)
+                                .setHighValue(3)
+                                .setDistinctValuesCount(3)
+                                .setNullsFraction(0)
+                                .build())
+                        .build())
+                .check(check -> {
+                    if (step.isOutputPartial()) {
+                        check.outputRowsCount(100);
+                    }
+                    else {
+                        check.outputRowsCount(18);
+                    }
+                });
+    }
 }

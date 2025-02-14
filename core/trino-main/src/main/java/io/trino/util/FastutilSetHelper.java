@@ -55,7 +55,6 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
-import static java.lang.Boolean.TRUE;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -234,7 +233,7 @@ public final class FastutilSetHelper
             Boolean result = longEquals.equals(a, b);
             // FastutilHashSet is not intended be used for indeterminate values lookup
             verifyNotNull(result, "result is null");
-            return TRUE.equals(result);
+            return result;
         }
     }
 
@@ -278,7 +277,7 @@ public final class FastutilSetHelper
             Boolean result = doubleEquals.equals(a, b);
             // FastutilHashSet is not intended be used for indeterminate values lookup
             verifyNotNull(result, "result is null");
-            return TRUE.equals(result);
+            return result;
         }
     }
 
@@ -334,7 +333,7 @@ public final class FastutilSetHelper
             Boolean result = objectEquals.equals(a, b);
             // FastutilHashSet is not intended be used for indeterminate values lookup
             verifyNotNull(result, "result is null");
-            return TRUE.equals(result);
+            return result;
         }
     }
 

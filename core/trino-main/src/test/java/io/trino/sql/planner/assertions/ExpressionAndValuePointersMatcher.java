@@ -62,10 +62,6 @@ class ExpressionAndValuePointersMatcher
             newAliases.put(expectedAssignment.symbol().name(), actualAssignment.symbol().toSymbolReference());
         }
 
-        if (!actual.getExpression().equals(newAliases.build().rewrite(expected.getExpression()))) {
-            return false;
-        }
-
-        return true;
+        return actual.getExpression().equals(newAliases.build().rewrite(expected.getExpression()));
     }
 }

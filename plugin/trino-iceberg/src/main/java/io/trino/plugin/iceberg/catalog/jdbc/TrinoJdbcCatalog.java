@@ -60,6 +60,7 @@ import org.apache.iceberg.view.ViewRepresentation;
 import org.apache.iceberg.view.ViewVersion;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +82,6 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
-import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -202,6 +202,26 @@ public class TrinoJdbcCatalog
     }
 
     @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        List<String> namespaces = listNamespaces(session, namespace);
+
+        // Build as a set and convert to list for removing duplicate entries due to case difference
+        Set<SchemaTableName> tablesListBuilder = new HashSet<>();
+        for (String schemaName : namespaces) {
+            try {
+                listTableIdentifiers(schemaName, () -> jdbcCatalog.listTables(Namespace.of(schemaName))).stream()
+                        .map(tableId -> SchemaTableName.schemaTableName(schemaName, tableId.name()))
+                        .forEach(tablesListBuilder::add);
+            }
+            catch (NoSuchNamespaceException e) {
+                // Namespace may have been deleted
+            }
+        }
+        return ImmutableList.copyOf(tablesListBuilder);
+    }
+
+    @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
         List<String> namespaces = listNamespaces(session, namespace);
@@ -319,7 +339,6 @@ public class TrinoJdbcCatalog
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BaseTable table = (BaseTable) loadTable(session, schemaTableName);
-        validateTableCanBeDropped(table);
 
         jdbcCatalog.dropTable(toIdentifier(schemaTableName), false);
         try {

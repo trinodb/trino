@@ -15,13 +15,12 @@ package io.trino.plugin.hive;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static java.util.Objects.requireNonNull;
 
 public record HivePartitionKey(String name, String value)
 {
     private static final int INSTANCE_SIZE = instanceSize(HivePartitionKey.class);
-
-    public static final String HIVE_DEFAULT_DYNAMIC_PARTITION = "__HIVE_DEFAULT_PARTITION__";
 
     public HivePartitionKey
     {

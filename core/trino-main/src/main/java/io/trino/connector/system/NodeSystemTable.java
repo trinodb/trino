@@ -33,6 +33,8 @@ import java.util.Set;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.DRAINED;
+import static io.trino.metadata.NodeState.DRAINING;
 import static io.trino.metadata.NodeState.INACTIVE;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
 import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
@@ -81,6 +83,9 @@ public class NodeSystemTable
         addRows(table, allNodes.getActiveNodes(), ACTIVE);
         addRows(table, allNodes.getInactiveNodes(), INACTIVE);
         addRows(table, allNodes.getShuttingDownNodes(), SHUTTING_DOWN);
+        addRows(table, allNodes.getDrainingNodes(), DRAINING);
+        addRows(table, allNodes.getDrainedNodes(), DRAINED);
+
         return table.build().cursor();
     }
 

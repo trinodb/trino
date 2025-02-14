@@ -29,9 +29,9 @@ import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.writer.ParquetWriterOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.delete.RoaringBitmapArray;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -190,7 +190,7 @@ public class DeltaLakeMergeSink
             dataColumnsIndices[i] = i;
             dataAndRowIdColumnsIndices[i] = i;
         }
-        dataAndRowIdColumnsIndices[tableColumnCount] = tableColumnCount + 1; // row ID channel
+        dataAndRowIdColumnsIndices[tableColumnCount] = tableColumnCount + 2; // row ID channel
     }
 
     @Override
@@ -236,7 +236,7 @@ public class DeltaLakeMergeSink
             long rowPosition = BIGINT.getLong(rowPositionBlock, position);
             Slice partitions = VARCHAR.getSlice(partitionsBlock, position);
 
-            List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.toStringUtf8());
+            List<String> partitionValues = PARTITIONS_CODEC.fromJson(partitions.getInput());
 
             FileDeletion deletion = fileDeletions.computeIfAbsent(filePath, _ -> new FileDeletion(partitionValues));
 
@@ -252,15 +252,15 @@ public class DeltaLakeMergeSink
     private DeltaLakeMergePage createPages(Page inputPage, int dataColumnCount)
     {
         int inputChannelCount = inputPage.getChannelCount();
-        if (inputChannelCount != dataColumnCount + 2) {
-            throw new IllegalArgumentException(format("inputPage channelCount (%s) == dataColumns size (%s) + 2", inputChannelCount, dataColumnCount));
+        if (inputChannelCount != dataColumnCount + 3) {
+            throw new IllegalArgumentException(format("inputPage channelCount (%s) == dataColumns size (%s) + 3", inputChannelCount, dataColumnCount));
         }
 
         int positionCount = inputPage.getPositionCount();
         if (positionCount <= 0) {
             throw new IllegalArgumentException("positionCount should be > 0, but is " + positionCount);
         }
-        Block operationBlock = inputPage.getBlock(inputChannelCount - 2);
+        Block operationBlock = inputPage.getBlock(inputChannelCount - 3);
         int[] deletePositions = new int[positionCount];
         int[] insertPositions = new int[positionCount];
         int[] updateInsertPositions = new int[positionCount];
@@ -329,7 +329,7 @@ public class DeltaLakeMergeSink
         List<Slice> fragments = new ArrayList<>();
 
         insertPageSink.finish().join().stream()
-                .map(Slice::getBytes)
+                .map(Slice::getInput)
                 .map(dataFileInfoCodec::fromJson)
                 .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                 .map(mergeResultJsonCodec::toJsonBytes)
@@ -347,7 +347,7 @@ public class DeltaLakeMergeSink
 
         if (cdfEnabled && cdfPageSink != null) { // cdf may be enabled but there may be no update/deletion so sink was not instantiated
             MoreFutures.getDone(cdfPageSink.finish()).stream()
-                    .map(Slice::getBytes)
+                    .map(Slice::getInput)
                     .map(dataFileInfoCodec::fromJson)
                     .map(info -> new DeltaLakeMergeResult(info.partitionValues(), Optional.empty(), Optional.empty(), Optional.of(info)))
                     .map(mergeResultJsonCodec::toJsonBytes)
@@ -408,6 +408,7 @@ public class DeltaLakeMergeSink
     {
         String tablePath = rootTableLocation.toString();
         String sourceRelativePath = relativePath(tablePath, sourcePath);
+        DeletionVectorEntry oldDeletionVector = deletionVectors.get(sourceRelativePath);
 
         DeletionVectorEntry deletionVectorEntry;
         try {
@@ -426,7 +427,7 @@ public class DeltaLakeMergeSink
                     deletion.partitionValues,
                     readStatistics(parquetMetadata, dataColumns, rowCount),
                     Optional.of(deletionVectorEntry));
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.empty(), Optional.of(newFileInfo));
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceRelativePath), Optional.ofNullable(oldDeletionVector), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
         }
         catch (Throwable e) {

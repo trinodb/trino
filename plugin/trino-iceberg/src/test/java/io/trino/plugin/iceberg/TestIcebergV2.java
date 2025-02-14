@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
@@ -30,7 +31,6 @@ import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -75,6 +75,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,8 +96,9 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -108,11 +110,14 @@ import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Map.entry;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.apache.iceberg.TableProperties.DEFAULT_NAME_MAPPING;
+import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED;
+import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -133,9 +138,7 @@ public class TestIcebergV2
                 .setInitialTables(NATION)
                 .build();
 
-        metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                .getInstance(HiveMetastoreFactory.class)
-                .createMetastore(Optional.empty());
+        metastore = getHiveMetastore(queryRunner);
 
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data")));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
@@ -180,6 +183,46 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSetPropertiesObjectStoreLayoutEnabled()
+    {
+        try (TestTable table = newTrinoTable("test_object_store", "(x int) WITH (object_store_layout_enabled = false)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("object_store_layout_enabled");
+            assertThat(loadTable(table.getName()).properties())
+                    .doesNotContainKey("write.object-storage.enabled");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_layout_enabled = true");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("object_store_layout_enabled = true");
+            assertThat(loadTable(table.getName()).properties())
+                    .containsEntry("write.object-storage.enabled", "true");
+        }
+    }
+
+    @Test
+    public void testSetPropertiesDataLocation()
+    {
+        try (TestTable table = newTrinoTable("test_data_location", "(x int)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("data_location =");
+            assertThat(loadTable(table.getName()).properties())
+                    .doesNotContainKey("write.data.path");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES data_location = 'local:///data-location'",
+                    "Data location can only be set when object store layout is enabled");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_layout_enabled = true, data_location = 'local:///data-location'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("object_store_layout_enabled = true")
+                    .contains("data_location = 'local:///data-location'");
+            assertThat(loadTable(table.getName()).properties())
+                    .containsEntry("write.object-storage.enabled", "true")
+                    .containsEntry("write.data.path", "local:///data-location");
+        }
     }
 
     @Test
@@ -372,7 +415,7 @@ public class TestIcebergV2
                 .setSystemProperty("task_min_writer_count", "1")
                 .build();
 
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
+        try (TestTable table = newTrinoTable("test_optimize_split_offsets", "AS SELECT * FROM tpch.tiny.nation")) {
             assertUpdate(session, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
             assertThat(computeActual("SELECT split_offsets FROM \"" + table.getName() + "$files\""))
                     .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
@@ -559,8 +602,13 @@ public class TestIcebergV2
                     equalityFieldIds);
         }
 
-        // TODO: support read equality deletes with nested fields(https://github.com/trinodb/trino/issues/18625)
-        assertThat(query("SELECT * FROM " + tableName)).failure().hasMessageContaining("Multiple entries with same key");
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("VALUES (BIGINT '1', CAST(row(10, 100) AS ROW(nested BIGINT, nested_other BIGINT)))");
+
+        // verify that the equality delete is effective also when not specifying the corresponding column in the projection list
+        assertThat(query("SELECT id FROM " + tableName))
+                .matches("VALUES BIGINT '1'");
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -646,8 +694,7 @@ public class TestIcebergV2
         String blackholeTable = "blackhole_table_" + randomNameSuffix();
         assertUpdate("CREATE TABLE blackhole.default.%s (a INT, b INT) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '3s')".formatted(blackholeTable));
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_optimize_during_write_operations",
                 "(int_col INT)")) {
             String tableName = table.getName();
@@ -979,7 +1026,7 @@ public class TestIcebergV2
     @Test
     public void testStatsFilePruning()
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_stats_file_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+        try (TestTable testTable = newTrinoTable("test_stats_file_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
 
@@ -1029,7 +1076,7 @@ public class TestIcebergV2
     @Test
     public void testColumnStatsPruning()
     {
-        try (TestTable testTable = new TestTable(getQueryRunner()::execute, "test_column_stats_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
+        try (TestTable testTable = newTrinoTable("test_column_stats_pruning_", "(a INT, b INT) WITH (partitioning = ARRAY['b'])")) {
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 10), (10, 10)", 2);
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (200, 10), (300, 20)", 2);
 
@@ -1427,6 +1474,30 @@ public class TestIcebergV2
     }
 
     @Test
+    void testMapValueSchemaChange()
+    {
+        testMapValueSchemaChange("PARQUET", "map(array[1], array[NULL])");
+        testMapValueSchemaChange("ORC", "map(array[1], array[row(NULL)])");
+        testMapValueSchemaChange("AVRO", "NULL");
+    }
+
+    private void testMapValueSchemaChange(String format, String expectedValue)
+    {
+        try (TestTable table = newTrinoTable(
+                "test_map_value_schema_change",
+                "WITH (format = '" + format + "') AS SELECT CAST(map(array[1], array[row(2)]) AS map(integer, row(field integer))) col")) {
+            Table icebergTable = loadTable(table.getName());
+            icebergTable.updateSchema()
+                    .addColumn("col.value", "new_field", Types.IntegerType.get())
+                    .deleteColumn("col.value.field")
+                    .commit();
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .as("Format: %s", format)
+                    .matches("SELECT CAST(" + expectedValue + " AS map(integer, row(new_field integer)))");
+        }
+    }
+
+    @Test
     public void testUpdateAfterEqualityDelete()
             throws Exception
     {
@@ -1441,6 +1512,49 @@ public class TestIcebergV2
             assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, 'test' FROM nation WHERE regionkey != 1");
             assertUpdate("DROP TABLE " + tableName);
         }
+    }
+
+    @Test
+    void testEnvironmentContext()
+    {
+        try (TestTable table = newTrinoTable("test_environment_context", "(x int)")) {
+            Table icebergTable = loadTable(table.getName());
+            assertThat(icebergTable.currentSnapshot().summary())
+                    .contains(entry("engine-name", "trino"), entry("engine-version", "testversion"));
+        }
+    }
+
+    @Test
+    public void testMetadataDeleteAfterCommitEnabled()
+            throws IOException
+    {
+        int metadataPreviousVersionCount = 5;
+        String tableName = "test_metadata_delete_after_commit_enabled" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(_bigint BIGINT, _varchar VARCHAR)");
+        BaseTable icebergTable = loadTable(tableName);
+        String location = icebergTable.location();
+        icebergTable.updateProperties()
+                .set(METADATA_DELETE_AFTER_COMMIT_ENABLED, "true")
+                .set(METADATA_PREVIOUS_VERSIONS_MAX, String.valueOf(metadataPreviousVersionCount))
+                .commit();
+
+        TrinoFileSystem trinoFileSystem = fileSystemFactory.create(SESSION);
+        Map<String, Long> historyMetadataFiles = getMetadataFileAndUpdatedMillis(trinoFileSystem, location);
+        for (int i = 0; i < 10; i++) {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            Map<String, Long> metadataFiles = getMetadataFileAndUpdatedMillis(trinoFileSystem, location);
+            historyMetadataFiles.putAll(metadataFiles);
+            assertThat(metadataFiles.size()).isLessThanOrEqualTo(1 + metadataPreviousVersionCount);
+            Set<String> expectMetadataFiles = historyMetadataFiles
+                    .entrySet()
+                    .stream()
+                    .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                    .limit(metadataPreviousVersionCount + 1)
+                    .map(Map.Entry::getKey)
+                    .collect(Collectors.toSet());
+            assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
+        }
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)

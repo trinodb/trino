@@ -1259,6 +1259,9 @@ public class ExpressionAnalyzer
             try {
                 literalInterpreter.evaluate(node, type);
             }
+            catch (TrinoException e) {
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            }
             catch (RuntimeException e) {
                 throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid INTERVAL literal", node.getValue());
             }

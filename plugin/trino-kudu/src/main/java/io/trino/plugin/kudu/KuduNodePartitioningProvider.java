@@ -56,7 +56,8 @@ public class KuduNodePartitioningProvider
     public ToIntFunction<ConnectorSplit> getSplitBucketFunction(
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
-            ConnectorPartitioningHandle partitioningHandle)
+            ConnectorPartitioningHandle partitioningHandle,
+            int bucketCount)
     {
         return value -> ((KuduSplit) value).getBucketNumber();
     }

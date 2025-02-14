@@ -18,12 +18,15 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
+import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.TypeManager;
+import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
 
@@ -49,6 +52,9 @@ public class BigQueryConnectorFactory
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new BigQueryConnectorModule(),
+                new MBeanServerModule(),
+                new MBeanModule(),
+                new ConnectorObjectNameGeneratorModule("io.trino.plugin.bigquery", "trino.plugin.bigquery"),
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());

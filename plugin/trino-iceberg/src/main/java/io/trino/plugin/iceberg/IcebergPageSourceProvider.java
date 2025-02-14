@@ -46,7 +46,7 @@ import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.parquet.reader.RowGroupInfo;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.ReaderProjectionsAdapter;
@@ -891,7 +891,7 @@ public class IcebergPageSourceProvider
                     start,
                     length,
                     dataSource,
-                    parquetMetadata.getBlocks(),
+                    parquetMetadata,
                     ImmutableList.of(parquetTupleDomain),
                     ImmutableList.of(parquetPredicate),
                     descriptorsByPath,

@@ -35,13 +35,13 @@ import io.trino.metastore.Partition;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.metastore.PartitionWithStatistics;
 import io.trino.metastore.PrincipalPrivileges;
+import io.trino.metastore.SchemaAlreadyExistsException;
 import io.trino.metastore.StatisticsUpdateMode;
 import io.trino.metastore.Table;
+import io.trino.metastore.TableAlreadyExistsException;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.PartitionNotFoundException;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -111,6 +111,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.opentelemetry.context.Context.taskWrapping;
 import static io.trino.metastore.Table.TABLE_COMMENT;
+import static io.trino.plugin.base.util.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
@@ -120,8 +121,8 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.updateStatisticsParameters;
-import static io.trino.plugin.hive.metastore.glue.ExecutorUtil.processWithAdditionalThreads;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.fromGlueStatistics;
+import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueDatabaseInput;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.toGlueFunctionInput;
@@ -412,10 +413,21 @@ public class GlueHiveMetastore
     @Override
     public List<TableInfo> getTables(String databaseName)
     {
-        return glueCache.getTables(databaseName, cacheTable -> getTablesInternal(cacheTable, databaseName));
+        return glueCache.getTables(databaseName, cacheTable -> getTablesInternal(cacheTable, databaseName, _ -> true));
     }
 
-    private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName)
+    @Override
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    {
+        return getTablesInternal(
+                _ -> {},
+                databaseName,
+                table -> table.parameters() != null && parameterValues.contains(table.parameters().get(parameterKey))).stream()
+                .map(tableInfo -> tableInfo.tableName().getTableName())
+                .collect(toImmutableList());
+    }
+
+    private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName, Predicate<software.amazon.awssdk.services.glue.model.Table> filter)
     {
         try {
             ImmutableList<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
@@ -425,6 +437,7 @@ public class GlueHiveMetastore
                             .map(GetTablesResponse::tableList)
                             .flatMap(List::stream))
                     .filter(tableVisibilityFilter)
+                    .filter(filter)
                     .collect(toImmutableList());
 
             // Store only valid tables in cache
@@ -436,7 +449,7 @@ public class GlueHiveMetastore
             return glueTables.stream()
                     .map(table -> new TableInfo(
                             new SchemaTableName(databaseName, table.name()),
-                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(table.tableType(), table.parameters().get(TABLE_COMMENT))))
+                            TableInfo.ExtendedRelationType.fromTableTypeAndComment(GlueConverter.getTableType(table), table.parameters().get(TABLE_COMMENT))))
                     .toList();
         }
         catch (EntityNotFoundException _) {
@@ -704,7 +717,7 @@ public class GlueHiveMetastore
                 .partitionKeys(table.partitionKeys())
                 .viewOriginalText(table.viewOriginalText())
                 .viewExpandedText(table.viewExpandedText())
-                .tableType(table.tableType())
+                .tableType(getTableTypeNullable(table))
                 .targetTable(table.targetTable())
                 .parameters(table.parameters());
     }

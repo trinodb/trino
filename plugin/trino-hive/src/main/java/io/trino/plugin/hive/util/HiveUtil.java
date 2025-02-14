@@ -60,7 +60,6 @@ import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 
 import java.math.BigDecimal;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,6 +77,8 @@ import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_REALTIME_INPUT_F
 import static io.trino.hive.formats.HiveClassNames.HUDI_REALTIME_INPUT_FORMAT;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.metastore.HiveType.toHiveTypes;
+import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.trino.metastore.Partitions.escapePathName;
 import static io.trino.metastore.SortingColumn.Order.ASCENDING;
 import static io.trino.metastore.SortingColumn.Order.DESCENDING;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -101,7 +102,6 @@ import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.HiveMetadata.PARQUET_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
-import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionTrinoColumnProperties;
@@ -149,8 +149,6 @@ public final class HiveUtil
     public static final String ICEBERG_TABLE_TYPE_NAME = "table_type";
     public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
-    private static final HexFormat HEX_UPPER_FORMAT = HexFormat.of().withUpperCase();
-
     private static final LocalDateTime EPOCH_DAY = new LocalDateTime(1970, 1, 1, 0, 0);
     private static final DateTimeFormatter HIVE_DATE_PARSER;
     private static final DateTimeFormatter HIVE_TIMESTAMP_PARSER;
@@ -158,10 +156,6 @@ public final class HiveUtil
     private static final String BIG_DECIMAL_POSTFIX = "BD";
 
     private static final Splitter COLUMN_NAMES_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-
-    private static final CharMatcher PATH_CHAR_TO_ESCAPE = CharMatcher.inRange((char) 0, (char) 31)
-            .or(CharMatcher.anyOf("\"#%'*/:=?\\\u007F{[]^"))
-            .precomputed();
 
     private static final CharMatcher DOT_MATCHER = CharMatcher.is('.');
 
@@ -878,60 +872,5 @@ public final class HiveUtil
             throw new TrinoException(GENERIC_USER_ERROR, "Invalid table name");
         }
         return escapePathName(tableName);
-    }
-
-    // copy of org.apache.hadoop.hive.common.FileUtils#escapePathName
-    public static String escapePathName(String path)
-    {
-        if (isNullOrEmpty(path)) {
-            return HIVE_DEFAULT_DYNAMIC_PARTITION;
-        }
-
-        //  Fast-path detection, no escaping and therefore no copying necessary
-        int escapeAtIndex = PATH_CHAR_TO_ESCAPE.indexIn(path);
-        if (escapeAtIndex < 0) {
-            return path;
-        }
-
-        // slow path, escape beyond the first required escape character into a new string
-        StringBuilder sb = new StringBuilder();
-        int fromIndex = 0;
-        while (escapeAtIndex >= 0 && escapeAtIndex < path.length()) {
-            // preceding characters without escaping needed
-            if (escapeAtIndex > fromIndex) {
-                sb.append(path, fromIndex, escapeAtIndex);
-            }
-            // escape single character
-            char c = path.charAt(escapeAtIndex);
-            sb.append('%').append(HEX_UPPER_FORMAT.toHighHexDigit(c)).append(HEX_UPPER_FORMAT.toLowHexDigit(c));
-            // find next character to escape
-            fromIndex = escapeAtIndex + 1;
-            if (fromIndex < path.length()) {
-                escapeAtIndex = PATH_CHAR_TO_ESCAPE.indexIn(path, fromIndex);
-            }
-            else {
-                escapeAtIndex = -1;
-            }
-        }
-        // trailing characters without escaping needed
-        if (fromIndex < path.length()) {
-            sb.append(path, fromIndex, path.length());
-        }
-        return sb.toString();
-    }
-
-    // copy of org.apache.hadoop.hive.common.FileUtils#makePartName
-    public static String makePartName(List<String> columns, List<String> values)
-    {
-        StringBuilder name = new StringBuilder();
-        for (int i = 0; i < columns.size(); i++) {
-            if (i > 0) {
-                name.append('/');
-            }
-            name.append(escapePathName(columns.get(i).toLowerCase(ENGLISH)));
-            name.append('=');
-            name.append(escapePathName(values.get(i)));
-        }
-        return name.toString();
     }
 }

@@ -226,6 +226,7 @@ public class TestMergeAdjacentWindows
                         .collect(Collectors.toList()),
                 Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
     }
 
@@ -238,6 +239,7 @@ public class TestMergeAdjacentWindows
                         .collect(Collectors.toList()),
                 Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
     }
 }

@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.faker;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
 
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -23,6 +26,10 @@ public record ColumnInfo(FakerColumnHandle handle, ColumnMetadata metadata)
 {
     public static final String NULL_PROBABILITY_PROPERTY = "null_probability";
     public static final String GENERATOR_PROPERTY = "generator";
+    public static final String MIN_PROPERTY = "min";
+    public static final String MAX_PROPERTY = "max";
+    public static final String ALLOWED_VALUES_PROPERTY = "allowed_values";
+    public static final String STEP_PROPERTY = "step";
 
     public ColumnInfo
     {
@@ -35,6 +42,11 @@ public record ColumnInfo(FakerColumnHandle handle, ColumnMetadata metadata)
         return metadata.getName();
     }
 
+    public Type type()
+    {
+        return metadata.getType();
+    }
+
     @Override
     public String toString()
     {
@@ -45,6 +57,18 @@ public record ColumnInfo(FakerColumnHandle handle, ColumnMetadata metadata)
     {
         return new ColumnInfo(handle, ColumnMetadata.builderFrom(metadata)
                 .setComment(comment)
+                .build());
+    }
+
+    public ColumnInfo withHandle(FakerColumnHandle handle)
+    {
+        return new ColumnInfo(handle, metadata);
+    }
+
+    public ColumnInfo withProperties(Map<String, Object> properties)
+    {
+        return new ColumnInfo(handle, ColumnMetadata.builderFrom(metadata)
+                .setProperties(ImmutableMap.copyOf(properties))
                 .build());
     }
 }

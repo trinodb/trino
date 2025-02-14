@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.statistics;
 
+import com.google.common.base.Throwables;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.Location;
@@ -72,7 +73,7 @@ public class MetaDirStatisticsAccess
             Location statisticsPath = tableLocation.appendPath(statisticsDirectory).appendPath(statisticsFile);
             TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(statisticsPath);
             try (InputStream inputStream = inputFile.newStream()) {
-                return Optional.of(statisticsCodec.fromJson(inputStream.readAllBytes()));
+                return Optional.of(decodeAndRethrowIfNotFound(statisticsCodec, inputStream));
             }
             catch (FileNotFoundException e) {
                 return Optional.empty();
@@ -119,6 +120,18 @@ public class MetaDirStatisticsAccess
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Error deleting statistics file: " + statisticsPath, e);
+        }
+    }
+
+    public static <T> T decodeAndRethrowIfNotFound(JsonCodec<T> codec, InputStream stream)
+            throws FileNotFoundException
+    {
+        try {
+            return codec.fromJson(stream);
+        }
+        catch (IllegalArgumentException e) {
+            Throwables.throwIfInstanceOf(e.getCause(), FileNotFoundException.class);
+            throw new RuntimeException("Failed to decode JSON", e);
         }
     }
 }

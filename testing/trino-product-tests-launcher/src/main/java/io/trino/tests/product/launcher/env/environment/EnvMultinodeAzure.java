@@ -34,6 +34,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
@@ -202,10 +203,5 @@ public class EnvMultinodeAzure
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    private static String requireEnv(String variable)
-    {
-        return requireNonNull(System.getenv(variable), () -> "environment variable not set: " + variable);
     }
 }

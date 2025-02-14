@@ -85,9 +85,6 @@ will create a catalog named `sales` using the configured connector.
 ```{include} jdbc-case-insensitive-matching.fragment
 ```
 
-```{include} non-transactional-insert.fragment
-```
-
 ## Querying SingleStore
 
 The SingleStore connector provides a schema for every SingleStore *database*.
@@ -315,26 +312,35 @@ a SingleStore database.  In addition to the {ref}`globally available
 <sql-globally-available>` and {ref}`read operation <sql-read-operations>`
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/update`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](singlestore-insert)
+- [](/sql/update), see also [](singlestore-update)
+- [](/sql/delete), see also [](singlestore-delete)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/alter-table), see also [](singlestore-alter-table)
+- [](/sql/drop-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](singlestore-procedures)
 
+(singlestore-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(singlestore-update)=
 ```{include} sql-update-limitation.fragment
 ```
 
+(singlestore-delete)=
 ```{include} sql-delete-limitation.fragment
 ```
 
+(singlestore-alter-table)=
 ```{include} alter-table-limitation.fragment
 ```
 
+(singlestore-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment

@@ -39,14 +39,14 @@ public class QueryDataEncoders
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         if (enabled) {
-            LOG.info("Spooled client protocol is enabled with encodings: " + getAvailableEncodings());
+            LOG.info("Spooling protocol is enabled with encodings: " + getAvailableEncodings());
         }
     }
 
     public boolean exists(String encoding)
     {
         if (!enabled) {
-            throw new IllegalStateException("Spooled client protocol is not enabled");
+            throw new IllegalStateException("Spooling protocol is not enabled");
         }
         return factories.containsKey(encoding);
     }
@@ -54,10 +54,10 @@ public class QueryDataEncoders
     public QueryDataEncoder.Factory get(String encoding)
     {
         if (!enabled) {
-            throw new IllegalStateException("Spooled client protocol is not enabled");
+            throw new IllegalStateException("Spooling protocol is not enabled");
         }
         if (!exists(encoding)) {
-            throw new IllegalArgumentException("Unknown spooled protocol encoding: " + encoding);
+            throw new IllegalArgumentException("Unknown spooling protocol encoding: " + encoding);
         }
 
         return factories.get(encoding);
@@ -66,7 +66,7 @@ public class QueryDataEncoders
     public Set<String> getAvailableEncodings()
     {
         if (!enabled) {
-            throw new IllegalStateException("Spooled client protocol is not enabled");
+            throw new IllegalStateException("Spooling protocol is not enabled");
         }
         return factories.keySet();
     }

@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
-import io.trino.plugin.hive.containers.HiveMinioDataLake;
+import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -68,7 +68,7 @@ public class TestDeltaLakeCreateTableStatistics
             throws Exception
     {
         this.bucketName = "delta-test-create-table-statistics-" + randomNameSuffix();
-        HiveMinioDataLake hiveMinioDataLake = closeAfterClass(new HiveMinioDataLake(bucketName));
+        Hive3MinioDataLake hiveMinioDataLake = closeAfterClass(new Hive3MinioDataLake(bucketName));
         hiveMinioDataLake.start();
 
         return DeltaLakeQueryRunner.builder()

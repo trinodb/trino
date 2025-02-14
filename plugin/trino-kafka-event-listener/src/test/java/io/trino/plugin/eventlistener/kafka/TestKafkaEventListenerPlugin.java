@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.testing.kafka.TestingKafka;
@@ -84,7 +85,8 @@ final class TestKafkaEventListenerPlugin
                         .put("kafka-event-listener.request-timeout", "30s")
                         .put("kafka-event-listener.excluded-fields", "ioMetadata")
                         .put("kafka.security-protocol", "plaintext")
-                        .buildOrThrow());
+                        .buildOrThrow(),
+                new TestingEventListenerContext());
 
         try {
             // produce and consume a test created event

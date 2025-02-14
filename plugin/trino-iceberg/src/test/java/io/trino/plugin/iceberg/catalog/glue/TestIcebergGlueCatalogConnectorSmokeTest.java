@@ -53,14 +53,14 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getStorageDescriptor;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -82,7 +82,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     public TestIcebergGlueCatalogConnectorSmokeTest()
     {
         super(FileFormat.PARQUET);
-        this.bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
+        this.bucketName = requireEnv("S3_BUCKET");
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
         glueClient = AWSGlueAsyncClientBuilder.defaultClient();
 
@@ -102,7 +102,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "iceberg.catalog.type", "glue",
                                 "hive.metastore.glue.default-warehouse-dir", schemaPath(),
                                 "iceberg.register-table-procedure.enabled", "true",
-                                "iceberg.writer-sort-buffer-size", "1MB"))
+                                "iceberg.writer-sort-buffer-size", "1MB",
+                                "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -136,7 +137,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "WITH (\n" +
                                 "   format = 'PARQUET',\n" +
                                 "   format_version = 2,\n" +
-                                "   location = '%2$s/%1$s.db/region-\\E.*\\Q'\n" +
+                                "   location = '%2$s/%1$s.db/region-\\E.*\\Q',\n" +
+                                "   max_commit_retry = 4\n" +
                                 ")\\E",
                         schemaName,
                         schemaPath()));
@@ -153,7 +155,7 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Test
     void testGlueTableLocation()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table_location", "AS SELECT 1 x")) {
+        try (TestTable table = newTrinoTable("test_table_location", "AS SELECT 1 x")) {
             String initialLocation = getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation();
             assertThat(getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation())
                     // Using startsWith because the location has UUID suffix

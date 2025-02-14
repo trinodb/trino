@@ -13,7 +13,7 @@
 
 ## CLI
 
-* Fix incorrect error location markers for SQL routines causing CLI to print
+* Fix incorrect error location markers for SQL UDFs causing the CLI to print
   exceptions. ({issue}`21357`)
 
 ## Delta Lake connector

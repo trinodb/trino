@@ -299,6 +299,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                 ImmutableList.of(),
                 Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
     }
 
@@ -309,6 +310,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                 ImmutableList.of(),
                 Optional.empty(),
                 DEFAULT_FRAME,
+                false,
                 false);
     }
 }

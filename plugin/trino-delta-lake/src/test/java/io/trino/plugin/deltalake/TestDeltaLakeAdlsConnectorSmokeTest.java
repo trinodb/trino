@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 import com.google.common.reflect.ClassPath;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
@@ -79,8 +81,12 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         String connectionString = format("DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s;EndpointSuffix=core.windows.net", account, accessKey);
         ConnectionProvider provider = ConnectionProvider.create("TestDeltaLakeAdsl");
         closeAfterClass(provider::dispose);
+
+        EventLoopGroup eventLoopGroup = new NioEventLoopGroup();
+        closeAfterClass(eventLoopGroup::shutdownGracefully);
+
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder().connectionString(connectionString)
-                .httpClient(createAzureHttpClient(provider, new HttpClientOptions()))
+                .httpClient(createAzureHttpClient(provider, eventLoopGroup, new HttpClientOptions()))
                 .buildClient();
         this.azureContainerClient = blobServiceClient.getBlobContainerClient(container);
 

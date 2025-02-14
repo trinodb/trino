@@ -54,6 +54,7 @@ import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HEAD;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -152,6 +153,14 @@ public class QueuedStatementResource
     public void stop()
     {
         queryManager.destroy();
+    }
+
+    @ResourceSecurity(AUTHENTICATED_USER)
+    @HEAD
+    @Produces(APPLICATION_JSON)
+    public Response validateConnection()
+    {
+        return Response.ok().build();
     }
 
     @ResourceSecurity(AUTHENTICATED_USER)
@@ -520,11 +529,8 @@ public class QueuedStatementResource
                 // Query took too long to be submitted by the client
                 return true;
             }
-            if (query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId())) {
-                // Query was created in the DispatchManager, and DispatchManager has already purged the query
-                return true;
-            }
-            return false;
+            // Query was created in the DispatchManager, and DispatchManager has already purged the query
+            return query.isCreated() && !dispatchManager.isQueryRegistered(query.getQueryId());
         }
 
         private void removeQuery(QueryId queryId)

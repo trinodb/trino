@@ -21,8 +21,6 @@ import org.junit.jupiter.api.Timeout;
 
 import java.util.Map;
 
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_CATALOG;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_TABLE_SCAN_REDIRECTION_SCHEMA;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTpchTableScanRedirection
@@ -34,8 +32,8 @@ public class TestTpchTableScanRedirection
     {
         QueryRunner queryRunner = TpchQueryRunner.builder()
                 .withConnectorProperties(Map.of(
-                        TPCH_TABLE_SCAN_REDIRECTION_CATALOG, "memory",
-                        TPCH_TABLE_SCAN_REDIRECTION_SCHEMA, "test"))
+                        "tpch.table-scan-redirection-catalog", "memory",
+                        "tpch.table-scan-redirection-schema", "test"))
                 .build();
         queryRunner.installPlugin(new MemoryPlugin());
         queryRunner.createCatalog("memory", "memory");

@@ -73,6 +73,7 @@ public class TestJdbcConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_LIMIT_PUSHDOWN,
+                 SUPPORTS_MAP_TYPE,
                  SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN -> false;

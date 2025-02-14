@@ -40,6 +40,7 @@ class TestFileSystemSpoolingConfig
                 .setEncryptionEnabled(true)
                 .setExplicitAckEnabled(true)
                 .setTtl(new Duration(12, TimeUnit.HOURS))
+                .setDirectAccessTtl(new Duration(1, TimeUnit.HOURS))
                 .setPruningEnabled(true)
                 .setPruningInterval(new Duration(5, TimeUnit.MINUTES))
                 .setPruningBatchSize(250));
@@ -57,6 +58,7 @@ class TestFileSystemSpoolingConfig
                 .put("fs.segment.encryption", "false")
                 .put("fs.segment.explicit-ack", "false")
                 .put("fs.segment.ttl", "1h")
+                .put("fs.segment.direct.ttl", "2h")
                 .put("fs.segment.pruning.enabled", "false")
                 .put("fs.segment.pruning.interval", "12h")
                 .put("fs.segment.pruning.batch-size", "5")
@@ -71,6 +73,7 @@ class TestFileSystemSpoolingConfig
                 .setEncryptionEnabled(false)
                 .setExplicitAckEnabled(false)
                 .setTtl(new Duration(1, TimeUnit.HOURS))
+                .setDirectAccessTtl(new Duration(2, TimeUnit.HOURS))
                 .setPruningEnabled(false)
                 .setPruningInterval(new Duration(12, TimeUnit.HOURS))
                 .setPruningBatchSize(5);

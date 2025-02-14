@@ -48,7 +48,7 @@ public class TestSqlServerConnectorTest
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
         return SqlServerQueryRunner.builder(sqlServer)
-                .addConnectorProperties(Map.of("sqlserver.experimental.stored-procedure-table-function-enabled", "true"))
+                .addConnectorProperties(Map.of("sqlserver.stored-procedure-table-function-enabled", "true"))
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }

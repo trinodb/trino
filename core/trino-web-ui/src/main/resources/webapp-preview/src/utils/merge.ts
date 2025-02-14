@@ -13,11 +13,11 @@
  */
 /* eslint-disable  @typescript-eslint/no-explicit-any */
 export function merge(target: any, source: any): any {
-  Object.keys(source).forEach(function (key) {
-    if (source[key] && typeof source[key] === "object") {
-      merge((target[key] = target[key] || {}), source[key]);
-      return;
-    }
-    target[key] = source[key];
-  });
+    Object.keys(source).forEach(function (key) {
+        if (source[key] && typeof source[key] === 'object') {
+            merge((target[key] = target[key] || {}), source[key])
+            return
+        }
+        target[key] = source[key]
+    })
 }

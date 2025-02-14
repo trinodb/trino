@@ -31,12 +31,12 @@ import okhttp3.RequestBody;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.io.UnsupportedEncodingException;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
@@ -57,8 +57,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
-import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -71,7 +71,7 @@ class StatementClientV1
         implements StatementClient
 {
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
@@ -403,6 +403,7 @@ class StatementClientV1
             if (attempts > 0) {
                 Duration sinceStart = Duration.nanosSince(start);
                 if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
+                    close();
                     state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
@@ -578,22 +579,12 @@ class StatementClientV1
 
     private static String urlEncode(String value)
     {
-        try {
-            return URLEncoder.encode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private static String urlDecode(String value)
     {
-        try {
-            return URLDecoder.decode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
     private enum State

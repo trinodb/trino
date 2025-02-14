@@ -20,11 +20,11 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -147,7 +147,7 @@ public class CheckpointWriterManager
                 }
             }
 
-            snapshot.getJsonTransactionLogEntries()
+            snapshot.getJsonTransactionLogEntries(fileSystem)
                     .forEach(checkpointBuilder::addLogEntry);
 
             Location transactionLogDir = Location.of(getTransactionLogDir(snapshot.getTableLocation()));

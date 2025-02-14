@@ -29,7 +29,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.plugin.hive.HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static io.trino.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
@@ -87,7 +86,7 @@ public class TestHiveConfig
                 .setSkipTargetCleanupOnRollback(false)
                 .setBucketExecutionEnabled(true)
                 .setTableStatisticsEnabled(true)
-                .setOptimizeMismatchedBucketCount(false)
+                .setOptimizeMismatchedBucketCount(true)
                 .setWritesToNonManagedTablesEnabled(false)
                 .setCreatesOfNonManagedTablesEnabled(true)
                 .setPartitionStatisticsSampleSize(100)
@@ -118,7 +117,8 @@ public class TestHiveConfig
                 .setHudiCatalogName(null)
                 .setAutoPurge(false)
                 .setPartitionProjectionEnabled(false)
-                .setS3StorageClassFilter(S3StorageClassFilter.READ_ALL));
+                .setS3StorageClassFilter(S3StorageClassFilter.READ_ALL)
+                .setMetadataParallelism(8));
     }
 
     @Test
@@ -172,7 +172,7 @@ public class TestHiveConfig
                 .put("hive.sorted-writing", "false")
                 .put("hive.propagate-table-scan-sorting-properties", "true")
                 .put("hive.table-statistics-enabled", "false")
-                .put("hive.optimize-mismatched-bucket-count", "true")
+                .put("hive.optimize-mismatched-bucket-count", "false")
                 .put("hive.non-managed-table-writes-enabled", "true")
                 .put("hive.non-managed-table-creates-enabled", "false")
                 .put("hive.partition-statistics-sample-size", "1234")
@@ -202,8 +202,9 @@ public class TestHiveConfig
                 .put("hive.delta-lake-catalog-name", "delta")
                 .put("hive.hudi-catalog-name", "hudi")
                 .put("hive.auto-purge", "true")
-                .put(CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true")
+                .put("hive.partition-projection-enabled", "true")
                 .put("hive.s3.storage-class-filter", "READ_NON_GLACIER_AND_RESTORED")
+                .put("hive.metadata.parallelism", "10")
                 .buildOrThrow();
 
         HiveConfig expected = new HiveConfig()
@@ -254,7 +255,7 @@ public class TestHiveConfig
                 .setSortedWritingEnabled(false)
                 .setPropagateTableScanSortingProperties(true)
                 .setTableStatisticsEnabled(false)
-                .setOptimizeMismatchedBucketCount(true)
+                .setOptimizeMismatchedBucketCount(false)
                 .setWritesToNonManagedTablesEnabled(true)
                 .setCreatesOfNonManagedTablesEnabled(false)
                 .setPartitionStatisticsSampleSize(1234)
@@ -285,7 +286,8 @@ public class TestHiveConfig
                 .setHudiCatalogName("hudi")
                 .setAutoPurge(true)
                 .setPartitionProjectionEnabled(true)
-                .setS3StorageClassFilter(S3StorageClassFilter.READ_NON_GLACIER_AND_RESTORED);
+                .setS3StorageClassFilter(S3StorageClassFilter.READ_NON_GLACIER_AND_RESTORED)
+                .setMetadataParallelism(10);
 
         assertFullMapping(properties, expected);
     }

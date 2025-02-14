@@ -19,6 +19,7 @@ import io.airlift.bootstrap.Bootstrap;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.node.NodeInfo;
 import io.airlift.tracing.TracingModule;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
@@ -27,15 +28,18 @@ import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
-import io.opentelemetry.semconv.SemanticAttributes;
 
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static io.opentelemetry.api.common.AttributeKey.booleanKey;
 
 public class TestingTelemetry
 {
+    // This attribute was deprecated and removed from stable attributes
+    public static final AttributeKey<Boolean> EXCEPTION_ESCAPED = booleanKey("exception.escaped");
+
     private final Tracer tracer;
     private final InMemorySpanExporter spanExporter;
     private final ReentrantLock lock = new ReentrantLock();
@@ -88,7 +92,7 @@ public class TestingTelemetry
         }
         catch (Throwable t) {
             span.setStatus(StatusCode.ERROR, t.getMessage());
-            span.recordException(t, Attributes.of(SemanticAttributes.EXCEPTION_ESCAPED, true));
+            span.recordException(t, Attributes.of(EXCEPTION_ESCAPED, true));
             throw t;
         }
         finally {

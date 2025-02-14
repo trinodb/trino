@@ -120,6 +120,7 @@ for arch in "${ARCHITECTURES[@]}"; do
         "${WORK_DIR}" \
         --progress=plain \
         --pull \
+        --build-arg ARCH="${arch}" \
         --build-arg JDK_VERSION="${JDK_RELEASE}" \
         --build-arg JDK_DOWNLOAD_LINK="$(jdk_download_link "${JDKS_PATH}/${JDK_RELEASE}" "${arch}")" \
         --platform "linux/$arch" \
@@ -142,3 +143,4 @@ else
       docker image inspect -f '🚀 Built {{.RepoTags}} {{.Id}}' "${TAG_PREFIX}-$arch"
   done
 fi
+

@@ -74,6 +74,7 @@ import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
@@ -314,9 +315,12 @@ public class ServerMainModule
         // TODO: use conditional module
         TaskManagerConfig taskManagerConfig = buildConfigObject(TaskManagerConfig.class);
         if (taskManagerConfig.isThreadPerDriverSchedulerEnabled()) {
+            newExporter(binder).export(ThreadPerDriverTaskExecutor.class).withGeneratedName();
+
             binder.bind(TaskExecutor.class)
                     .to(ThreadPerDriverTaskExecutor.class)
                     .in(Scopes.SINGLETON);
+            binder.bind(ThreadPerDriverTaskExecutor.class).in(Scopes.SINGLETON);
         }
         else {
             jaxrsBinder(binder).bind(TaskExecutorResource.class);
@@ -350,13 +354,21 @@ public class ServerMainModule
 
         // exchange client
         binder.bind(DirectExchangeClientSupplier.class).to(DirectExchangeClientFactory.class).in(Scopes.SINGLETON);
+
+        InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
+
         install(internalHttpClientModule("exchange", ForExchange.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
-                    config.setMaxConnectionsPerServer(64);
                     config.setMaxContentLength(DataSize.of(32, MEGABYTE));
                     config.setMaxRequestsQueuedPerDestination(65536);
+                    if (internalCommunicationConfig.isHttp2Enabled()) {
+                        config.setMaxConnectionsPerServer(64);
+                    }
+                    else {
+                        config.setMaxConnectionsPerServer(250);
+                    }
                 }).build());
 
         configBinder(binder).bindConfig(DirectExchangeClientConfig.class);
@@ -396,6 +408,7 @@ public class ServerMainModule
         binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
         binder.bind(LanguageFunctionManager.class).in(Scopes.SINGLETON);
+        binder.bind(LanguageFunctionEngineManager.class).in(Scopes.SINGLETON);
 
         // function
         binder.bind(FunctionManager.class).in(Scopes.SINGLETON);

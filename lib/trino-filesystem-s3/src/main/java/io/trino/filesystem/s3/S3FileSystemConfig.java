@@ -26,6 +26,7 @@ import io.airlift.units.MinDataSize;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
@@ -117,6 +118,7 @@ public class S3FileSystemConfig
     private RetryMode retryMode = RetryMode.LEGACY;
     private int maxErrorRetries = 10;
     private boolean supportsExclusiveCreate = true;
+    private String applicationId = "Trino";
 
     public String getAwsAccessKey()
     {
@@ -534,6 +536,21 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setSupportsExclusiveCreate(boolean supportsExclusiveCreate)
     {
         this.supportsExclusiveCreate = supportsExclusiveCreate;
+        return this;
+    }
+
+    @Size(max = 50)
+    @NotNull
+    public String getApplicationId()
+    {
+        return applicationId;
+    }
+
+    @Config("s3.application-id")
+    @ConfigDescription("Suffix that will be added to HTTP User-Agent header to identify the application")
+    public S3FileSystemConfig setApplicationId(String applicationId)
+    {
+        this.applicationId = applicationId;
         return this;
     }
 }

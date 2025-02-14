@@ -436,11 +436,6 @@ public class TestIcebergMigrateProcedure
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private String getTableComment(String tableName)
-    {
-        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'iceberg' AND schema_name = 'tpch' AND table_name = '" + tableName + "'");
-    }
-
     private String getColumnComment(String tableName, String columnName)
     {
         return (String) computeScalar("SELECT comment FROM information_schema.columns WHERE table_catalog = 'iceberg' AND table_schema = 'tpch' AND table_name = '" + tableName + "' AND column_name = '" + columnName + "'");

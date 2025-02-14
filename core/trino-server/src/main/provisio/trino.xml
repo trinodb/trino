@@ -12,10 +12,10 @@
 
     <!-- Launcher -->
     <artifactSet to="bin">
-        <artifact id="io.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
+        <artifact id="io.airlift:launcher:tar.gz:bin:${dep.launcher.version}">
             <unpack />
         </artifact>
-        <artifact id="io.airlift:launcher:tar.gz:properties:${dep.packaging.version}">
+        <artifact id="io.airlift:launcher:tar.gz:properties:${dep.launcher.version}">
             <unpack filter="true" />
         </artifact>
     </artifactSet>
@@ -27,12 +27,20 @@
 
     <!-- Configuration Plugins -->
     <artifactSet to="secrets-plugin/keystore-secrets-plugin">
-        <artifact id="io.airlift:secrets-keystore-plugin:zip:${dep.packaging.version}">
+        <artifact id="io.airlift:secrets-keystore-plugin:zip:${dep.airlift.version}">
             <unpack />
         </artifact>
     </artifactSet>
 
     <!-- Plugins -->
+<!--
+    <artifactSet to="plugin/apache-ranger">
+        <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+-->
+
 <!--
     <artifactSet to="plugin/bigquery">
         <artifact id="${project.groupId}:trino-bigquery:zip:${project.version}">
@@ -85,6 +93,14 @@
 -->
 
 <!--
+    <artifactSet to="plugin/duckdb">
+        <artifact id="${project.groupId}:trino-duckdb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+-->
+
+<!--
     <artifactSet to="plugin/elasticsearch">
         <artifact id="${project.groupId}:trino-elasticsearch:zip:${project.version}">
             <unpack />
@@ -129,6 +145,12 @@
         </artifact>
     </artifactSet>
 -->
+
+    <artifactSet to="plugin/functions-python">
+        <artifact id="${project.groupId}:trino-functions-python:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 
     <artifactSet to="plugin/geospatial">
         <artifact id="${project.groupId}:trino-geospatial:zip:${project.version}">
@@ -218,16 +240,16 @@
 -->
 
 <!--
-    <artifactSet to="plugin/kinesis">
-        <artifact id="${project.groupId}:trino-kinesis:zip:${project.version}">
+    <artifactSet to="plugin/kudu">
+        <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
 -->
 
 <!--
-    <artifactSet to="plugin/kudu">
-        <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
+    <artifactSet to="plugin/loki">
+        <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

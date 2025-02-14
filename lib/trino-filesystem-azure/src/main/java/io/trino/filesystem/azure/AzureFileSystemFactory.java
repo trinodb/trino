@@ -20,6 +20,7 @@ import com.azure.core.util.HttpClientOptions;
 import com.azure.core.util.TracingOptions;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.TrinoFileSystem;
@@ -27,6 +28,8 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import jakarta.annotation.PreDestroy;
 import reactor.netty.resources.ConnectionProvider;
+
+import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -43,6 +46,7 @@ public class AzureFileSystemFactory
     private final TracingOptions tracingOptions;
     private final HttpClient httpClient;
     private final ConnectionProvider connectionProvider;
+    private final EventLoopGroup eventLoopGroup;
 
     @Inject
     public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
@@ -78,11 +82,11 @@ public class AzureFileSystemFactory
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
         this.connectionProvider = ConnectionProvider.create(applicationId, maxHttpRequests);
+        this.eventLoopGroup = new NioEventLoopGroup(maxHttpRequests);
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
         clientOptions.setApplicationId(applicationId);
-        clientOptions.setMaximumConnectionPoolSize(maxHttpRequests);
-        httpClient = createAzureHttpClient(connectionProvider, clientOptions);
+        httpClient = createAzureHttpClient(connectionProvider, eventLoopGroup, clientOptions);
     }
 
     @PreDestroy
@@ -90,6 +94,18 @@ public class AzureFileSystemFactory
     {
         if (connectionProvider != null) {
             connectionProvider.dispose();
+        }
+        if (eventLoopGroup != null) {
+            try {
+                eventLoopGroup.shutdownGracefully().get();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            catch (ExecutionException _) {
+                // ignored
+            }
         }
     }
 
@@ -99,20 +115,17 @@ public class AzureFileSystemFactory
         return new AzureFileSystem(httpClient, tracingOptions, auth, endpoint, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize);
     }
 
-    public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, HttpClientOptions clientOptions)
+    public static HttpClient createAzureHttpClient(ConnectionProvider connectionProvider, EventLoopGroup eventLoopGroup, HttpClientOptions clientOptions)
     {
-        Integer poolSize = clientOptions.getMaximumConnectionPoolSize();
-        int maximumConnectionPoolSize = (poolSize != null && poolSize > 0) ? poolSize : 5;
-        clientOptions.setMaximumConnectionPoolSize(maximumConnectionPoolSize);
-
         return new NettyAsyncHttpClientBuilder()
                 .proxy(clientOptions.getProxyOptions())
                 .configuration(clientOptions.getConfiguration())
                 .connectTimeout(clientOptions.getConnectTimeout())
                 .writeTimeout(clientOptions.getWriteTimeout())
                 .readTimeout(clientOptions.getReadTimeout())
+                .responseTimeout(clientOptions.getResponseTimeout())
                 .connectionProvider(connectionProvider)
-                .eventLoopGroup(new NioEventLoopGroup(maximumConnectionPoolSize)) // default is 2 * availableProcessors
+                .eventLoopGroup(eventLoopGroup)
                 .build();
     }
 }

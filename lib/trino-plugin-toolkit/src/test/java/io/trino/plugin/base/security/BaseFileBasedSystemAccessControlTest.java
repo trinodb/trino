@@ -1796,7 +1796,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
     protected SystemAccessControl newFileBasedSystemAccessControl(Map<String, String> config)
     {
-        return new FileBasedSystemAccessControl.Factory().create(config);
+        return new FileBasedSystemAccessControl.Factory().create(config, new TestingSystemAccessControlContext());
     }
 
     protected String getResourcePath(String resourceName)

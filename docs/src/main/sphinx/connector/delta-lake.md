@@ -83,12 +83,13 @@ values. Typical usage does not require you to configure them.
   - Description
   - Default
 * - `delta.metadata.cache-ttl`
-  - Frequency of checks for metadata updates equivalent to transactions to
-    update the metadata cache specified in [](prop-type-duration).
-  - `5m`
-* - `delta.metadata.cache-size`
-  - The maximum number of Delta table metadata entries to cache.
-  - `1000`
+  - Caching duration for Delta Lake tables metadata.
+  - `30m`
+* - `delta.metadata.cache-max-retained-size`
+  - Maximum retained size of Delta table metadata stored in cache. Must be
+    specified in [](prop-type-data-size) values such as `64MB`. Default is
+    calculated to 5% of the maximum memory allocated to the JVM.
+  - 
 * - `delta.metadata.live-files.cache-size`
   - Amount of memory allocated for caching information about files. Must be
     specified in [](prop-type-data-size) values such as `64MB`. Default is
@@ -107,7 +108,7 @@ values. Typical usage does not require you to configure them.
     * `GZIP`
 
     The equivalent catalog session property is `compression_codec`.
-  - `SNAPPY`
+  - `ZSTD`
 * - `delta.max-partitions-per-writer`
   - Maximum number of partitions per writer.
   - `100`
@@ -198,6 +199,10 @@ values. Typical usage does not require you to configure them.
 * - `delta.deletion-vectors-enabled`
   - Set to `true` for enabling deletion vectors by default when creating new tables.
   - `false`
+* - `delta.metadata.parallelism`
+  - Number of threads used for retrieving metadata. Currently, only table loading 
+    is parallelized.
+  - `8`
 :::
 
 ### Catalog session properties
@@ -556,7 +561,7 @@ Write operations are supported for tables stored on the following systems:
 
 - S3 and S3-compatible storage
 
-  Writes to {doc}`Amazon S3 </object-storage/legacy-s3>` and S3-compatible storage must be enabled
+  Writes to Amazon S3 and S3-compatible storage must be enabled
   with the `delta.enable-non-concurrent-writes` property. Writes to S3 can
   safely be made from multiple Trino clusters; however, write collisions are not
   detected when writing concurrently from other Delta Lake engines. You must
@@ -748,11 +753,11 @@ SELECT * FROM "test_table$history"
 ```
 
 ```text
- version |               timestamp               | user_id | user_name |  operation   |         operation_parameters          |                 cluster_id      | read_version |  isolation_level  | is_blind_append
----------+---------------------------------------+---------+-----------+--------------+---------------------------------------+---------------------------------+--------------+-------------------+----------------
-       2 | 2023-01-19 07:40:54.684 Europe/Vienna | trino   | trino     | WRITE        | {queryId=20230119_064054_00008_4vq5t} | trino-406-trino-coordinator     |            2 | WriteSerializable | true
-       1 | 2023-01-19 07:40:41.373 Europe/Vienna | trino   | trino     | ADD COLUMNS  | {queryId=20230119_064041_00007_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true
-       0 | 2023-01-19 07:40:10.497 Europe/Vienna | trino   | trino     | CREATE TABLE | {queryId=20230119_064010_00005_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true
+ version |               timestamp               | user_id | user_name |  operation   |         operation_parameters          |                 cluster_id      | read_version |  isolation_level  | is_blind_append | operation_metrics              
+---------+---------------------------------------+---------+-----------+--------------+---------------------------------------+---------------------------------+--------------+-------------------+-----------------+-------------------
+       2 | 2023-01-19 07:40:54.684 Europe/Vienna | trino   | trino     | WRITE        | {queryId=20230119_064054_00008_4vq5t} | trino-406-trino-coordinator     |            2 | WriteSerializable | true            | {}
+       1 | 2023-01-19 07:40:41.373 Europe/Vienna | trino   | trino     | ADD COLUMNS  | {queryId=20230119_064041_00007_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true            | {}
+       0 | 2023-01-19 07:40:10.497 Europe/Vienna | trino   | trino     | CREATE TABLE | {queryId=20230119_064010_00005_4vq5t} | trino-406-trino-coordinator     |            0 | WriteSerializable | true            | {}
 ```
 
 The output of the query has the following history columns:
@@ -794,7 +799,10 @@ The output of the query has the following history columns:
 * - `is_blind_append`
   - `BOOLEAN`
   - Whether or not the operation appended data
-:::
+* - `operation_metrics`
+  - `map(VARCHAR, VARCHAR)`
+  - Metrics of the operation
+  :::
 
 (delta-lake-partitions-table)=
 ##### `$partitions` table

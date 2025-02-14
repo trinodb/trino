@@ -22,7 +22,6 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -64,6 +63,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.produced;
@@ -216,6 +216,7 @@ public abstract class BaseIcebergMaterializedViewTest
                                 "   format = 'ORC',\n" +
                                 "   format_version = 2,\n" +
                                 "   location = '" + getSchemaDirectory() + "/test_mv_show_create-\\E[0-9a-f]+\\Q',\n" +
+                                "   max_commit_retry = 4,\n" +
                                 "   orc_bloom_filter_columns = ARRAY['_date'],\n" +
                                 "   orc_bloom_filter_fpp = 1E-1,\n" +
                                 "   partitioning = ARRAY['_date'],\n" +
@@ -482,7 +483,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
         // Base MV on a snapshot "in the future"
         assertUpdate("REFRESH MATERIALIZED VIEW mv_on_rolled_back_the_mv", 1);
-        assertUpdate(format("CALL system.rollback_to_snapshot(CURRENT_SCHEMA, 'mv_on_rolled_back_base_table', %s)", firstSnapshot));
+        assertUpdate(format("ALTER TABLE mv_on_rolled_back_base_table EXECUTE rollback_to_snapshot(%s)", firstSnapshot));
 
         // View still can be queried
         assertThat(query("TABLE mv_on_rolled_back_the_mv"))
@@ -532,6 +533,7 @@ public abstract class BaseIcebergMaterializedViewTest
                         "   format = 'PARQUET',\n" +
                         "   format_version = 2,\n" +
                         "   location = '" + getSchemaDirectory() + "/materialized_view_window-\\E[0-9a-f]+\\Q',\n" +
+                        "   max_commit_retry = 4,\n" +
                         "   partitioning = ARRAY['_date'],\n" +
                         "   storage_schema = '" + schema + "'\n" +
                         ") AS\n" +
@@ -1115,9 +1117,7 @@ public abstract class BaseIcebergMaterializedViewTest
     private TableMetadata getStorageTableMetadata(String materializedViewName)
     {
         QueryRunner queryRunner = getQueryRunner();
-        TrinoFileSystem fileSystemFactory = ((IcebergConnector) queryRunner.getCoordinator().getConnector("iceberg")).getInjector()
-                .getInstance(TrinoFileSystemFactory.class)
-                .create(ConnectorIdentity.ofUser("test"));
+        TrinoFileSystem fileSystemFactory = getFileSystemFactory(queryRunner).create(ConnectorIdentity.ofUser("test"));
         Location metadataLocation = Location.of(getStorageMetadataLocation(materializedViewName));
         return TableMetadataParser.read(new ForwardingFileIo(fileSystemFactory), metadataLocation.toString());
     }

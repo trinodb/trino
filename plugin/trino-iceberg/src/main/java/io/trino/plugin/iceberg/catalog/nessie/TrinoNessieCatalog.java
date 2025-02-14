@@ -64,7 +64,6 @@ import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
-import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.catalog.nessie.IcebergNessieUtil.toIdentifier;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -172,6 +171,14 @@ public class TrinoNessieCatalog
     }
 
     @Override
+    public List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace)
+    {
+        return listTables(session, namespace).stream()
+                .map(TableInfo::tableName)
+                .collect(toImmutableList());
+    }
+
+    @Override
     public Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
             ConnectorSession session,
             Optional<String> namespace,
@@ -232,8 +239,7 @@ public class TrinoNessieCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        BaseTable table = (BaseTable) loadTable(session, schemaTableName);
-        validateTableCanBeDropped(table);
+        loadTable(session, schemaTableName);
         nessieClient.dropTable(toIdentifier(schemaTableName), true);
         // The table folder may be referenced by other branches. Therefore, dropping the table should not delete the data.
         // Nessie GC tool can be used to clean up the expired data.

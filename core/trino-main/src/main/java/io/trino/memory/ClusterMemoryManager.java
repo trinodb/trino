@@ -80,6 +80,8 @@ import static io.trino.SystemSessionProperties.getQueryMaxTotalMemory;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.resourceOvercommit;
 import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.DRAINED;
+import static io.trino.metadata.NodeState.DRAINING;
 import static io.trino.metadata.NodeState.SHUTTING_DOWN;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static java.lang.Math.min;
@@ -433,6 +435,8 @@ public class ClusterMemoryManager
         Set<InternalNode> aliveNodes = builder
                 .addAll(nodeManager.getNodes(ACTIVE))
                 .addAll(nodeManager.getNodes(SHUTTING_DOWN))
+                .addAll(nodeManager.getNodes(DRAINING))
+                .addAll(nodeManager.getNodes(DRAINED))
                 .build();
 
         ImmutableSet<String> aliveNodeIds = aliveNodes.stream()

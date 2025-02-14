@@ -25,6 +25,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.types.Types.StructType;
 import org.apache.iceberg.util.StructLikeWrapper;
 import org.apache.iceberg.util.StructProjection;
 
@@ -36,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
+import static io.trino.plugin.iceberg.IcebergUtil.structTypeFromHandles;
 import static java.util.Objects.requireNonNull;
 
 public final class EqualityDeleteFilter
@@ -54,13 +55,14 @@ public final class EqualityDeleteFilter
     @Override
     public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long splitDataSequenceNumber)
     {
-        Schema fileSchema = schemaFromHandles(columns);
-        if (deleteSchema.columns().stream().anyMatch(column -> fileSchema.findField(column.fieldId()) == null)) {
+        StructType fileStructType = structTypeFromHandles(columns);
+        StructType deleteStructType = deleteSchema.asStruct();
+        if (deleteSchema.columns().stream().anyMatch(column -> fileStructType.field(column.fieldId()) == null)) {
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, "columns list doesn't contain all equality delete columns");
         }
 
-        StructLikeWrapper structLikeWrapper = StructLikeWrapper.forType(deleteSchema.asStruct());
-        StructProjection projection = StructProjection.create(fileSchema, deleteSchema);
+        StructLikeWrapper structLikeWrapper = StructLikeWrapper.forType(deleteStructType);
+        StructProjection projection = StructProjection.create(fileStructType, deleteStructType);
         Type[] types = columns.stream()
                 .map(IcebergColumnHandle::getType)
                 .toArray(Type[]::new);

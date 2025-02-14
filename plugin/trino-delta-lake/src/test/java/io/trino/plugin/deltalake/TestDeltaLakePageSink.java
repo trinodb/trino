@@ -22,8 +22,8 @@ import io.airlift.slice.Slices;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -117,7 +117,7 @@ public class TestDeltaLakePageSink
             JsonCodec<DataFileInfo> dataFileInfoCodec = new JsonCodecFactory().jsonCodec(DataFileInfo.class);
             Collection<Slice> fragments = getFutureValue(pageSink.finish());
             List<DataFileInfo> dataFileInfos = fragments.stream()
-                    .map(Slice::getBytes)
+                    .map(Slice::getInput)
                     .map(dataFileInfoCodec::fromJson)
                     .collect(toImmutableList());
 

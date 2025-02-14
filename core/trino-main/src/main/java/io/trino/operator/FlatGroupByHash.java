@@ -21,6 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.util.Arrays;
@@ -79,6 +80,29 @@ public class FlatGroupByHash
         this.currentBlockBuilders = new BlockBuilder[totalChannels];
 
         this.processDictionary = processDictionary && hashTypes.size() == 1;
+    }
+
+    public FlatGroupByHash(FlatGroupByHash other)
+    {
+        this.flatHash = other.flatHash.copy();
+        groupByChannelCount = other.groupByChannelCount;
+        hasPrecomputedHash = other.hasPrecomputedHash;
+        processDictionary = other.processDictionary;
+        dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
+        currentPageSizeInBytes = other.currentPageSizeInBytes;
+        currentBlocks = Arrays.copyOf(other.currentBlocks, other.currentBlocks.length);
+        currentBlockBuilders = Arrays.stream(other.currentBlockBuilders)
+                .map(builder -> {
+                    if (builder == null) {
+                        return null;
+                    }
+                    ValueBlock valueBlock = builder.buildValueBlock();
+                    BlockBuilder newBuilder = builder.newBlockBuilderLike(null);
+                    newBuilder.appendRange(valueBlock, 0, valueBlock.getPositionCount());
+                    return newBuilder;
+                })
+                .toArray(BlockBuilder[]::new);
+        currentHashes = other.currentHashes == null ? null : Arrays.copyOf(other.currentHashes, other.currentHashes.length);
     }
 
     public int getPhysicalPosition(int groupId)
@@ -170,6 +194,12 @@ public class FlatGroupByHash
     public int getCapacity()
     {
         return flatHash.getCapacity();
+    }
+
+    @Override
+    public GroupByHash copy()
+    {
+        return new FlatGroupByHash(this);
     }
 
     private int putIfAbsent(Block[] blocks, int position)
@@ -269,6 +299,12 @@ public class FlatGroupByHash
             Arrays.fill(processed, -1);
         }
 
+        private DictionaryLookBack(DictionaryLookBack other)
+        {
+            dictionary = other.dictionary;
+            processed = Arrays.copyOf(other.processed, other.processed.length);
+        }
+
         public Block getDictionary()
         {
             return dictionary;
@@ -295,6 +331,11 @@ public class FlatGroupByHash
                     INSTANCE_SIZE,
                     sizeOf(processed),
                     dictionary.getRetainedSizeInBytes());
+        }
+
+        public DictionaryLookBack copy()
+        {
+            return new DictionaryLookBack(this);
         }
     }
 

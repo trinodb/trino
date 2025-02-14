@@ -63,6 +63,7 @@ import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.CatalogUtil.deleteRemovedMetadataFiles;
 import static org.apache.iceberg.TableMetadataParser.getFileExtension;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION;
 import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
@@ -174,6 +175,7 @@ public abstract class AbstractIcebergTableOperations
         }
         else {
             commitToExistingTable(base, metadata);
+            deleteRemovedMetadataFiles(fileIo, base, metadata);
         }
 
         shouldRefresh = true;

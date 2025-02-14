@@ -91,6 +91,7 @@ import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.LanguageFunctionEngineManager;
 import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -357,7 +358,12 @@ public class PlanTester
                 () -> getPlannerContext().getFunctionManager());
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         TestingGroupProviderManager groupProvider = new TestingGroupProviderManager();
-        LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(sqlParser, typeManager, groupProvider, blockEncodingSerde);
+        LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(
+                sqlParser,
+                typeManager,
+                groupProvider,
+                blockEncodingSerde,
+                new LanguageFunctionEngineManager());
         TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         Metadata metadata = new MetadataManager(
                 new AllowAllAccessControl(),
@@ -372,7 +378,7 @@ public class PlanTester
         this.joinCompiler = new JoinCompiler(typeOperators);
         this.hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(hashStrategyCompiler);
-        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver);
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig(), secretsResolver, noop(), tracer, nodeManager.getCurrentNode().getNodeVersion());
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager, secretsResolver);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
@@ -463,6 +469,7 @@ public class PlanTester
                 Optional.empty(),
                 catalogFactory,
                 globalFunctionCatalog,
+                new LanguageFunctionEngineManager(),
                 new NoOpResourceGroupManager(),
                 accessControl,
                 Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig(), secretsResolver)),
@@ -738,7 +745,9 @@ public class PlanTester
                 indexManager,
                 nodePartitioningManager,
                 pageSinkManager,
-                null,
+                (_, _, _, _, _, _) -> {
+                    throw new UnsupportedOperationException();
+                },
                 expressionCompiler,
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,
@@ -746,7 +755,6 @@ public class PlanTester
                 this.taskManagerConfig,
                 new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
                 new QueryDataEncoders(new SpoolingEnabledConfig(), Set.of()),
-                Optional.empty(),
                 Optional.empty(),
                 unsupportedSingleStreamSpillerFactory(),
                 unsupportedPartitioningSpillerFactory(),

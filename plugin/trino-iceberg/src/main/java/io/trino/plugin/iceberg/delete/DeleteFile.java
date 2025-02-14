@@ -52,7 +52,7 @@ public record DeleteFile(
 
         return new DeleteFile(
                 deleteFile.content(),
-                deleteFile.path().toString(),
+                deleteFile.location(),
                 deleteFile.format(),
                 deleteFile.recordCount(),
                 deleteFile.fileSizeInBytes(),

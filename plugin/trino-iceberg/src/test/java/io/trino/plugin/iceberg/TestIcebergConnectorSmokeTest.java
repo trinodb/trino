@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
@@ -24,10 +23,9 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Optional;
 
-import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
@@ -57,11 +55,10 @@ public class TestIcebergConnectorSmokeTest
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.file-format", format.name(),
                         "iceberg.register-table-procedure.enabled", "true",
-                        "iceberg.writer-sort-buffer-size", "1MB"))
+                        "iceberg.writer-sort-buffer-size", "1MB",
+                        "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
                 .build();
-        metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                .getInstance(HiveMetastoreFactory.class)
-                .createMetastore(Optional.empty());
+        metastore = getHiveMetastore(queryRunner);
         return queryRunner;
     }
 
@@ -141,9 +138,9 @@ public class TestIcebergConnectorSmokeTest
         columns += "orderkey, custkey,  orderstatus, totalprice, orderpriority) ";
         notMatchedClause += "s.orderkey, s.custkey,  s.orderstatus, s.totalprice, s.orderpriority ";
         matchedClause += "orderkey = s.orderkey, custkey = s.custkey,  orderstatus = s.orderstatus, totalprice = t.totalprice, orderpriority = s.orderpriority ";
-        TestTable table = new TestTable(getQueryRunner()::execute, "test_merge_", tableDefinition);
+        TestTable table = newTrinoTable("test_merge_", tableDefinition);
         assertUpdate("INSERT INTO " + table.getName() + " " + columns + " " + selectQuery, 1);
-        TestTable mergeTable = new TestTable(getQueryRunner()::execute, "test_table_", tableDefinition);
+        TestTable mergeTable = newTrinoTable("test_table_", tableDefinition);
         assertUpdate("INSERT INTO " + mergeTable.getName() + " " + columns + " " + selectQuery, 1);
         assertUpdate(
                 """

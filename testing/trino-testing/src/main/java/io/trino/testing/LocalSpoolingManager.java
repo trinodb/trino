@@ -16,18 +16,17 @@ package io.trino.testing;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.errorprone.annotations.DoNotCall;
+import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
-import io.trino.client.JsonCodec;
 import io.trino.spi.Plugin;
-import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledLocation.DirectLocation;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingContext;
-import io.trino.spi.protocol.SpoolingManager;
-import io.trino.spi.protocol.SpoolingManagerContext;
-import io.trino.spi.protocol.SpoolingManagerFactory;
+import io.trino.spi.spool.SpooledLocation;
+import io.trino.spi.spool.SpooledLocation.DirectLocation;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingContext;
+import io.trino.spi.spool.SpoolingManager;
+import io.trino.spi.spool.SpoolingManagerContext;
+import io.trino.spi.spool.SpoolingManagerFactory;
 import jakarta.annotation.PreDestroy;
 
 import java.io.IOException;
@@ -41,14 +40,13 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.io.MoreFiles.deleteRecursively;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.client.JsonCodec.jsonCodec;
 import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.util.Objects.requireNonNull;
 
@@ -97,12 +95,7 @@ public class LocalSpoolingManager
     @Override
     public SpooledSegmentHandle handle(Slice identifier, Map<String, List<String>> headers)
     {
-        try {
-            return HANDLE_CODEC.fromJson(identifier.toStringUtf8());
-        }
-        catch (JsonProcessingException e) {
-            throw new UncheckedIOException(e);
-        }
+        return HANDLE_CODEC.fromJson(identifier.toStringUtf8());
     }
 
     @Override
@@ -125,7 +118,7 @@ public class LocalSpoolingManager
     }
 
     @Override
-    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle, OptionalInt ttlSeconds)
+    public Optional<DirectLocation> directLocation(SpooledSegmentHandle handle)
     {
         throw new UnsupportedOperationException();
     }

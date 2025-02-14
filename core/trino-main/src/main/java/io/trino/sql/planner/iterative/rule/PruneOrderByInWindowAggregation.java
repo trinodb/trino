@@ -62,7 +62,8 @@ public class PruneOrderByInWindowAggregation
                         function.getArguments(),
                         Optional.empty(), // prune
                         function.getFrame(),
-                        function.isIgnoreNulls());
+                        function.isIgnoreNulls(),
+                        function.isDistinct());
                 anyRewritten = true;
             }
             rewritten.put(entry.getKey(), function);

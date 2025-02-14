@@ -48,7 +48,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.metastore.glue.v1.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
+import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -100,7 +100,7 @@ public class TestIcebergGlueCatalogSkipArchive
     @Test
     public void testSkipArchive()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_skip_archive", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_skip_archive", "(col int)")) {
             List<TableVersion> tableVersionsBeforeInsert = getTableVersions(schemaName, table.getName());
             assertThat(tableVersionsBeforeInsert).hasSize(1);
             String versionIdBeforeInsert = getOnlyElement(tableVersionsBeforeInsert).getVersionId();
@@ -118,7 +118,7 @@ public class TestIcebergGlueCatalogSkipArchive
     @Test
     public void testNotRemoveExistingArchive()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_remove_archive", "(col int)")) {
+        try (TestTable table = newTrinoTable("test_remove_archive", "(col int)")) {
             List<TableVersion> tableVersionsBeforeInsert = getTableVersions(schemaName, table.getName());
             assertThat(tableVersionsBeforeInsert).hasSize(1);
             TableVersion initialVersion = getOnlyElement(tableVersionsBeforeInsert);

@@ -67,8 +67,7 @@ public class JsonPath2016Type
 
         VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
         int valuePosition = block.getUnderlyingValuePosition(position);
-        String json = valueBlock.getSlice(valuePosition).toStringUtf8();
-        return jsonPathCodec.fromJson(json);
+        return jsonPathCodec.fromJson(valueBlock.getSlice(valuePosition).getInput());
     }
 
     @Override

@@ -239,7 +239,7 @@ class PathPredicateEvaluationVisitor
                 if (result == null) {
                     return null;
                 }
-                if (TRUE.equals(result)) {
+                if (result) {
                     found = true;
                     if (lax) {
                         return TRUE;

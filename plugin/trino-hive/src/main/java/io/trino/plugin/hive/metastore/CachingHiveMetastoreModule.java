@@ -18,33 +18,22 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.hive.fs.DirectoryLister;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
-import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.cache.ImpersonationCachingConfig;
-import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache;
-import io.trino.plugin.hive.metastore.cache.SharedHiveMetastoreCache.CachingHiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.glue.GlueCache;
-import io.trino.plugin.hive.procedure.FlushMetadataCacheProcedure;
-import io.trino.spi.procedure.Procedure;
+import io.trino.metastore.HiveMetastoreFactory;
+import io.trino.metastore.RawHiveMetastoreFactory;
+import io.trino.metastore.cache.CachingHiveMetastore;
+import io.trino.metastore.cache.CachingHiveMetastoreConfig;
+import io.trino.metastore.cache.ImpersonationCachingConfig;
+import io.trino.metastore.cache.SharedHiveMetastoreCache;
+import io.trino.metastore.cache.SharedHiveMetastoreCache.CachingHiveMetastoreFactory;
 
 import java.util.Optional;
 
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class CachingHiveMetastoreModule
         extends AbstractConfigurationAwareModule
 {
-    private final boolean installFlushMetadataCacheProcedure;
-
-    public CachingHiveMetastoreModule(boolean installFlushMetadataCacheProcedure)
-    {
-        this.installFlushMetadataCacheProcedure = installFlushMetadataCacheProcedure;
-    }
-
     @Override
     protected void setup(Binder binder)
     {
@@ -55,12 +44,6 @@ public class CachingHiveMetastoreModule
         // export under the old name, for backwards compatibility
         newExporter(binder).export(HiveMetastoreFactory.class)
                 .as(generator -> generator.generatedNameOf(CachingHiveMetastore.class));
-
-        if (installFlushMetadataCacheProcedure) {
-            newOptionalBinder(binder, GlueCache.class);
-            newOptionalBinder(binder, DirectoryLister.class);
-            newSetBinder(binder, Procedure.class).addBinding().toProvider(FlushMetadataCacheProcedure.class).in(Scopes.SINGLETON);
-        }
     }
 
     @Provides

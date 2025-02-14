@@ -20,8 +20,8 @@ import io.trino.server.ExternalUriInfo;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.HostAddress;
-import io.trino.spi.protocol.SpooledSegmentHandle;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpooledSegmentHandle;
+import io.trino.spi.spool.SpoolingManager;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -36,7 +36,6 @@ import jakarta.ws.rs.core.UriInfo;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.OptionalInt;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Verify.verify;
@@ -65,7 +64,6 @@ public class CoordinatorSegmentResource
     @GET
     @Path("/download/{identifier}")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    @ResourceSecurity(PUBLIC)
     public Response download(@Context UriInfo uriInfo, @PathParam("identifier") String identifier, @Context HttpHeaders headers)
             throws IOException
     {
@@ -85,7 +83,7 @@ public class CoordinatorSegmentResource
             }
             case COORDINATOR_STORAGE_REDIRECT -> Response
                     .seeOther(spoolingManager
-                            .directLocation(handle, OptionalInt.empty()).orElseThrow(() -> new ServiceUnavailableException("Could not generate pre-signed URI"))
+                            .directLocation(handle).orElseThrow(() -> new ServiceUnavailableException("Could not generate pre-signed URI"))
                             .directUri())
                     .build();
         };
@@ -93,7 +91,6 @@ public class CoordinatorSegmentResource
 
     @GET
     @Path("/ack/{identifier}")
-    @ResourceSecurity(PUBLIC)
     public Response acknowledge(@PathParam("identifier") String identifier, @Context HttpHeaders headers)
             throws IOException
     {

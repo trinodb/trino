@@ -363,11 +363,11 @@ public class TestQuantileDigestAggregationFunction
         // Check that the chosen quantile is within the upper and lower bound of the error
         assertThat(assertions.expression(
                         format("value_at_quantile(CAST(a AS qdigest(%s)), %s) >= %s", type, percentile, lowerBound))
-                .binding("a", "X'%s'".formatted(binary.toString().replaceAll("\\s+", " "))))
+                .binding("a", "X'%s'".formatted(binary.toHexString().replaceAll("\\s+", " "))))
                 .isEqualTo(true);
         assertThat(assertions.expression(
                         format("value_at_quantile(CAST(a AS qdigest(%s)), %s) <= %s", type, percentile, upperBound))
-                .binding("a", "X'%s'".formatted(binary.toString().replaceAll("\\s+", " "))))
+                .binding("a", "X'%s'".formatted(binary.toHexString().replaceAll("\\s+", " "))))
                 .isEqualTo(true);
     }
 
@@ -384,7 +384,7 @@ public class TestQuantileDigestAggregationFunction
                                 type,
                                 ARRAY_JOINER.join(boxedPercentiles),
                                 ARRAY_JOINER.join(lowerBounds)))
-                .binding("a", "X'%s'".formatted(binary.toString().replaceAll("\\s+", " "))))
+                .binding("a", "X'%s'".formatted(binary.toHexString().replaceAll("\\s+", " "))))
                 .hasType(new ArrayType(BOOLEAN))
                 .isEqualTo(Collections.nCopies(percentiles.length, true));
 
@@ -395,7 +395,7 @@ public class TestQuantileDigestAggregationFunction
                                 type,
                                 ARRAY_JOINER.join(boxedPercentiles),
                                 ARRAY_JOINER.join(upperBounds)))
-                .binding("a", "X'%s'".formatted(binary.toString().replaceAll("\\s+", " "))))
+                .binding("a", "X'%s'".formatted(binary.toHexString().replaceAll("\\s+", " "))))
                 .hasType(new ArrayType(BOOLEAN))
                 .isEqualTo(Collections.nCopies(percentiles.length, true));
     }

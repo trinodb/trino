@@ -851,7 +851,7 @@ class StatementAnalyzer
             analyzeCheckConstraints(table, tableName, accessControlScope, tableSchema.tableSchema().getCheckConstraints());
             analysis.registerTable(table, Optional.of(handle), tableName, session.getIdentity().getUser(), accessControlScope, Optional.empty());
 
-            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of());
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(), ImmutableMultimap.of());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -1903,19 +1903,12 @@ class StatementAnalyzer
 
         private ArgumentAnalysis analyzeArgument(ArgumentSpecification argumentSpecification, TableFunctionArgument argument, Optional<Scope> scope)
         {
-            String actualType;
-            if (argument.getValue() instanceof TableFunctionTableArgument) {
-                actualType = "table";
-            }
-            else if (argument.getValue() instanceof TableFunctionDescriptorArgument) {
-                actualType = "descriptor";
-            }
-            else if (argument.getValue() instanceof Expression) {
-                actualType = "expression";
-            }
-            else {
-                throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: %s", argument.getClass().getSimpleName());
-            }
+            String actualType = switch (argument.getValue()) {
+                case TableFunctionTableArgument _ -> "table";
+                case TableFunctionDescriptorArgument _ -> "descriptor";
+                case Expression _ -> "expression";
+                default -> throw semanticException(INVALID_FUNCTION_ARGUMENT, argument, "Unexpected table function argument type: %s", argument.getClass().getSimpleName());
+            };
 
             if (argumentSpecification instanceof TableArgumentSpecification) {
                 if (!(argument.getValue() instanceof TableFunctionTableArgument)) {
@@ -3482,7 +3475,10 @@ class StatementAnalyzer
                                     sourceColumnsByColumnName.getOrDefault(column.getName(), ImmutableSet.of())))
                             .collect(toImmutableList())));
 
-            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles));
+            ImmutableMultimap.Builder<Integer, ColumnHandle> updateCaseColumnsBuilder = ImmutableMultimap.builder();
+            // Update only have one update case number which default is 0
+            updatedColumnHandles.forEach(columnHandle -> updateCaseColumnsBuilder.put(0, columnHandle));
+            createMergeAnalysis(table, handle, tableSchema, tableScope, tableScope, ImmutableList.of(updatedColumnHandles), updateCaseColumnsBuilder.build());
 
             return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -3645,12 +3641,32 @@ class StatementAnalyzer
             analysis.setUpdateTarget(targetTableHandle.catalogHandle().getVersion(), tableName, Optional.of(table), Optional.of(updatedColumns));
             List<List<ColumnHandle>> mergeCaseColumnHandles = buildCaseColumnLists(merge, dataColumnSchemas, allColumnHandles);
 
-            createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles);
+            checkArgument(
+                    mergeCaseColumnHandles.size() == merge.getMergeCases().size(),
+                    "Unexpected mergeCaseColumnHandles size: %s with merge cases size: %s", mergeCaseColumnHandles.size(), merge.getMergeCases().size());
+            ImmutableMultimap.Builder<Integer, ColumnHandle> updateCaseColumnHandles = ImmutableMultimap.builder();
+            for (int caseCounter = 0; caseCounter < merge.getMergeCases().size(); caseCounter++) {
+                MergeCase mergeCase = merge.getMergeCases().get(caseCounter);
+                if (mergeCase instanceof MergeUpdate) {
+                    for (ColumnHandle columnHandle : mergeCaseColumnHandles.get(caseCounter)) {
+                        updateCaseColumnHandles.put(caseCounter, columnHandle);
+                    }
+                }
+            }
+
+            createMergeAnalysis(table, targetTableHandle, tableSchema, targetTableScope, joinScope, mergeCaseColumnHandles, updateCaseColumnHandles.build());
 
             return createAndAssignScope(merge, Optional.empty(), Field.newUnqualified("rows", BIGINT));
         }
 
-        private void createMergeAnalysis(Table table, TableHandle handle, TableSchema tableSchema, Scope tableScope, Scope joinScope, List<List<ColumnHandle>> updatedColumns)
+        private void createMergeAnalysis(
+                Table table,
+                TableHandle handle,
+                TableSchema tableSchema,
+                Scope tableScope,
+                Scope joinScope,
+                List<List<ColumnHandle>> mergeCaseColumns,
+                Multimap<Integer, ColumnHandle> updateCaseColumns)
         {
             Optional<PartitioningHandle> updateLayout = metadata.getUpdateLayout(session, handle);
             Map<String, ColumnHandle> allColumnHandles = metadata.getColumnHandles(session, handle);
@@ -3713,7 +3729,8 @@ class StatementAnalyzer
                     dataColumnSchemas,
                     dataColumnHandles,
                     redistributionColumnHandles,
-                    updatedColumns,
+                    mergeCaseColumns,
+                    updateCaseColumns,
                     nonNullableColumnHandles,
                     columnHandleFieldNumbers,
                     mergeRowType,
@@ -3999,66 +4016,66 @@ class StatementAnalyzer
                 JsonTable jsonTable)
         {
             for (JsonTableColumnDefinition column : columns) {
-                if (column instanceof OrdinalityColumn ordinalityColumn) {
-                    String name = ordinalityColumn.getName().getCanonicalValue();
-                    if (!uniqueNames.add(name)) {
-                        throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, ordinalityColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
-                    }
-                    outputFields.add(Field.newUnqualified(name, BIGINT));
-                    orderedOutputColumns.add(NodeRef.of(ordinalityColumn));
-                }
-                else if (column instanceof ValueColumn valueColumn) {
-                    String name = valueColumn.getName().getCanonicalValue();
-                    if (!uniqueNames.add(name)) {
-                        throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, valueColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
-                    }
-                    valueColumn.getEmptyDefault().ifPresent(expression -> verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "default expression for JSON_TABLE column"));
-                    valueColumn.getErrorDefault().ifPresent(expression -> verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "default expression for JSON_TABLE column"));
-                    JsonPathAnalysis pathAnalysis = valueColumn.getJsonPath()
-                            .map(this::analyzeJsonPath)
-                            .orElseGet(() -> analyzeImplicitJsonPath(getImplicitJsonPath(name), valueColumn.getLocation()));
-                    analysis.setJsonPathAnalysis(valueColumn, pathAnalysis);
-                    TypeAndAnalysis typeAndAnalysis = analyzeJsonValueExpression(
-                            valueColumn,
-                            pathAnalysis,
-                            session,
-                            plannerContext,
-                            statementAnalyzerFactory,
-                            accessControl,
-                            enclosingScope,
-                            analysis,
-                            warningCollector,
-                            correlationSupport);
-                    // default values can contain subqueries - the subqueries are recorded under the enclosing JsonTable node
-                    analysis.recordSubqueries(jsonTable, typeAndAnalysis.analysis());
-                    outputFields.add(Field.newUnqualified(name, typeAndAnalysis.type()));
-                    orderedOutputColumns.add(NodeRef.of(valueColumn));
-                }
-                else if (column instanceof QueryColumn queryColumn) {
-                    String name = queryColumn.getName().getCanonicalValue();
-                    if (!uniqueNames.add(name)) {
-                        throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, queryColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
-                    }
-                    JsonPathAnalysis pathAnalysis = queryColumn.getJsonPath()
-                            .map(this::analyzeJsonPath)
-                            .orElseGet(() -> analyzeImplicitJsonPath(getImplicitJsonPath(name), queryColumn.getLocation()));
-                    analysis.setJsonPathAnalysis(queryColumn, pathAnalysis);
-                    Type type = analyzeJsonQueryExpression(queryColumn, session, plannerContext, statementAnalyzerFactory, accessControl, enclosingScope, analysis, warningCollector);
-                    outputFields.add(Field.newUnqualified(name, type));
-                    orderedOutputColumns.add(NodeRef.of(queryColumn));
-                }
-                else if (column instanceof NestedColumns nestedColumns) {
-                    nestedColumns.getPathName().ifPresent(name -> {
-                        if (!uniqueNames.add(name.getCanonicalValue())) {
-                            throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, name, "All column and path names in JSON_TABLE invocation must be unique");
+                switch (column) {
+                    case OrdinalityColumn ordinalityColumn -> {
+                        String name = ordinalityColumn.getName().getCanonicalValue();
+                        if (!uniqueNames.add(name)) {
+                            throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, ordinalityColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
                         }
-                    });
-                    JsonPathAnalysis pathAnalysis = analyzeJsonPath(nestedColumns.getJsonPath());
-                    analysis.setJsonPathAnalysis(nestedColumns, pathAnalysis);
-                    analyzeJsonTableColumns(nestedColumns.getColumns(), uniqueNames, outputFields, orderedOutputColumns, enclosingScope, jsonTable);
-                }
-                else {
-                    throw new IllegalArgumentException("unexpected type of JSON_TABLE column: " + column.getClass().getSimpleName());
+                        outputFields.add(Field.newUnqualified(name, BIGINT));
+                        orderedOutputColumns.add(NodeRef.of(ordinalityColumn));
+                    }
+                    case ValueColumn valueColumn -> {
+                        String name = valueColumn.getName().getCanonicalValue();
+                        if (!uniqueNames.add(name)) {
+                            throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, valueColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
+                        }
+                        valueColumn.getEmptyDefault().ifPresent(expression -> verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "default expression for JSON_TABLE column"));
+                        valueColumn.getErrorDefault().ifPresent(expression -> verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "default expression for JSON_TABLE column"));
+                        JsonPathAnalysis pathAnalysis = valueColumn.getJsonPath()
+                                .map(this::analyzeJsonPath)
+                                .orElseGet(() -> analyzeImplicitJsonPath(getImplicitJsonPath(name), valueColumn.getLocation()));
+                        analysis.setJsonPathAnalysis(valueColumn, pathAnalysis);
+                        TypeAndAnalysis typeAndAnalysis = analyzeJsonValueExpression(
+                                valueColumn,
+                                pathAnalysis,
+                                session,
+                                plannerContext,
+                                statementAnalyzerFactory,
+                                accessControl,
+                                enclosingScope,
+                                analysis,
+                                warningCollector,
+                                correlationSupport);
+                        // default values can contain subqueries - the subqueries are recorded under the enclosing JsonTable node
+                        analysis.recordSubqueries(jsonTable, typeAndAnalysis.analysis());
+                        outputFields.add(Field.newUnqualified(name, typeAndAnalysis.type()));
+                        orderedOutputColumns.add(NodeRef.of(valueColumn));
+                    }
+                    case QueryColumn queryColumn -> {
+                        String name = queryColumn.getName().getCanonicalValue();
+                        if (!uniqueNames.add(name)) {
+                            throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, queryColumn.getName(), "All column and path names in JSON_TABLE invocation must be unique");
+                        }
+                        JsonPathAnalysis pathAnalysis = queryColumn.getJsonPath()
+                                .map(this::analyzeJsonPath)
+                                .orElseGet(() -> analyzeImplicitJsonPath(getImplicitJsonPath(name), queryColumn.getLocation()));
+                        analysis.setJsonPathAnalysis(queryColumn, pathAnalysis);
+                        Type type = analyzeJsonQueryExpression(queryColumn, session, plannerContext, statementAnalyzerFactory, accessControl, enclosingScope, analysis, warningCollector);
+                        outputFields.add(Field.newUnqualified(name, type));
+                        orderedOutputColumns.add(NodeRef.of(queryColumn));
+                    }
+                    case NestedColumns nestedColumns -> {
+                        nestedColumns.getPathName().ifPresent(name -> {
+                            if (!uniqueNames.add(name.getCanonicalValue())) {
+                                throw semanticException(DUPLICATE_COLUMN_OR_PATH_NAME, name, "All column and path names in JSON_TABLE invocation must be unique");
+                            }
+                        });
+                        JsonPathAnalysis pathAnalysis = analyzeJsonPath(nestedColumns.getJsonPath());
+                        analysis.setJsonPathAnalysis(nestedColumns, pathAnalysis);
+                        analyzeJsonTableColumns(nestedColumns.getColumns(), uniqueNames, outputFields, orderedOutputColumns, enclosingScope, jsonTable);
+                    }
+                    default -> throw new IllegalArgumentException("unexpected type of JSON_TABLE column: " + column.getClass().getSimpleName());
                 }
             }
         }
@@ -4339,10 +4356,6 @@ class StatementAnalyzer
                     throw semanticException(NESTED_WINDOW, nestedWindowExpressions.getFirst(), "Cannot nest window functions or row pattern measures inside window function arguments");
                 }
 
-                if (windowFunction.isDistinct()) {
-                    throw semanticException(NOT_SUPPORTED, node, "DISTINCT in window function parameters not yet supported: %s", windowFunction);
-                }
-
                 ResolvedWindow window = analysis.getWindow(windowFunction);
                 // TODO get function requirements from window function metadata when we have it
                 String name = windowFunction.getName().toString().toLowerCase(ENGLISH);
@@ -4365,6 +4378,10 @@ class StatementAnalyzer
                 FunctionKind kind = resolvedFunction.functionKind();
                 if (kind != AGGREGATE && kind != WINDOW) {
                     throw semanticException(FUNCTION_NOT_WINDOW, node, "Not a window function: %s", windowFunction.getName());
+                }
+
+                if (windowFunction.isDistinct() && kind != AGGREGATE) {
+                    throw semanticException(NOT_SUPPORTED, node, "Only aggregation window functions with DISTINCT are supported: %s", windowFunction);
                 }
 
                 if (windowFunction.getOrderBy().isPresent() && kind != AGGREGATE) {

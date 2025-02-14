@@ -23,6 +23,7 @@ import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -144,15 +145,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
-    {
-        Span span = startSpan("getTableHandleForExecute", tableHandle);
-        try (var _ = scopedSpan(span)) {
-            return delegate.getTableHandleForExecute(session, tableHandle, procedureName, executeProperties, retryMode);
-        }
-    }
-
-    @Override
     public Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(ConnectorSession session, ConnectorAccessControl accessControl, ConnectorTableHandle tableHandle, String procedureName, Map<String, Object> executeProperties, RetryMode retryMode)
     {
         Span span = startSpan("getTableHandleForExecute", tableHandle);
@@ -207,11 +199,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public ConnectorTableHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorPartitioningHandle partitioningHandle)
+    public Optional<ConnectorTableHandle> applyPartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorPartitioningHandle> partitioningHandle, List<ColumnHandle> columns)
     {
-        Span span = startSpan("makeCompatiblePartitioning", tableHandle);
+        Span span = startSpan("applyPartitioning", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.makeCompatiblePartitioning(session, tableHandle, partitioningHandle);
+            return delegate.applyPartitioning(session, tableHandle, partitioningHandle, columns);
         }
     }
 
@@ -475,6 +467,15 @@ public class TracingConnectorMetadata
         Span span = startSpan("addColumn", tableHandle);
         try (var _ = scopedSpan(span)) {
             delegate.addColumn(session, tableHandle, column);
+        }
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
+    {
+        Span span = startSpan("addColumn", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            delegate.addColumn(session, tableHandle, column, position);
         }
     }
 
@@ -762,11 +763,11 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
     {
         Span span = startSpan("beginMerge", tableHandle);
         try (var _ = scopedSpan(span)) {
-            return delegate.beginMerge(session, tableHandle, retryMode);
+            return delegate.beginMerge(session, tableHandle, updateCaseColumns, retryMode);
         }
     }
 

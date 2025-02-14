@@ -15,8 +15,11 @@
 package io.trino.plugin.eventlistener.kafka.producer;
 
 import com.google.inject.Inject;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.instrumentation.kafkaclients.v2_6.KafkaTelemetry;
 import io.trino.plugin.eventlistener.kafka.KafkaEventListenerConfig;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
 
 import java.util.Map;
 
@@ -26,17 +29,20 @@ public class PlaintextKafkaProducerFactory
         extends BaseKafkaProducerFactory
 {
     private final KafkaEventListenerConfig config;
+    private final KafkaTelemetry kafkaTelemetry;
 
     @Inject
-    public PlaintextKafkaProducerFactory(KafkaEventListenerConfig config)
+    public PlaintextKafkaProducerFactory(KafkaEventListenerConfig config, OpenTelemetry openTelemetry)
     {
         this.config = requireNonNull(config, "config is null");
+        this.kafkaTelemetry = KafkaTelemetry.builder(requireNonNull(openTelemetry, "openTelemetry is null"))
+                .build();
     }
 
     @Override
-    public KafkaProducer<String, String> producer(Map<String, String> overrides)
+    public Producer<String, String> producer(Map<String, String> overrides)
     {
-        return new KafkaProducer<>(createKafkaClientConfig(config, overrides));
+        return kafkaTelemetry.wrap(new KafkaProducer<>(createKafkaClientConfig(config, overrides)));
     }
 
     private Map<String, Object> createKafkaClientConfig(KafkaEventListenerConfig config, Map<String, String> kafkaClientOverrides)
