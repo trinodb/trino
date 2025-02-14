@@ -34,11 +34,15 @@ public abstract sealed class PrimitiveWriter<V extends ValueVector>
     {
         initialize(block);
         vector.setValueCount(block.getPositionCount());
+
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (block.isNull(position)) {
                 setNull(position);
             }
-            else {
+        }
+
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (!block.isNull(position)) {
                 writeValue(block, position);
             }
         }

@@ -81,6 +81,7 @@ public final class TpchQueryRunner
                         .put("sql.default-catalog", "tpch")
                         .put("sql.default-schema", "tiny")
                         .put("protocol.spooling.encoding.arrow+zstd.enabled", "true")
+                        .put("protocol.spooling.encoding.arrow.enabled", "true")
                         .buildOrThrow())
                 .withProtocolSpooling("arrow+zstd")
                 .withTracing()

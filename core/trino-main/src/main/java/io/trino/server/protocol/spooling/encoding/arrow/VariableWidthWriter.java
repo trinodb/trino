@@ -30,6 +30,6 @@ public abstract sealed class VariableWidthWriter<V extends VariableWidthVector>
     @Override
     protected void initialize(Block block)
     {
-        vector.allocateNew(block.getRetainedSizeInBytes(), block.getPositionCount());
+        vector.allocateNew(block.getSizeInBytes(), block.getPositionCount());
     }
 }
