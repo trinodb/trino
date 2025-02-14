@@ -61,6 +61,7 @@ import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.server.security.oauth2.OAuth2Client;
+import io.trino.server.tracing.DynamicTracingModule;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.transaction.TransactionManagerModule;
 import io.trino.util.EmbedVersion;
@@ -116,6 +117,7 @@ public class Server
                 new JmxOpenMetricsModule(),
                 new LogJmxModule(),
                 new TracingModule("trino", trinoVersion),
+                new DynamicTracingModule(),
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
