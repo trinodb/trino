@@ -129,7 +129,7 @@ public class ParquetWriter
             Optional<ParquetWriteValidationBuilder> validationBuilder)
     {
         this.validationBuilder = requireNonNull(validationBuilder, "validationBuilder is null");
-        this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
+        this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputStream is null"));
         this.messageType = requireNonNull(messageType, "messageType is null");
         this.primitiveTypes = requireNonNull(primitiveTypes, "primitiveTypes is null");
         this.writerOption = requireNonNull(writerOption, "writerOption is null");
