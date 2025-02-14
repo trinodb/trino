@@ -126,7 +126,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_NO_SUCH_TABLE;
 import static com.mysql.cj.exceptions.MysqlErrorNumbers.ER_TABLE_EXISTS_ERROR;
@@ -177,7 +179,9 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.mysql.MySqlTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -474,8 +478,33 @@ public class MySqlClient
     @Override
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
-        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
+        ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
+        columnDefinitions.addAll(columns);
+
+        List<String> primaryKeys = MySqlTableProperties.getPrimaryKey(tableMetadata.getProperties());
+        if (!primaryKeys.isEmpty()) {
+            verifyPrimaryKey(primaryKeys, tableMetadata.getColumns());
+            columnDefinitions.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
+        }
+        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columnDefinitions.build()), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
+    }
+
+    private static void verifyPrimaryKey(List<String> primaryKeys, List<ColumnMetadata> columns)
+    {
+        Set<String> columnNames = columns.stream()
+                .map(column -> {
+                    String columnName = column.getName();
+                    if (primaryKeys.contains(columnName) && column.isNullable()) {
+                        throw new TrinoException(NOT_SUPPORTED, "Primary key must be NOT NULL in MySQL");
+                    }
+                    return columnName;
+                })
+                .collect(toImmutableSet());
+        for (String primaryKey : primaryKeys) {
+            if (!columnNames.contains(primaryKey)) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Column '%s' specified in property '%s' doesn't exist in table", primaryKey, PRIMARY_KEY_PROPERTY));
+            }
+        }
     }
 
     // This is overridden to pass NULL to MySQL for TIMESTAMP column types
@@ -1021,6 +1050,19 @@ public class MySqlClient
     public boolean supportsMerge()
     {
         return true;
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        List<String> primaryKeys = getPrimaryKeys(session, tableHandle.getRequiredNamedRelation().getRemoteTableName()).stream()
+                .map(JdbcColumnHandle::getColumnName)
+                .collect(toImmutableList());
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        if (!primaryKeys.isEmpty()) {
+            properties.put(PRIMARY_KEY_PROPERTY, primaryKeys);
+        }
+        return properties.buildOrThrow();
     }
 
     @Override
