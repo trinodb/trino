@@ -54,7 +54,7 @@ public class TestHiveAlluxioCacheFileOperations
         closeAfterClass(() -> deleteRecursively(metastoreDirectory, ALLOW_INSECURE));
 
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
-                .put("fs.cache.enabled", "true")
+                .put("fs.cache.type", "LOCAL_CACHE")
                 .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
                 .put("fs.cache.max-sizes", "100MB")
                 .put("hive.metastore", "file")
