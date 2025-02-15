@@ -95,11 +95,6 @@ public sealed interface Block
     void retainedBytesForEachPart(ObjLongConsumer<Object> consumer);
 
     /**
-     * Get the encoding for this block.
-     */
-    String getEncodingName();
-
-    /**
      * Create a new block from the current block by keeping the same elements only with respect
      * to {@code positions} that starts at {@code offset} and has length of {@code length}. The
      * implementation may return a view over the data in this block or may return a copy, and the

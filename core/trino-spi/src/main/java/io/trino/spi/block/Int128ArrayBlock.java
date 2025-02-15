@@ -216,12 +216,6 @@ public final class Int128ArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return Int128ArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public Int128ArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, positionOffset, positionCount);

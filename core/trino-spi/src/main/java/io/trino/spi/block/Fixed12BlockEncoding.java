@@ -31,6 +31,12 @@ public class Fixed12BlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return Fixed12Block.class;
+    }
+
+    @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         Fixed12Block fixed12Block = (Fixed12Block) block;

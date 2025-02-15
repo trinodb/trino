@@ -198,12 +198,6 @@ public final class LongArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return LongArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public LongArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);

@@ -279,12 +279,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return DictionaryBlockEncoding.NAME;
-    }
-
-    @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
