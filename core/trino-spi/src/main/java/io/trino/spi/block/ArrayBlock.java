@@ -193,12 +193,6 @@ public final class ArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return ArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public boolean mayHaveNull()
     {
         return valueIsNull != null;

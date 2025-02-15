@@ -282,12 +282,6 @@ public final class VariableWidthBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return VariableWidthBlockEncoding.NAME;
-    }
-
-    @Override
     public VariableWidthBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);

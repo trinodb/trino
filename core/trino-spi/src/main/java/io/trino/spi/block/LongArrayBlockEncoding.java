@@ -33,6 +33,12 @@ public class LongArrayBlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return LongArrayBlock.class;
+    }
+
+    @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         LongArrayBlock longArrayBlock = (LongArrayBlock) block;

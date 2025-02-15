@@ -114,12 +114,6 @@ public final class LazyBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return LazyBlockEncoding.NAME;
-    }
-
-    @Override
     public Block copyWithAppendedNull()
     {
         throw new UnsupportedOperationException("LazyBlock does not support newBlockWithAppendedNull()");
