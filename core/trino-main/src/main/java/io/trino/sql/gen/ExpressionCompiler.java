@@ -50,7 +50,7 @@ public class ExpressionCompiler
         this.columnarFilterCompiler = requireNonNull(columnarFilterCompiler, "columnarFilterCompiler is null");
     }
 
-    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
+    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<RowExpression> projections, Object uniqueKey)
     {
         return cursorProcessorCompiler.compileCursorProcessor(filter, projections, uniqueKey);
     }

@@ -57,7 +57,6 @@ import org.weakref.jmx.Nested;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -98,7 +97,7 @@ public class CursorProcessorCompiler
         this.cursorProcessors = buildNonEvictableCache(CacheBuilder.newBuilder()
                         .recordStats()
                         .maximumSize(1000),
-                CacheLoader.from(key -> compile(key.getFilter(), key.getProjections())));
+                CacheLoader.from(key -> compile(key.filter(), key.projections())));
         this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
 
@@ -109,7 +108,7 @@ public class CursorProcessorCompiler
         return cacheStatsMBean;
     }
 
-    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
+    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<RowExpression> projections, Object uniqueKey)
     {
         Class<? extends CursorProcessor> cursorProcessor;
         try {
@@ -474,58 +473,11 @@ public class CursorProcessorCompiler
                 .retObject();
     }
 
-    private static final class CacheKey
+    private record CacheKey(Optional<RowExpression> filter, List<RowExpression> projections, Object uniqueKey)
     {
-        private final Optional<RowExpression> filter;
-        private final List<RowExpression> projections;
-        private final Object uniqueKey;
-
-        private CacheKey(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
+        CacheKey
         {
-            this.filter = filter;
-            this.uniqueKey = uniqueKey;
-            this.projections = ImmutableList.copyOf(projections);
-        }
-
-        private Optional<RowExpression> getFilter()
-        {
-            return filter;
-        }
-
-        private List<RowExpression> getProjections()
-        {
-            return projections;
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(filter, projections, uniqueKey);
-        }
-
-        @Override
-        public boolean equals(Object obj)
-        {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null || getClass() != obj.getClass()) {
-                return false;
-            }
-            CacheKey other = (CacheKey) obj;
-            return Objects.equals(this.filter, other.filter) &&
-                   Objects.equals(this.projections, other.projections) &&
-                   Objects.equals(this.uniqueKey, other.uniqueKey);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("filter", filter)
-                    .add("projections", projections)
-                    .add("uniqueKey", uniqueKey)
-                    .toString();
+            projections = ImmutableList.copyOf(requireNonNull(projections, "projections is null"));
         }
     }
 }
