@@ -6,6 +6,6 @@ property or the corresponding `non_transactional_merge_enabled` catalog session
 property is set to `true`. Merge is only supported for directly modifying target
 tables.
 
-In rare cases, expections occur during the merge operation, potentially
+In rare cases, exceptions may occur during the merge operation, potentially
 resulting in a partial update.
 
