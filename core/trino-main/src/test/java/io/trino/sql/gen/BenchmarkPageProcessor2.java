@@ -70,13 +70,14 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(10)
-@Warmup(iterations = 10)
-@Measurement(iterations = 10)
+@Fork(5)
+@Warmup(iterations = 10, time = 500, timeUnit = MILLISECONDS)
+@Measurement(iterations = 10, time = 500, timeUnit = MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkPageProcessor2
 {
