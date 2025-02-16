@@ -102,7 +102,7 @@ public class BenchmarkPageProcessor2
     private RecordSet recordSet;
     private List<Type> types;
 
-    @Param({"2", "4", "8", "16", "32"})
+    @Param({"2", "4", "8", "16", "32", "1024", "4000"})
     int columnCount;
 
     @Param({"varchar", "bigint"})
@@ -204,7 +204,7 @@ public class BenchmarkPageProcessor2
     void testBenchmark()
     {
         BenchmarkPageProcessor2 benchmark = new BenchmarkPageProcessor2();
-        for (int columnCount : ImmutableList.of(2, 4, 8, 16, 32)) {
+        for (int columnCount : ImmutableList.of(2, 4, 8, 16, 32, 1024, 4000)) {
             benchmark.columnCount = columnCount;
 
             for (boolean dictionaryBlocks : ImmutableList.of(true, false)) {
