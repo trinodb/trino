@@ -341,6 +341,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-io</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.gaul</groupId>
             <artifactId>modernizer-maven-annotations</artifactId>
         </dependency>

@@ -101,6 +101,7 @@ import io.trino.operator.scalar.json.JsonValueFunction;
 import io.trino.server.PluginManager.PluginsProvider;
 import io.trino.server.SliceSerialization.SliceDeserializer;
 import io.trino.server.SliceSerialization.SliceSerializer;
+import io.trino.server.jetty.ConcurrentRetainableBufferPool;
 import io.trino.server.protocol.PreparedStatementEncoder;
 import io.trino.server.protocol.spooling.SpoolingServerModule;
 import io.trino.server.remotetask.HttpLocationFactory;
@@ -156,6 +157,7 @@ import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
+import org.eclipse.jetty.io.ByteBufferPool;
 
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -254,6 +256,10 @@ public class ServerMainModule
         binder.bind(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DiscoveryNodeManager.class).withGeneratedName();
+
+        if (serverConfig.isProprietaryHttpBufferPool()) {
+            newOptionalBinder(binder, ByteBufferPool.class).setDefault().to(ConcurrentRetainableBufferPool.class).asEagerSingleton();
+        }
         install(internalHttpClientModule("node-manager", ForNodeManager.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
