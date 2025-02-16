@@ -126,14 +126,15 @@ public class BenchmarkPageProcessor2
         types = projections.stream().map(RowExpression::type).collect(toList());
 
         FunctionManager functionManager = createTestingFunctionManager();
+        CursorProcessorCompiler cursorProcessorCompiler = new CursorProcessorCompiler(functionManager);
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
         ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(functionManager, 0);
 
         inputPage = createPage(types, dictionaryBlocks);
-        pageProcessor = new ExpressionCompiler(functionManager, pageFunctionCompiler, columnarFilterCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+        pageProcessor = new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, columnarFilterCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
 
         recordSet = new PageRecordSet(types, inputPage);
-        cursorProcessor = new ExpressionCompiler(functionManager, pageFunctionCompiler, columnarFilterCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+        cursorProcessor = new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, columnarFilterCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
     }
 
     @Benchmark

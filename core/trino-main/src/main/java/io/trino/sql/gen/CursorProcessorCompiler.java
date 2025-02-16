@@ -13,9 +13,13 @@
  */
 package io.trino.sql.gen;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -27,10 +31,14 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.WhileLoop;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
+import io.trino.cache.CacheStatsMBean;
+import io.trino.cache.NonEvictableLoadingCache;
 import io.trino.metadata.FunctionManager;
 import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.CursorProcessorOutput;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -44,11 +52,19 @@ import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.RowExpressionVisitor;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.sql.relational.VariableReferenceExpression;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
@@ -57,22 +73,95 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.sql.gen.BytecodeUtils.generateWrite;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static io.trino.sql.gen.LambdaExpressionExtractor.extractLambdaExpressions;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.makeClassName;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 public class CursorProcessorCompiler
-        implements BodyCompiler
 {
     private final FunctionManager functionManager;
 
+    private final NonEvictableLoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
+    private final CacheStatsMBean cacheStatsMBean;
+
+    @Inject
     public CursorProcessorCompiler(FunctionManager functionManager)
     {
-        this.functionManager = functionManager;
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
+        this.cursorProcessors = buildNonEvictableCache(CacheBuilder.newBuilder()
+                        .recordStats()
+                        .maximumSize(1000),
+                CacheLoader.from(key -> compile(key.getFilter(), key.getProjections())));
+        this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
 
-    @Override
-    public void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
+    @Managed
+    @Nested
+    public CacheStatsMBean getCursorProcessorCache()
+    {
+        return cacheStatsMBean;
+    }
+
+    public Supplier<CursorProcessor> compileCursorProcessor(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
+    {
+        Class<? extends CursorProcessor> cursorProcessor;
+        try {
+            cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw e;
+        }
+
+        return () -> {
+            try {
+                return cursorProcessor.getConstructor().newInstance();
+            }
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        };
+    }
+
+    private Class<? extends CursorProcessor> compile(Optional<RowExpression> filter, List<RowExpression> projections)
+    {
+        // create filter and project page iterator class
+        return compileProcessor(filter.orElse(constant(true, BOOLEAN)), projections);
+    }
+
+    private Class<? extends CursorProcessor> compileProcessor(RowExpression filter, List<RowExpression> projections)
+    {
+        ClassDefinition classDefinition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName(CursorProcessor.class.getSimpleName()),
+                type(Object.class),
+                type(CursorProcessor.class));
+
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
+        generateMethods(classDefinition, callSiteBinder, filter, projections);
+
+        //
+        // toString method
+        //
+        generateToString(
+                classDefinition,
+                callSiteBinder,
+                toStringHelper(classDefinition.getType().getJavaClassName())
+                        .add("filter", filter)
+                        .add("projections", projections)
+                        .toString());
+
+        return defineClass(classDefinition, CursorProcessor.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+    }
+
+    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
@@ -374,5 +463,69 @@ public class CursorProcessorCompiler
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+    private static void generateToString(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, String string)
+    {
+        // bind constant via invokedynamic to avoid constant pool issues due to large strings
+        classDefinition.declareMethod(a(PUBLIC), "toString", type(String.class))
+                .getBody()
+                .append(invoke(callSiteBinder.bind(string, String.class), "toString"))
+                .retObject();
+    }
+
+    private static final class CacheKey
+    {
+        private final Optional<RowExpression> filter;
+        private final List<RowExpression> projections;
+        private final Object uniqueKey;
+
+        private CacheKey(Optional<RowExpression> filter, List<? extends RowExpression> projections, Object uniqueKey)
+        {
+            this.filter = filter;
+            this.uniqueKey = uniqueKey;
+            this.projections = ImmutableList.copyOf(projections);
+        }
+
+        private Optional<RowExpression> getFilter()
+        {
+            return filter;
+        }
+
+        private List<RowExpression> getProjections()
+        {
+            return projections;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(filter, projections, uniqueKey);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            CacheKey other = (CacheKey) obj;
+            return Objects.equals(this.filter, other.filter) &&
+                   Objects.equals(this.projections, other.projections) &&
+                   Objects.equals(this.uniqueKey, other.uniqueKey);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("filter", filter)
+                    .add("projections", projections)
+                    .add("uniqueKey", uniqueKey)
+                    .toString();
+        }
     }
 }
