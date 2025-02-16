@@ -41,6 +41,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
 import io.trino.transaction.TestingTransactionManager;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -64,12 +65,10 @@ import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.ir.Comparison.Operator.EQUAL;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 
@@ -118,7 +117,7 @@ public class BenchmarkPageProcessor2
         Type type = TYPE_MAP.get(this.type);
 
         for (int i = 0; i < columnCount; i++) {
-            Symbol symbol = new Symbol(UNKNOWN, type.getDisplayName().toLowerCase(ENGLISH) + i);
+            Symbol symbol = new Symbol(type, type.getDisplayName().toLowerCase(ENGLISH) + i);
             sourceLayout.put(symbol, i);
         }
 
@@ -158,10 +157,10 @@ public class BenchmarkPageProcessor2
     private RowExpression getFilter(Type type)
     {
         if (type == VARCHAR) {
-            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)));
+            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Cast(new Reference(VARCHAR, "varchar0"), BIGINT), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)));
         }
         if (type == BIGINT) {
-            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(INTEGER, "bigint0"), new Constant(INTEGER, 2L))), new Constant(INTEGER, 0L)));
+            return rowExpression(new Comparison(EQUAL, new Call(MODULUS_BIGINT, ImmutableList.of(new Reference(BIGINT, "bigint0"), new Constant(BIGINT, 2L))), new Constant(BIGINT, 0L)));
         }
         throw new IllegalArgumentException("filter not supported for type : " + type);
     }
@@ -199,6 +198,27 @@ public class BenchmarkPageProcessor2
             return SequencePageBuilder.createSequencePageWithDictionaryBlocks(types, POSITIONS);
         }
         return SequencePageBuilder.createSequencePage(types, POSITIONS);
+    }
+
+    @Test
+    void testBenchmark()
+    {
+        BenchmarkPageProcessor2 benchmark = new BenchmarkPageProcessor2();
+        for (int columnCount : ImmutableList.of(2, 4, 8, 16, 32)) {
+            benchmark.columnCount = columnCount;
+
+            for (boolean dictionaryBlocks : ImmutableList.of(true, false)) {
+                benchmark.dictionaryBlocks = dictionaryBlocks;
+
+                for (String type : ImmutableList.of("varchar", "bigint")) {
+                    benchmark.type = type;
+
+                    benchmark.setup();
+                    benchmark.rowOriented();
+                    benchmark.columnOriented();
+                }
+            }
+        }
     }
 
     public static void main(String[] args)
