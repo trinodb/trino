@@ -19,14 +19,15 @@ import com.google.common.net.HostAndPort;
 import io.airlift.configuration.testing.ConfigAssertions;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPinotConfig
 {
@@ -93,12 +94,13 @@ public class TestPinotConfig
     @Test
     public void testInvalidCountDistinctPushdown()
     {
-        assertThatThrownBy(() -> new PinotConfig()
-                .setAggregationPushdownEnabled(false)
-                .setCountDistinctPushdownEnabled(true)
-                .validate())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+        assertFailsValidation(
+                new PinotConfig()
+                        .setAggregationPushdownEnabled(false)
+                        .setCountDistinctPushdownEnabled(true),
+                "validConfiguration",
+                "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled",
+                AssertTrue.class);
     }
 
     @Test
