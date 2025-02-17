@@ -390,19 +390,19 @@ public class BigQueryConfig
         return viewExpireDuration.toMillis() > viewsCacheTtl.toMillis();
     }
 
-    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when skipping view materialization")
+    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.skip-view-materialization is enabled")
     public boolean isValidViewsWehnEnabledSkipViewMaterialization()
     {
         return !skipViewMaterialization || viewsEnabled;
     }
 
-    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when view materialization with filter is enabled")
+    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.view-materialization-with-filter is enabled")
     public boolean isValidViewsEnableWhenViewMaterializationWithFilter()
     {
         return !viewMaterializationWithFilter || viewsEnabled;
     }
 
-    @AssertTrue(message = "bigquery.case-insensitive-name-matching config must be enabled when case insensitive name matching cache TTL is set")
+    @AssertTrue(message = "bigquery.case-insensitive-name-matching config must be enabled when bigquery.case-insensitive-name-matching.cache-ttl is set")
     public boolean isValidCaseInsensitiveNameMatchingCacheTtl()
     {
         return caseInsensitiveNameMatchingCacheTtl.isZero() || caseInsensitiveNameMatching;
