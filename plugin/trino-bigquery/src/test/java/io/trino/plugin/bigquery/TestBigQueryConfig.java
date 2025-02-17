@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -22,11 +23,11 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestBigQueryConfig
 {
@@ -119,32 +120,36 @@ public class TestBigQueryConfig
     @Test
     public void testInvalidViewSetting()
     {
-        assertThatThrownBy(() -> new BigQueryConfig()
-                .setViewExpireDuration(new Duration(5, MINUTES))
-                .setViewsCacheTtl(new Duration(10, MINUTES))
-                .validate())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("View expiration duration must be longer than view cache TTL");
+        assertFailsValidation(
+                new BigQueryConfig()
+                        .setViewExpireDuration(new Duration(5, MINUTES))
+                        .setViewsCacheTtl(new Duration(10, MINUTES)),
+                "validViewExpireDuration",
+                "View expiration duration must be longer than view cache TTL",
+                AssertTrue.class);
 
-        assertThatThrownBy(() -> new BigQueryConfig()
-                .setSkipViewMaterialization(true)
-                .setViewsEnabled(false)
-                .validate())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("bigquery.views-enabled config property must be enabled when skipping view materialization");
+        assertFailsValidation(
+                new BigQueryConfig()
+                        .setSkipViewMaterialization(true)
+                        .setViewsEnabled(false),
+                "validViewsWehnEnabledSkipViewMaterialization",
+                "bigquery.views-enabled config property must be enabled when skipping view materialization",
+                AssertTrue.class);
 
-        assertThatThrownBy(() -> new BigQueryConfig()
-                .setViewMaterializationWithFilter(true)
-                .setViewsEnabled(false)
-                .validate())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("bigquery.views-enabled config property must be enabled when view materialization with filter is enabled");
+        assertFailsValidation(
+                new BigQueryConfig()
+                        .setViewMaterializationWithFilter(true)
+                        .setViewsEnabled(false),
+                "validViewsEnableWhenViewMaterializationWithFilter",
+                "bigquery.views-enabled config property must be enabled when view materialization with filter is enabled",
+                AssertTrue.class);
 
-        assertThatThrownBy(() -> new BigQueryConfig()
-                .setCaseInsensitiveNameMatching(false)
-                .setCaseInsensitiveNameMatchingCacheTtl(new Duration(30, MINUTES))
-                .validate())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("bigquery.case-insensitive-name-matching config must be enabled when case insensitive name matching cache TTL is set");
+        assertFailsValidation(
+                new BigQueryConfig()
+                        .setCaseInsensitiveNameMatching(false)
+                        .setCaseInsensitiveNameMatchingCacheTtl(new Duration(30, MINUTES)),
+                "validCaseInsensitiveNameMatchingCacheTtl",
+                "bigquery.case-insensitive-name-matching config must be enabled when case insensitive name matching cache TTL is set",
+                AssertTrue.class);
     }
 }
