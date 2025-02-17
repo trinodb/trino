@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -78,7 +77,6 @@ class StatementClientV1
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
-    private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
 
     private final Call.Factory httpCallFactory;
     private final String query;
@@ -136,7 +134,7 @@ class StatementClientV1
         Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
         // to avoid losing the response body if the initial response parsing fails
-        executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
+        executeRequest(request, "starting query", this::isTransient);
     }
 
     private Request buildQueryRequest(ClientSession session, String query, Optional<String> requestedEncoding)
@@ -387,10 +385,10 @@ class StatementClientV1
         }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
-        return executeRequest(request, "fetching next", OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE), (e) -> true);
+        return executeRequest(request, "fetching next", (e) -> true);
     }
 
-    private boolean executeRequest(Request request, String taskName, OptionalLong materializedJsonSizeLimit, Function<Exception, Boolean> isRetryable)
+    private boolean executeRequest(Request request, String taskName, Function<Exception, Boolean> isRetryable)
     {
         Exception cause = null;
         long start = System.nanoTime();
@@ -427,7 +425,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, materializedJsonSizeLimit);
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request);
             }
             catch (RuntimeException e) {
                 if (!isRetryable.apply(e)) {
