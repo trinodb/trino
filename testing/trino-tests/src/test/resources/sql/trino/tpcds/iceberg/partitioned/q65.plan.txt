@@ -4,12 +4,12 @@ local exchange (GATHER, SINGLE, [])
             local exchange (REPARTITION, ROUND_ROBIN, [])
                 join (INNER, REPLICATED):
                     join (INNER, REPLICATED):
-                        final aggregation over (ss_item_sk_7, ss_store_sk_12)
+                        final aggregation over (ss_item_sk_10, ss_store_sk_15)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [ss_item_sk_7, ss_store_sk_12])
-                                    partial aggregation over (ss_item_sk_7, ss_store_sk_12)
+                                remote exchange (REPARTITION, HASH, [ss_item_sk_10, ss_store_sk_15])
+                                    partial aggregation over (ss_item_sk_10, ss_store_sk_15)
                                         join (INNER, REPLICATED):
-                                            dynamic filter (ss_item_sk_7::EQUAL, ss_sold_date_sk_28::EQUAL, ss_store_sk_12::EQUAL)
+                                            dynamic filter (ss_item_sk_10::EQUAL, ss_sold_date_sk_31::EQUAL, ss_store_sk_15::EQUAL)
                                                 scan store_sales
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])

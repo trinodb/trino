@@ -46,6 +46,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeManager;
 import jakarta.annotation.Nullable;
+import org.apache.iceberg.BaseFileScanTask;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.FileScanTask;
@@ -99,6 +100,7 @@ import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
@@ -143,6 +145,7 @@ public class IcebergSplitSource
     private final double minimumAssignedSplitWeight;
     private final Set<Integer> projectedBaseColumns;
     private final TupleDomain<IcebergColumnHandle> dataColumnPredicate;
+    private final Domain partitionDomain;
     private final Domain pathDomain;
     private final Domain fileModifiedTimeDomain;
     private final OptionalLong limit;
@@ -207,6 +210,7 @@ public class IcebergSplitSource
                 .map(column -> column.getBaseColumnIdentity().getId())
                 .collect(toImmutableSet());
         this.dataColumnPredicate = tableHandle.getEnforcedPredicate().filter((column, domain) -> !isMetadataColumnId(column.getId()));
+        this.partitionDomain = getPartitionDomain(tableHandle.getEnforcedPredicate());
         this.pathDomain = getPathDomain(tableHandle.getEnforcedPredicate());
         checkArgument(
                 tableHandle.getUnenforcedPredicate().isAll() || tableHandle.getLimit().isEmpty(),
@@ -334,7 +338,7 @@ public class IcebergSplitSource
                 // OPTIMIZE supports only enforced predicates which select whole partitions, so if there is no path or fileModifiedTime predicate, then we can clean up position deletes
                 List<org.apache.iceberg.DeleteFile> fullyAppliedDeletes = wholeFileTask.deletes().stream()
                         .filter(deleteFile -> switch (deleteFile.content()) {
-                            case POSITION_DELETES -> pathDomain.isAll() && fileModifiedTimeDomain.isAll();
+                            case POSITION_DELETES -> partitionDomain.isAll() && pathDomain.isAll() && fileModifiedTimeDomain.isAll();
                             case EQUALITY_DELETES -> tableHandle.getEnforcedPredicate().isAll();
                             case DATA -> throw new IllegalStateException("Unexpected delete file: " + deleteFile);
                         })
@@ -403,13 +407,19 @@ public class IcebergSplitSource
 
     private synchronized boolean pruneFileScanTask(FileScanTaskWithDomain fileScanTaskWithDomain, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
     {
-        FileScanTask fileScanTask = fileScanTaskWithDomain.fileScanTask();
+        BaseFileScanTask fileScanTask = (BaseFileScanTask) fileScanTaskWithDomain.fileScanTask();
         if (fileHasNoDeletions &&
                 maxScannedFileSizeInBytes.isPresent() &&
                 fileScanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
             return true;
         }
 
+        if (!partitionDomain.isAll()) {
+            String partition = fileScanTask.spec().partitionToPath(fileScanTask.partition());
+            if (!partitionDomain.includesNullableValue(utf8Slice(partition))) {
+                return true;
+            }
+        }
         if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().location()))) {
             return true;
         }
