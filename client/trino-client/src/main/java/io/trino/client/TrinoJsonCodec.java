@@ -27,7 +27,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.util.function.Supplier;
@@ -114,7 +114,7 @@ public class TrinoJsonCodec<T>
         }
     }
 
-    public T fromJson(InputStreamReader inputReader)
+    public T fromJson(Reader inputReader)
             throws IOException
     {
         try (JsonParser parser = mapper.createParser(inputReader)) {
