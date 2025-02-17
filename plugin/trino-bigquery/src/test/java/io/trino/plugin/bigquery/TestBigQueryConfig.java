@@ -133,7 +133,7 @@ public class TestBigQueryConfig
                         .setSkipViewMaterialization(true)
                         .setViewsEnabled(false),
                 "validViewsWehnEnabledSkipViewMaterialization",
-                "bigquery.views-enabled config property must be enabled when skipping view materialization",
+                "bigquery.views-enabled config property must be enabled when bigquery.skip-view-materialization is enabled",
                 AssertTrue.class);
 
         assertFailsValidation(
@@ -141,7 +141,7 @@ public class TestBigQueryConfig
                         .setViewMaterializationWithFilter(true)
                         .setViewsEnabled(false),
                 "validViewsEnableWhenViewMaterializationWithFilter",
-                "bigquery.views-enabled config property must be enabled when view materialization with filter is enabled",
+                "bigquery.views-enabled config property must be enabled when bigquery.view-materialization-with-filter is enabled",
                 AssertTrue.class);
 
         assertFailsValidation(
@@ -149,7 +149,7 @@ public class TestBigQueryConfig
                         .setCaseInsensitiveNameMatching(false)
                         .setCaseInsensitiveNameMatchingCacheTtl(new Duration(30, MINUTES)),
                 "validCaseInsensitiveNameMatchingCacheTtl",
-                "bigquery.case-insensitive-name-matching config must be enabled when case insensitive name matching cache TTL is set",
+                "bigquery.case-insensitive-name-matching config must be enabled when bigquery.case-insensitive-name-matching.cache-ttl is set",
                 AssertTrue.class);
     }
 }

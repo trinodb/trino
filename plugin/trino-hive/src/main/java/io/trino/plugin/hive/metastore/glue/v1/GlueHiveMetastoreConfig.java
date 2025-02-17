@@ -331,7 +331,7 @@ public class GlueHiveMetastoreConfig
         return this;
     }
 
-    @AssertTrue(message = "Both Glue region and Glue endpoint URL must be provided when Glue proxy API ID is present")
+    @AssertTrue(message = "Both hive.metastore.glue.region and hive.metastore.glue.endpoint-url must be provided when Glue proxy API ID is present")
     public boolean isGlueProxyApiIdValid()
     {
         if (getGlueProxyApiId().isPresent()) {
