@@ -25,7 +25,10 @@ import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,8 +37,10 @@ import static com.fasterxml.jackson.core.JsonParser.Feature.USE_FAST_BIG_NUMBER_
 import static com.fasterxml.jackson.core.JsonParser.Feature.USE_FAST_DOUBLE_PARSER;
 import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
+import static com.fasterxml.jackson.core.json.JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS;
 import static com.google.common.base.Verify.verify;
 import static io.trino.client.JsonDecodingUtils.createTypeDecoders;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -78,7 +83,7 @@ public final class JsonIterators
             }
         }
 
-        public JsonIterator(InputStream stream, TypeDecoder[] decoders)
+        public JsonIterator(InputStreamReader stream, TypeDecoder[] decoders)
                 throws IOException
         {
             this(JSON_FACTORY.createParser(requireNonNull(stream, "stream is null")), decoders);
@@ -147,7 +152,11 @@ public final class JsonIterators
     public static CloseableIterator<List<Object>> forInputStream(InputStream stream, TypeDecoder[] decoders)
             throws IOException
     {
-        return new JsonIterator(stream, decoders);
+        CharsetDecoder charsetDecoder = UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.IGNORE);
+
+        InputStreamReader reader = new InputStreamReader(stream, charsetDecoder);
+        return new JsonIterator(reader, decoders);
     }
 
     @SuppressModernizer // There is no JsonFactory in the client module
@@ -157,6 +166,7 @@ public final class JsonIterators
                 .setCodec(new ObjectMapper())
                 .enable(USE_FAST_DOUBLE_PARSER)
                 .enable(USE_FAST_BIG_NUMBER_PARSER)
+                .configure(ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature(), true)
                 .disable(AUTO_CLOSE_SOURCE); // We want to close source explicitly
     }
 }

@@ -281,6 +281,7 @@ public final class JsonDecodingUtils
             if (requireNonNull(parser.currentToken()) != JsonToken.VALUE_STRING) {
                 throw illegalToken(parser);
             }
+
             return parser.getValueAsString();
         }
     }

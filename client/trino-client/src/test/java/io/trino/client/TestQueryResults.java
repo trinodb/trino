@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryResults
@@ -73,6 +74,16 @@ public class TestQueryResults
     {
         String longString = Strings.repeat("a", StreamReadConstraints.DEFAULT_MAX_STRING_LEN + 1);
         QueryResults results = QUERY_RESULTS_CODEC.fromJson(format(GOLDEN_VALUE, '"' + longString + '"'));
+        assertThat(results.getId()).isEqualTo("20160128_214710_00012_rk68b");
+    }
+
+    @Test
+    public void testReadUndecodableUtf8()
+            throws JsonProcessingException
+    {
+        byte[] data = new byte[] {0xa, 0x43, 0x41, 0x44, 0x5f, 0x43, 0x41, 0x44, 0x08};
+
+        QueryResults results = QUERY_RESULTS_CODEC.fromJson(format(GOLDEN_VALUE, '"' + new String(data, UTF_8) + '"'));
         assertThat(results.getId()).isEqualTo("20160128_214710_00012_rk68b");
     }
 }

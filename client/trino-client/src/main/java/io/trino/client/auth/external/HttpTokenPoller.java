@@ -29,7 +29,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.OptionalLong;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -153,7 +152,7 @@ public class HttpTokenPoller
             throws IOException
     {
         try {
-            return execute(TOKEN_POLL_CODEC, client.get(), request, OptionalLong.empty());
+            return execute(TOKEN_POLL_CODEC, client.get(), request);
         }
         catch (UncheckedIOException e) {
             throw e.getCause();

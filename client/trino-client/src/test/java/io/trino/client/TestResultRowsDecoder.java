@@ -151,15 +151,15 @@ class TestResultRowsDecoder
             Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment(2501))).iterator();
             assertThat(stream.getCount()).isEqualTo(0);
             iterator.next();
-            assertThat(stream.getCount()).isEqualTo(8000); // Jackson reads data in 8K chunks
+            assertThat(stream.getCount()).isEqualTo(8192); // Jackson reads data in 8K chunks
             for (int i = 0; i < 1200; i++) {
                 iterator.next();
             }
-            assertThat(stream.getCount()).isEqualTo(8000);
+            assertThat(stream.getCount()).isEqualTo(8192);
             for (int i = 0; i < 1200; i++) {
                 iterator.next();
             }
-            assertThat(stream.getCount()).isEqualTo(16000);
+            assertThat(stream.getCount()).isEqualTo(16384);
             for (int i = 0; i < 100; i++) {
                 iterator.next();
             }
@@ -197,6 +197,17 @@ class TestResultRowsDecoder
             assertThat(acknowledged.get()).isEqualTo(2);
 
             assertThat(iterator.hasNext()).isFalse();
+        }
+    }
+
+    @Test
+    public void testUndecodableUtf8()
+            throws Exception
+    {
+        byte[] data = new byte[] {'[', '[', '"', 0x43, 0x41, 0x44, 0x5f, 0x43, 0x41, 0x44, 0x08, '"', ']', ']'};
+        try (ResultRowsDecoder decoder = new ResultRowsDecoder(loaderFromStream(new ByteArrayInputStream(data)))) {
+            Iterator<List<Object>> iterator = decoder.toRows(fromSegments("varchar", spooledSegment(2501))).iterator();
+            assertThat(iterator.next()).isEqualTo(List.of(new String(new byte[] {0x43, 0x41, 0x44, 0x5f, 0x43, 0x41, 0x44, 0x08}, UTF_8)));
         }
     }
 
@@ -259,12 +270,17 @@ class TestResultRowsDecoder
 
     private static QueryResults fromQueryData(QueryData queryData)
     {
+        return fromQueryData("integer", queryData);
+    }
+
+    private static QueryResults fromQueryData(String dataType, QueryData queryData)
+    {
         return new QueryResults(
                 "id",
                 URI.create("https://localhost"),
                 URI.create("https://localhost"),
                 URI.create("https://localhost"),
-                ImmutableList.of(new Column("id", "integer", new ClientTypeSignature("integer", ImmutableList.of()))),
+                ImmutableList.of(new Column("id", dataType, new ClientTypeSignature(dataType, ImmutableList.of()))),
                 queryData,
                 StatementStats.builder()
                         .setState("FINISHED")
@@ -279,7 +295,12 @@ class TestResultRowsDecoder
 
     private static QueryResults fromSegments(Segment... segments)
     {
-        return fromQueryData(EncodedQueryData
+        return fromSegments("integer", segments);
+    }
+
+    private static QueryResults fromSegments(String dataType, Segment... segments)
+    {
+        return fromQueryData(dataType, EncodedQueryData
                 .builder("json")
                 .withSegments(Arrays.asList(segments))
                 .build());
