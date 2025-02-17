@@ -27,6 +27,20 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestVarchars
 {
     @Test
+    public void testShortLengthEncoding()
+    {
+        byte[] bytes = new byte[8];
+        for (int i = 0; i <= 256; i++) {
+            AbstractVariableWidthType.writeFlatVariableLength(i, bytes, 0);
+            assertThat(AbstractVariableWidthType.readFlatVariableLength(bytes, 0))
+                    .isEqualTo(i);
+        }
+        AbstractVariableWidthType.writeFlatVariableLength(Integer.MAX_VALUE, bytes, 0);
+        assertThat(AbstractVariableWidthType.readFlatVariableLength(bytes, 0))
+                .isEqualTo(Integer.MAX_VALUE);
+    }
+
+    @Test
     public void testTruncateToLength()
     {
         // Single byte code points
