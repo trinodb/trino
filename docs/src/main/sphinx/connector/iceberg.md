@@ -1455,6 +1455,7 @@ The output of the query has the following columns:
 In addition to the defined columns, the Iceberg connector automatically exposes
 path metadata as a hidden column in each table:
 
+- `$partition`: Partition path for this row
 - `$path`: Full file system path name of the file for this row
 - `$file_modified_time`: Timestamp of the last modification of the file for
   this row
@@ -1464,7 +1465,7 @@ be selected directly, or used in conditional statements. For example, you can
 inspect the file path for each record:
 
 ```sql
-SELECT *, "$path", "$file_modified_time"
+SELECT *, "$partition", "$path", "$file_modified_time"
 FROM example.web.page_views;
 ```
 

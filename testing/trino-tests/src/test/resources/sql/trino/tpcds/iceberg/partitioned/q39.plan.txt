@@ -24,15 +24,15 @@ remote exchange (GATHER, SINGLE, [])
                                             dynamic filter (w_warehouse_sk::EQUAL)
                                                 scan warehouse
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, [inv_item_sk_8, inv_warehouse_sk_9])
-                        final aggregation over (d_moy_62, inv_item_sk_8, inv_warehouse_sk_9, w_warehouse_name_40)
+                    remote exchange (REPARTITION, HASH, [inv_item_sk_11, inv_warehouse_sk_12])
+                        final aggregation over (d_moy_68, inv_item_sk_11, inv_warehouse_sk_12, w_warehouse_name_45)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, [d_moy_62, inv_item_sk_8, inv_warehouse_sk_9, w_warehouse_name_40])
+                                remote exchange (REPARTITION, HASH, [d_moy_68, inv_item_sk_11, inv_warehouse_sk_12, w_warehouse_name_45])
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
-                                                partial aggregation over (inv_date_sk_11, inv_item_sk_8, inv_warehouse_sk_9)
-                                                    dynamic filter (inv_date_sk_11::EQUAL, inv_item_sk_8::EQUAL, inv_warehouse_sk_9::EQUAL)
+                                                partial aggregation over (inv_date_sk_14, inv_item_sk_11, inv_warehouse_sk_12)
+                                                    dynamic filter (inv_date_sk_14::EQUAL, inv_item_sk_11::EQUAL, inv_warehouse_sk_12::EQUAL)
                                                         scan inventory
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])

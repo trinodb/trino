@@ -113,6 +113,8 @@ import static io.trino.plugin.base.io.ByteBuffers.getWrappedBytes;
 import static io.trino.plugin.iceberg.ColumnIdentity.createColumnIdentity;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnMetadata;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnHandle;
+import static io.trino.plugin.iceberg.IcebergColumnHandle.partitionColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnHandle;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.pathColumnMetadata;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
@@ -404,6 +406,7 @@ public final class IcebergUtil
                                 .setComment(Optional.ofNullable(column.doc()))
                                 .build())
                 .forEach(columns::add);
+        columns.add(partitionColumnMetadata());
         columns.add(pathColumnMetadata());
         columns.add(fileModifiedTimeColumnMetadata());
         return columns.build();
@@ -461,6 +464,11 @@ public final class IcebergUtil
             }
         }
         return columns.buildOrThrow();
+    }
+
+    public static String getPartition(StructLike partition, PartitionSpec partitionSpec)
+    {
+        return partitionSpec.partitionToPath(partition);
     }
 
     public static List<Types.NestedField> primitiveFields(Schema schema)
@@ -1111,6 +1119,17 @@ public final class IcebergUtil
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking table location: " + location, e);
         }
         return getOnlyElement(latestMetadataLocations).toString();
+    }
+
+    public static Domain getPartitionDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
+    {
+        IcebergColumnHandle partitionColumn = partitionColumnHandle();
+        Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
+                .get(partitionColumn);
+        if (domain == null) {
+            return Domain.all(partitionColumn.getType());
+        }
+        return domain;
     }
 
     public static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)

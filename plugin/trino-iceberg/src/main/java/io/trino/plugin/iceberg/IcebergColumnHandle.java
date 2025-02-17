@@ -32,6 +32,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_MODIFIED_TIME;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
+import static io.trino.plugin.iceberg.IcebergMetadataColumn.PARTITION;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.MetadataColumns.IS_DELETED;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -197,6 +198,12 @@ public class IcebergColumnHandle
     }
 
     @JsonIgnore
+    public boolean isPartitionColumn()
+    {
+        return id == PARTITION.getId();
+    }
+
+    @JsonIgnore
     public boolean isFileModifiedTimeColumn()
     {
         return id == FILE_MODIFIED_TIME.getId();
@@ -241,6 +248,26 @@ public class IcebergColumnHandle
                 + sizeOf(nullable)
                 + sizeOf(comment, SizeOf::estimatedSizeOf)
                 + sizeOf(id);
+    }
+
+    public static IcebergColumnHandle partitionColumnHandle()
+    {
+        return new IcebergColumnHandle(
+                columnIdentity(PARTITION),
+                PARTITION.getType(),
+                ImmutableList.of(),
+                PARTITION.getType(),
+                false,
+                Optional.empty());
+    }
+
+    public static ColumnMetadata partitionColumnMetadata()
+    {
+        return ColumnMetadata.builder()
+                .setName(PARTITION.getColumnName())
+                .setType(PARTITION.getType())
+                .setHidden(true)
+                .build();
     }
 
     public static IcebergColumnHandle pathColumnHandle()
