@@ -1737,7 +1737,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
 
             // vacuum with low retention period
-            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            MILLISECONDS.sleep(2_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
             assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
             // table data shouldn't change
             assertThat(query("SELECT * FROM " + tableName))
@@ -1783,7 +1783,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
 
             // vacuum with low retention period
-            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            MILLISECONDS.sleep(2_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
             assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
             // table data shouldn't change
             assertThat(query("SELECT * FROM " + tableName))
@@ -1830,7 +1830,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
 
             // vacuum with low retention period
-            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            MILLISECONDS.sleep(2_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
             assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '1s')");
             // table data shouldn't change
             assertQuery("SELECT * FROM " + tableName, "VALUES (101, TIMESTAMP '2024-12-13 11:00:00.000000'), (102, TIMESTAMP '2024-12-13 12:00:00.000000')");
