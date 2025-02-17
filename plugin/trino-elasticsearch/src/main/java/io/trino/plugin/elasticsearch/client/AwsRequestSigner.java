@@ -13,10 +13,6 @@
  */
 package io.trino.plugin.elasticsearch.client;
 
-import com.amazonaws.DefaultRequest;
-import com.amazonaws.auth.AWS4Signer;
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.http.HttpMethodName;
 import org.apache.http.Header;
 import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpHost;
@@ -27,35 +23,43 @@ import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.entity.BasicHttpEntity;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.checksums.DefaultChecksumAlgorithm;
+import software.amazon.awssdk.http.ContentStreamProvider;
+import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.http.SdkHttpRequest;
+import software.amazon.awssdk.http.auth.aws.signer.AwsV4FamilyHttpSigner;
+import software.amazon.awssdk.http.auth.aws.signer.AwsV4HttpSigner;
+import software.amazon.awssdk.http.auth.spi.signer.SignRequest;
+import software.amazon.awssdk.http.auth.spi.signer.SignedRequest;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
+import static java.util.Arrays.stream;
 import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
 
 class AwsRequestSigner
         implements HttpRequestInterceptor
 {
     private static final String SERVICE_NAME = "es";
-    private final AWSCredentialsProvider credentialsProvider;
-    private final AWS4Signer signer;
+    private final AwsCredentialsProvider credentialsProvider;
+    private final AwsV4HttpSigner signer;
+    private final String region;
 
-    public AwsRequestSigner(String region, AWSCredentialsProvider credentialsProvider)
+    public AwsRequestSigner(String region, AwsCredentialsProvider credentialsProvider)
     {
         this.credentialsProvider = credentialsProvider;
-        this.signer = new AWS4Signer();
-
-        signer.setServiceName(SERVICE_NAME);
-        signer.setRegionName(region);
+        this.signer = AwsV4HttpSigner.create();
+        this.region = region;
     }
 
     @Override
@@ -73,9 +77,6 @@ class AwsRequestSigner
                     .add(parameter.getValue());
         }
 
-        Map<String, String> headers = Arrays.stream(request.getAllHeaders())
-                .collect(toImmutableMap(Header::getName, Header::getValue));
-
         InputStream content = null;
         if (request instanceof HttpEntityEnclosingRequest enclosingRequest) {
             if (enclosingRequest.getEntity() != null) {
@@ -83,27 +84,45 @@ class AwsRequestSigner
             }
         }
 
-        DefaultRequest<?> awsRequest = new DefaultRequest<>(SERVICE_NAME);
-
         HttpHost host = (HttpHost) context.getAttribute(HTTP_TARGET_HOST);
+
+        SdkHttpRequest.Builder sdkHttpRequest =
+                SdkHttpRequest.builder()
+                        .method(SdkHttpMethod.fromValue(method))
+                        .rawQueryParameters(parameters);
+
+        stream(request.getAllHeaders())
+                .forEach(header -> sdkHttpRequest.appendHeader(header.getName(), header.getValue()));
+
         if (host != null) {
-            awsRequest.setEndpoint(URI.create(host.toURI()));
+            sdkHttpRequest
+                    .uri(uri)
+                    .protocol(uri.getScheme());
         }
-        awsRequest.setHttpMethod(HttpMethodName.fromValue(method));
-        awsRequest.setResourcePath(uri.getRawPath());
-        awsRequest.setContent(content);
-        awsRequest.setParameters(parameters);
-        awsRequest.setHeaders(headers);
 
-        signer.sign(awsRequest, credentialsProvider.getCredentials());
+        SignRequest.Builder<AwsCredentials> signRequestBuilder =
+                SignRequest.builder(credentialsProvider.resolveCredentials())
+                        .request(sdkHttpRequest.build())
+                        .putProperty(AwsV4FamilyHttpSigner.CHECKSUM_ALGORITHM, DefaultChecksumAlgorithm.SHA256)
+                        .putProperty(AwsV4FamilyHttpSigner.SERVICE_SIGNING_NAME, SERVICE_NAME)
+                        .putProperty(AwsV4HttpSigner.REGION_NAME, region);
 
-        Header[] newHeaders = awsRequest.getHeaders().entrySet().stream()
-                .map(entry -> new BasicHeader(entry.getKey(), entry.getValue()))
+        if (content == null) {
+            signRequestBuilder.payload(null);
+        }
+        else {
+            signRequestBuilder.payload(ContentStreamProvider.fromInputStream(content));
+        }
+
+        SignedRequest signedRequest = signer.sign(signRequestBuilder.build());
+
+        Header[] newHeaders = signedRequest.request().headers().entrySet().stream()
+                .map(entry -> new BasicHeader(entry.getKey(), entry.getValue().getFirst()))
                 .toArray(Header[]::new);
 
         request.setHeaders(newHeaders);
 
-        InputStream newContent = awsRequest.getContent();
+        InputStream newContent = signedRequest.payload().stream().map(ContentStreamProvider::newStream).findAny().orElse(null);
         checkState(newContent == null || request instanceof HttpEntityEnclosingRequest);
         if (newContent != null) {
             BasicHttpEntity entity = new BasicHttpEntity();
