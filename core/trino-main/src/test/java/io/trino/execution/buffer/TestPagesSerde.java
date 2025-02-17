@@ -194,13 +194,13 @@ public class TestPagesSerde
         pageSize = 35; // Now we have moved to the normal block implementation so the page size overhead is 35
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(BIGINT), page) - pageSize;
-        assertThat(firstValueSize).isEqualTo(9); // value size + value overhead
+        assertThat(firstValueSize).isEqualTo(3); // value size + value overhead
 
         // page with two values
         BIGINT.writeLong(builder, 456);
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(BIGINT), page) - (pageSize + firstValueSize);
-        assertThat(secondValueSize).isEqualTo(8); // value size (value overhead is shared with previous value)
+        assertThat(secondValueSize).isEqualTo(2); // value size (value overhead is shared with previous value)
     }
 
     @Test
@@ -218,13 +218,13 @@ public class TestPagesSerde
         pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertThat(firstValueSize).isEqualTo(8 + 5); // length + nonNullsCount + "alice"
+        assertThat(firstValueSize).isEqualTo(6 + 5); // length + nonNullsCount + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
-        assertThat(secondValueSize).isEqualTo(4 + 3); // length + "bob" (null shared with first entry)
+        assertThat(secondValueSize).isEqualTo(1 + 3); // length (1 byte) + "bob" (null shared with first entry)
     }
 
     private int serializedSize(List<? extends Type> types, Page expectedPage)

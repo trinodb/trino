@@ -308,6 +308,15 @@
                                     <old>method java.lang.String io.trino.spi.block.VariableWidthBlock::getEncodingName()</old>
                                     <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long[] io.trino.spi.block.LongArrayBlock::getRawValues()</old>
+                                    <new>method long[] io.trino.spi.block.LongArrayBlock::getRawValues()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>Just a test</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
