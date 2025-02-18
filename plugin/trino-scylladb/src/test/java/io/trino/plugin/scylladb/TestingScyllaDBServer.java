@@ -11,7 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
 package io.trino.plugin.scylladb;
+========
+package io.trino.plugin.scylla;
+>>>>>>>> scylladb-own-connecotor:plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -41,15 +45,22 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
 public class TestingScyllaDBServer
+========
+public class TestingScyllaServer
+>>>>>>>> scylladb-own-connecotor:plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
         implements CassandraServer
 {
     private static final Logger log = Logger.get(TestingScyllaDBServer.class);
 
     private static final int PORT = 9042;
+<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
 
     private static final String VERSION = "6.2";
 
+========
+>>>>>>>> scylladb-own-connecotor:plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
     private final GenericContainer<?> container;
@@ -57,12 +68,17 @@ public class TestingScyllaDBServer
 
     public TestingScyllaDBServer()
     {
+<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
         this(VERSION);
     }
 
     public TestingScyllaDBServer(String version)
     {
         container = new GenericContainer<>("scylladb/scylla:" + version)
+========
+        container = new GenericContainer<>("scylladb/scylla:6.2")
+                .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
+>>>>>>>> scylladb-own-connecotor:plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
                 .withExposedPorts(PORT);
         container.start();
 
