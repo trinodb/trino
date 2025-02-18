@@ -71,6 +71,7 @@ import jakarta.ws.rs.core.Response;
 import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -302,7 +303,7 @@ public class QueuedStatementResource
                 queryError.orElse(null),
                 ImmutableList.of(),
                 null,
-                null);
+                OptionalLong.empty());
     }
 
     private static final class Query

@@ -274,8 +274,7 @@ public class TrinoStatement
 
             connection().updateSession(client);
 
-            Long updateCount = client.finalStatusInfo().getUpdateCount();
-            currentUpdateCount.set((updateCount != null) ? updateCount : 0);
+            currentUpdateCount.set(client.finalStatusInfo().getUpdateCount().orElse(0));
             currentUpdateType.set(client.finalStatusInfo().getUpdateType());
             warningsManager.addWarnings(client.finalStatusInfo().getWarnings());
             return false;

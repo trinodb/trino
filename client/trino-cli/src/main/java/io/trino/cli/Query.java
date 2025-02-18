@@ -242,8 +242,8 @@ public class Query
     private void renderUpdate(Terminal terminal, PrintStream out, QueryStatusInfo results, OutputFormat outputFormat, Optional<String> pager)
     {
         String status = results.getUpdateType();
-        if (results.getUpdateCount() != null) {
-            long count = results.getUpdateCount();
+        if (results.getUpdateCount().isPresent()) {
+            long count = results.getUpdateCount().getAsLong();
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
             out.println(status);
         }
