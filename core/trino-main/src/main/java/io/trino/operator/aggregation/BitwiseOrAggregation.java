@@ -17,7 +17,7 @@ import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
@@ -42,18 +42,7 @@ public final class BitwiseOrAggregation
         state.setNull(false);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
-    {
-        if (state.isNull()) {
-            state.set(otherState);
-        }
-        else if (!otherState.isNull()) {
-            state.setValue(state.getValue() | otherState.getValue());
-        }
-    }
-
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "bitwise_or_agg", output = "bitwise_or_agg"))
     public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(BigintType.BIGINT, state, out);

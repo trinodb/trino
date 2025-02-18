@@ -181,7 +181,7 @@ public class TransformExistsApplyToCorrelatedJoin
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.empty(),
-                                        true)),
+                                        false)),
                                 globalAggregation()),
                         Assignments.of(exists, new Coalesce(ImmutableList.of(bool.toSymbolReference(), FALSE)))),
                 applyNode.getCorrelation(),

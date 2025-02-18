@@ -19,8 +19,8 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
 import io.trino.spi.function.Convention;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InputFunction;
@@ -60,23 +60,7 @@ public final class MinAggregationFunction
         }
     }
 
-    @CombineFunction
-    public static void combine(
-            @OperatorDependency(
-                    operator = OperatorType.COMPARISON_UNORDERED_LAST,
-                    argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {IN_OUT, IN_OUT}, result = FAIL_ON_NULL))
-                    MethodHandle compare,
-            @AggregationState("T") InOut state,
-            @AggregationState("T") InOut otherState)
-            throws Throwable
-    {
-        if (state.isNull() || ((long) compare.invokeExact(otherState, state)) < 0) {
-            state.set(otherState);
-        }
-    }
-
-    @OutputFunction("T")
+    @OutputFunction(value = "T", decomposition = @Decomposition(partial = "min", output = "min"))
     public static void output(@AggregationState("T") InOut state, BlockBuilder out)
     {
         state.get(out);

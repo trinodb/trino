@@ -295,7 +295,7 @@ public class OptimizeMixedDistinctAggregations
                             Optional.of(nonDistinctGroupFilterSymbol),
                             Optional.empty(),
                             Optional.empty(),
-                            true);
+                            false);
                     Symbol outerAggregationOutputSymbol = origalAggregationOutputSymbol;
                     // handle 0 on empty input aggregations
                     CatalogSchemaFunctionName name = originalAggregation.getResolvedFunction().signature().getName();

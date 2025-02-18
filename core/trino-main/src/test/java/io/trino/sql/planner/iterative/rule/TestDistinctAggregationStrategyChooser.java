@@ -370,7 +370,7 @@ public class TestDistinctAggregationStrategyChooser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        true),
+                        false),
                 symbolAllocator.newSymbol("output2", BIGINT), new Aggregation(
                         functionResolution.resolveFunction("sum", fromTypes(BIGINT)),
                         ImmutableList.of(symbolAllocator.newSymbol("input2", BIGINT).toSymbolReference()),
@@ -378,7 +378,7 @@ public class TestDistinctAggregationStrategyChooser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        true));
+                        false));
     }
 
     private static void assertShouldUseSingleStep(DistinctAggregationStrategyChooser aggregationStrategyChooser, AggregationNode aggregationNode, Session session, StatsProvider statsProvider, Lookup lookup)
