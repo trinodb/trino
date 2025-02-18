@@ -174,7 +174,7 @@ public class TestTypeValidator
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        true)),
+                        false)),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)));
 
         assertTypesValid(node);
@@ -195,7 +195,7 @@ public class TestTypeValidator
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        true)),
+                        false)),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)));
 
         assertThatThrownBy(() -> assertTypesValid(node))
@@ -218,7 +218,7 @@ public class TestTypeValidator
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        true)),
+                        false)),
                 singleGroupingSet(ImmutableList.of(columnA, columnB)));
 
         assertThatThrownBy(() -> assertTypesValid(node))

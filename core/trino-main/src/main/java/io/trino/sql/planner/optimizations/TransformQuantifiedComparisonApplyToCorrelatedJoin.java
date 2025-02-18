@@ -136,7 +136,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty(),
-                                    true),
+                                    false),
                             maxValue, new Aggregation(
                                     metadata.resolveBuiltinFunction("max", fromTypes(outputColumnType)),
                                     outputColumnReferences,
@@ -144,7 +144,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty(),
-                                    true),
+                                    false),
                             countAllValue, new Aggregation(
                                     metadata.resolveBuiltinFunction("count", emptyList()),
                                     ImmutableList.of(),
