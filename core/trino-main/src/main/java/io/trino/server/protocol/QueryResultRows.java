@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.client.Column;
 import io.trino.spi.Page;
@@ -78,15 +77,6 @@ public class QueryResultRows
     public List<Page> getPages()
     {
         return this.pages;
-    }
-
-    /**
-     * Returns expected row count (we don't know yet if every row is serializable).
-     */
-    @VisibleForTesting
-    public long getTotalRowsCount()
-    {
-        return totalRows;
     }
 
     public OptionalLong getUpdateCount()
