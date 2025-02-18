@@ -560,8 +560,6 @@ public class DatabendClient
                 return Optional.of(decimalColumnMapping(createDecimalType(20)));
             case "string":
                 return Optional.of(varcharColumnMapping(typeHandle.requiredColumnSize(), typeHandle.caseSensitivity()));
-            case "json":
-                return Optional.of(jsonColumnMapping());
             default:
         }
 
@@ -605,18 +603,10 @@ public class DatabendClient
                     decimalColumnMapping = decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)));
                 }
                 return Optional.of(ColumnMapping.mapping(decimalColumnMapping.getType(), decimalColumnMapping.getReadFunction(), decimalColumnMapping.getWriteFunction(),
-                        // TODO (https://github.com/trinodb/trino/issues/7100) fix, enable and test decimal pushdown
                         DISABLE_PUSHDOWN));
 
             case Types.DATE:
                 return Optional.of(dateColumnMappingUsingLocalDate());
-
-            case Types.TIMESTAMP:
-                // TODO (https://github.com/trinodb/trino/issues/10537) Add support for Datetime64 type
-                return Optional.of(timestampColumnMapping(TIMESTAMP_MILLIS));
-
-            case Types.TIMESTAMP_WITH_TIMEZONE:
-                return Optional.of(ColumnMapping.longMapping(TIMESTAMP_TZ_SECONDS, shortTimestampWithTimeZoneReadFunction(), shortTimestampWithTimeZoneWriteFunction()));
         }
 
         if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
