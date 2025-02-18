@@ -24,6 +24,7 @@
         <dependency>
             <groupId>com.databend</groupId>
             <artifactId>databend-jdbc</artifactId>
+            <!-- The 0.3.4 has some bugs and wait it to be fixed then upgrade databend-jdbc. -->
             <version>0.3.2</version>
             <!-- Exclude the following dependencies because the databend-jdbc already includes them -->
             <exclusions>
@@ -285,6 +286,7 @@
                         <dependency>
                             <groupId>com.databend</groupId>
                             <artifactId>databend-jdbc</artifactId>
+                            <!-- The 0.3.4 has some bugs and wait it to be fixed then upgrade databend-jdbc. -->
                             <version>0.3.2</version>
                         </dependency>
                         <dependency>
