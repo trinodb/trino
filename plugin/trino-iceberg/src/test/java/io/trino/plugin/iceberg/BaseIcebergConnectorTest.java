@@ -1440,11 +1440,11 @@ public abstract class BaseIcebergConnectorTest
         // Insert "large" number of rows, supposedly topping over iceberg.writer-sort-buffer-size so that temporary files are utilized by the sorting writer.
         assertUpdate(
                 """
-                INSERT INTO %s
-                SELECT v.*
-                FROM (VALUES %s, %s, %s) v
-                CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
-                """.formatted(tableName, values, highValues, lowValues), 30000);
+                        INSERT INTO %s
+                        SELECT v.*
+                        FROM (VALUES %s, %s, %s) v
+                        CROSS JOIN UNNEST (sequence(1, 10_000)) a(i)
+                        """.formatted(tableName, values, highValues, lowValues), 30000);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -8187,35 +8187,35 @@ public abstract class BaseIcebergConnectorTest
                 TestTable dimensionTable = newTrinoTable("dimension_table", "(date date, following_holiday boolean, year int)")) {
             assertUpdate(
                     """
-                    INSERT INTO %s
-                    VALUES
-                        (DATE '2023-01-01' , false, 2023),
-                        (DATE '2023-01-02' , true, 2023),
-                        (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
+                            INSERT INTO %s
+                            VALUES
+                                (DATE '2023-01-01' , false, 2023),
+                                (DATE '2023-01-02' , true, 2023),
+                                (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
             assertUpdate(
                     """
-                    INSERT INTO %s
-                    VALUES
-                        (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
-                        (DATE '2023-01-02' , '#2023#2', DECIMAL '124.12'),
-                        (DATE '2023-01-02' , '#2023#3', DECIMAL '99.99'),
-                        (DATE '2023-01-02' , '#2023#4', DECIMAL '95.12'),
-                        (DATE '2023-01-03' , '#2023#5', DECIMAL '199.12'),
-                        (DATE '2023-01-04' , '#2023#6', DECIMAL '99.55'),
-                        (DATE '2023-01-05' , '#2023#7', DECIMAL '50.11'),
-                        (DATE '2023-01-05' , '#2023#8', DECIMAL '60.20'),
-                        (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
-                        (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
+                            INSERT INTO %s
+                            VALUES
+                                (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
+                                (DATE '2023-01-02' , '#2023#2', DECIMAL '124.12'),
+                                (DATE '2023-01-02' , '#2023#3', DECIMAL '99.99'),
+                                (DATE '2023-01-02' , '#2023#4', DECIMAL '95.12'),
+                                (DATE '2023-01-03' , '#2023#5', DECIMAL '199.12'),
+                                (DATE '2023-01-04' , '#2023#6', DECIMAL '99.55'),
+                                (DATE '2023-01-05' , '#2023#7', DECIMAL '50.11'),
+                                (DATE '2023-01-05' , '#2023#8', DECIMAL '60.20'),
+                                (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
+                                (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
 
             String selectQuery =
                     """
-                    SELECT receipt_id
-                    FROM %s s
-                    JOIN %s d
-                        ON  s.date = d.date
-                    WHERE
-                        d.following_holiday = true AND
-                        d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
+                            SELECT receipt_id
+                            FROM %s s
+                            JOIN %s d
+                                ON  s.date = d.date
+                            WHERE
+                                d.following_holiday = true AND
+                                d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
             MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, DYNAMIC_FILTERING_WAIT_TIMEOUT, "10s")
@@ -8619,7 +8619,8 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    @Test // regression test for https://github.com/trinodb/trino/issues/22922
+    // regression test for https://github.com/trinodb/trino/issues/22922
+    @Test
     void testArrayElementChange()
     {
         try (TestTable table = newTrinoTable(
