@@ -109,11 +109,6 @@ public class HudiFileGroup
         return getAllFileSlices().filter(slice -> slice.getBaseFile().isPresent()).map(slice -> slice.getBaseFile().get());
     }
 
-    public Stream<FileSlice> getAllFileSlicesBeforeOn(String maxInstantTime)
-    {
-        return fileSlices.values().stream().filter(slice -> compareTimestamps(slice.getBaseInstantTime(), LESSER_THAN_OR_EQUALS, maxInstantTime));
-    }
-
     @Override
     public String toString()
     {
@@ -123,10 +118,5 @@ public class HudiFileGroup
                 .add("timeline", timeline)
                 .add("lastInstant", lastInstant)
                 .toString();
-    }
-
-    public HudiTimeline getTimeline()
-    {
-        return timeline;
     }
 }
