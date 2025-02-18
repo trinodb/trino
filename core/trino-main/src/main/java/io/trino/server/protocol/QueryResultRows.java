@@ -65,7 +65,7 @@ public class QueryResultRows
 
     public Optional<List<OutputColumn>> getOutputColumns()
     {
-        return this.columns;
+        return columns;
     }
 
     public Optional<List<Column>> getColumns()
@@ -124,7 +124,7 @@ public class QueryResultRows
         return toStringHelper(this)
                 .add("columns", columns)
                 .add("totalRowsCount", getTotalRowsCount())
-                .add("pagesCount", this.pages.size())
+                .add("pagesCount", pages.size())
                 .toString();
     }
 
