@@ -61,6 +61,7 @@ public class DeltaLakeHistoryTable
                         requireNonNull(tableName, "tableName is null"),
                         ImmutableList.<ColumnMetadata>builder()
                                 .add(new ColumnMetadata("version", BIGINT))
+                                .add(new ColumnMetadata("in_commit_timestamp", TIMESTAMP_TZ_MILLIS))
                                 .add(new ColumnMetadata("timestamp", TIMESTAMP_TZ_MILLIS))
                                 .add(new ColumnMetadata("user_id", VARCHAR))
                                 .add(new ColumnMetadata("user_name", VARCHAR))
@@ -92,6 +93,7 @@ public class DeltaLakeHistoryTable
             pagesBuilder.beginRow();
 
             pagesBuilder.appendBigint(commitInfoEntry.version());
+            commitInfoEntry.inCommitTimestamp().ifPresentOrElse(inCommitTimestamp -> pagesBuilder.appendTimestampTzMillis(inCommitTimestamp, timeZoneKey), pagesBuilder::appendNull);
             pagesBuilder.appendTimestampTzMillis(commitInfoEntry.timestamp(), timeZoneKey);
             write(commitInfoEntry.userId(), pagesBuilder);
             write(commitInfoEntry.userName(), pagesBuilder);
