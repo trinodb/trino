@@ -47,9 +47,6 @@ public class TestingScyllaServer
 {
     private static final Logger log = Logger.get(TestingScyllaServer.class);
 
-    public static final String V4_TAG = "4.5.3";
-    public static final String V3_TAG = "3.0.0";
-
     private static final int PORT = 9042;
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
@@ -58,12 +55,7 @@ public class TestingScyllaServer
 
     public TestingScyllaServer()
     {
-        this(V3_TAG);
-    }
-
-    public TestingScyllaServer(String version)
-    {
-        container = new GenericContainer<>("scylladb/scylla:" + version)
+        container = new GenericContainer<>("scylladb/scylla:6.2")
                 .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
                 .withExposedPorts(PORT);
         container.start();

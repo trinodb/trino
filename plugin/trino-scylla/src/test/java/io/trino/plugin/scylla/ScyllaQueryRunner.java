@@ -59,7 +59,7 @@ public final class ScyllaQueryRunner
             connectorProperties.putIfAbsent("cassandra.load-policy.dc-aware.local-dc", "datacenter1");
 
             queryRunner.installPlugin(new ScyllaPlugin());
-            queryRunner.createCatalog("scylla", "scylla", connectorProperties);
+            queryRunner.createCatalog("cassandra", "cassandra", connectorProperties);
 
             createKeyspace(server.getSession(), "tpch");
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession("tpch"), tables);
@@ -77,7 +77,7 @@ public final class ScyllaQueryRunner
     public static Session createSession(String schema)
     {
         return testSessionBuilder()
-                .setCatalog("scylla")
+                .setCatalog("cassandra")
                 .setSchema(schema)
                 .build();
     }
