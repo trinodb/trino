@@ -50,7 +50,6 @@ public final class EnvMultinodeAllConnectors
                         "cassandra",
                         "clickhouse",
                         "databend",
-                        "druid",
                         "delta_lake",
                         "druid",
                         "duckdb",

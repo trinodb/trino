@@ -164,27 +164,6 @@ to the following table:
 * - `VARCHAR(n)`
   - `VARCHAR(n)`
   -
-* - `MAP(K, V)`
-  - `VARCHAR`
-  -
-* - `ARRAY(T)`
-  - `VARCHAR`
-  -
-* - `BINARY`
-  - `VARBINARY`
-  -
-* - `JSON`
-  - `JSON`
-  -
-* - `DATE`
-  - `DATE`
-  -
-* - `DATETIME(n)`
-  - `TIMESTAMP(n)`
-  -
-* - `TIMESTAMP(n)`
-  - `TIMESTAMP(n) WITH TIME ZONE`
-  -
 :::
 
 No other types are supported.
