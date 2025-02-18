@@ -417,6 +417,7 @@
                 <groupId>com.databend</groupId>
                 <artifactId>databend-jdbc</artifactId>
                 <version>0.3.2</version>
+                <!-- The 0.3.4 has some bugs and wait it to be fixed then upgrade databend-jdbc. -->
                 <classifier>all</classifier>
             </dependency>
 
