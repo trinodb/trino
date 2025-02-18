@@ -148,10 +148,7 @@ public class QueryResultRows
 
         public Builder withColumnsAndTypes(@Nullable List<Column> columns, @Nullable List<Type> types)
         {
-            if (columns != null || types != null) {
-                this.columns = Optional.of(combine(columns, types));
-            }
-
+            this.columns = combine(columns, types);
             return this;
         }
 
@@ -160,8 +157,11 @@ public class QueryResultRows
             return new QueryResultRows(columns, pages.build());
         }
 
-        private static List<OutputColumn> combine(@Nullable List<Column> columns, @Nullable List<Type> types)
+        private static Optional<List<OutputColumn>> combine(@Nullable List<Column> columns, @Nullable List<Type> types)
         {
+            if (columns == null && types == null) {
+                return Optional.empty();
+            }
             checkArgument(columns != null && types != null, "columns and types must be present at the same time");
             checkArgument(columns.size() == types.size(), "columns and types size mismatch");
 
@@ -171,7 +171,7 @@ public class QueryResultRows
                 builder.add(new OutputColumn(i, columns.get(i).getName(), types.get(i)));
             }
 
-            return builder.build();
+            return Optional.of(builder.build());
         }
     }
 }
