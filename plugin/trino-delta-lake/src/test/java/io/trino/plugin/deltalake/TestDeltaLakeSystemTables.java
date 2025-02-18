@@ -65,6 +65,7 @@ public class TestDeltaLakeSystemTables
                     """
                     VALUES
                     ('version', 'bigint', '', ''),
+                    ('in_commit_timestamp', 'timestamp(3) with time zone', '', ''),
                     ('timestamp', 'timestamp(3) with time zone', '', ''),
                     ('user_id', 'varchar', '', ''),
                     ('user_name', 'varchar', '', ''),
