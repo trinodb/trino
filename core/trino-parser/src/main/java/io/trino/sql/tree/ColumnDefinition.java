@@ -28,25 +28,27 @@ public final class ColumnDefinition
     private final QualifiedName name;
     private final DataType type;
     private final boolean nullable;
+    private final boolean primaryKey;
     private final List<Property> properties;
     private final Optional<String> comment;
 
-    public ColumnDefinition(QualifiedName name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(QualifiedName name, DataType type, boolean nullable, boolean primaryKey, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.empty(), name, type, nullable, properties, comment);
+        this(Optional.empty(), name, type, nullable, primaryKey, properties, comment);
     }
 
-    public ColumnDefinition(NodeLocation location, QualifiedName name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
+    public ColumnDefinition(NodeLocation location, QualifiedName name, DataType type, boolean nullable, boolean primaryKey, List<Property> properties, Optional<String> comment)
     {
-        this(Optional.of(location), name, type, nullable, properties, comment);
+        this(Optional.of(location), name, type, nullable, primaryKey, properties, comment);
     }
 
-    private ColumnDefinition(Optional<NodeLocation> location, QualifiedName name, DataType type, boolean nullable, List<Property> properties, Optional<String> comment)
+    private ColumnDefinition(Optional<NodeLocation> location, QualifiedName name, DataType type, boolean nullable, boolean primaryKey, List<Property> properties, Optional<String> comment)
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.nullable = nullable;
+        this.primaryKey = primaryKey;
         this.properties = requireNonNull(properties, "properties is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
@@ -64,6 +66,11 @@ public final class ColumnDefinition
     public boolean isNullable()
     {
         return nullable;
+    }
+
+    public boolean isPrimaryKey()
+    {
+        return primaryKey;
     }
 
     public List<Property> getProperties()
@@ -101,6 +108,7 @@ public final class ColumnDefinition
         return Objects.equals(this.name, o.name) &&
                 Objects.equals(this.type, o.type) &&
                 this.nullable == o.nullable &&
+                this.primaryKey == o.primaryKey &&
                 Objects.equals(properties, o.properties) &&
                 Objects.equals(this.comment, o.comment);
     }
@@ -108,7 +116,7 @@ public final class ColumnDefinition
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, type, properties, comment, nullable);
+        return Objects.hash(name, type, properties, comment, nullable, primaryKey);
     }
 
     @Override
@@ -118,6 +126,7 @@ public final class ColumnDefinition
                 .add("name", name)
                 .add("type", type)
                 .add("nullable", nullable)
+                .add("primaryKey", primaryKey)
                 .add("properties", properties)
                 .add("comment", comment)
                 .toString();

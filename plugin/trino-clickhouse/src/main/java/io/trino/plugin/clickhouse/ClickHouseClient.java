@@ -474,6 +474,9 @@ public class ClickHouseClient
     @Override
     protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
+        if (column.isPrimaryKey()) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with a primary key constraint");
+        }
         StringBuilder sb = new StringBuilder()
                 .append(quoted(columnName))
                 .append(" ");

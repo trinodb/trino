@@ -639,6 +639,7 @@ public final class ShowQueriesRewrite
                                 QualifiedName.of(column.getName()),
                                 toSqlType(column.getType()),
                                 column.isNullable(),
+                                column.isPrimaryKey(),
                                 propertyNodes,
                                 Optional.ofNullable(column.getComment()));
                     })

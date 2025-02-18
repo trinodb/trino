@@ -56,6 +56,7 @@ public abstract class BaseKuduConnectorSmokeTest
                  SUPPORTS_CREATE_VIEW,
                  SUPPORTS_NEGATIVE_DATE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
+                 SUPPORTS_PRIMARY_KEY_CONSTRAINT,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_ROW_TYPE,
                  SUPPORTS_TOPN_PUSHDOWN,

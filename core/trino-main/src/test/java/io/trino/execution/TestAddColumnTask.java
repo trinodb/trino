@@ -47,6 +47,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.PRIMARY_KEY_COLUMN_CONSTRAINT;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -104,6 +105,25 @@ public class TestAddColumnTask
         getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("second"), VARCHAR, Optional.empty(), new ColumnPosition.After(new Identifier("test")), false, false));
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("test", BIGINT), new ColumnMetadata("second", VARCHAR), new ColumnMetadata("last", INTEGER));
+    }
+
+    @Test
+    public void testAddColumnWithPrimaryKey()
+    {
+        metadata.setConnectorCapabilities(PRIMARY_KEY_COLUMN_CONSTRAINT);
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        TableHandle table = metadata.getTableHandle(testSession, tableName).get();
+
+        getFutureValue(executeAddColumn(asQualifiedName(tableName), QualifiedName.of("new_col"), INTEGER, true, false, false));
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
+                .containsExactly(
+                        new ColumnMetadata("test", BIGINT),
+                        ColumnMetadata.builder()
+                                .setName("new_col")
+                                .setType(INTEGER)
+                                .setPrimaryKey(true)
+                                .build());
     }
 
     @Test
@@ -337,13 +357,25 @@ public class TestAddColumnTask
 
     private ListenableFuture<Void> executeAddColumn(QualifiedName table, QualifiedName column, Type type, Optional<String> comment, ColumnPosition position, boolean tableExists, boolean columnNotExists)
     {
-        ColumnDefinition columnDefinition = new ColumnDefinition(column, toSqlType(type), true, ImmutableList.of(), comment);
+        ColumnDefinition columnDefinition = new ColumnDefinition(column, toSqlType(type), true, false, ImmutableList.of(), comment);
         return executeAddColumn(table, columnDefinition, position, tableExists, columnNotExists);
+    }
+
+    private ListenableFuture<Void> executeAddColumn(QualifiedName table, QualifiedName column, Type type, boolean primaryKey, boolean tableExists, boolean columnNotExists)
+    {
+        ColumnDefinition columnDefinition = new ColumnDefinition(column, toSqlType(type), true, primaryKey, ImmutableList.of(), Optional.empty());
+        return executeAddColumn(table, columnDefinition, new ColumnPosition.Last(), tableExists, columnNotExists);
+    }
+
+    private ListenableFuture<Void> executeAddColumn(QualifiedName table, QualifiedName column, Type type, Optional<String> comment, boolean tableExists, boolean columnNotExists)
+    {
+        ColumnDefinition columnDefinition = new ColumnDefinition(column, toSqlType(type), true, false, ImmutableList.of(), comment);
+        return executeAddColumn(table, columnDefinition, new ColumnPosition.Last(), tableExists, columnNotExists);
     }
 
     private ListenableFuture<Void> executeAddColumn(QualifiedName table, QualifiedName column, Type type, List<Property> properties, boolean tableExists, boolean columnNotExists)
     {
-        ColumnDefinition columnDefinition = new ColumnDefinition(column, toSqlType(type), true, properties, Optional.empty());
+        ColumnDefinition columnDefinition = new ColumnDefinition(column, toSqlType(type), true, false, properties, Optional.empty());
         return executeAddColumn(table, columnDefinition, new ColumnPosition.Last(), tableExists, columnNotExists);
     }
 

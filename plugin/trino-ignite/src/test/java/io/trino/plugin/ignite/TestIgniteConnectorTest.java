@@ -204,9 +204,9 @@ public class TestIgniteConnectorTest
             assertUpdate("CREATE TABLE " + percentTableName + " (a int, b int, c int) WITH (primary_key = ARRAY['c'])");
 
             // wildcard characters on table name
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + normalTableName)).contains("primary_key = ARRAY['a']");
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + underscoreTableName)).contains("primary_key = ARRAY['b']");
-            assertThat((String) computeScalar("SHOW CREATE TABLE " + percentTableName)).contains("primary_key = ARRAY['c']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + normalTableName)).contains("a integer PRIMARY KEY");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + underscoreTableName)).contains("b integer PRIMARY KEY");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + percentTableName)).contains("c integer PRIMARY KEY");
             assertQueryFails("SHOW CREATE TABLE " + "\"test%\"", ".*Table 'ignite.public.\"test%\"' does not exist");
             assertQueryFails("SHOW COLUMNS FROM " + "\"test%\"", ".*Table 'ignite.public.\"test%\"' does not exist");
         }
@@ -253,12 +253,9 @@ public class TestIgniteConnectorTest
                 "(`a,b` bigint primary key, `c,d` bigint, `x` varchar(79))",
                 List.of("1, 1, 'a'", "2, 2, 'b'", "3, 3, null"))) {
             String pattern = "CREATE TABLE %s.%s.%s (\n" +
-                    "   \"a,b\" bigint,\n" +
+                    "   \"a,b\" bigint PRIMARY KEY,\n" +
                     "   \"c,d\" bigint,\n" +
                     "   x varchar(79)\n" +
-                    ")\n" +
-                    "WITH (\n" +
-                    "   primary_key = ARRAY['a,b']\n" +
                     ")";
             String tableName = testTable.getName();
             assertQuery("SELECT \"a,b\" FROM " + tableName + " where \"a,b\" < 2", "values (1)");
@@ -290,6 +287,14 @@ public class TestIgniteConnectorTest
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableWithAllProperties + " (a bigint, b double, c varchar, d date) WITH (primary_key = ARRAY['a', 'b'])");
     }
 
+    @Test
+    public void testCreateTablePrimaryKeyColumnAndTableProperty()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_unsupported_column (a bigint NOT NULL PRIMARY KEY, b bigint) WITH (primary_key = ARRAY['a'])",
+                "Either PRIMARY KEY column constraint or primary_key table property should exist");
+    }
+
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
@@ -319,9 +324,6 @@ public class TestIgniteConnectorTest
                         "   clerk varchar(15),\n" +
                         "   shippriority integer,\n" +
                         "   comment varchar(79)\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   primary_key = ARRAY['dummy_id']\n" +
                         ")");
     }
 
@@ -392,6 +394,13 @@ public class TestIgniteConnectorTest
     protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
     {
         assertThat(e).hasMessage("Schema change operation failed: Thread got interrupted while trying to acquire table lock.");
+    }
+
+    @Override
+    public void testAddColumnWithPrimaryKey()
+    {
+        assertThatThrownBy(super::testAddColumnWithPrimaryKey)
+                .hasMessageContaining("Ignite doesn't support adding a column with primary key constraint");
     }
 
     @Test

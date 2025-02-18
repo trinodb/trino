@@ -223,7 +223,7 @@ tableElement
     ;
 
 columnDefinition
-    : qualifiedName type (NOT NULL)? (COMMENT string)? (WITH properties)?
+    : qualifiedName type (NOT NULL)? (PRIMARY KEY)? (COMMENT string)? (WITH properties)?
     ;
 
 likeClause
@@ -1219,6 +1219,7 @@ POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PRECISION: 'PRECISION';
 PREPARE: 'PREPARE';
+PRIMARY: 'PRIMARY';
 PRIVILEGES: 'PRIVILEGES';
 PROPERTIES: 'PROPERTIES';
 PRUNE: 'PRUNE';

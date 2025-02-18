@@ -139,6 +139,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PRIMARY_KEY_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
@@ -2344,6 +2345,17 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testAddColumnWithPrimaryKey()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_PRIMARY_KEY_CONSTRAINT));
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_add_primary_", "AS SELECT 1 a")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN b varchar PRIMARY KEY");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName())).contains("a bigint PRIMARY KEY");
+        }
+    }
+
+    @Test
     public void testAddNotNullColumnToEmptyTable()
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
@@ -3929,6 +3941,26 @@ public abstract class BaseConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (a bigint COMMENT 'test comment')");
         assertThat(getColumnComment(tableName, "a")).isEqualTo("test comment");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableWithPrimaryKey()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+
+        String tableName = "test_create_" + randomNameSuffix();
+
+        if (!hasBehavior(SUPPORTS_PRIMARY_KEY_CONSTRAINT)) {
+            assertQueryFails(
+                    "CREATE TABLE " + tableName + " (a bigint PRIMARY KEY, b bigint)",
+                    ".*This connector does not support creating tables with a primary key constraint");
+            return;
+        }
+
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint PRIMARY KEY, b bigint)");
+        assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("a bigint PRIMARY KEY");
 
         assertUpdate("DROP TABLE " + tableName);
     }
