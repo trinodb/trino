@@ -199,7 +199,9 @@ public abstract class BaseMySqlConnectorTest
     @Test
     public void testCreateTableWithPrimaryKey()
     {
+        String tablePrefix = "test_create_with_primary_key_";
         verifyCreateTableDefinition(
+                tablePrefix,
                 "(a bigint NOT NULL, b bigint, c bigint) with (primary_key = ARRAY['a'])",
                 """
                 CREATE TABLE %s.%s.%s (
@@ -214,6 +216,7 @@ public abstract class BaseMySqlConnectorTest
         );
 
         verifyCreateTableDefinition(
+                tablePrefix,
                 "(a bigint NOT NULL, b bigint NOT NULL, c bigint) with (primary_key = ARRAY['a', 'b'])",
                 """
                 CREATE TABLE %s.%s.%s (
@@ -228,14 +231,6 @@ public abstract class BaseMySqlConnectorTest
         );
     }
 
-    private void verifyCreateTableDefinition(String tableDefinition, String showCreateTableFormat)
-    {
-        try (TestTable table = newTrinoTable("test_create_with_primary_key_", tableDefinition)) {
-            assertThat(computeScalar("SHOW CREATE TABLE " + table.getName()))
-                    .isEqualTo(format(showCreateTableFormat, getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
-        }
-    }
-
     @Test
     public void testCreateTableWithInvalidPrimaryKey()
     {
@@ -248,6 +243,103 @@ public abstract class BaseMySqlConnectorTest
                 "Column 'd' specified in property 'primary_key' doesn't exist in table");
         assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['A'])",
                 "Column 'A' specified in property 'primary_key' doesn't exist in table");
+    }
+
+    @Test
+    public void testCreateTableWithAutoIncrementColumn()
+    {
+        String tablePrefix = "test_create_with_auto_increment_column_";
+
+        verifyCreateTableDefinition(
+                tablePrefix,
+                "(a bigint NOT NULL with (auto_increment = true), b bigint, c bigint) with (primary_key = ARRAY['a'])",
+                """
+                CREATE TABLE %s.%s.%s (
+                   a bigint NOT NULL WITH (auto_increment = true),
+                   b bigint,
+                   c bigint
+                )
+                WITH (
+                   primary_key = ARRAY['a']
+                )\
+                """
+        );
+
+        verifyCreateTableDefinition(
+                tablePrefix,
+                "(a int NOT NULL with (auto_increment = true), b bigint, c bigint) with (primary_key = ARRAY['a'])",
+                """
+                CREATE TABLE %s.%s.%s (
+                   a integer NOT NULL WITH (auto_increment = true),
+                   b bigint,
+                   c bigint
+                )
+                WITH (
+                   primary_key = ARRAY['a']
+                )\
+                """
+        );
+
+        verifyCreateTableDefinition(
+                tablePrefix,
+                "(a bigint NOT NULL with (auto_increment = true), b bigint NOT NULL, c bigint) with (primary_key = ARRAY['a', 'b'])",
+                """
+                CREATE TABLE %s.%s.%s (
+                   a bigint NOT NULL WITH (auto_increment = true),
+                   b bigint NOT NULL,
+                   c bigint
+                )
+                WITH (
+                   primary_key = ARRAY['a','b']
+                )\
+                """
+        );
+    }
+
+    @Test
+    public void testCreateTableWithInvalidAutoIncrementColumn()
+    {
+        String tableName = "test_create_with_invalid_auto_increment";
+
+        assertQueryFails("CREATE TABLE " + tableName + " (a varchar NOT NULL with (auto_increment = true), b bigint, c bigint) with (primary_key = ARRAY['a'])",
+                "Only support an integer or bigint column can use AUTO_INCREMENT in MySQL");
+        assertQueryFails("CREATE TABLE " + tableName + " (a date NOT NULL with (auto_increment = true), b bigint, c bigint)  with (primary_key = ARRAY['a'])",
+                "Only support an integer or bigint column can use AUTO_INCREMENT in MySQL");
+        assertQueryFails("CREATE TABLE " + tableName + " (a double NOT NULL with (auto_increment = true), b bigint, c bigint)  with (primary_key = ARRAY['a'])",
+                "Only support an integer or bigint column can use AUTO_INCREMENT in MySQL");
+
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint NOT NULL with (auto_increment = true), b bigint NOT NULL with (auto_increment = true), c bigint) with (primary_key = ARRAY['a', 'b'])",
+                "There can be only one auto increment column in MySQL");
+
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint NOT NULL, b bigint with (auto_increment = true), c bigint) with (primary_key = ARRAY['a', 'b'])",
+                "Auto increment column must be defined as the first key in MySQL");
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint NOT NULL, b bigint with (auto_increment = true), c bigint) with (primary_key = ARRAY['a'])",
+                "Auto increment column must be defined as the first key in MySQL");
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint with (auto_increment = true), b bigint, c bigint)",
+                "Auto increment column must be defined as the first key in MySQL");
+    }
+
+    @Test
+    public void testShowColumnsWithAutoIncrementColumn()
+    {
+        try (TestTable table = newTrinoTable("test_show_columns_with_invalid_auto_increment_", "(a bigint NOT NULL with (auto_increment = true), b bigint) with (primary_key = ARRAY['a'])")) {
+            assertQuery("SHOW COLUMNS FROM " + table.getName(), "VALUES ('a', 'bigint', 'auto_increment=true', ''), ('b', 'bigint', '', '')");
+            assertQuery("DESCRIBE " + table.getName(), "VALUES ('a', 'bigint', 'auto_increment=true', ''), ('b', 'bigint', '', '')");
+        }
+    }
+
+    private void verifyCreateTableDefinition(String tablePrefix, String tableDefinition, String showCreateTableFormat)
+    {
+        try (TestTable table = newTrinoTable(tablePrefix, tableDefinition)) {
+            assertThat(computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .isEqualTo(format(showCreateTableFormat, getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()));
+        }
+    }
+
+    @Test
+    public void testAddColumnWithColumnProperties()
+    {
+        assertQueryFails("ALTER TABLE nation ADD COLUMN test_add_col_properties int with (auto_increment=true) ", "This connector does not support adding columns with column properties");
     }
 
     @Test
