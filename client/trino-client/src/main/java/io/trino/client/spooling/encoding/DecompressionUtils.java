@@ -33,7 +33,7 @@ public class DecompressionUtils
 
     public static int decompressLZ4(byte[] input, byte[] output)
     {
-        if (!LZ4_DECOMPRESSOR_CONSTRUCTOR.isPresent()) {
+        if (LZ4_DECOMPRESSOR_CONSTRUCTOR.isEmpty()) {
             Lz4Decompressor decompressor = new Lz4Decompressor();
             return decompressor.decompress(input, 0, input.length, output, 0, output.length);
         }
@@ -43,7 +43,7 @@ public class DecompressionUtils
 
     public static int decompressZstd(byte[] input, byte[] output)
     {
-        if (!ZSTD_DECOMPRESSOR_CONSTRUCTOR.isPresent()) {
+        if (ZSTD_DECOMPRESSOR_CONSTRUCTOR.isEmpty()) {
             ZstdDecompressor decompressor = new ZstdDecompressor();
             return decompressor.decompress(input, 0, input.length, output, 0, output.length);
         }

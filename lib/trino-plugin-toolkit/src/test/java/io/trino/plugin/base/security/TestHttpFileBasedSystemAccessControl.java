@@ -20,8 +20,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAll;
@@ -43,14 +43,9 @@ public class TestHttpFileBasedSystemAccessControl
     }
 
     @Override
-    protected SystemAccessControl newFileBasedSystemAccessControl(File configFile, Map<String, String> properties)
+    protected SystemAccessControl newFileBasedSystemAccessControl(Path configFile, Map<String, String> properties)
     {
-        try {
-            String dataUrl = testingHttpServer.resource(configFile.getCanonicalFile().getAbsolutePath()).toString();
-            return newFileBasedSystemAccessControl(ImmutableMap.<String, String>builder().putAll(properties).put("security.config-file", dataUrl).buildOrThrow());
-        }
-        catch (IOException e) {
-            throw new RuntimeException("Error while creating SystemAccessControl", e);
-        }
+        String dataUrl = testingHttpServer.resource(configFile.normalize().toAbsolutePath().toString()).toString();
+        return newFileBasedSystemAccessControl(ImmutableMap.<String, String>builder().putAll(properties).put("security.config-file", dataUrl).buildOrThrow());
     }
 }

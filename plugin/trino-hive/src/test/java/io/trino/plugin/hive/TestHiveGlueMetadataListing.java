@@ -32,6 +32,8 @@ import software.amazon.awssdk.services.glue.model.CreateTableRequest;
 import software.amazon.awssdk.services.glue.model.TableInput;
 
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
 
 import static io.trino.plugin.hive.metastore.glue.GlueMetastoreModule.createGlueClient;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
@@ -46,6 +48,7 @@ public class TestHiveGlueMetadataListing
         extends AbstractTestQueryFramework
 {
     public static final String FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME = "failing_table_with_null_storage_descriptor";
+    public static final String FAILING_TABLE_WITH_NULL_TYPE = "failing_table_with_null_type";
     private static final Logger LOG = Logger.get(TestHiveGlueMetadataListing.class);
     private static final String HIVE_CATALOG = "hive";
     private final String tpchSchema = "test_tpch_schema_" + randomNameSuffix();
@@ -75,7 +78,7 @@ public class TestHiveGlueMetadataListing
         queryRunner.execute("CREATE SCHEMA " + tpchSchema + " WITH (location = '" + dataDirectory.toUri() + "')");
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, hiveSession, ImmutableList.of(TpchTable.REGION, TpchTable.NATION));
 
-        createBrokenTable(dataDirectory);
+        createBrokenTables(dataDirectory);
 
         return queryRunner;
     }
@@ -98,43 +101,54 @@ public class TestHiveGlueMetadataListing
     @Test
     public void testReadInformationSchema()
     {
-        String expectedTables = format("VALUES '%s', '%s', '%s'", TpchTable.REGION.getTableName(), TpchTable.NATION.getTableName(), FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME);
+        Set<String> expectedTables = ImmutableSet.<String>builder()
+                .add(TpchTable.REGION.getTableName())
+                .add(TpchTable.NATION.getTableName())
+                .add(FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME)
+                .add(FAILING_TABLE_WITH_NULL_TYPE)
+                .build();
 
-        assertThat(query("SELECT table_name FROM hive.information_schema.tables"))
-                .skippingTypesCheck()
-                .containsAll(expectedTables);
-        assertThat(query("SELECT table_name FROM hive.information_schema.tables WHERE table_schema='" + tpchSchema + "'"))
-                .skippingTypesCheck()
-                .matches(expectedTables);
-        assertThat(query("SELECT table_name FROM hive.information_schema.tables WHERE table_name = 'region' AND table_schema='" + tpchSchema + "'"))
-                .skippingTypesCheck()
-                .matches("VALUES 'region'");
+        assertThat(computeActual("SELECT table_name FROM hive.information_schema.tables").getOnlyColumnAsSet()).containsAll(expectedTables);
+        assertThat(computeActual("SELECT table_name FROM hive.information_schema.tables WHERE table_schema='" + tpchSchema + "'").getOnlyColumnAsSet()).containsAll(expectedTables);
+        assertThat(computeScalar("SELECT table_name FROM hive.information_schema.tables WHERE table_name = 'region' AND table_schema='" + tpchSchema + "'"))
+                .isEqualTo(TpchTable.REGION.getTableName());
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
+        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_TYPE, tpchSchema));
 
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_schema = '" + tpchSchema + "'",
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment'), ('nation', 'nationkey'), ('nation', 'name'), ('nation', 'regionkey'), ('nation', 'comment')");
         assertQuery("SELECT table_name, column_name from hive.information_schema.columns WHERE table_name = 'region' AND table_schema='" + tpchSchema + "'",
                 "VALUES ('region', 'regionkey'), ('region', 'name'), ('region', 'comment')");
         assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME, tpchSchema));
+        assertQueryReturnsEmptyResult(format("SELECT table_name FROM hive.information_schema.columns WHERE table_name = '%s' AND table_schema='%s'", FAILING_TABLE_WITH_NULL_TYPE, tpchSchema));
 
-        assertQuery("SHOW TABLES FROM hive." + tpchSchema, expectedTables);
+        assertThat(computeActual("SHOW TABLES FROM hive." + tpchSchema).getOnlyColumnAsSet()).isEqualTo(expectedTables);
     }
 
-    private void createBrokenTable(Path dataDirectory)
+    private void createBrokenTables(Path dataDirectory)
+    {
+        TableInput nullStorageTable = TableInput.builder()
+                .name(FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME)
+                .tableType("HIVE")
+                .build();
+        TableInput nullTypeTable = TableInput.builder()
+                .name(FAILING_TABLE_WITH_NULL_TYPE)
+                .build();
+        createBrokenTable(List.of(nullStorageTable, nullTypeTable), dataDirectory);
+    }
+
+    private void createBrokenTable(List<TableInput> tablesInput, Path dataDirectory)
     {
         GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
                 .setDefaultWarehouseDir(dataDirectory.toString());
         try (GlueClient glueClient = createGlueClient(glueConfig, ImmutableSet.of())) {
-            TableInput tableInput = TableInput.builder()
-                    .name(FAILING_TABLE_WITH_NULL_STORAGE_DESCRIPTOR_NAME)
-                    .tableType("HIVE")
-                    .build();
-
-            CreateTableRequest createTableRequest = CreateTableRequest.builder()
-                    .databaseName(tpchSchema)
-                    .tableInput(tableInput)
-                    .build();
-            glueClient.createTable(createTableRequest);
+            for (TableInput tableInput : tablesInput) {
+                CreateTableRequest createTableRequest = CreateTableRequest.builder()
+                        .databaseName(tpchSchema)
+                        .tableInput(tableInput)
+                        .build();
+                glueClient.createTable(createTableRequest);
+            }
         }
     }
 }

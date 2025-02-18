@@ -56,7 +56,7 @@ public class ClientSession
     private final String transactionId;
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
-    private Optional<String> encoding;
+    private final Optional<String> encoding;
 
     public static Builder builder()
     {

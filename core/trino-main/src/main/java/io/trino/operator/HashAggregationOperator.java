@@ -41,9 +41,9 @@ import java.util.OptionalLong;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.operator.HashGenerator.INITIAL_HASH_VALUE;
 import static io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder.toTypes;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.optimizations.HashGenerationOptimizer.INITIAL_HASH_VALUE;
 import static io.trino.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 

@@ -24,6 +24,7 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
 import io.trino.plugin.jdbc.credential.ExtraCredentialConfig;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -1090,7 +1091,7 @@ public class TestCachingJdbcClient
     private JdbcColumnHandle addColumn(JdbcClient client, JdbcTableHandle tableHandle, String columnName)
     {
         ColumnMetadata columnMetadata = new ColumnMetadata(columnName, INTEGER);
-        client.addColumn(SESSION, tableHandle, columnMetadata);
+        client.addColumn(SESSION, tableHandle, columnMetadata, new ColumnPosition.Last());
         return getColumns(SESSION, client, tableHandle)
                 .stream()
                 .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))

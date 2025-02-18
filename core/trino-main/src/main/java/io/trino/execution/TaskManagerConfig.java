@@ -525,9 +525,9 @@ public class TaskManagerConfig
     }
 
     @Config("task.http-response-threads")
-    public TaskManagerConfig setHttpResponseThreads(int httpResponseThreads)
+    public TaskManagerConfig setHttpResponseThreads(String httpResponseThreads)
     {
-        this.httpResponseThreads = httpResponseThreads;
+        this.httpResponseThreads = ThreadCountParser.DEFAULT.parse(httpResponseThreads);
         return this;
     }
 
@@ -538,9 +538,9 @@ public class TaskManagerConfig
     }
 
     @Config("task.http-timeout-threads")
-    public TaskManagerConfig setHttpTimeoutThreads(int httpTimeoutThreads)
+    public TaskManagerConfig setHttpTimeoutThreads(String httpTimeoutThreads)
     {
-        this.httpTimeoutThreads = httpTimeoutThreads;
+        this.httpTimeoutThreads = ThreadCountParser.DEFAULT.parse(httpTimeoutThreads);
         return this;
     }
 
@@ -552,9 +552,9 @@ public class TaskManagerConfig
 
     @Config("task.task-notification-threads")
     @ConfigDescription("Number of threads used for internal task event notifications")
-    public TaskManagerConfig setTaskNotificationThreads(int taskNotificationThreads)
+    public TaskManagerConfig setTaskNotificationThreads(String taskNotificationThreads)
     {
-        this.taskNotificationThreads = taskNotificationThreads;
+        this.taskNotificationThreads = ThreadCountParser.DEFAULT.parse(taskNotificationThreads);
         return this;
     }
 
@@ -566,9 +566,9 @@ public class TaskManagerConfig
 
     @Config("task.task-yield-threads")
     @ConfigDescription("Number of threads used for setting yield signals")
-    public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
+    public TaskManagerConfig setTaskYieldThreads(String taskYieldThreads)
     {
-        this.taskYieldThreads = taskYieldThreads;
+        this.taskYieldThreads = ThreadCountParser.DEFAULT.parse(taskYieldThreads);
         return this;
     }
 
@@ -580,9 +580,9 @@ public class TaskManagerConfig
 
     @Config("task.driver-timeout-threads")
     @ConfigDescription("Number of threads used for timing out blocked drivers if the timeout is set")
-    public TaskManagerConfig setDriverTimeoutThreads(int driverTimeoutThreads)
+    public TaskManagerConfig setDriverTimeoutThreads(String driverTimeoutThreads)
     {
-        this.driverTimeoutThreads = driverTimeoutThreads;
+        this.driverTimeoutThreads = ThreadCountParser.DEFAULT.parse(driverTimeoutThreads);
         return this;
     }
 

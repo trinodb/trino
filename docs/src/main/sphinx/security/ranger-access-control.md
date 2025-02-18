@@ -85,6 +85,30 @@ The following table lists the configuration properties for the Ranger access con
     <value></value>
     <description>Comma separated list of group names. Users in supergroups will be authorized for all accesses, without requiring explicit policy grants</description>
   </property>
+
+  <property>
+    <name>ranger.plugin.trino.ugi.initialize</name>
+    <value>false</value>
+    <description>Initialize the kerberos identity used to authenticate with Ranger admin server</description>
+  </property>
+
+  <property>
+    <name>ranger.plugin.trino.ugi.login.type</name>
+    <value></value>
+    <description>Valid value: keytab</description>
+  </property>
+
+  <property>
+    <name>ranger.plugin.trino.ugi.keytab.principal</name>
+    <value></value>
+    <description>Kerberos principal. Example: trino@EXAMPLE.COM</description>
+  </property>
+
+  <property>
+    <name>ranger.plugin.trino.ugi.keytab.file</name>
+    <value></value>
+    <description>Location of keytab file. Example: /etc/trino/trino.keytab</description>
+  </property>
 </configuration>
 ```
 

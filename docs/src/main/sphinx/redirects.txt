@@ -9,6 +9,11 @@ connector/hive-security.md object-storage/file-system-hdfs.md
 connector/atop.md connector/removed.md
 connector/localfile.md connector/removed.md
 connector/accumulo.md connector/removed.md
+connector/kinesis.md connector/removed.md
+object-storage/legacy-azure.md object-storage/file-system-azure.md
+object-storage/legacy-cos.md object-storage/file-system-s3.md 
+object-storage/legacy-gcs.md object-storage/file-system-gcs.md
+object-storage/legacy-s3.md object-storage/file-system-s3.md 
 security/apache-ranger-access-control.md security/ranger-access-control.md
 routines.md udf.md
 routines/function.md udf/function.md

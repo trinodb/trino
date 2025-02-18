@@ -201,7 +201,7 @@ public abstract class AbstractTrinoCatalog
                 .getSchemaTableName();
 
         try {
-            Table storageTable = loadTable(session, definition.getStorageTable().orElseThrow().getSchemaTableName());
+            BaseTable storageTable = loadTable(session, definition.getStorageTable().orElseThrow().getSchemaTableName());
             return ImmutableMap.<String, Object>builder()
                     .putAll(getIcebergTableProperties(storageTable))
                     .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
@@ -218,18 +218,18 @@ public abstract class AbstractTrinoCatalog
             Schema schema,
             PartitionSpec partitionSpec,
             SortOrder sortOrder,
-            String location,
+            Optional<String> location,
             Map<String, String> properties,
             Optional<String> owner)
     {
-        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, location, properties);
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, location.orElse(null), properties);
         TableOperations ops = tableOperationsProvider.createTableOperations(
                 this,
                 session,
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
                 owner,
-                Optional.of(location));
+                location);
         return createTableTransaction(schemaTableName.toString(), ops, metadata);
     }
 
@@ -246,7 +246,7 @@ public abstract class AbstractTrinoCatalog
         BaseTable table;
         Optional<TableMetadata> metadata = Optional.empty();
         try {
-            table = (BaseTable) loadTable(session, new SchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
+            table = loadTable(session, new SchemaTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()));
             metadata = Optional.of(table.operations().current());
         }
         catch (TableNotFoundException _) {

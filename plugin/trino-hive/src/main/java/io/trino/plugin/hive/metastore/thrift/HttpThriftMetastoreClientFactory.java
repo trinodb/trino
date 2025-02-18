@@ -17,16 +17,16 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.instrumentation.apachehttpclient.v5_2.ApacheHttpClient5Telemetry;
+import io.opentelemetry.instrumentation.apachehttpclient.v5_2.ApacheHttpClientTelemetry;
 import io.trino.spi.NodeManager;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.io.BasicHttpClientConnectionManager;
-import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy;
 import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
-import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.TlsSocketStrategy;
 import org.apache.hc.core5.http.HttpHeaders;
-import org.apache.hc.core5.http.config.Registry;
+import org.apache.hc.core5.http.config.Lookup;
 import org.apache.hc.core5.http.config.RegistryBuilder;
 import org.apache.thrift.transport.THttpClient;
 import org.apache.thrift.transport.TTransport;
@@ -94,27 +94,25 @@ public class HttpThriftMetastoreClientFactory
     private TTransport createHttpTransport(URI uri)
             throws TTransportException
     {
-        HttpClientBuilder httpClientBuilder = ApacheHttpClient5Telemetry.builder(openTelemetry).build().newHttpClientBuilder();
+        HttpClientBuilder httpClientBuilder = ApacheHttpClientTelemetry.builder(openTelemetry).build().newHttpClientBuilder();
         if ("https".equals(uri.getScheme().toLowerCase(ENGLISH))) {
             checkArgument(token.isPresent(), "'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
             checkArgument(authenticationMode.isPresent(), "'hive.metastore.http.client.authentication.type' must be set while using http/https metastore URIs in 'hive.metastore.uri'");
-            SSLConnectionSocketFactory socketFactory;
+            TlsSocketStrategy tlsStrategy;
             try {
-                socketFactory = new SSLConnectionSocketFactory(SSLContext.getDefault(), new DefaultHostnameVerifier());
+                tlsStrategy = new DefaultClientTlsStrategy(SSLContext.getDefault(), new DefaultHostnameVerifier());
             }
             catch (NoSuchAlgorithmException e) {
                 throw new TTransportException(e);
             }
-            Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
-                    .register("https", socketFactory)
-                    .build();
-            httpClientBuilder.setConnectionManager(new BasicHttpClientConnectionManager(registry));
-            httpClientBuilder.addRequestInterceptorFirst((httpRequest, entityDetails, httpContext) -> httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.get()));
+            Lookup<TlsSocketStrategy> registry = RegistryBuilder.<TlsSocketStrategy>create().register("https", tlsStrategy).build();
+            httpClientBuilder.setConnectionManager(BasicHttpClientConnectionManager.create(registry));
+            httpClientBuilder.addRequestInterceptorFirst((httpRequest, _, _) -> httpRequest.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token.get()));
         }
         else {
             checkArgument(token.isEmpty(), "'hive.metastore.http.client.bearer-token' must not be set while using http metastore URIs in 'hive.metastore.uri'");
         }
-        httpClientBuilder.addRequestInterceptorFirst((httpRequest, entityDetails, httpContext) -> additionalHeaders.forEach(httpRequest::addHeader));
+        httpClientBuilder.addRequestInterceptorFirst((httpRequest, _, _) -> additionalHeaders.forEach(httpRequest::addHeader));
         httpClientBuilder.setDefaultRequestConfig(RequestConfig.custom().setResponseTimeout(readTimeoutMillis, TimeUnit.MILLISECONDS).build());
         return new THttpClient(uri.toString(), httpClientBuilder.build());
     }

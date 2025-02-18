@@ -243,7 +243,7 @@ The following configuration properties are available:
 (trino-oauth2-troubleshooting)=
 ## Troubleshooting
 
-To debug issues, change the {ref}`log level <log-levels>` for the OAuth 2.0
+To debug issues, change the [log level <log-levels>` for the OAuth 2.0
 authenticator:
 
 ```none

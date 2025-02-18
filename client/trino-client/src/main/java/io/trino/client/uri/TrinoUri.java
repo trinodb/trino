@@ -747,7 +747,7 @@ public class TrinoUri
     {
         private URI uri;
         private List<PropertyName> restrictedProperties = ImmutableList.of();
-        private ImmutableMap.Builder<Object, Object> properties = ImmutableMap.builder();
+        private final ImmutableMap.Builder<Object, Object> properties = ImmutableMap.builder();
 
         private Builder() {}
 

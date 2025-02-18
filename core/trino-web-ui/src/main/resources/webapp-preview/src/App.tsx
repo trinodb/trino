@@ -32,6 +32,7 @@ import { routers } from './router.tsx'
 import { useConfigStore, Theme as ThemeStore } from './store'
 import { darkTheme, lightTheme } from './theme'
 import trinoLogo from './assets/trino.svg'
+import { WorkerStatus } from './components/WorkerStatus.tsx'
 
 const App = () => {
     const config = useConfigStore()
@@ -74,6 +75,7 @@ const Screen = () => {
                 {routers.flatMap((router) => {
                     return [<Route {...router.routeProps} key={router.itemKey} />]
                 })}
+                <Route path="/workers/:nodeId" element={<WorkerStatus />} />
                 <Route path="/" element={<Navigate to="/dashboard" />} />
                 <Route path="*" element={<NotFound />} key={'*'} />
             </Routes>
@@ -92,7 +94,7 @@ const NotFound = () => {
                     <Typography variant="h3">404</Typography>
                     <Typography paragraph>The page you’re looking for doesn’t exist.</Typography>
                     <Button variant="contained" component={Link} href="/">
-                        Back Home
+                        Back home
                     </Button>
                 </Grid>
             </Grid>

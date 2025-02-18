@@ -29,6 +29,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import software.amazon.awssdk.retries.api.RetryStrategy;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
+import software.amazon.awssdk.services.s3.model.StorageClass;
 
 import java.util.Optional;
 import java.util.Set;
@@ -44,6 +45,22 @@ public class S3FileSystemConfig
     public enum S3SseType
     {
         NONE, S3, KMS, CUSTOMER
+    }
+
+    public enum StorageClassType
+    {
+        STANDARD,
+        STANDARD_IA,
+        INTELLIGENT_TIERING;
+
+        public static StorageClass toStorageClass(StorageClassType storageClass)
+        {
+            return switch (storageClass) {
+                case STANDARD -> StorageClass.STANDARD;
+                case STANDARD_IA -> StorageClass.STANDARD_IA;
+                case INTELLIGENT_TIERING -> StorageClass.INTELLIGENT_TIERING;
+            };
+        }
     }
 
     public enum ObjectCannedAcl
@@ -91,6 +108,7 @@ public class S3FileSystemConfig
     private String endpoint;
     private String region;
     private boolean pathStyleAccess;
+    private StorageClassType storageClass = StorageClassType.STANDARD;
     private String iamRole;
     private String roleSessionName = "trino-filesystem";
     private String externalId;
@@ -179,6 +197,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setPathStyleAccess(boolean pathStyleAccess)
     {
         this.pathStyleAccess = pathStyleAccess;
+        return this;
+    }
+
+    public StorageClassType getStorageClass()
+    {
+        return storageClass;
+    }
+
+    @Config("s3.storage-class")
+    @ConfigDescription("The S3 storage class to use when writing the data")
+    public S3FileSystemConfig setStorageClass(StorageClassType storageClass)
+    {
+        this.storageClass = storageClass;
         return this;
     }
 

@@ -21,6 +21,7 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.airlift.units.ThreadCount;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.DecimalMax;
@@ -43,6 +44,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 
 @DefunctConfig({
         "iceberg.allow-legacy-snapshot-syntax",
@@ -60,6 +62,7 @@ public class IcebergConfig
 
     private IcebergFileFormat fileFormat = PARQUET;
     private HiveCompressionCodec compressionCodec = ZSTD;
+    private int maxCommitRetry = COMMIT_NUM_RETRIES_DEFAULT;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
     private boolean uniqueTableLocation = true;
@@ -94,6 +97,7 @@ public class IcebergConfig
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
     private boolean bucketExecutionEnabled = true;
+    private boolean fileBasedConflictDetectionEnabled = true;
 
     public CatalogType getCatalogType()
     {
@@ -130,6 +134,20 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxCommitRetry()
+    {
+        return maxCommitRetry;
+    }
+
+    @Config("iceberg.max-commit-retry")
+    @ConfigDescription("Number of times to retry a commit before failing")
+    public IcebergConfig setMaxCommitRetry(int maxCommitRetry)
+    {
+        this.maxCommitRetry = maxCommitRetry;
         return this;
     }
 
@@ -472,9 +490,9 @@ public class IcebergConfig
 
     @Config("iceberg.split-manager-threads")
     @ConfigDescription("Number of threads to use for generating splits")
-    public IcebergConfig setSplitManagerThreads(int splitManagerThreads)
+    public IcebergConfig setSplitManagerThreads(String splitManagerThreads)
     {
-        this.splitManagerThreads = splitManagerThreads;
+        this.splitManagerThreads = ThreadCount.valueOf(splitManagerThreads).getThreadCount();
         return this;
     }
 
@@ -562,6 +580,19 @@ public class IcebergConfig
     public IcebergConfig setBucketExecutionEnabled(boolean bucketExecutionEnabled)
     {
         this.bucketExecutionEnabled = bucketExecutionEnabled;
+        return this;
+    }
+
+    public boolean isFileBasedConflictDetectionEnabled()
+    {
+        return fileBasedConflictDetectionEnabled;
+    }
+
+    @Config("iceberg.file-based-conflict-detection")
+    @ConfigDescription("Enable file-based conflict detection: take partition information from the actual written files as a source for the conflict detection system")
+    public IcebergConfig setFileBasedConflictDetectionEnabled(boolean fileBasedConflictDetectionEnabled)
+    {
+        this.fileBasedConflictDetectionEnabled = fileBasedConflictDetectionEnabled;
         return this;
     }
 }

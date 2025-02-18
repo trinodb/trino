@@ -46,7 +46,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -192,20 +191,6 @@ public abstract class AbstractTestEngineOnlyQueries
         // This tests that both Trino runner and H2 can return TIMESTAMP value that never happened in JVM's zone (e.g. is not representable using java.sql.Timestamp)
         @Language("SQL") String sql = DateTimeFormatter.ofPattern("'SELECT TIMESTAMP '''uuuu-MM-dd HH:mm:ss.SSS''").format(localTimeThatDidNotExist);
         assertThat(computeScalar(sql)).isEqualTo(localTimeThatDidNotExist); // this tests Trino and the QueryRunner
-        assertQuery(sql); // this tests H2QueryRunner
-
-        LocalDate localDateThatDidNotHaveMidnight = LocalDate.of(1970, 1, 1);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localDateThatDidNotHaveMidnight.atStartOfDay()).isEmpty(), "This test assumes certain JVM time zone");
-        // This tests that both Trino runner and H2 can return DATE value for a day which midnight never happened in JVM's zone (e.g. is not exactly representable using java.sql.Date)
-        sql = DateTimeFormatter.ofPattern("'SELECT DATE '''uuuu-MM-dd''").format(localDateThatDidNotHaveMidnight);
-        assertThat(computeScalar(sql)).isEqualTo(localDateThatDidNotHaveMidnight); // this tests Trino and the QueryRunner
-        assertQuery(sql); // this tests H2QueryRunner
-
-        LocalTime localTimeThatDidNotOccurOn19700101 = LocalTime.of(0, 10);
-        checkState(ZoneId.systemDefault().getRules().getValidOffsets(localTimeThatDidNotOccurOn19700101.atDate(LocalDate.ofEpochDay(0))).isEmpty(), "This test assumes certain JVM time zone");
-        checkState(!Objects.equals(java.sql.Time.valueOf(localTimeThatDidNotOccurOn19700101).toLocalTime(), localTimeThatDidNotOccurOn19700101), "This test assumes certain JVM time zone");
-        sql = DateTimeFormatter.ofPattern("'SELECT TIME '''HH:mm:ss''").format(localTimeThatDidNotOccurOn19700101);
-        assertThat(computeScalar(sql)).isEqualTo(localTimeThatDidNotOccurOn19700101); // this tests Trino and the QueryRunner
         assertQuery(sql); // this tests H2QueryRunner
     }
 
@@ -1475,8 +1460,6 @@ public abstract class AbstractTestEngineOnlyQueries
         assertDescribeOutputRowCount("CREATE TABLE foo AS SELECT * FROM nation");
 
         assertDescribeOutputEmpty("CALL foo()");
-        assertDescribeOutputEmpty("SET SESSION optimize_hash_generation=false");
-        assertDescribeOutputEmpty("RESET SESSION optimize_hash_generation");
         assertDescribeOutputEmpty("START TRANSACTION");
         assertDescribeOutputEmpty("COMMIT");
         assertDescribeOutputEmpty("ROLLBACK");
@@ -6620,143 +6603,6 @@ public abstract class AbstractTestEngineOnlyQueries
 
         MaterializedResult showCreateTableResult = computeActual("SHOW CREATE TABLE nation");
         assertThat(showCreateTableResult.getColumnNames()).isEqualTo(ImmutableList.of("Create Table"));
-    }
-
-    @Test
-    public void testInlineSqlFunctions()
-    {
-        assertThat(query(
-                """
-                WITH FUNCTION abc(x integer) RETURNS integer RETURN x * 2
-                SELECT abc(21)
-                """))
-                .matches("VALUES 42");
-        assertThat(query(
-                """
-                WITH FUNCTION abc(x integer) RETURNS integer RETURN abs(x)
-                SELECT abc(-21)
-                """))
-                .matches("VALUES 21");
-
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION abc(x integer) RETURNS integer RETURN x * 2,
-                  FUNCTION xyz(x integer) RETURNS integer RETURN abc(x) + 1
-                SELECT xyz(21)
-                """))
-                .matches("VALUES 43");
-
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION my_pow(n int, p int)
-                  RETURNS int
-                  BEGIN
-                    DECLARE r int DEFAULT n;
-                    top: LOOP
-                      IF p <= 1 THEN
-                        LEAVE top;
-                      END IF;
-                      SET r = r * n;
-                      SET p = p - 1;
-                    END LOOP;
-                    RETURN r;
-                  END
-                SELECT my_pow(2, 8)
-                """))
-                .matches("VALUES 256");
-
-        // invoke function on data from connector to prevent constant folding on the coordinator
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION my_pow(n int, p int)
-                  RETURNS int
-                  BEGIN
-                    DECLARE r int DEFAULT n;
-                    top: LOOP
-                      IF p <= 1 THEN
-                        LEAVE top;
-                      END IF;
-                      SET r = r * n;
-                      SET p = p - 1;
-                    END LOOP;
-                    RETURN r;
-                  END
-                SELECT my_pow(CAST(nationkey AS integer), CAST(regionkey AS integer)) FROM nation WHERE nationkey IN (1,2,3,5,8)
-                """))
-                .matches("VALUES 1, 2, 3, 5, 64");
-
-        // function with dereference
-        assertThat(query(
-                """
-                WITH FUNCTION get(input row(varchar))
-                    RETURNS varchar
-                    RETURN input[1]
-                SELECT get(ROW('abc'))
-                """))
-                .matches("VALUES VARCHAR 'abc'");
-
-        // validations for inline functions
-        assertQueryFails("WITH FUNCTION a.b() RETURNS int RETURN 42 SELECT a.b()",
-                "line 1:6: Inline function names cannot be qualified: a.b");
-
-        assertQueryFails("WITH FUNCTION x() RETURNS int SECURITY INVOKER RETURN 42 SELECT x()",
-                "line 1:31: Security mode not supported for inline functions");
-
-        assertQueryFails("WITH FUNCTION x() RETURNS bigint SECURITY DEFINER RETURN 42 SELECT x()",
-                "line 1:34: Security mode not supported for inline functions");
-
-        // error location reporting
-        assertQueryFails("WITH function x() RETURNS bigint DETERMINISTIC DETERMINISTIC RETURN 42 SELECT x()",
-                "line 1:48: Multiple deterministic clauses specified");
-
-        // Verify the current restrictions on inline functions are enforced
-
-        // inline function can mask a global function
-        assertThat(query(
-                """
-                WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2
-                SELECT abs(-10)
-                """))
-                .matches("VALUES -20");
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION abs(x integer) RETURNS integer RETURN x * 2,
-                  FUNCTION wrap_abs(x integer) RETURNS integer RETURN abs(x)
-                SELECT wrap_abs(-10)
-                """))
-                .matches("VALUES -20");
-
-        // inline function can have the same name as a global function with a different signature
-        assertThat(query(
-                """
-                WITH FUNCTION abs(x varchar) RETURNS varchar RETURN reverse(x)
-                SELECT abs('abc')
-                """))
-                .skippingTypesCheck()
-                .matches("VALUES 'cba'");
-
-        // inline functions must be declared before they are used
-        assertThat(query(
-                """
-                WITH
-                  FUNCTION a(x integer) RETURNS integer RETURN b(x),
-                  FUNCTION b(x integer) RETURNS integer RETURN x * 2
-                SELECT a(10)
-                """))
-                .failure().hasMessage("line 2:48: Function 'b' not registered");
-
-        // inline function cannot be recursive
-        // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
-        assertThat(query(
-                """
-                WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
-                SELECT a(10)
-                """))
-                .failure().hasMessage("line 1:6: Recursive language functions are not supported: a(integer):integer");
     }
 
     @Test

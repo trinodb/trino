@@ -432,7 +432,8 @@ any catalog, and allows all users to create, drop, and execute functions (includ
 (system-file-procedure-rules)=
 #### Procedure rules
 
-These rules control the ability of a user to execute procedures.
+These rules control the ability of a user to execute procedures using the
+[CALL](/sql/call) statement.
 
 Procedures are used for administrative operations on a specific catalog, such as
 registering external tables or flushing the connector's cache. Available
@@ -489,6 +490,15 @@ connector](/connector/delta-lake). It allows all users to execute the
   ]
 }
 ```
+
+(system-file-table-procedure-rules)=
+#### Table procedure rules
+
+Table procedures are executed using the
+[ALTER TABLE ... EXECUTE](alter-table-execute) syntax.
+
+File-based access control does not support privileges for table procedures and
+therefore all are effectively allowed.
 
 (verify-rules)=
 #### Verify configuration

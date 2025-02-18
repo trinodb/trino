@@ -22,6 +22,7 @@ import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.containers.IcebergRestCatalogBackendContainer;
@@ -289,6 +290,10 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
+                .isInstanceOf(QueryFailedException.class)
+                .cause()
+                .hasMessageContaining("Failed to drop table")
+                .cause()
                 .hasMessageMatching("Server error: NoSuchKeyException:.*");
     }
 

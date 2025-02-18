@@ -24,9 +24,12 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
-public class MongoIndex
+public record MongoIndex(List<MongodbIndexKey> keys)
 {
-    private final List<MongodbIndexKey> keys;
+    public MongoIndex
+    {
+        keys = ImmutableList.copyOf(keys);
+    }
 
     public static List<MongoIndex> parse(ListIndexesIterable<Document> indexes)
     {
@@ -53,10 +56,11 @@ public class MongoIndex
             if (value instanceof Number) {
                 int order = ((Number) value).intValue();
                 checkState(order == 1 || order == -1, "Unknown index sort order");
-                builder.add(new MongodbIndexKey(name, order == 1 ? SortOrder.ASC_NULLS_LAST : SortOrder.DESC_NULLS_LAST));
+                SortOrder sortOrder = order == 1 ? SortOrder.ASC_NULLS_LAST : SortOrder.DESC_NULLS_LAST;
+                builder.add(new MongodbIndexKey(name, Optional.of(sortOrder)));
             }
             else if (value instanceof String) {
-                builder.add(new MongodbIndexKey(name, (String) value));
+                builder.add(new MongodbIndexKey(name, Optional.empty()));
             }
             else {
                 throw new UnsupportedOperationException("Unknown index type: " + value.toString());
@@ -66,52 +70,12 @@ public class MongoIndex
         return builder.build();
     }
 
-    public MongoIndex(List<MongodbIndexKey> keys)
+    public record MongodbIndexKey(String name, Optional<SortOrder> sortOrder)
     {
-        this.keys = keys;
-    }
-
-    public List<MongodbIndexKey> getKeys()
-    {
-        return keys;
-    }
-
-    public static class MongodbIndexKey
-    {
-        private final String name;
-        private final Optional<SortOrder> sortOrder;
-        private final Optional<String> type;
-
-        public MongodbIndexKey(String name, SortOrder sortOrder)
+        public MongodbIndexKey
         {
-            this(name, Optional.of(sortOrder), Optional.empty());
-        }
-
-        public MongodbIndexKey(String name, String type)
-        {
-            this(name, Optional.empty(), Optional.of(type));
-        }
-
-        public MongodbIndexKey(String name, Optional<SortOrder> sortOrder, Optional<String> type)
-        {
-            this.name = requireNonNull(name, "name is null");
-            this.sortOrder = sortOrder;
-            this.type = type;
-        }
-
-        public String getName()
-        {
-            return name;
-        }
-
-        public Optional<SortOrder> getSortOrder()
-        {
-            return sortOrder;
-        }
-
-        public Optional<String> getType()
-        {
-            return type;
+            requireNonNull(name, "name is null");
+            requireNonNull(sortOrder, "sortOrder is null");
         }
     }
 }

@@ -352,7 +352,7 @@ public class PipelinedStageExecution
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
                         // task is failed or failing, so we need to create a synthetic exception to fail the stage now
-                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+                        .orElseGet(() -> new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s failed for an unknown reason", taskStatus.getTaskId())));
                 fail(failure);
                 break;
             case CANCELING:
@@ -360,7 +360,7 @@ public class PipelinedStageExecution
             case ABORTING:
             case ABORTED:
                 // A task should only be in the aborting, aborted, canceling, or canceled state if the STAGE is done (ABORTED or FAILED)
-                fail(new TrinoException(GENERIC_INTERNAL_ERROR, format("A task is in the %s state but stage is %s", taskState, stateMachine.getState())));
+                fail(new TrinoException(GENERIC_INTERNAL_ERROR, format("Task %s is in the %s state but stage %s is %s", taskStatus.getTaskId(), taskState, stateMachine.getStageId(), stateMachine.getState())));
                 break;
             case FLUSHING:
                 newFlushingOrFinishedTaskObserved = addFlushingTask(taskStatus.getTaskId());
@@ -599,6 +599,11 @@ public class PipelinedStageExecution
 
             state = new StateMachine<>("Pipelined stage execution " + stageId, executor, PLANNED, TERMINAL_STAGE_STATES);
             state.addStateChangeListener(state -> log.debug("Pipelined stage execution %s is %s", stageId, state));
+        }
+
+        public StageId getStageId()
+        {
+            return stageId;
         }
 
         public State getState()

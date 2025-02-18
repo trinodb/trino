@@ -19,7 +19,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.block.LongArrayBlockBuilder;
-import io.trino.spi.block.RunLengthBlockEncoding;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ShortArrayBlockBuilder;
 import io.trino.spi.block.VariableWidthBlock;
@@ -87,7 +86,6 @@ public class TestRunLengthEncodedBlock
     {
         LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 100);
         populateNullValues(blockBuilder, 100);
-        assertThat(blockBuilder.build().getEncodingName()).isEqualTo(RunLengthBlockEncoding.NAME);
     }
 
     @Test
@@ -95,7 +93,6 @@ public class TestRunLengthEncodedBlock
     {
         IntArrayBlockBuilder blockBuilder = new IntArrayBlockBuilder(null, 100);
         populateNullValues(blockBuilder, 100);
-        assertThat(blockBuilder.build().getEncodingName()).isEqualTo(RunLengthBlockEncoding.NAME);
     }
 
     @Test
@@ -103,7 +100,6 @@ public class TestRunLengthEncodedBlock
     {
         ShortArrayBlockBuilder blockBuilder = new ShortArrayBlockBuilder(null, 100);
         populateNullValues(blockBuilder, 100);
-        assertThat(blockBuilder.build().getEncodingName()).isEqualTo(RunLengthBlockEncoding.NAME);
     }
 
     @Test
@@ -111,7 +107,6 @@ public class TestRunLengthEncodedBlock
     {
         ByteArrayBlockBuilder blockBuilder = new ByteArrayBlockBuilder(null, 100);
         populateNullValues(blockBuilder, 100);
-        assertThat(blockBuilder.build().getEncodingName()).isEqualTo(RunLengthBlockEncoding.NAME);
     }
 
     @Test

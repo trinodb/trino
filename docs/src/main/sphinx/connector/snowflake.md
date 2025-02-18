@@ -33,15 +33,13 @@ snowflake.role=role
 snowflake.warehouse=warehouse
 ```
 
-### Arrow serialization support
+The Snowflake connector uses Apache Arrow as the serialization format when
+reading from Snowflake. Add the following required, additional JVM argument
+to the [](jvm-config):
 
-This is an experimental feature which introduces support for using Apache Arrow
-as the serialization format when reading from Snowflake.  Please note there are
-a few caveats:
-
-- Using Apache Arrow serialization is disabled by default. In order to enable
-  it,  add `--add-opens=java.base/java.nio=ALL-UNNAMED` to the Trino
-  {ref}`jvm-config`.
+```none
+--add-opens=java.base/java.nio=ALL-UNNAMED
+```
 
 ### Multiple Snowflake databases or accounts
 

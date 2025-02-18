@@ -42,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -60,7 +61,9 @@ public final class HiveBlockEncodingSerde
         implements BlockEncodingSerde
 {
     private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_TZ_MILLIS, DATE, HYPER_LOG_LOG);
-    private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<String, BlockEncoding> blockEncodingsByName = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<? extends Block>, BlockEncoding> blockEncodingsByClass = new ConcurrentHashMap<>();
 
     @Inject
     public HiveBlockEncodingSerde()
@@ -82,7 +85,8 @@ public final class HiveBlockEncodingSerde
 
     private void addBlockEncoding(BlockEncoding blockEncoding)
     {
-        blockEncodings.put(blockEncoding.getName(), blockEncoding);
+        blockEncodingsByClass.put(blockEncoding.getBlockClass(), blockEncoding);
+        blockEncodingsByName.put(blockEncoding.getName(), blockEncoding);
     }
 
     @Override
@@ -92,7 +96,7 @@ public final class HiveBlockEncodingSerde
         String encodingName = readLengthPrefixedString(input);
 
         // look up the encoding factory
-        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+        BlockEncoding blockEncoding = blockEncodingsByName.get(encodingName);
         checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
         // load read the encoding factory from the output stream
@@ -100,15 +104,29 @@ public final class HiveBlockEncodingSerde
     }
 
     @Override
+    public long estimatedWriteSize(Block block)
+    {
+        while (true) {
+            BlockEncoding blockEncoding = blockEncodingsByClass.get(block.getClass());
+            // see if a replacement block should be written instead
+            Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);
+            if (replacementBlock.isPresent()) {
+                block = replacementBlock.get();
+                continue;
+            }
+            // length of encoding name + encoding name + block size
+            // TODO: improve this estimate by adding estimatedWriteSize to BlockEncoding interface
+            return SIZE_OF_INT + blockEncoding.getName().length() + block.getSizeInBytes();
+        }
+    }
+
+    @Override
     public void writeBlock(SliceOutput output, Block block)
     {
         while (true) {
-            // get the encoding name
-            String encodingName = block.getEncodingName();
-
             // look up the encoding factory
-            BlockEncoding blockEncoding = blockEncodings.get(encodingName);
-            checkArgument(blockEncoding != null, "Cannot write block %s with encoding %s", block, encodingName);
+            BlockEncoding blockEncoding = blockEncodingsByClass.get(block.getClass());
+            checkArgument(blockEncoding != null, "Cannot write block %s as no encoding was found", block);
 
             // see if a replacement block should be written instead
             Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);
@@ -118,7 +136,7 @@ public final class HiveBlockEncodingSerde
             }
 
             // write the name to the output
-            writeLengthPrefixedString(output, encodingName);
+            writeLengthPrefixedString(output, blockEncoding.getName());
 
             // write the block to the output
             blockEncoding.writeBlock(this, output, block);

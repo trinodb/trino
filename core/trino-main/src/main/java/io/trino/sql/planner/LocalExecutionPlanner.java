@@ -1056,6 +1056,9 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
             List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
+            List<Type> sortTypes = sortChannels.stream()
+                    .map(channel -> source.getTypes().get(channel))
+                    .collect(toImmutableList());
             List<SortOrder> sortOrder = orderBySymbols.stream()
                     .map(symbol -> node.getOrderingScheme().ordering(symbol))
                     .collect(toImmutableList());
@@ -1078,14 +1081,13 @@ public class LocalExecutionPlanner
                     partitionChannels,
                     partitionTypes,
                     sortChannels,
-                    sortOrder,
                     node.getMaxRankingPerPartition(),
                     isPartial,
                     hashChannel,
                     1000,
                     maxPartialTopNMemorySize,
                     hashStrategyCompiler,
-                    plannerContext.getTypeOperators(),
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
                     blockTypeOperators);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
@@ -1835,10 +1837,13 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
 
+            List<Type> sortTypes = new ArrayList<>();
             List<Integer> sortChannels = new ArrayList<>();
             List<SortOrder> sortOrders = new ArrayList<>();
             for (Symbol symbol : orderBySymbols) {
-                sortChannels.add(source.getLayout().get(symbol));
+                int sortChannel = source.getLayout().get(symbol);
+                sortTypes.add(source.getTypes().get(sortChannel));
+                sortChannels.add(sortChannel);
                 sortOrders.add(node.getOrderingScheme().ordering(symbol));
             }
 
@@ -1847,9 +1852,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     (int) node.getCount(),
-                    sortChannels,
-                    sortOrders,
-                    plannerContext.getTypeOperators());
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
 
             return new PhysicalOperation(operator, source.getLayout(), source);
         }

@@ -31,6 +31,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 public class ExchangeHdfsConfig
 {
     private DataSize hdfsStorageBlockSize = DataSize.of(4, MEGABYTE);
+    private boolean skipDirectorySchemeValidation;
     private List<File> resourceConfigFiles = ImmutableList.of();
 
     @NotNull
@@ -46,6 +47,19 @@ public class ExchangeHdfsConfig
     public ExchangeHdfsConfig setHdfsStorageBlockSize(DataSize hdfsStorageBlockSize)
     {
         this.hdfsStorageBlockSize = hdfsStorageBlockSize;
+        return this;
+    }
+
+    public boolean isSkipDirectorySchemeValidation()
+    {
+        return skipDirectorySchemeValidation;
+    }
+
+    @Config("exchange.hdfs.skip-directory-scheme-validation")
+    @ConfigDescription("Skip directory scheme validation to support hadoop compatible file system")
+    public ExchangeHdfsConfig setSkipDirectorySchemeValidation(boolean skipDirectorySchemeValidation)
+    {
+        this.skipDirectorySchemeValidation = skipDirectorySchemeValidation;
         return this;
     }
 

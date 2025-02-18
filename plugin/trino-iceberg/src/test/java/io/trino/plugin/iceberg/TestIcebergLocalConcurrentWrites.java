@@ -15,24 +15,32 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.concurrent.MoreFutures;
+import io.trino.Session;
+import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.FILE_BASED_CONFLICT_DETECTION_ENABLED;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -49,7 +57,10 @@ final class TestIcebergLocalConcurrentWrites
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder().build();
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().build();
+        queryRunner.installPlugin(new BlackHolePlugin());
+        queryRunner.createCatalog("blackhole", "blackhole");
+        return queryRunner;
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
@@ -361,35 +372,93 @@ final class TestIcebergLocalConcurrentWrites
     void testConcurrentNonOverlappingUpdate()
             throws Exception
     {
+        testConcurrentNonOverlappingUpdate(getSession());
+        testConcurrentNonOverlappingUpdate(withFileBasedConflictDetectionDisabledSession());
+    }
+
+    private void testConcurrentNonOverlappingUpdate(Session session)
+            throws InterruptedException
+    {
         int threads = 3;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
         String tableName = "test_concurrent_non_overlapping_updates_table_" + randomNameSuffix();
 
-        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, NULL), (31, 40)", 4);
 
         try {
             // update data concurrently by using non-overlapping partition predicate
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE part = 10");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE part = 10");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part = 20");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 20");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE part = 30");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part IS NULL");
                                 return null;
                             })
                             .build())
                     .forEach(MoreFutures::getDone);
 
-            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, 30), (31, 40)");
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, NULL), (31, 40)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
+    void testConcurrentNonOverlappingUpdateMultipleDataFiles()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_non_overlapping_updates_table_" + randomNameSuffix();
+        // Force creating more parquet files
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "target_max_file_size", "1kB")
+                .build();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, part BIGINT) WITH (partitioning = ARRAY['part'])");
+        assertUpdate(session, " INSERT INTO " + tableName + " SELECT * FROM " +
+                "(select * from UNNEST(SEQUENCE(1, 10000)) AS t(a)) CROSS JOIN (select * from UNNEST(SEQUENCE(1, 3)) AS t(part))", 30000);
+
+        // UPDATE will increase every value by 1
+        long expectedDataSum = (long) computeScalar("SELECT sum(a + 1) FROM " + tableName);
+
+        try {
+            // update data concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE part = 1");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 2");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE part = 3");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat((long) computeScalar("SELECT SUM(a) FROM " + tableName)).isEqualTo(expectedDataSum);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -417,7 +486,7 @@ final class TestIcebergLocalConcurrentWrites
 
         assertUpdate("CREATE TABLE " + tableName + " (a, part) " +
                 (partitioned ? " WITH (partitioning = ARRAY['part'])" : "") +
-                " AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+                " AS VALUES (1, 10), (11, 20), (21, NULL), (31, 40)", 4);
 
         try {
             List<Future<Boolean>> futures = IntStream.range(0, threads)
@@ -452,9 +521,9 @@ final class TestIcebergLocalConcurrentWrites
             assertThat(successes).isGreaterThanOrEqualTo(1);
             //There can be different possible results depending on query order execution.
             switch ((int) successes) {
-                case 1 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (22, 30), (32, 40)");
-                case 2 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (23, 30), (33, 40)");
-                case 3 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (24, 30), (34, 40)");
+                case 1 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (22, NULL), (32, 40)");
+                case 2 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (23, NULL), (33, 40)");
+                case 3 -> assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (24, NULL), (34, 40)");
             }
         }
         finally {
@@ -469,6 +538,13 @@ final class TestIcebergLocalConcurrentWrites
     void testConcurrentNonOverlappingUpdateOnNestedPartition()
             throws Exception
     {
+        testConcurrentNonOverlappingUpdateOnNestedPartition(getSession());
+        testConcurrentNonOverlappingUpdateOnNestedPartition(withFileBasedConflictDetectionDisabledSession());
+    }
+
+    private void testConcurrentNonOverlappingUpdateOnNestedPartition(Session session)
+            throws Exception
+    {
         int threads = 3;
         CyclicBarrier barrier = new CyclicBarrier(threads);
         ExecutorService executor = newFixedThreadPool(threads);
@@ -479,7 +555,7 @@ final class TestIcebergLocalConcurrentWrites
                 "INSERT INTO " + tableName + " VALUES " +
                         "(1, ROW(10)), " +
                         "(11, ROW(20)), " +
-                        "(21, ROW(30)), " +
+                        "(21, ROW(NULL)), " +
                         "(31, ROW(40))",
                 4);
         try {
@@ -487,23 +563,23 @@ final class TestIcebergLocalConcurrentWrites
             executor.invokeAll(ImmutableList.<Callable<Void>>builder()
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1 WHERE parent.child = 10");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1 WHERE parent.child = 10");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 20");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 20");
                                 return null;
                             })
                             .add(() -> {
                                 barrier.await(10, SECONDS);
-                                getQueryRunner().execute("UPDATE " + tableName + " SET a = a + 1  WHERE parent.child = 30");
+                                getQueryRunner().execute(session, "UPDATE " + tableName + " SET a = a + 1  WHERE parent.child IS NULL");
                                 return null;
                             })
                             .build())
                     .forEach(MoreFutures::getDone);
 
-            assertThat(query("SELECT a, parent.child FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, 30), (31, 40)");
+            assertThat(query("SELECT a, parent.child FROM " + tableName)).matches("VALUES (2, 10), (12, 20), (22, NULL), (31, 40)");
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -661,6 +737,80 @@ final class TestIcebergLocalConcurrentWrites
                 assertThat(computeActual("SELECT * FROM " + tableName + " ORDER BY a"))
                         .isIn(expected1, expected2);
             }
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
+    public void testConcurrentMerge()
+            throws Exception
+    {
+        int threads = 4;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_merges_table_" + randomNameSuffix();
+        String sourceTableName = "test_concurrent_merges_source_table_" + randomNameSuffix();
+
+        // Helper table to simulate longer query time during MERGE
+        assertUpdate("CREATE TABLE " + sourceTableName + "  (a, part, string_rep)  AS SELECT *, format('a%spart%s', a, part) FROM " +
+                "(select * from UNNEST(SEQUENCE(1, 2000)) AS t(a)) CROSS JOIN (select * from UNNEST(SEQUENCE(1, 2000)) AS t(part))", 4000000);
+        assertUpdate("INSERT INTO " + sourceTableName + " VALUES (42, NULL, 'a42partNULL')", 1);
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioning = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40), (41, NULL)", 5);
+        // Add more files in the partition 30
+        assertUpdate("INSERT INTO " + tableName + " VALUES (22, 30)", 1);
+        try {
+            // merge data concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                        MERGE INTO %s t USING (select a, part from %s where string_rep LIKE '%%a12part20') AS s
+                                        ON (FALSE)
+                                        WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
+                                        """.formatted(tableName, sourceTableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                        MERGE INTO %s t USING (select a, part from %s where string_rep LIKE '%%a42partNULL') AS s
+                                        ON (FALSE)
+                                        WHEN NOT MATCHED THEN INSERT (a, part) VALUES(s.a, s.part)
+                                        """.formatted(tableName, sourceTableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                        MERGE INTO %s t USING (VALUES (21, 30)) AS s(a, part)
+                                        ON (t.part = s.part)
+                                        WHEN MATCHED THEN DELETE
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute(
+                                        """
+                                        MERGE INTO %s t USING (VALUES (32, 40)) AS s(a, part)
+                                        ON (t.part = s.part)
+                                        WHEN MATCHED THEN UPDATE SET a = s.a
+                                        """.formatted(tableName));
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1, 10), (11, 20), (12, 20), (32, 40), (41, NULL), (42, NULL)");
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -1044,8 +1194,106 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
+    @Test
+    public void testOptimizeDuringWriteOperations()
+            throws Exception
+    {
+        runOptimizeDuringWriteOperations(true);
+        runOptimizeDuringWriteOperations(false);
+    }
+
+    private void runOptimizeDuringWriteOperations(boolean useSmallFiles)
+            throws Exception
+    {
+        int threads = 5;
+        int deletionThreads = threads - 1;
+        int rows = 12;
+        int rowsPerThread = rows / deletionThreads;
+
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+
+        // Slow down the delete operations so optimize is more likely to complete
+        String blackholeTable = "blackhole_table_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE blackhole.default.%s (a INT, b INT) WITH (split_count = 1, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '3s')".formatted(blackholeTable));
+
+        try (TestTable table = newTrinoTable(
+                "test_optimize_during_write_operations",
+                "(int_col INT)")) {
+            String tableName = table.getName();
+
+            // Testing both situations where a file is fully removed by the delete operation and when a row level delete is required.
+            if (useSmallFiles) {
+                for (int i = 0; i < rows; i++) {
+                    assertUpdate(format("INSERT INTO %s VALUES %s", tableName, i), 1);
+                }
+            }
+            else {
+                String values = IntStream.range(0, rows).mapToObj(String::valueOf).collect(Collectors.joining(", "));
+                assertUpdate(format("INSERT INTO %s VALUES %s", tableName, values), rows);
+            }
+
+            List<Future<List<Boolean>>> deletionFutures = IntStream.range(0, deletionThreads)
+                    .mapToObj(threadNumber -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        List<Boolean> successfulDeletes = new ArrayList<>();
+                        for (int i = 0; i < rowsPerThread; i++) {
+                            try {
+                                int rowNumber = threadNumber * rowsPerThread + i;
+                                getQueryRunner().execute(format("DELETE FROM %s WHERE int_col = %s OR ((SELECT count(*) FROM blackhole.default.%s) > 42)", tableName, rowNumber, blackholeTable));
+                                successfulDeletes.add(true);
+                            }
+                            catch (RuntimeException e) {
+                                successfulDeletes.add(false);
+                            }
+                        }
+                        return successfulDeletes;
+                    }))
+                    .collect(toImmutableList());
+
+            Future<?> optimizeFuture = executor.submit(() -> {
+                try {
+                    barrier.await(10, SECONDS);
+                    // Allow for some deletes to start before running optimize
+                    Thread.sleep(50);
+                    assertUpdate("ALTER TABLE %s EXECUTE optimize".formatted(tableName));
+                }
+                catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
+            List<String> expectedValues = new ArrayList<>();
+            for (int threadNumber = 0; threadNumber < deletionThreads; threadNumber++) {
+                List<Boolean> deleteOutcomes = deletionFutures.get(threadNumber).get();
+                verify(deleteOutcomes.size() == rowsPerThread);
+                for (int rowNumber = 0; rowNumber < rowsPerThread; rowNumber++) {
+                    boolean successfulDelete = deleteOutcomes.get(rowNumber);
+                    if (!successfulDelete) {
+                        expectedValues.add(String.valueOf(threadNumber * rowsPerThread + rowNumber));
+                    }
+                }
+            }
+
+            optimizeFuture.get();
+            assertThat(expectedValues.size()).isGreaterThan(0).isLessThan(rows);
+            assertQuery("SELECT * FROM " + tableName, "VALUES " + String.join(", ", expectedValues));
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(10, SECONDS);
+        }
+    }
+
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
+    }
+
+    private Session withFileBasedConflictDetectionDisabledSession()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), FILE_BASED_CONFLICT_DETECTION_ENABLED, "false")
+                .build();
     }
 }

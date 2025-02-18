@@ -149,11 +149,7 @@ public class RangerSystemAccessControl
         }
 
         UserGroupInformation.setConfiguration(hadoopConf);
-        RangerPluginConfig pluginConfig = new RangerPluginConfig(RANGER_TRINO_SERVICETYPE, config.getServiceName(), RANGER_TRINO_APPID, null, null, null);
-
-        for (File configPath : config.getPluginConfigResource()) {
-            pluginConfig.addResourceIfReadable(configPath.getAbsolutePath());
-        }
+        RangerPluginConfig pluginConfig = new RangerPluginConfig(RANGER_TRINO_SERVICETYPE, config.getServiceName(), RANGER_TRINO_APPID, null, null, config.getPluginConfigResource(), null);
 
         rangerPlugin = new RangerBasePlugin(pluginConfig);
         rangerPlugin.init();

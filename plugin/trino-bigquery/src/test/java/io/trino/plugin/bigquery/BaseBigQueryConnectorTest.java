@@ -353,8 +353,8 @@ public abstract class BaseBigQueryConnectorTest
     public void testStreamCommentTableSpecialCharacter()
     {
         String schemaName = "test_comment" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
         try {
+            assertUpdate("CREATE SCHEMA " + schemaName);
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_semicolon (a integer) COMMENT " + varcharLiteral("a;semicolon"));
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_at (a integer) COMMENT " + varcharLiteral("an@at"));
             assertUpdate("CREATE TABLE " + schemaName + ".test_comment_quote (a integer) COMMENT " + varcharLiteral("a\"quote"));
@@ -379,7 +379,7 @@ public abstract class BaseBigQueryConnectorTest
                             "('test_comment_bracket', " + varcharLiteral("[square bracket]") + ")");
         }
         finally {
-            assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName + " CASCADE");
         }
     }
 

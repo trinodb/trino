@@ -213,7 +213,7 @@ public class TrinoSnowflakeCatalog
             Schema schema,
             PartitionSpec partitionSpec,
             SortOrder sortOrder,
-            String location,
+            Optional<String> location,
             Map<String, String> properties)
     {
         throw new TrinoException(NOT_SUPPORTED, "Snowflake managed Iceberg tables do not support modifications");
@@ -263,7 +263,7 @@ public class TrinoSnowflakeCatalog
     }
 
     @Override
-    public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
+    public BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         TableMetadata metadata;
         try {

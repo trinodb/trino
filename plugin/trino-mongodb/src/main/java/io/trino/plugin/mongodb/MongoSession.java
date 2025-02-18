@@ -247,7 +247,9 @@ public class MongoSession
                 .collect(toSet()));
         builder.addAll(getTableMetadataNames(schemaName));
 
-        return builder.build();
+        return builder.build().stream()
+                .map(name -> name.toLowerCase(ENGLISH))
+                .collect(toImmutableSet());
     }
 
     public MongoTable getTable(SchemaTableName tableName)
@@ -819,7 +821,7 @@ public class MongoSession
     private boolean indexExists(MongoCollection<Document> schemaCollection)
     {
         return MongoIndex.parse(schemaCollection.listIndexes()).stream()
-                .anyMatch(index -> index.getKeys().size() == 1 && TABLE_NAME_KEY.equals(index.getKeys().get(0).getName()));
+                .anyMatch(index -> index.keys().size() == 1 && TABLE_NAME_KEY.equals(index.keys().get(0).name()));
     }
 
     private Set<String> getTableMetadataNames(String schemaName)

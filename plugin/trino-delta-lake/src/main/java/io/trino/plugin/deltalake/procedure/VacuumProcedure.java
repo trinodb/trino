@@ -66,6 +66,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.MAX_WRITER_VERSION;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkUnsupportedUniversalFormat;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.checkValidTableHandle;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.toUriFormat;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getVacuumMinRetention;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.DELETION_VECTORS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
@@ -269,7 +270,9 @@ public class VacuumProcedure
                         "Unexpected path [%s] returned when listing files under [%s]",
                         location,
                         tableLocation);
-                String relativePath = location.substring(commonPathPrefix.length());
+
+                // Paths are RFC 2396 URI encoded https://github.com/delta-io/delta/blob/master/PROTOCOL.md#add-file-and-remove-file
+                String relativePath = toUriFormat(location.substring(commonPathPrefix.length()));
                 if (relativePath.isEmpty()) {
                     // A file returned for "tableLocation/", might be possible on S3.
                     continue;

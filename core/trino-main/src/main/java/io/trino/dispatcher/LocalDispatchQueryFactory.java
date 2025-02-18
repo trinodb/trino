@@ -38,6 +38,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -59,6 +60,7 @@ public class LocalDispatchQueryFactory
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final Metadata metadata;
+    private final SessionPropertyResolver sessionPropertyResolver;
     private final QueryMonitor queryMonitor;
     private final LocationFactory locationFactory;
 
@@ -77,6 +79,7 @@ public class LocalDispatchQueryFactory
             QueryManager queryManager,
             QueryManagerConfig queryManagerConfig,
             TransactionManager transactionManager,
+            SessionPropertyResolver sessionPropertyResolver,
             AccessControl accessControl,
             Metadata metadata,
             QueryMonitor queryMonitor,
@@ -92,6 +95,7 @@ public class LocalDispatchQueryFactory
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.sessionPropertyResolver = requireNonNull(sessionPropertyResolver, "sessionPropertyInterpreter is null");
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionFactories = requireNonNull(executionFactories, "executionFactories is null");
@@ -132,6 +136,7 @@ public class LocalDispatchQueryFactory
                 planOptimizersStatsCollector,
                 getQueryType(preparedQuery.getStatement()),
                 faultTolerantExecutionExchangeEncryptionEnabled,
+                Optional.of(sessionPropertyResolver.getSessionPropertiesApplier(preparedQuery)),
                 version);
 
         // It is important that `queryCreatedEvent` is called here. Moving it past the `executor.submit` below

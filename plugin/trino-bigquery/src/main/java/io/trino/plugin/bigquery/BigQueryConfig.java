@@ -21,7 +21,6 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.plugin.base.logging.SessionInterpolatedValues;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -29,7 +28,6 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.logging.FormatInterpolator.hasValidPlaceholders;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -52,6 +50,7 @@ public class BigQueryConfig
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
+    private int metadataPageSize = 1000;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(0, MILLISECONDS);
     private Duration viewsCacheTtl = new Duration(15, MINUTES);
@@ -64,7 +63,7 @@ public class BigQueryConfig
     private String queryLabelFormat;
     private boolean proxyEnabled;
     private boolean projectionPushDownEnabled = true;
-    private int metadataParallelism = 2;
+    private int metadataParallelism = Runtime.getRuntime().availableProcessors();
 
     public Optional<String> getProjectId()
     {
@@ -195,6 +194,20 @@ public class BigQueryConfig
     public BigQueryConfig setMaxReadRowsRetries(int maxReadRowsRetries)
     {
         this.maxReadRowsRetries = maxReadRowsRetries;
+        return this;
+    }
+
+    @Min(1)
+    public int getMetadataPageSize()
+    {
+        return metadataPageSize;
+    }
+
+    @Config("bigquery.metadata-page-size")
+    @ConfigDescription("The number of metadata entries retrieved per API request")
+    public BigQueryConfig setMetadataPageSize(int metadataPageSize)
+    {
+        this.metadataPageSize = metadataPageSize;
         return this;
     }
 
@@ -371,19 +384,27 @@ public class BigQueryConfig
         return this;
     }
 
-    @PostConstruct
-    public void validate()
+    @AssertTrue(message = "View expiration duration must be longer than view cache TTL")
+    public boolean isValidViewExpireDuration()
     {
-        checkState(viewExpireDuration.toMillis() > viewsCacheTtl.toMillis(), "View expiration duration must be longer than view cache TTL");
+        return viewExpireDuration.toMillis() > viewsCacheTtl.toMillis();
+    }
 
-        if (skipViewMaterialization) {
-            checkState(viewsEnabled, "%s config property must be enabled when skipping view materialization", VIEWS_ENABLED);
-        }
-        if (viewMaterializationWithFilter) {
-            checkState(viewsEnabled, "%s config property must be enabled when view materialization with filter is enabled", VIEWS_ENABLED);
-        }
-        if (!caseInsensitiveNameMatchingCacheTtl.isZero()) {
-            checkState(caseInsensitiveNameMatching, "bigquery.case-insensitive-name-matching config must be enabled when case insensitive name matching cache TTL is set");
-        }
+    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.skip-view-materialization is enabled")
+    public boolean isValidViewsWehnEnabledSkipViewMaterialization()
+    {
+        return !skipViewMaterialization || viewsEnabled;
+    }
+
+    @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.view-materialization-with-filter is enabled")
+    public boolean isValidViewsEnableWhenViewMaterializationWithFilter()
+    {
+        return !viewMaterializationWithFilter || viewsEnabled;
+    }
+
+    @AssertTrue(message = "bigquery.case-insensitive-name-matching config must be enabled when bigquery.case-insensitive-name-matching.cache-ttl is set")
+    public boolean isValidCaseInsensitiveNameMatchingCacheTtl()
+    {
+        return caseInsensitiveNameMatchingCacheTtl.isZero() || caseInsensitiveNameMatching;
     }
 }

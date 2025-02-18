@@ -140,7 +140,7 @@ public abstract class AbstractTestingTrinoClient<T>
             throw new QueryFailedException(queryId, "Query failed: " + results.getError().getMessage());
 
             // dump query info to console for debugging (NOTE: not pretty printed)
-            // JsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
+            // TrinoJsonCodec<QueryInfo> queryInfoJsonCodec = createCodecFactory().prettyPrint().jsonCodec(QueryInfo.class);
             // log.info("\n" + queryInfoJsonCodec.toJson(queryInfo));
         }
     }

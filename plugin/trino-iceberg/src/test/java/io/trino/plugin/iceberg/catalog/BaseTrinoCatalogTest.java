@@ -75,7 +75,8 @@ public abstract class BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(BaseTrinoCatalogTest.class);
 
-    protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations);
+    protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
+            throws IOException;
 
     protected Map<String, Object> defaultNamespaceProperties(String newNamespaceName)
     {
@@ -84,6 +85,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testCreateNamespaceWithLocation()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
         String namespace = "test_create_namespace_with_location_" + randomNameSuffix();
@@ -100,6 +102,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testNonLowercaseNamespace()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
 
@@ -165,7 +168,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            tableLocation,
+                            Optional.of(tableLocation),
                             tableProperties)
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
@@ -225,7 +228,7 @@ public abstract class BaseTrinoCatalogTest
                             tableSchema,
                             PartitionSpec.unpartitioned(),
                             sortOrder,
-                            tableLocation,
+                            Optional.of(tableLocation),
                             ImmutableMap.of())
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
@@ -280,7 +283,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName)),
                             ImmutableMap.of())
                     .commitTransaction();
             assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(sourceSchemaTableName, TABLE));
@@ -313,6 +316,7 @@ public abstract class BaseTrinoCatalogTest
 
     @Test
     public void testUseUniqueTableLocations()
+            throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(true);
         String namespace = "test_unique_table_locations_" + randomNameSuffix();
@@ -430,7 +434,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            arbitraryTableLocation(catalog, SESSION, table1),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, table1)),
                             ImmutableMap.of())
                     .commitTransaction();
             closer.register(() -> catalog.dropTable(SESSION, table1));
@@ -441,7 +445,7 @@ public abstract class BaseTrinoCatalogTest
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            arbitraryTableLocation(catalog, SESSION, table2),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, table2)),
                             ImmutableMap.of())
                     .commitTransaction();
             closer.register(() -> catalog.dropTable(SESSION, table2));

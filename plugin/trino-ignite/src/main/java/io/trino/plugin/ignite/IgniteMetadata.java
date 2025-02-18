@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -244,14 +245,21 @@ public class IgniteMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle table, ColumnMetadata columnMetadata, ColumnPosition position)
     {
         if (!columnMetadata.isNullable()) {
             // https://issues.apache.org/jira/browse/IGNITE-18829
             // Add not null column to non-empty table Ignite doesn't give the default value
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding not null columns");
         }
-        JdbcTableHandle handle = (JdbcTableHandle) table;
-        igniteClient.addColumn(session, handle, columnMetadata);
+
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> {
+                JdbcTableHandle handle = (JdbcTableHandle) table;
+                igniteClient.addColumn(session, handle, columnMetadata, position);
+            }
+        }
     }
 }

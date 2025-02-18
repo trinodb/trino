@@ -24,26 +24,27 @@ import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.TestingConnectorSession;
-import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.CatalogProperties;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.jdbc.JdbcCatalog;
-import org.assertj.core.util.Files;
 
-import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public final class RestCatalogTestUtils
 {
     private RestCatalogTestUtils() {}
 
-    public static Catalog backendCatalog(File warehouseLocation)
+    public static Catalog backendCatalog(Path warehouseLocation)
+            throws IOException
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
-        properties.put(CatalogProperties.URI, "jdbc:h2:file:" + Files.newTemporaryFile().getAbsolutePath());
+        properties.put(CatalogProperties.URI, "jdbc:h2:file:" + Files.createTempFile(null, null).toAbsolutePath());
         properties.put(JdbcCatalog.PROPERTY_PREFIX + "username", "user");
         properties.put(JdbcCatalog.PROPERTY_PREFIX + "password", "password");
         properties.put(JdbcCatalog.PROPERTY_PREFIX + "schema-version", "V1");
-        properties.put(CatalogProperties.WAREHOUSE_LOCATION, warehouseLocation.toPath().resolve("iceberg_data").toFile().getAbsolutePath());
+        properties.put(CatalogProperties.WAREHOUSE_LOCATION, warehouseLocation.resolve("iceberg_data").toFile().getAbsolutePath());
 
         ConnectorSession connectorSession = TestingConnectorSession.builder().build();
         HdfsConfig hdfsConfig = new HdfsConfig();
@@ -52,7 +53,7 @@ public final class RestCatalogTestUtils
         HdfsContext context = new HdfsContext(connectorSession);
 
         JdbcCatalog catalog = new JdbcCatalog();
-        catalog.setConf(hdfsEnvironment.getConfiguration(context, new Path(warehouseLocation.getAbsolutePath())));
+        catalog.setConf(hdfsEnvironment.getConfiguration(context, new org.apache.hadoop.fs.Path(warehouseLocation.toAbsolutePath().toString())));
         catalog.initialize("backend_jdbc", properties.buildOrThrow());
 
         return catalog;

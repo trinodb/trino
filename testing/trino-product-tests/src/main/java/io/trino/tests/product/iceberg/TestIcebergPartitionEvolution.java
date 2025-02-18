@@ -54,6 +54,7 @@ public class TestIcebergPartitionEvolution
                                 "   format = 'PARQUET',\n" +
                                 "   format_version = 1,\n" +
                                 "   location = 'hdfs://hadoop-master:9000/user/hive/warehouse/test_dropped_partition_field-\\E.*\\Q',\n" +
+                                "   max_commit_retry = 4,\n" +
                                 "   partitioning = ARRAY[" + (dropFirst ? "'void(a)','b'" : "'a','void(b)'") + "]\n" +
                                 ")\\E");
 

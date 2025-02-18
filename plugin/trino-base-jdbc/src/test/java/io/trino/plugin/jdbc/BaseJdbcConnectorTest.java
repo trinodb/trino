@@ -668,21 +668,16 @@ public abstract class BaseJdbcConnectorTest
 
         try (TestTable testTable = newTrinoTable("distinct_strings", "(t_char CHAR(5), t_varchar VARCHAR(5))", rows)) {
             if (!(hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN) && hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY))) {
-                // disabling hash generation to prevent extra projections in the plan which make it hard to write matchers for isNotFullyPushedDown
-                Session optimizeHashGenerationDisabled = Session.builder(getSession())
-                        .setSystemProperty("optimize_hash_generation", "false")
-                        .build();
-
                 // It is not captured in the `isNotFullyPushedDown` calls (can't do that) but depending on the connector in use some aggregations
                 // still can be pushed down to connector.
                 // If `SUPPORTS_AGGREGATION_PUSHDOWN == false` but `SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY == true` the DISTINCT part of aggregation
                 // will still be pushed down to connector as `GROUP BY`. Only the `count` part will remain on the Trino side.
                 // If `SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY == false` both parts of aggregation will be executed on Trino side.
 
-                assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
+                assertThat(query("SELECT count(DISTINCT t_varchar) FROM " + testTable.getName()))
                         .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
-                assertThat(query(optimizeHashGenerationDisabled, "SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
+                assertThat(query("SELECT count(DISTINCT t_char) FROM " + testTable.getName()))
                         .matches("VALUES BIGINT '7'")
                         .isNotFullyPushedDown(AggregationNode.class);
 
@@ -1258,7 +1253,6 @@ public abstract class BaseJdbcConnectorTest
                 // Disable dynamic filtering so that expected plans in case of no pushdown remain "simple"
                 .setSystemProperty("enable_dynamic_filtering", "false")
                 // Disable optimized hash generation so that expected plans in case of no pushdown remain "simple"
-                .setSystemProperty("optimize_hash_generation", "false")
                 .build();
 
         assertThat(query(noJoinPushdown, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
@@ -1856,13 +1850,13 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharEqualityPredicates()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = newTrinoTable("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"))) {
-            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 = 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 = 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 'a'), (20, 'A')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 'a', 1), (20, 'A', 2)");
         }
     }
 
@@ -1870,14 +1864,14 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharInequalityPredicates()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"), "col2")) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 != 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (2, 'A', 2)");
         }
     }
 
@@ -1885,7 +1879,7 @@ public abstract class BaseJdbcConnectorTest
     public void testConstantUpdateWithVarcharGreaterAndLowerPredicate()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_UPDATE));
-        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1))", ImmutableList.of("1, 'a'", "2, 'A'"), "col2")) {
+        try (TestTable table = createTestTableForWrites("test_update_varchar", "(col1 INT, col2 varchar(1), pk INT)", ImmutableList.of("1, 'a', 1", "2, 'A', 2"), "pk")) {
             if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 > 'A'", MODIFYING_ROWS_MESSAGE);
                 assertQueryFails("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 < 'A'", MODIFYING_ROWS_MESSAGE);
@@ -1893,10 +1887,10 @@ public abstract class BaseJdbcConnectorTest
             }
 
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 > 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (2, 'A')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (2, 'A', 2)");
 
             assertUpdate("UPDATE " + table.getName() + " SET col1 = 20 WHERE col2 < 'a'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a'), (20, 'A')");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (20, 'a', 1), (20, 'A', 2)");
         }
     }
 
@@ -1922,14 +1916,14 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
-        try (TestTable table = newTrinoTable("test_delete_varchar", "(col varchar(1))", ImmutableList.of("'a'", "'A'", "null"))) {
-            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY)) {
+        try (TestTable table = createTestTableForWrites( "test_delete_varchar", "(col varchar(1), pk INT)", ImmutableList.of("'a', 1", "'A', 2", "null, 3"), "pk")) {
+            if (!hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY) && !hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
                 assertQueryFails("DELETE FROM " + table.getName() + " WHERE col = 'A'", MODIFYING_ROWS_MESSAGE);
                 return;
             }
 
             assertUpdate("DELETE FROM " + table.getName() + " WHERE col = 'A'", 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 'a', null");
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 'a', null");
         }
     }
 
@@ -2018,6 +2012,25 @@ public abstract class BaseJdbcConnectorTest
         }
         assertThatThrownBy(super::testDeleteWithSemiJoin)
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+    }
+
+    @Test
+    public void testMergeTargetWithoutPrimaryKeys()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE));
+
+        String tableName = "test_merge_target_no_pks_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (a int, b int)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES(1, 1), (2, 2)", 2);
+
+        assertQueryFails(format("DELETE FROM %s WHERE a IS NOT NULL AND abs(a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails(format("UPDATE %s SET a = a+b WHERE a IS NOT NULL AND (a + b) > 10", tableName), "The connector can not perform merge on the target table without primary keys");
+        assertQueryFails(format("MERGE INTO %s t USING (VALUES (3, 3)) AS s(x, y) " +
+                "   ON t.a = s.x " +
+                "   WHEN MATCHED THEN UPDATE SET b = y " +
+                "   WHEN NOT MATCHED THEN INSERT (a, b) VALUES (s.x, s.y) ", tableName), "The connector can not perform merge on the target table without primary keys");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

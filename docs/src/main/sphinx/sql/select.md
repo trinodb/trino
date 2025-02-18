@@ -3,7 +3,8 @@
 ## Synopsis
 
 ```text
-[ WITH FUNCTION udf ]
+[ WITH SESSION [ name = expression [, ...] ]
+[ WITH [ FUNCTION udf ] [, ...] ]
 [ WITH [ RECURSIVE ] with_query [, ...] ]
 SELECT [ ALL | DISTINCT ] select_expression [, ...]
 [ FROM from_item [, ...] ]
@@ -67,6 +68,31 @@ ROLLUP ( column [, ...] )
 ## Description
 
 Retrieve rows from zero or more tables.
+
+(select-with-session)=
+## WITH SESSION clause
+
+The `WITH SESSION` clause allows you to [set session and catalog session
+property values](/sql/set-session) applicable for the processing of the current
+SELECT statement only. The defined values override any other configuration and
+session property settings. Multiple properties are separated by commas.
+
+The following example overrides the global configuration property
+`query.max-execution-time` with the session property `query_max_execution_time`
+to reduce the time to `2h`. It also overrides the catalog property
+`iceberg.query-partition-filter-required` from the `example` catalog using
+[](/connector/iceberg) setting the catalog session property
+`query_partition_filter_required` to `true`:
+
+```sql
+WITH
+  SESSION
+    query_max_execution_time='2h',
+    example.query_partition_filter_required=true
+SELECT *
+FROM example.default.thetable
+LIMIT 100;
+```
 
 ## WITH FUNCTION clause
 
@@ -1038,6 +1064,7 @@ ORDER BY regionkey FETCH FIRST ROW WITH TIES;
 (5 rows)
 ```
 
+(tablesample)=
 ## TABLESAMPLE
 
 There are multiple sample methods:

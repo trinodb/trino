@@ -22,7 +22,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
@@ -65,7 +64,7 @@ public class OkHttpSegmentLoader
         }
 
         if (response.isSuccessful()) {
-            return delegatingInputStream(response, response.body().byteStream(), segment);
+            return response.body().byteStream();
         }
         throw new IOException(format("Could not open segment for streaming, got error '%s' with code %d", response.message(), response.code()));
     }
@@ -93,21 +92,6 @@ public class OkHttpSegmentLoader
                 response.close();
             }
         });
-    }
-
-    private InputStream delegatingInputStream(Response response, InputStream delegate, SpooledSegment segment)
-    {
-        return new FilterInputStream(delegate)
-        {
-            @Override
-            public void close()
-                    throws IOException
-            {
-                try (Response ignored = response; InputStream ignored2 = delegate) {
-                    acknowledge(segment);
-                }
-            }
-        };
     }
 
     private static Headers toHeaders(Map<String, List<String>> headers)

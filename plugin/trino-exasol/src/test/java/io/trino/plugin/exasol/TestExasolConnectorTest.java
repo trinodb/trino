@@ -23,20 +23,17 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
-import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 
 import static io.trino.plugin.exasol.TestingExasolServer.TEST_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -254,92 +251,6 @@ final class TestExasolConnectorTest
             assertThat(query(format("SELECT * FROM %s WHERE c %s %s", table.getName(), operator, filterLiteral)))
                     .isFullyPushedDown();
         }
-    }
-
-    @Override
-    @Language("RegExp")
-    protected String errorMessageForInsertIntoNotNullColumn(String columnName)
-    {
-        return format("constraint violation - not null \\(column %s in table.*", columnName.toUpperCase(ENGLISH));
-    }
-
-    @Override
-    @Language("RegExp")
-    protected String errorMessageForCreateTableAsSelectNegativeDate(String date)
-    {
-        return format("negative date %s as select blubb", date);
-    }
-
-    @Override
-    @Language("RegExp")
-    protected String errorMessageForInsertNegativeDate(String date)
-    {
-        return format("negative date %s insert blubb", date);
-    }
-
-    @Override
-    protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageContaining("constraint violation - not null (NN/PK on table");
-    }
-
-    @Override
-    protected void verifyConcurrentAddColumnFailurePermissible(Exception e)
-    {
-        assertThat(e)
-                .hasMessage("xx: The DDL cannot be run concurrently with other DDLs\n");
-    }
-
-    @Override
-    protected void verifySetColumnTypeFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageStartingWith("data exception - ");
-    }
-
-    @Override
-    protected OptionalInt maxSchemaNameLength()
-    {
-        return OptionalInt.of(128);
-    }
-
-    @Override
-    protected void verifySchemaNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageContaining("maximum length of identifier exceeded");
-    }
-
-    @Override
-    protected OptionalInt maxTableNameLength()
-    {
-        return OptionalInt.of(128);
-    }
-
-    @Override
-    protected void verifyTableNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageStartingWith("maximum length of identifier exceeded");
-    }
-
-    @Override
-    protected OptionalInt maxColumnNameLength()
-    {
-        return OptionalInt.of(128);
-    }
-
-    @Override
-    protected void verifyColumnNameLengthFailurePermissible(Throwable e)
-    {
-        assertThat(e).hasMessageContaining("maximum length of identifier exceeded");
-    }
-
-    @Override
-    protected Optional<String> filterColumnNameTestData(String columnName)
-    {
-        // Exasol does not support '.' in identifiers
-        if (columnName.contains(".")) {
-            return Optional.empty();
-        }
-        return Optional.of(columnName);
     }
 
     @Test

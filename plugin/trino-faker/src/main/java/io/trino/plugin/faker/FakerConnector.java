@@ -44,6 +44,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -125,6 +126,20 @@ public class FakerConnector
                         "Default limit of rows returned from any table in this schema, if not specified in the query",
                         null,
                         defaultLimit -> checkProperty(1 <= defaultLimit, INVALID_SCHEMA_PROPERTY, "default_limit value must be equal or greater than 1"),
+                        false),
+                booleanProperty(
+                        SchemaInfo.SEQUENCE_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table using existing data, columns with the number of distinct values close to
+                        the number of rows are treated as sequences""",
+                        null,
+                        false),
+                booleanProperty(
+                        SchemaInfo.DICTIONARY_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table using existing data, columns with a low number of distinct values
+                        are treated as dictionaries, and get the allowed_values column property populated with random values""",
+                        null,
                         false));
     }
 
@@ -143,6 +158,20 @@ public class FakerConnector
                         "Default limit of rows returned from this table if not specified in the query",
                         null,
                         defaultLimit -> checkProperty(1 <= defaultLimit, INVALID_TABLE_PROPERTY, "default_limit value must be equal or greater than 1"),
+                        false),
+                booleanProperty(
+                        TableInfo.SEQUENCE_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table using existing data, columns with the number of distinct values close to
+                        the number of rows are treated as sequences""",
+                        null,
+                        false),
+                booleanProperty(
+                        TableInfo.DICTIONARY_DETECTION_ENABLED,
+                        """
+                        If true, when creating a table using existing data, columns with a low number of distinct values
+                        are treated as dictionaries, and get the allowed_values column property populated with random values""",
+                        null,
                         false));
     }
 

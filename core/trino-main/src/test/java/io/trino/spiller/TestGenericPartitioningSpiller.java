@@ -79,7 +79,7 @@ public class TestGenericPartitioningSpiller
         tempDirectory = createTempDirectory(getClass().getSimpleName());
         FeaturesConfig featuresConfig = new FeaturesConfig();
         featuresConfig.setSpillerSpillPaths(ImmutableList.of(tempDirectory.toString()));
-        featuresConfig.setSpillerThreads(8);
+        featuresConfig.setSpillerThreads("8");
         featuresConfig.setSpillMaxUsedSpaceThreshold(1.0);
         SingleStreamSpillerFactory singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(
                 new TestingBlockEncodingSerde(),

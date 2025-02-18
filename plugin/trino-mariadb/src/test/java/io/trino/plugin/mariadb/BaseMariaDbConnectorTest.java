@@ -40,7 +40,8 @@ public abstract class BaseMariaDbConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_JOIN_PUSHDOWN -> true;
+            case SUPPORTS_ADD_COLUMN_WITH_POSITION,
+                 SUPPORTS_JOIN_PUSHDOWN -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                  SUPPORTS_AGGREGATION_PUSHDOWN_COUNT_DISTINCT,

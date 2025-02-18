@@ -37,6 +37,12 @@ public class MapBlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return MapBlock.class;
+    }
+
+    @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         MapBlock mapBlock = (MapBlock) block;

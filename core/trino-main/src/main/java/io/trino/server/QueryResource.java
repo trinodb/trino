@@ -13,7 +13,6 @@
  */
 package io.trino.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
@@ -41,7 +40,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.system.KillQueryProcedure.createKillQueryException;
 import static io.trino.connector.system.KillQueryProcedure.createPreemptQueryException;
 import static io.trino.execution.QueryStateMachine.pruneQueryInfo;
@@ -71,20 +73,22 @@ public class QueryResource
     }
 
     @GET
-    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") Set<String> stateFilters, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
-        QueryState expectedState = stateFilter == null ? null : QueryState.valueOf(stateFilter.toUpperCase(Locale.ENGLISH));
+        Set<QueryState> expectedStates = stateFilters.stream()
+                .map(state -> state.toUpperCase(Locale.ENGLISH))
+                .map(QueryState::valueOf)
+                .collect(toImmutableSet());
 
         List<BasicQueryInfo> queries = dispatchManager.getQueries();
         queries = filterQueries(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queries, accessControl);
 
-        ImmutableList.Builder<BasicQueryInfo> builder = ImmutableList.builder();
-        for (BasicQueryInfo queryInfo : queries) {
-            if (stateFilter == null || queryInfo.getState() == expectedState) {
-                builder.add(queryInfo);
-            }
+        if (expectedStates.isEmpty()) {
+            return queries;
         }
-        return builder.build();
+        return queries.stream()
+                .filter(query -> expectedStates.contains(query.getState()))
+                .collect(toImmutableList());
     }
 
     @GET

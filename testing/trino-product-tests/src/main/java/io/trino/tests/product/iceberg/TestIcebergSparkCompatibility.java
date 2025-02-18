@@ -2091,6 +2091,26 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testOptimizeManifests()
+    {
+        String tableName = "test_optimize_manifests_" + randomNameSuffix();
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT) USING ICEBERG");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (2)");
+
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE optimize_manifests");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                .containsOnly(row(1), row(2));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                .containsOnly(row(1), row(2));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testAlterTableExecuteProceduresOnEmptyTable()
     {
         String baseTableName = "test_alter_table_execute_procedures_on_empty_table_" + randomNameSuffix();

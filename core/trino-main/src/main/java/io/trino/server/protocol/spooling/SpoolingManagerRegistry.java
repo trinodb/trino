@@ -132,7 +132,7 @@ public class SpoolingManagerRegistry
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(factory.getClass().getClassLoader())) {
             spoolingManager = factory.create(properties, context);
         }
-        this.spoolingManager = spoolingManager;
+        this.spoolingManager = new TracingSpoolingManager(tracer, spoolingManager);
         log.info("-- Loaded spooling manager %s --", factory.getName());
     }
 

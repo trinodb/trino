@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.filesystem.s3.S3FileSystem.disableStrongIntegrityChecksums;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,6 +47,7 @@ public class TestS3FileSystemAwsS3
         accessKey = requireEnv("AWS_ACCESS_KEY_ID");
         secretKey = requireEnv("AWS_SECRET_ACCESS_KEY");
         region = requireEnv("AWS_REGION");
+
         bucket = requireEnv("EMPTY_S3_BUCKET");
     }
 
@@ -86,6 +88,7 @@ public class TestS3FileSystemAwsS3
                     .bucket(bucket())
                     .key(key)
                     .storageClass(storageClass.toString())
+                    .overrideConfiguration(disableStrongIntegrityChecksums())
                     .build();
             s3Client.putObject(
                     putObjectRequestBuilder,

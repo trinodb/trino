@@ -377,7 +377,7 @@ public class TestKuduConnectorTest
                 "WITH (partition_by_hash_columns = ARRAY['id'], partition_by_hash_buckets = 2)");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertTableColumnNames(tableName, "id", "a", "b", "c");
-        assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName)).isNull();
+        assertThat(getTableComment(tableName)).isNull();
 
         assertUpdate("DROP TABLE " + tableName);
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
@@ -1069,7 +1069,7 @@ public class TestKuduConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (a bigint WITH (primary_key=true)) COMMENT 'test comment' " +
                 "WITH (partition_by_hash_columns = ARRAY['a'], partition_by_hash_buckets = 2)");
-        assertThat(getTableComment("kudu", "default", tableName)).isEqualTo("test comment");
+        assertThat(getTableComment(tableName)).isEqualTo("test comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1082,7 +1082,7 @@ public class TestKuduConnectorTest
                 "test_create_",
                 "(a bigint WITH (primary_key=true)) COMMENT " + varcharLiteral(comment) +
                         "WITH (partition_by_hash_columns = ARRAY['a'], partition_by_hash_buckets = 2)")) {
-            assertThat(getTableComment("kudu", "default", table.getName())).isEqualTo(comment);
+            assertThat(getTableComment(table.getName())).isEqualTo(comment);
         }
     }
 

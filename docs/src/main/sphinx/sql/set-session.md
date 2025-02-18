@@ -37,11 +37,10 @@ lost.
 
 ## Examples
 
-The following example sets a system session property to enable optimized hash
-generation:
+The following example sets a system session property change maximum query run time:
 
 ```sql
-SET SESSION optimize_hash_generation = true;
+SET SESSION query_max_run_time = '10m';
 ```
 
 The following example sets the `incremental_refresh_enabled` catalog session

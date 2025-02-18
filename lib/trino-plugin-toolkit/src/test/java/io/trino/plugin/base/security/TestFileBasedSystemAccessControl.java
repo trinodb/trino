@@ -16,18 +16,18 @@ package io.trino.plugin.base.security;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.security.SystemAccessControl;
 
-import java.io.File;
+import java.nio.file.Path;
 import java.util.Map;
 
 public class TestFileBasedSystemAccessControl
         extends BaseFileBasedSystemAccessControlTest
 {
     @Override
-    protected SystemAccessControl newFileBasedSystemAccessControl(File configFile, Map<String, String> properties)
+    protected SystemAccessControl newFileBasedSystemAccessControl(Path configFile, Map<String, String> properties)
     {
         return newFileBasedSystemAccessControl(ImmutableMap.<String, String>builder()
                 .putAll(properties)
-                .put("security.config-file", configFile.getAbsolutePath())
+                .put("security.config-file", configFile.toAbsolutePath().toString())
                 .put("bootstrap.quiet", "true")
                 .buildOrThrow());
     }

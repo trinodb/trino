@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +34,8 @@ public final class TestingBlockEncodingSerde
         implements BlockEncodingSerde
 {
     private final Function<TypeId, Type> types;
-    private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<? extends Block>, BlockEncoding> blockEncodingsByClass = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, BlockEncoding> blockEncodingsByName = new ConcurrentHashMap<>();
 
     public TestingBlockEncodingSerde()
     {
@@ -61,7 +63,8 @@ public final class TestingBlockEncodingSerde
 
     private void addBlockEncoding(BlockEncoding blockEncoding)
     {
-        blockEncodings.put(blockEncoding.getName(), blockEncoding);
+        blockEncodingsByClass.put(blockEncoding.getBlockClass(), blockEncoding);
+        blockEncodingsByName.put(blockEncoding.getName(), blockEncoding);
     }
 
     @Override
@@ -71,7 +74,7 @@ public final class TestingBlockEncodingSerde
         String encodingName = readLengthPrefixedString(input);
 
         // look up the encoding factory
-        BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+        BlockEncoding blockEncoding = blockEncodingsByName.get(encodingName);
         checkArgument(blockEncoding != null, "Unknown block encoding %s", encodingName);
 
         // load read the encoding factory from the output stream
@@ -82,11 +85,8 @@ public final class TestingBlockEncodingSerde
     public void writeBlock(SliceOutput output, Block block)
     {
         while (true) {
-            // get the encoding name
-            String encodingName = block.getEncodingName();
-
             // look up the encoding factory
-            BlockEncoding blockEncoding = blockEncodings.get(encodingName);
+            BlockEncoding blockEncoding = blockEncodingsByClass.get(block.getClass());
 
             // see if a replacement block should be written instead
             Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);
@@ -96,12 +96,29 @@ public final class TestingBlockEncodingSerde
             }
 
             // write the name to the output
-            writeLengthPrefixedString(output, encodingName);
+            writeLengthPrefixedString(output, blockEncoding.getName());
 
             // write the block to the output
             blockEncoding.writeBlock(this, output, block);
 
             break;
+        }
+    }
+
+    @Override
+    public long estimatedWriteSize(Block block)
+    {
+        while (true) {
+            BlockEncoding blockEncoding = blockEncodingsByClass.get(block.getClass());
+            // see if a replacement block should be written instead
+            Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);
+            if (replacementBlock.isPresent()) {
+                block = replacementBlock.get();
+                continue;
+            }
+            // length of encoding name + encoding name + block size
+            // TODO: improve this estimate by adding estimatedWriteSize to BlockEncoding interface
+            return SIZE_OF_INT + blockEncoding.getName().length() + block.getSizeInBytes();
         }
     }
 

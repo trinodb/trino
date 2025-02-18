@@ -110,7 +110,7 @@ public class TableNameCompleter
         String prefix = buffer.substring(blankPos + 1);
         Optional<String> schemaName = queryRunner.getSession().getSchema();
 
-        if (!schemaName.isPresent()) {
+        if (schemaName.isEmpty()) {
             return;
         }
         List<String> functionNames = functionCache.getIfPresent(schemaName.get());

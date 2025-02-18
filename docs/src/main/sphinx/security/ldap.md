@@ -284,7 +284,7 @@ Verify the password for a keystore file and view its contents using
 ### Debug Trino to LDAP server issues
 
 If you need to debug issues with Trino communicating with the LDAP server,
-you can change the {ref}`log level <log-levels>` for the LDAP authenticator:
+you can change the [log level](logging-configuration) for the LDAP authenticator:
 
 ```none
 io.trino.plugin.password=DEBUG

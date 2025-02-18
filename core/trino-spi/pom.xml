@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>469-SNAPSHOT</version>
+        <version>471-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -44,6 +44,12 @@
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
             <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api-incubator</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -215,64 +221,92 @@
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.removed</code>
-                                    <old>method java.lang.Iterable&lt;io.trino.spi.eventlistener.EventListener&gt; io.trino.spi.connector.Connector::getEventListeners()</old>
-                                    <justification>Remove connector event listeners</justification>
+                                    <old>method java.lang.String io.trino.spi.block.ArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.annotation.removed</code>
-                                    <old>method byte[] io.trino.spi.type.SqlVarbinary::getBytes()</old>
-                                    <new>method byte[] io.trino.spi.type.SqlVarbinary::getBytes()</new>
-                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
-                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.Block::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.annotation.removed</code>
-                                    <old>method java.lang.String io.trino.spi.type.SqlDate::toString()</old>
-                                    <new>method java.lang.String io.trino.spi.type.SqlDate::toString()</new>
-                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
-                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.Class&lt;? extends io.trino.spi.block.Block&gt; io.trino.spi.block.BlockEncoding::getBlockClass()</new>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.annotation.removed</code>
-                                    <old>method java.lang.String io.trino.spi.type.SqlDecimal::toString()</old>
-                                    <new>method java.lang.String io.trino.spi.type.SqlDecimal::toString()</new>
-                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
-                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.ByteArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.annotation.removed</code>
-                                    <old>method java.lang.String io.trino.spi.type.SqlTime::toString()</old>
-                                    <new>method java.lang.String io.trino.spi.type.SqlTime::toString()</new>
-                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
-                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.DictionaryBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.annotation.removed</code>
-                                    <old>method java.lang.String io.trino.spi.type.SqlTimeWithTimeZone::toString()</old>
-                                    <new>method java.lang.String io.trino.spi.type.SqlTimeWithTimeZone::toString()</new>
-                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
-                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.Fixed12Block::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.annotation.removed</code>
-                                    <old>method java.lang.String io.trino.spi.type.SqlTimestamp::toString()</old>
-                                    <new>method java.lang.String io.trino.spi.type.SqlTimestamp::toString()</new>
-                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
-                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.Int128ArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
                                 <item>
                                     <ignore>true</ignore>
-                                    <code>java.annotation.removed</code>
-                                    <old>method java.lang.String io.trino.spi.type.SqlTimestampWithTimeZone::toString()</old>
-                                    <new>method java.lang.String io.trino.spi.type.SqlTimestampWithTimeZone::toString()</new>
-                                    <annotation>@com.fasterxml.jackson.annotation.JsonValue</annotation>
-                                    <justification>On-the-wire representation shouldn't rely on the Jackson format</justification>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.IntArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.LazyBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.LongArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.MapBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.RowBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.RunLengthEncodedBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.ShortArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.VariableWidthBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

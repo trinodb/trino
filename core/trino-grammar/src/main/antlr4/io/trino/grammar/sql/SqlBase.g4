@@ -200,11 +200,13 @@ statement
     ;
 
 rootQuery
-    : withFunction? query
+    : (WITH SESSION sessionProperty (',' sessionProperty)*)?
+      (WITH functionSpecification (',' functionSpecification)*)?
+      query
     ;
 
-withFunction
-    : WITH functionSpecification (',' functionSpecification)*
+sessionProperty
+    : qualifiedName EQ expression
     ;
 
 query

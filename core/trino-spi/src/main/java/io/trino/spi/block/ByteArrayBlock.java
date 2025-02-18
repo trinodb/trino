@@ -216,12 +216,6 @@ public final class ByteArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return ByteArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public ByteArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);

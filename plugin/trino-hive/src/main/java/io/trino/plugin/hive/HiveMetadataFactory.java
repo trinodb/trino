@@ -23,9 +23,9 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.security.AccessControlMetadataFactory;
+import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.plugin.hive.statistics.MetastoreHiveStatisticsProvider;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.MetadataProvider;
@@ -74,6 +74,7 @@ public class HiveMetadataFactory
     private final ScheduledExecutorService heartbeatService;
     private final DirectoryLister directoryLister;
     private final TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory;
+    private final boolean usingSystemSecurity;
     private final boolean partitionProjectionEnabled;
     private final boolean allowTableRename;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
@@ -83,7 +84,7 @@ public class HiveMetadataFactory
     public HiveMetadataFactory(
             CatalogName catalogName,
             HiveConfig hiveConfig,
-            HiveMetastoreConfig hiveMetastoreConfig,
+            @HideDeltaLakeTables boolean hideDeltaLakeTables,
             HiveMetastoreFactory metastoreFactory,
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
@@ -99,6 +100,7 @@ public class HiveMetadataFactory
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
             TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory,
+            @UsingSystemSecurity boolean usingSystemSecurity,
             @AllowHiveTableRename boolean allowTableRename)
     {
         this(
@@ -120,7 +122,7 @@ public class HiveMetadataFactory
                 hiveConfig.isHiveViewsRunAsInvoker(),
                 hiveConfig.getPerTransactionMetastoreCacheMaximumSize(),
                 hiveConfig.getHiveTransactionHeartbeatInterval(),
-                hiveMetastoreConfig.isHideDeltaLakeTables(),
+                hideDeltaLakeTables,
                 typeManager,
                 metadataProvider,
                 locationService,
@@ -132,6 +134,7 @@ public class HiveMetadataFactory
                 accessControlMetadataFactory,
                 directoryLister,
                 transactionScopeCachingDirectoryListerFactory,
+                usingSystemSecurity,
                 hiveConfig.isPartitionProjectionEnabled(),
                 allowTableRename,
                 hiveConfig.getTimestampPrecision(),
@@ -169,6 +172,7 @@ public class HiveMetadataFactory
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
             TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory,
+            boolean usingSystemSecurity,
             boolean partitionProjectionEnabled,
             boolean allowTableRename,
             HiveTimestampPrecision hiveViewsTimestampPrecision,
@@ -211,6 +215,7 @@ public class HiveMetadataFactory
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.transactionScopeCachingDirectoryListerFactory = requireNonNull(transactionScopeCachingDirectoryListerFactory, "transactionScopeCachingDirectoryListerFactory is null");
+        this.usingSystemSecurity = usingSystemSecurity;
         this.partitionProjectionEnabled = partitionProjectionEnabled;
         this.allowTableRename = allowTableRename;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
@@ -264,6 +269,7 @@ public class HiveMetadataFactory
                 systemTableProviders,
                 accessControlMetadataFactory.create(metastore),
                 directoryLister,
+                usingSystemSecurity,
                 partitionProjectionEnabled,
                 allowTableRename,
                 maxPartitionDropsPerQuery,

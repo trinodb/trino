@@ -110,15 +110,15 @@ public record DistributionSnapshot(long total, double min, double max, double p0
                 distribution.getTotal(),
                 distribution.getMin(),
                 distribution.getMax(),
-                distribution.getPercentile(0.01),
-                distribution.getPercentile(0.05),
-                distribution.getPercentile(0.10),
-                distribution.getPercentile(0.25),
-                distribution.getPercentile(0.50),
-                distribution.getPercentile(0.75),
-                distribution.getPercentile(0.90),
-                distribution.getPercentile(0.95),
-                distribution.getPercentile(0.99));
+                distribution.getPercentile(1),
+                distribution.getPercentile(5),
+                distribution.getPercentile(10),
+                distribution.getPercentile(25),
+                distribution.getPercentile(50),
+                distribution.getPercentile(75),
+                distribution.getPercentile(90),
+                distribution.getPercentile(95),
+                distribution.getPercentile(99));
     }
 
     @Override

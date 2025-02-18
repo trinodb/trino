@@ -83,7 +83,7 @@ export const DemoComponents = () => {
 
                 <Grid sx={{ py: 1 }} size={{ xs: 12 }} container>
                     <Grid size={{ xs: 3 }}>Link</Grid>
-                    <Link href="https://trino.io">Trino Website</Link>
+                    <Link href="https://trino.io">Trino website</Link>
                 </Grid>
 
                 <Grid sx={{ py: 1 }} size={{ xs: 12 }} container>

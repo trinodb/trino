@@ -264,6 +264,7 @@ public final class QueryUtil
     {
         return new Query(
                 ImmutableList.of(),
+                ImmutableList.of(),
                 Optional.empty(),
                 body,
                 Optional.empty(),

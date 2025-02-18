@@ -276,6 +276,160 @@ public class TestInlineFunctions
                 .hasMessage("line 1:6: Invalid function 'twice': Invalid definition: oops");
     }
 
+    @Test
+    public void testInlineSqlFunctions()
+    {
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION abc(x integer) RETURNS integer RETURN x * 2
+                SELECT abc(21)
+                """))
+                .matches("VALUES 42");
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION abc(x integer) RETURNS integer RETURN abs(x)
+                SELECT abc(-21)
+                """))
+                .matches("VALUES 21");
+
+        assertThat(assertions.query(
+                """
+                WITH
+                  FUNCTION abc(x integer) RETURNS integer RETURN x * 2,
+                  FUNCTION xyz(x integer) RETURNS integer RETURN abc(x) + 1
+                SELECT xyz(21)
+                """))
+                .matches("VALUES 43");
+
+        assertThat(assertions.query(
+                """
+                WITH
+                  FUNCTION my_pow(n int, p int)
+                  RETURNS int
+                  BEGIN
+                    DECLARE r int DEFAULT n;
+                    top: LOOP
+                      IF p <= 1 THEN
+                        LEAVE top;
+                      END IF;
+                      SET r = r * n;
+                      SET p = p - 1;
+                    END LOOP;
+                    RETURN r;
+                  END
+                SELECT my_pow(2, 8)
+                """))
+                .matches("VALUES 256");
+
+        assertThat(assertions.query(
+                """
+                WITH
+                  FUNCTION fun_with_uppercase_var()
+                  RETURNS int
+                  BEGIN
+                    DECLARE R int DEFAULT 7;
+                    RETURN R;
+                  END
+                SELECT fun_with_uppercase_var()
+                """))
+                .matches("VALUES 7");
+
+        // invoke function on data from connector to prevent constant folding on the coordinator
+        assertThat(assertions.query(
+                """
+                WITH
+                  FUNCTION my_pow(n int, p int)
+                  RETURNS int
+                  BEGIN
+                    DECLARE r int DEFAULT n;
+                    top: LOOP
+                      IF p <= 1 THEN
+                        LEAVE top;
+                      END IF;
+                      SET r = r * n;
+                      SET p = p - 1;
+                    END LOOP;
+                    RETURN r;
+                  END
+                SELECT my_pow(CAST(nationkey AS integer), CAST(regionkey AS integer)) FROM nation WHERE nationkey IN (1,2,3,5,8)
+                """))
+                .matches("VALUES 1, 2, 3, 5, 64");
+
+        // function with dereference
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION get(input row(varchar))
+                    RETURNS varchar
+                    RETURN input[1]
+                SELECT get(ROW('abc'))
+                """))
+                .matches("VALUES VARCHAR 'abc'");
+
+        // validations for inline functions
+        assertThat(assertions.query("WITH FUNCTION a.b() RETURNS int RETURN 42 SELECT a.b()"))
+                .failure()
+                .hasMessageContaining("line 1:6: Inline function names cannot be qualified: a.b");
+
+        assertThat(assertions.query("WITH FUNCTION x() RETURNS int SECURITY INVOKER RETURN 42 SELECT x()"))
+                .failure()
+                .hasMessageContaining("line 1:31: Security mode not supported for inline functions");
+
+        assertThat(assertions.query("WITH FUNCTION x() RETURNS bigint SECURITY DEFINER RETURN 42 SELECT x()"))
+                .failure()
+                .hasMessageContaining("line 1:34: Security mode not supported for inline functions");
+
+        // error location reporting
+        assertThat(assertions.query("WITH function x() RETURNS bigint DETERMINISTIC DETERMINISTIC RETURN 42 SELECT x()"))
+                .failure()
+                .hasMessageContaining("line 1:48: Multiple deterministic clauses specified");
+
+        // Verify the current restrictions on inline functions are enforced
+
+        // inline function can mask a global function
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2
+                SELECT abs(-10)
+                """))
+                .matches("VALUES -20");
+        assertThat(assertions.query(
+                """
+                WITH
+                  FUNCTION abs(x integer) RETURNS integer RETURN x * 2,
+                  FUNCTION wrap_abs(x integer) RETURNS integer RETURN abs(x)
+                SELECT wrap_abs(-10)
+                """))
+                .matches("VALUES -20");
+
+        // inline function can have the same name as a global function with a different signature
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION abs(x varchar) RETURNS varchar RETURN reverse(x)
+                SELECT abs('abc')
+                """))
+                .skippingTypesCheck()
+                .matches("VALUES 'cba'");
+
+        // inline functions must be declared before they are used
+        assertThat(assertions.query(
+                """
+                WITH
+                  FUNCTION a(x integer) RETURNS integer RETURN b(x),
+                  FUNCTION b(x integer) RETURNS integer RETURN x * 2
+                SELECT a(10)
+                """))
+                .failure().hasMessage("line 2:48: Function 'b' not registered");
+
+        // inline function cannot be recursive
+        // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
+        assertThat(assertions.query(
+                """
+                WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
+                SELECT a(10)
+                """))
+                .failure().hasMessage("line 1:6: Recursive language functions are not supported: a(integer):integer");
+    }
+
     public static class TestingLanguageEnginePlugin
             implements Plugin
     {

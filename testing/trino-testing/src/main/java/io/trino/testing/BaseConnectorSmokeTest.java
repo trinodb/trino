@@ -152,6 +152,11 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    protected TestTable createTestTableForWrites(String tablePrefix)
+    {
+        return newTrinoTable(tablePrefix, getCreateTableDefaultDefinition());
+    }
+
     protected String getCreateTableDefaultDefinition()
     {
         return "(a bigint, b double)";
@@ -318,7 +323,7 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test UPDATE without INSERT");
         }
 
-        try (TestTable table = newTrinoTable("test_update_", getCreateTableDefaultDefinition())) {
+        try (TestTable table = createTestTableForWrites("test_update_")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT a, b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
@@ -344,7 +349,7 @@ public abstract class BaseConnectorSmokeTest
             throw new AssertionError("Cannot test MERGE without INSERT");
         }
 
-        try (TestTable table = newTrinoTable("test_merge_", getCreateTableDefaultDefinition())) {
+        try (TestTable table = createTestTableForWrites("test_merge_")) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
             assertThat(query("SELECT a, b FROM " + table.getName()))
                     .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
@@ -370,11 +375,15 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        assertUpdate(createSchemaSql(schemaName));
-        assertThat(query("SHOW SCHEMAS"))
-                .skippingTypesCheck()
-                .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
-        assertUpdate("DROP SCHEMA " + schemaName);
+        try {
+            assertUpdate(createSchemaSql(schemaName));
+            assertThat(query("SHOW SCHEMAS"))
+                    .skippingTypesCheck()
+                    .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
+        }
+        finally {
+            assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);
+        }
     }
 
     @Test
@@ -740,11 +749,6 @@ public abstract class BaseConnectorSmokeTest
         finally {
             assertUpdate("DROP MATERIALIZED VIEW " + viewName);
         }
-    }
-
-    protected String getTableComment(String tableName)
-    {
-        return (String) computeScalar(format("SELECT comment FROM system.metadata.table_comments WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = '%s'", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), tableName));
     }
 
     protected String getColumnComment(String tableName, String columnName)

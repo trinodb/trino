@@ -758,6 +758,17 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+(iceberg-optimize-manifests)=
+##### optimize_manifests
+
+Optimize table manifests to speed up planning.
+
+`optimize_manifests` can be run as follows:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize_manifests;
+```
+
 (iceberg-expire-snapshots)=
 ##### expire_snapshots
 
@@ -823,6 +834,7 @@ The following table properties can be updated after a table is created:
 - `format_version`
 - `partitioning`
 - `sorted_by`
+- `max_commit_retry`
 - `object_store_layout_enabled`
 - `data_location`
 
@@ -876,6 +888,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies the format version of the Iceberg specification to use
     for new tables; either `1` or `2`. Defaults to `2`. Version `2` is required
     for row level deletes.
+* - `max_commit_retry`
+  - Number of times to retry a commit before failing. Defaults to the value of 
+    the `iceberg.max-commit-retry` catalog configuration property, which 
+    defaults to `4`.
 * - `orc_bloom_filter_columns`
   - Comma-separated list of columns to use for ORC bloom filter. It improves the
     performance of queries using Equality and IN predicates when reading ORC
@@ -1912,6 +1928,7 @@ ORDER BY _change_ordinal ASC;
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(iceberg-table-statistics)=
 ### Table statistics
 
 The Iceberg connector can collect column statistics using {doc}`/sql/analyze`

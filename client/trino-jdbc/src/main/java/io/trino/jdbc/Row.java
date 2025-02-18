@@ -107,10 +107,9 @@ public final class Row
         Builder addField(Optional<String> name, @Nullable Object value)
         {
             requireNonNull(name, "name is null");
-            if (name.isPresent()) {
-                return addField(name.get(), value);
-            }
-            return addUnnamedField(value);
+            return name
+                    .map(fieldName -> addField(fieldName, value))
+                    .orElseGet(() -> addUnnamedField(value));
         }
 
         public Row build()

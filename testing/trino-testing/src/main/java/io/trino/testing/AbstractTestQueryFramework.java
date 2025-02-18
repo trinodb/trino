@@ -755,6 +755,18 @@ public abstract class AbstractTestQueryFramework
         });
     }
 
+    protected String getTableComment(String tableName)
+    {
+        Session session = getSession();
+        return getTableComment(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), tableName);
+    }
+
+    protected String getTableComment(String catalogName, String schemaName, String tableName)
+    {
+        return (String) computeScalar("SELECT comment FROM system.metadata.table_comments " +
+                "WHERE catalog_name = '" + catalogName + "' AND schema_name = '" + schemaName + "' AND table_name = '" + tableName + "'");
+    }
+
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
     {
         return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getPlannerContext().getMetadata(), getQueryRunner().getAccessControl())

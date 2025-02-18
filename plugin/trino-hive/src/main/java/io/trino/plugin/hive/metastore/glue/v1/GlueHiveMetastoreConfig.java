@@ -18,13 +18,11 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
-import jakarta.annotation.PostConstruct;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
 import java.util.Optional;
-
-import static com.google.common.base.Preconditions.checkState;
 
 @DefunctConfig("hive.metastore.glue.use-instance-credentials")
 public class GlueHiveMetastoreConfig
@@ -333,12 +331,12 @@ public class GlueHiveMetastoreConfig
         return this;
     }
 
-    @PostConstruct
-    public void validate()
+    @AssertTrue(message = "Both hive.metastore.glue.region and hive.metastore.glue.endpoint-url must be provided when Glue proxy API ID is present")
+    public boolean isGlueProxyApiIdValid()
     {
         if (getGlueProxyApiId().isPresent()) {
-            checkState(getGlueRegion().isPresent() && getGlueEndpointUrl().isPresent(),
-                    "Both Glue region and Glue endpoint URL must be provided when Glue proxy API ID is present");
+            return getGlueRegion().isPresent() && getGlueEndpointUrl().isPresent();
         }
+        return true;
     }
 }

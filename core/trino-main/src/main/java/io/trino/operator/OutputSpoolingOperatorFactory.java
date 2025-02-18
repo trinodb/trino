@@ -36,6 +36,8 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +48,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.units.Duration.succinctDuration;
+import static io.trino.client.spooling.DataAttribute.EXPIRES_AT;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.FINISHED;
@@ -137,6 +140,7 @@ public class OutputSpoolingOperatorFactory
             implements Operator
     {
         private final OutputSpoolingController controller;
+        private final ZoneId clientZoneId;
 
         enum State
         {
@@ -161,6 +165,7 @@ public class OutputSpoolingOperatorFactory
         public OutputSpoolingOperator(OperatorContext operatorContext, QueryDataEncoder queryDataEncoder, SpoolingManager spoolingManager, Map<Symbol, Integer> layout)
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
+            this.clientZoneId = operatorContext.getSession().getTimeZoneKey().getZoneId();
             this.controller = new OutputSpoolingController(
                     isInliningEnabled(operatorContext.getSession()),
                     getInliningMaxRows(operatorContext.getSession()),
@@ -269,12 +274,14 @@ public class OutputSpoolingOperatorFactory
                     operatorContext.getDriverContext().getSession().getQueryId(),
                     rows,
                     size));
+            String expiresAt = ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString();
 
             OperationTimer overallTimer = new OperationTimer(false);
             try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
                 DataAttributes attributes = queryDataEncoder.encodeTo(output, pages)
                         .toBuilder()
                         .set(ROWS_COUNT, rows)
+                        .set(EXPIRES_AT, expiresAt)
                         .build();
 
                 controller.recordEncoded(attributes.get(SEGMENT_SIZE, Integer.class));

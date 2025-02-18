@@ -33,6 +33,12 @@ public class IntArrayBlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return IntArrayBlock.class;
+    }
+
+    @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         IntArrayBlock intArrayBlock = (IntArrayBlock) block;

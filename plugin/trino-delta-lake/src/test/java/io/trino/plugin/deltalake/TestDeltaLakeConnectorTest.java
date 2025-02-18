@@ -147,8 +147,6 @@ public class TestDeltaLakeConnectorTest
                     .put("delta.enable-non-concurrent-writes", "true")
                     .put("delta.register-table-procedure.enabled", "true")
                     .buildOrThrow());
-            metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
-                    .createMetastore(Optional.empty());
 
             queryRunner.execute("CREATE SCHEMA " + SCHEMA + " WITH (location = 's3://" + bucketName + "/" + SCHEMA + "')");
             queryRunner.execute("CREATE SCHEMA schemawithoutunderscore WITH (location = 's3://" + bucketName + "/schemawithoutunderscore')");
@@ -1660,7 +1658,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (a_number INT, b_number INT) WITH (column_mapping_mode='" + mode + "')");
 
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'test comment' ");
-        assertThat(getTableComment(DELTA_CATALOG, SCHEMA, tableName)).isEqualTo("test comment");
+        assertThat(getTableComment(tableName)).isEqualTo("test comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1699,7 +1697,7 @@ public class TestDeltaLakeConnectorTest
                 "COMMENT 'test table comment' " +
                 "WITH (column_mapping_mode='" + mode + "')");
 
-        assertThat(getTableComment(DELTA_CATALOG, SCHEMA, tableName)).isEqualTo("test table comment");
+        assertThat(getTableComment(tableName)).isEqualTo("test table comment");
         assertThat(getColumnComment(tableName, "a_number")).isEqualTo("test column comment");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -2059,7 +2057,7 @@ public class TestDeltaLakeConnectorTest
 
             assertThat(getColumnComment(table.getName(), "a"))
                     .isEqualTo("This is a column");
-            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+            assertThat(getTableComment(table.getName()))
                     .isNull();
             assertLatestTableOperation(table.getName(), CREATE_OR_REPLACE_TABLE_OPERATION);
         }
@@ -4169,7 +4167,7 @@ public class TestDeltaLakeConnectorTest
     @Test
     void testAddTimestampNtzColumnToCdfEnabledTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true)")) {
+        try (TestTable table = newTrinoTable("test_timestamp_ntz", "(x int) WITH (change_data_feed_enabled = true)")) {
             assertThat(getTableProperties(table.getName()))
                     .containsExactlyInAnyOrderEntriesOf(ImmutableMap.<String, String>builder()
                             .put("delta.enableChangeDataFeed", "true")

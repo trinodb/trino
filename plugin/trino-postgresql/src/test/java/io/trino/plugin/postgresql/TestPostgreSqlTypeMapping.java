@@ -46,7 +46,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -114,8 +113,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
-    private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
-
     protected TestingPostgreSqlServer postgreSqlServer;
 
     private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
@@ -123,7 +120,7 @@ public class TestPostgreSqlTypeMapping
     private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
-    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
+    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1932, 4, 1, 0, 13, 42);
     private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
     private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
 
@@ -913,7 +910,7 @@ public class TestPostgreSqlTypeMapping
 
     private SqlDataTypeTest arrayDateTest(Function<String, String> arrayTypeFactory)
     {
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
+        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1932, 4, 1);
         checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
 
         LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
@@ -1173,9 +1170,6 @@ public class TestPostgreSqlTypeMapping
 
     private void testTime(ZoneId sessionZone)
     {
-        LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
-        checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
-
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
@@ -1649,9 +1643,7 @@ public class TestPostgreSqlTypeMapping
             // test all standard cases with precision 3 and 6 to make sure the long and short TIMESTAMP WITH TIME ZONE
             // is gap friendly.
             DataType<List<ZonedDateTime>> dataType = arrayOfTimestampWithTimeZoneDataType(precision, insertWithTrino);
-
-            tests.addRoundTrip(dataType, asList(epoch.atZone(UTC), epoch.atZone(kathmandu)));
-            tests.addRoundTrip(dataType, asList(beforeEpoch.atZone(kathmandu), beforeEpoch.atZone(UTC)));
+            tests.addRoundTrip(dataType, asList(beforeEpoch.atZone(jvmZone), beforeEpoch.atZone(UTC)));
             tests.addRoundTrip(dataType, asList(afterEpoch.atZone(UTC), afterEpoch.atZone(kathmandu)));
             tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(UTC)));
             tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(kathmandu)));

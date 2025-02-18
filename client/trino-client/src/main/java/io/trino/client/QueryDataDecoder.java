@@ -39,7 +39,7 @@ public interface QueryDataDecoder
      *
      * @throws IOException if an I/O error occurs
      */
-    ResultRows decode(InputStream input, DataAttributes segmentAttributes)
+    CloseableIterator<List<Object>> decode(InputStream input, DataAttributes segmentAttributes)
             throws IOException;
 
     String encoding();

@@ -101,7 +101,7 @@ public class TestIcebergOrcWithBloomFilters
     @Test
     void testInvalidOrcBloomFilterPropertiesOnParquet()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_orc_bloom_filter", "(x int) WITH (format = 'PARQUET')")) {
+        try (TestTable table = newTrinoTable("test_orc_bloom_filter", "(x int) WITH (format = 'PARQUET')")) {
             assertQueryFails(
                     "ALTER TABLE " + table.getName() + " SET PROPERTIES orc_bloom_filter_columns = ARRAY['x']",
                     "Cannot specify orc_bloom_filter_columns table property for storage format: PARQUET");

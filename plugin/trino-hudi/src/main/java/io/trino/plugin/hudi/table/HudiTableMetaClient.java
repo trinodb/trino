@@ -133,11 +133,6 @@ public class HudiTableMetaClient
         return basePath + SEPARATOR + AUXILIARYFOLDER_NAME;
     }
 
-    public String getSchemaFolderName()
-    {
-        return metaPath.appendPath(SCHEMA_FOLDER_NAME).path();
-    }
-
     private static HudiTableMetaClient newMetaClient(
             TrinoFileSystem fileSystem,
             Location basePath)

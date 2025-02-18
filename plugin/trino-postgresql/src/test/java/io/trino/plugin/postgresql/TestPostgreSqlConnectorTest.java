@@ -635,9 +635,8 @@ public class TestPostgreSqlConnectorTest
                         Stream.of("IS DISTINCT FROM", "IS NOT DISTINCT FROM"))
                 .collect(toImmutableList());
 
-        try (TestTable nationLowercaseTable = new TestTable(
+        try (TestTable nationLowercaseTable = newTrinoTable(
                 // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
-                getQueryRunner()::execute,
                 "nation_lowercase",
                 "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
             // basic case

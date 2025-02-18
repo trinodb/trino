@@ -345,12 +345,6 @@ public final class MapBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return MapBlockEncoding.NAME;
-    }
-
-    @Override
     public MapBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);

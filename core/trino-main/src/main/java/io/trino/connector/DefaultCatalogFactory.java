@@ -178,7 +178,9 @@ public class DefaultCatalogFactory
                 new SystemConnector(
                         nodeManager,
                         systemTablesProvider,
-                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle)));
+                        transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
+                        accessControl,
+                        catalogHandle.getCatalogName().toString()));
 
         return new CatalogConnector(
                 catalogHandle,

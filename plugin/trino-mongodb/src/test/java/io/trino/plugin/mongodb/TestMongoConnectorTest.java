@@ -57,6 +57,7 @@ import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -147,6 +148,40 @@ public class TestMongoConnectorTest
         assertExplain(
                 "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
+    }
+
+    @Test
+    void testNonLowercaseCollection()
+    {
+        String suffix = randomNameSuffix();
+        String schema = "test_db_" + suffix;
+        String table = "test_collection_" + suffix;
+        String mixedTable = "Test_Collection_" + suffix;
+        try {
+            MongoDatabase db = client.getDatabase(schema);
+
+            db.createCollection(table);
+            db.getCollection(table).insertOne(new Document("lowercase", 1));
+
+            db.createCollection(mixedTable);
+            db.getCollection(mixedTable).insertOne(new Document("mixed", 2));
+
+            assertThatThrownBy(() -> client.getDatabase(schema.toUpperCase(ENGLISH)).createCollection(table))
+                    .hasMessageContaining("db already exists with different case");
+
+            db.createCollection(table.toUpperCase(ENGLISH));
+            db.getCollection(table.toUpperCase(ENGLISH)).insertOne(new Document("uppercase", 3));
+
+            assertThat(query("SELECT * FROM information_schema.tables WHERE table_catalog = 'mongodb' AND table_schema = '" + schema + "'"))
+                    .matches("VALUES (VARCHAR 'mongodb', VARCHAR '" + schema + "', VARCHAR '" + table + "', VARCHAR 'BASE TABLE')");
+            assertThat(query("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = 'mongodb' AND table_schema = '" + schema + "'"))
+                    .matches("VALUES (VARCHAR '" + table + "', VARCHAR 'lowercase')");
+            assertThat(query("SELECT * FROM " + schema + "." + table))
+                    .matches("VALUES BIGINT '1'");
+        }
+        finally {
+            client.getDatabase(schema).drop();
+        }
     }
 
     @Override

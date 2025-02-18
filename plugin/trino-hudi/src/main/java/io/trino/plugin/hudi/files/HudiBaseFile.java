@@ -44,11 +44,6 @@ public class HudiBaseFile
         this.fileName = requireNonNull(fileName, "fileName is null");
     }
 
-    public String getPath()
-    {
-        return fullPath;
-    }
-
     public Location getFullPath()
     {
         if (fileEntry != null) {

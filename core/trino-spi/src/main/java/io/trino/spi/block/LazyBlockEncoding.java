@@ -30,6 +30,12 @@ public class LazyBlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return LazyBlock.class;
+    }
+
+    @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput input)
     {
         // We write the actual underlying block, so we will never need to read a lazy block

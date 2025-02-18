@@ -19,6 +19,7 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
@@ -28,14 +29,13 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.types.Types;
-import org.assertj.core.util.Files;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -56,7 +56,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
-    private File warehouseLocation;
+    private Path warehouseLocation;
 
     private JdbcCatalog backend;
 
@@ -80,8 +80,8 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        warehouseLocation = Files.newTemporaryFolder();
-        closeAfterClass(() -> deleteRecursively(warehouseLocation.toPath(), ALLOW_INSECURE));
+        warehouseLocation = Files.createTempDirectory(null);
+        closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
 
         backend = closeAfterClass((JdbcCatalog) backendCatalog(warehouseLocation));
 
@@ -94,7 +94,7 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
         closeAfterClass(testServer::stop);
 
         return IcebergQueryRunner.builder()
-                .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
+                .setBaseDataDir(Optional.of(warehouseLocation))
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
@@ -229,6 +229,10 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
+                .isInstanceOf(QueryFailedException.class)
+                .cause()
+                .hasMessageContaining("Failed to drop table")
+                .cause()
                 .hasMessageMatching("Server error: NotFoundException: Failed to open input stream for file: (.*)");
     }
 

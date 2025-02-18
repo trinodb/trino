@@ -50,6 +50,21 @@ final class TestFakerQueries
     }
 
     @Test
+    void testTableComment()
+    {
+        try (TestTable table = newTrinoTable("table_comment", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'test comment'");
+            assertThat(getTableComment(table.getName())).isEqualTo("test comment");
+
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
+            assertThat(getTableComment(table.getName())).isEmpty();
+
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
+            assertThat(getTableComment(table.getName())).isNull();
+        }
+    }
+
+    @Test
     void testColumnComment()
     {
         try (TestTable table = newTrinoTable("comment", "(id INTEGER, name VARCHAR)")) {
@@ -115,7 +130,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "types_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("types_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -261,7 +276,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "range_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("range_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -294,7 +309,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "range_max_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("range_max_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -327,7 +342,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "range_min_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("range_min_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -379,7 +394,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "values_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("values_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -424,7 +439,7 @@ final class TestFakerQueries
                 .build();
 
         for (TestDataType testCase : testCases) {
-            try (TestTable table = new TestTable(getQueryRunner()::execute, "step_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+            try (TestTable table = newTrinoTable("step_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
                 assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
             }
         }
@@ -445,6 +460,156 @@ final class TestFakerQueries
                             entry.getKey().equals(ALLOWED_VALUES_PROPERTY) ? entry.getValue() : "'%s'".formatted(entry.getValue())))
                     .collect(joining(", "));
             return "%s %s NOT NULL%s".formatted(name, type, propertiesSchema.isEmpty() ? "" : " WITH (%s)".formatted(propertiesSchema));
+        }
+    }
+
+    @Test
+    void testSetTableProperties()
+    {
+        try (TestTable table = newTrinoTable("set_table_properties", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES default_limit = 100");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("default_limit = 100");
+        }
+    }
+
+    @Test
+    void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE original_table(id INTEGER, name VARCHAR)");
+        assertUpdate("ALTER TABLE original_table RENAME TO renamed_table");
+        // original_table should not exist anymore after renaming.
+        assertQueryFails("DESC original_table", "line 1:1: Table 'faker.default.original_table' does not exist");
+        // should not allow renaming to an already existing table.
+        assertQueryFails("ALTER TABLE renamed_table RENAME TO renamed_table", "line 1:1: Target table 'faker.default.renamed_table' already exists");
+        assertUpdate("DROP TABLE renamed_table");
+    }
+
+    @Test
+    void testRenameTableAcrossSchema()
+    {
+        assertUpdate("CREATE SCHEMA new_schema");
+        assertUpdate("CREATE TABLE original_table_schema(id INTEGER, name VARCHAR)");
+        assertUpdate("ALTER TABLE original_table_schema RENAME TO new_schema.renamed_table");
+        assertQueryFails("DESC original_table_schema", "line 1:1: Table 'faker.default.original_table_schema' does not exist");
+        assertUpdate("DROP TABLE new_schema.renamed_table");
+        assertUpdate("DROP SCHEMA new_schema");
+    }
+
+    @Test
+    void testCreateTableAsSelect()
+    {
+        assertUpdate("CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 50, dictionary_detection_enabled = false) AS " +
+                "SELECT * FROM (VALUES -1, 3, 5) t(id)", 3);
+
+        assertQuery("SELECT count(id) FROM (SELECT id FROM limited_range) a",
+                "VALUES (50)");
+
+        assertQueryFails("INSERT INTO faker.default.limited_range(id) VALUES (10)", "This connector does not support inserts");
+
+        assertUpdate("DROP TABLE faker.default.limited_range");
+
+        List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "0", "max", "1"), "count(distinct rnd_bigint)", "2"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "0", "max", "1"), "count(distinct rnd_integer)", "2"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "0", "max", "1"), "count(distinct rnd_smallint)", "2"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "0", "max", "1"), "count(distinct rnd_tinyint)", "2"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "2022-03-01", "max", "2022-03-02"), "count(distinct rnd_date)", "2"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("min", "0", "max", "1"), "count(distinct rnd_decimal1)", "2"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("min", "0.00000", "max", "0.00001"), "count(distinct rnd_decimal2)", "2"))
+                .add(new TestDataType("rnd_decimal3", "decimal(38,0)", Map.of("min", "0", "max", "1"), "count(distinct rnd_decimal3)", "2"))
+                .add(new TestDataType("rnd_decimal4", "decimal(38,38)", Map.of("min", "0.00000000000000000000000000000000000000", "max", "0.00000000000000000000000000000000000001"), "count(distinct rnd_decimal4)", "2"))
+                .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "0.00", "max", "0.01"), "count(distinct rnd_decimal5)", "2"))
+                .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "1.4E-45"), "count(distinct rnd_real)", "2"))
+                .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "4.9E-324"), "count(distinct rnd_double)", "2"))
+                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("min", "0.000", "max", "0.001"), "count(distinct rnd_interval1)", "2"))
+                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("min", "0", "max", "1"), "count(distinct rnd_interval2)", "2"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2022-03-21 00:00:00.000", "max", "2022-03-21 00:00:00.001"), "count(distinct rnd_timestamp)", "2"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("min", "2022-03-21 00:00:00", "max", "2022-03-21 00:00:01"), "count(distinct rnd_timestamp0)", "2"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "2022-03-21 00:00:00.000000", "max", "2022-03-21 00:00:00.000001"), "count(distinct rnd_timestamp6)", "2"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "2022-03-21 00:00:00.000000000", "max", "2022-03-21 00:00:00.000000001"), "count(distinct rnd_timestamp9)", "2"))
+                .add(new TestDataType("rnd_timestamptz", "timestamp with time zone", Map.of("min", "2022-03-21 00:00:00.000 +01:00", "max", "2022-03-21 00:00:00.001 +01:00"), "count(distinct rnd_timestamptz)", "2"))
+                .add(new TestDataType("rnd_timestamptz0", "timestamp(0) with time zone", Map.of("min", "2022-03-21 00:00:00 +01:00", "max", "2022-03-21 00:00:01 +01:00"), "count(distinct rnd_timestamptz0)", "2"))
+                .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", Map.of("min", "2022-03-21 00:00:00.000000 +01:00", "max", "2022-03-21 00:00:00.000001 +01:00"), "count(distinct rnd_timestamptz6)", "2"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", Map.of("min", "2022-03-21 00:00:00.000000000 +01:00", "max", "2022-03-21 00:00:00.000000001 +01:00"), "count(distinct rnd_timestamptz9)", "2"))
+                .add(new TestDataType("rnd_time", "time", Map.of("min", "01:02:03.456", "max", "01:02:03.457"), "count(distinct rnd_time)", "2"))
+                .add(new TestDataType("rnd_time0", "time(0)", Map.of("min", "01:02:03", "max", "01:02:04"), "count(distinct rnd_time0)", "2"))
+                .add(new TestDataType("rnd_time6", "time(6)", Map.of("min", "01:02:03.000456", "max", "01:02:03.000457"), "count(distinct rnd_time6)", "2"))
+                .add(new TestDataType("rnd_time9", "time(9)", Map.of("min", "01:02:03.000000456", "max", "01:02:03.000000457"), "count(distinct rnd_time9)", "2"))
+                .add(new TestDataType("rnd_timetz", "time with time zone", Map.of("min", "01:02:03.456 +01:00", "max", "01:02:03.457 +01:00"), "count(distinct rnd_timetz)", "2"))
+                .add(new TestDataType("rnd_timetz0", "time(0) with time zone", Map.of("min", "01:02:03 +01:00", "max", "01:02:04 +01:00"), "count(distinct rnd_timetz0)", "2"))
+                .add(new TestDataType("rnd_timetz6", "time(6) with time zone", Map.of("min", "01:02:03.000456 +01:00", "max", "01:02:03.000457 +01:00"), "count(distinct rnd_timetz6)", "2"))
+                .add(new TestDataType("rnd_timetz9", "time(9) with time zone", Map.of("min", "01:02:03.000000456 +01:00", "max", "01:02:03.000000457 +01:00"), "count(distinct rnd_timetz9)", "2"))
+                .add(new TestDataType("rnd_timetz12", "time(12) with time zone", Map.of("min", "01:02:03.000000000456 +01:00", "max", "01:02:03.000000000457 +01:00"), "count(distinct rnd_timetz12)", "2"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "ctas_src_" + testCase.name(), "(%s) WITH (null_probability = 0, default_limit = 1000)".formatted(testCase.columnSchema()));
+                    TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, dictionary_detection_enabled = false, sequence_detection_enabled = false) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "ctas_src_" + testCase.name(), "(%s %s) WITH (null_probability = 0, default_limit = 2)".formatted(testCase.name(), testCase.type()));
+                    TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, sequence_detection_enabled = false) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectSequence()
+    {
+        String source = """
+                        SELECT
+                          cast(greatest(least(sequential_number, 0x7f), -0x80) AS TINYINT) AS seq_tinyint,
+                          cast(sequential_number AS SMALLINT) AS seq_smallint,
+                          cast(sequential_number AS INTEGER) AS seq_integer,
+                          cast(sequential_number AS BIGINT) AS seq_bigint
+                        FROM TABLE(sequence(start => -500, stop => 500, step => 1))
+                        """;
+        try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "seq_src", "WITH (null_probability = 0, default_limit = 1000, dictionary_detection_enabled = false) AS " + source);
+                TestTable table = new TestTable(getQueryRunner()::execute, "seq", "WITH (null_probability = 0, default_limit = 1000, dictionary_detection_enabled = false) AS SELECT * FROM %s".formatted(sourceTable.getName()))) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("seq_tinyint tinyint WITH \\(max = '\\d+', min = '-\\d+'\\)");
+            assertThat(createTable).containsPattern("seq_smallint smallint WITH \\(max = '\\d+', min = '-\\d+', step = '1'\\)");
+            assertThat(createTable).containsPattern("seq_integer integer WITH \\(max = '\\d+', min = '-\\d+', step = '1'\\)");
+            assertThat(createTable).containsPattern("seq_bigint bigint WITH \\(max = '\\d+', min = '-\\d+', step = '1'\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectNulls()
+    {
+        String source = """
+                        SELECT
+                          cast(NULL AS INTEGER) AS nullable
+                        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+                        """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "only_nulls", "WITH (dictionary_detection_enabled = false) AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("nullable integer WITH \\(null_probability = 1E0\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectVarchar()
+    {
+        String source = """
+                        SELECT * FROM tpch.tiny.orders
+                        """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "varchars", "AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("orderkey bigint WITH \\(max = '60000', min = '1', null_probability = 0E0, step = '1'\\)");
+            assertThat(createTable).containsPattern("custkey bigint WITH \\(allowed_values = ARRAY\\['.*'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderstatus varchar\\(1\\)");
+            assertThat(createTable).containsPattern("totalprice double WITH \\(max = '.*', min = '.*', null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderdate date WITH \\(max = '1998-08-02', min = '1992-01-01', null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderpriority varchar\\(15\\)");
+            assertThat(createTable).containsPattern("clerk varchar\\(15\\)");
+            assertThat(createTable).containsPattern("shippriority integer WITH \\(allowed_values = ARRAY\\['0'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("comment varchar\\(79\\)");
         }
     }
 }

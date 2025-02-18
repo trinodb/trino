@@ -579,12 +579,12 @@ public class MongoMetadata
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
 
         for (MongoIndex index : tableInfo.indexes()) {
-            for (MongodbIndexKey key : index.getKeys()) {
-                if (key.getSortOrder().isEmpty()) {
+            for (MongodbIndexKey key : index.keys()) {
+                if (key.sortOrder().isEmpty()) {
                     continue;
                 }
-                if (columns.get(key.getName()) != null) {
-                    localProperties.add(new SortingProperty<>(columns.get(key.getName()), key.getSortOrder().get()));
+                if (columns.get(key.name()) != null) {
+                    localProperties.add(new SortingProperty<>(columns.get(key.name()), key.sortOrder().get()));
                 }
             }
         }

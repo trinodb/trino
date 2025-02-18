@@ -240,6 +240,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SessionProperty;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -319,6 +320,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -366,6 +368,7 @@ import static io.trino.sql.tree.TableFunctionDescriptorArgument.descriptorArgume
 import static io.trino.sql.tree.TableFunctionDescriptorArgument.nullDescriptorArgument;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 class AstBuilder
@@ -1118,8 +1121,10 @@ class AstBuilder
 
         return new Query(
                 getLocation(context),
-                Optional.ofNullable(context.withFunction())
-                        .map(SqlBaseParser.WithFunctionContext::functionSpecification)
+                Optional.ofNullable(context.sessionProperty())
+                        .map(contexts -> visit(contexts, SessionProperty.class))
+                        .orElseGet(ImmutableList::of),
+                Optional.ofNullable(context.functionSpecification())
                         .map(contexts -> visit(contexts, FunctionSpecification.class))
                         .orElseGet(ImmutableList::of),
                 query.getWith(),
@@ -1136,6 +1141,7 @@ class AstBuilder
 
         return new Query(
                 getLocation(context),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 visitIfPresent(context.with(), With.class),
                 body.getQueryBody(),
@@ -1232,6 +1238,7 @@ class AstBuilder
             return new Query(
                     getLocation(context),
                     ImmutableList.of(),
+                    ImmutableList.of(),
                     Optional.empty(),
                     new QuerySpecification(
                             getLocation(context),
@@ -1251,6 +1258,7 @@ class AstBuilder
 
         return new Query(
                 getLocation(context),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty(),
                 term,
@@ -2446,7 +2454,13 @@ class AstBuilder
             field = Extract.Field.valueOf(fieldString.toUpperCase(ENGLISH));
         }
         catch (IllegalArgumentException e) {
-            throw parseError("Invalid EXTRACT field: " + fieldString, context);
+            throw parseError(
+                    "Invalid EXTRACT field %s, valid fields are: %s".formatted(
+                            fieldString,
+                            Stream.of(Extract.Field.values())
+                                    .map(Enum::name)
+                                    .collect(joining(", "))),
+                    context);
         }
         return new Extract(getLocation(context), (Expression) visit(context.valueExpression()), field);
     }
@@ -3763,6 +3777,15 @@ class AstBuilder
             value = value.substring(1);
         }
         return new StringLiteral(getLocation(context), value);
+    }
+
+    @Override
+    public Node visitSessionProperty(SqlBaseParser.SessionPropertyContext context)
+    {
+        return new SessionProperty(
+                getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (Expression) visit(context.expression()));
     }
 
     @Override

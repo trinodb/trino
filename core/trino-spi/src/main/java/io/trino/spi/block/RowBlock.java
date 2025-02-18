@@ -255,12 +255,6 @@ public final class RowBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return RowBlockEncoding.NAME;
-    }
-
-    @Override
     public RowBlock copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);

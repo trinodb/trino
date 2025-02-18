@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.snowflake;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -38,6 +39,7 @@ import java.util.Properties;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class SnowflakeClientModule
@@ -46,6 +48,11 @@ public class SnowflakeClientModule
     @Override
     public void configure(Binder binder)
     {
+        // Check reflective access allowed - required by Apache Arrow usage in Snowflake JDBC driver
+        verifyConnectorAccessOpened(
+                binder,
+                "snowflake",
+                ImmutableMultimap.of("java.base", "java.nio"));
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(SnowflakeConfig.class);
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);

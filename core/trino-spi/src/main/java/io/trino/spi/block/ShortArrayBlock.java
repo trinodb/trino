@@ -198,12 +198,6 @@ public final class ShortArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return ShortArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public ShortArrayBlock copyWithAppendedNull()
     {
         boolean[] newValueIsNull = copyIsNullAndAppendNull(valueIsNull, arrayOffset, positionCount);

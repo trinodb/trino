@@ -83,11 +83,13 @@ public class HiveS3Config
     private String s3StsEndpoint;
     private String s3StsRegion;
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3AwsAccessKey()
     {
         return s3AwsAccessKey;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.aws-access-key")
     public HiveS3Config setS3AwsAccessKey(String s3AwsAccessKey)
     {
@@ -95,11 +97,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3AwsSecretKey()
     {
         return s3AwsSecretKey;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.aws-secret-key")
     @ConfigSecuritySensitive
     public HiveS3Config setS3AwsSecretKey(String s3AwsSecretKey)
@@ -108,11 +112,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3Endpoint()
     {
         return s3Endpoint;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.endpoint")
     public HiveS3Config setS3Endpoint(String s3Endpoint)
     {
@@ -120,11 +126,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3Region()
     {
         return s3Region;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.region")
     public HiveS3Config setS3Region(String s3Region)
     {
@@ -132,12 +140,14 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     public TrinoS3StorageClass getS3StorageClass()
     {
         return s3StorageClass;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.storage-class")
     @ConfigDescription("AWS S3 storage class to use when writing the data")
     public HiveS3Config setS3StorageClass(TrinoS3StorageClass s3StorageClass)
@@ -146,11 +156,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public TrinoS3SignerType getS3SignerType()
     {
         return s3SignerType;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.signer-type")
     public HiveS3Config setS3SignerType(TrinoS3SignerType s3SignerType)
     {
@@ -158,11 +170,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3SignerClass()
     {
         return s3SignerClass;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.signer-class")
     public HiveS3Config setS3SignerClass(String s3SignerClass)
     {
@@ -170,11 +184,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public boolean isS3PathStyleAccess()
     {
         return s3PathStyleAccess;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.path-style-access")
     @ConfigDescription("Use path-style access for all request to S3")
     public HiveS3Config setS3PathStyleAccess(boolean s3PathStyleAccess)
@@ -183,11 +199,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3IamRole()
     {
         return s3IamRole;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.iam-role")
     @ConfigDescription("ARN of an IAM role to assume when connecting to S3")
     public HiveS3Config setS3IamRole(String s3IamRole)
@@ -196,11 +214,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3ExternalId()
     {
         return s3ExternalId;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.external-id")
     @ConfigDescription("External ID for the IAM role trust policy when connecting to S3")
     public HiveS3Config setS3ExternalId(String s3ExternalId)
@@ -209,11 +229,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public boolean isS3SslEnabled()
     {
         return s3SslEnabled;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.ssl.enabled")
     public HiveS3Config setS3SslEnabled(boolean s3SslEnabled)
     {
@@ -221,11 +243,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3EncryptionMaterialsProvider()
     {
         return s3EncryptionMaterialsProvider;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.encryption-materials-provider")
     @ConfigDescription("Use a custom encryption materials provider for S3 data encryption")
     public HiveS3Config setS3EncryptionMaterialsProvider(String s3EncryptionMaterialsProvider)
@@ -234,11 +258,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3KmsKeyId()
     {
         return s3KmsKeyId;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.kms-key-id")
     @ConfigDescription("Use an AWS KMS key for S3 data encryption")
     public HiveS3Config setS3KmsKeyId(String s3KmsKeyId)
@@ -247,11 +273,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3SseKmsKeyId()
     {
         return s3SseKmsKeyId;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.sse.kms-key-id")
     @ConfigDescription("KMS Key ID to use for S3 server-side encryption with KMS-managed key")
     public HiveS3Config setS3SseKmsKeyId(String s3SseKmsKeyId)
@@ -260,11 +288,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public boolean isS3SseEnabled()
     {
         return s3SseEnabled;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.sse.enabled")
     @ConfigDescription("Enable S3 server side encryption")
     public HiveS3Config setS3SseEnabled(boolean s3SseEnabled)
@@ -273,12 +303,14 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     public TrinoS3SseType getS3SseType()
     {
         return s3SseType;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.sse.type")
     @ConfigDescription("Key management type for S3 server-side encryption (S3 or KMS)")
     public HiveS3Config setS3SseType(TrinoS3SseType s3SseType)
@@ -287,12 +319,14 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Min(0)
     public int getS3MaxClientRetries()
     {
         return s3MaxClientRetries;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.max-client-retries")
     public HiveS3Config setS3MaxClientRetries(int s3MaxClientRetries)
     {
@@ -300,12 +334,14 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Min(0)
     public int getS3MaxErrorRetries()
     {
         return s3MaxErrorRetries;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.max-error-retries")
     public HiveS3Config setS3MaxErrorRetries(int s3MaxErrorRetries)
     {
@@ -313,6 +349,7 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @MinDuration("1s")
     @NotNull
     public Duration getS3MaxBackoffTime()
@@ -320,6 +357,7 @@ public class HiveS3Config
         return s3MaxBackoffTime;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.max-backoff-time")
     public HiveS3Config setS3MaxBackoffTime(Duration s3MaxBackoffTime)
     {
@@ -327,6 +365,7 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @MinDuration("1ms")
     @NotNull
     public Duration getS3MaxRetryTime()
@@ -334,6 +373,7 @@ public class HiveS3Config
         return s3MaxRetryTime;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.max-retry-time")
     public HiveS3Config setS3MaxRetryTime(Duration s3MaxRetryTime)
     {
@@ -341,6 +381,7 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @MinDuration("1ms")
     @NotNull
     public Duration getS3ConnectTimeout()
@@ -348,6 +389,7 @@ public class HiveS3Config
         return s3ConnectTimeout;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.connect-timeout")
     public HiveS3Config setS3ConnectTimeout(Duration s3ConnectTimeout)
     {
@@ -355,12 +397,14 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     public Optional<Duration> getS3ConnectTtl()
     {
         return s3ConnectTtl;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.connect-ttl")
     @ConfigDescription("TCP connect TTL in the client side, which affects connection reusage")
     public HiveS3Config setS3ConnectTtl(Duration s3ConnectTtl)
@@ -369,6 +413,7 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @MinDuration("1ms")
     @NotNull
     public Duration getS3SocketTimeout()
@@ -376,6 +421,7 @@ public class HiveS3Config
         return s3SocketTimeout;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.socket-timeout")
     public HiveS3Config setS3SocketTimeout(Duration s3SocketTimeout)
     {
@@ -383,12 +429,14 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Min(1)
     public int getS3MaxConnections()
     {
         return s3MaxConnections;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.max-connections")
     public HiveS3Config setS3MaxConnections(int s3MaxConnections)
     {
@@ -396,6 +444,7 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     @FileExists
     public File getS3StagingDirectory()
@@ -403,6 +452,7 @@ public class HiveS3Config
         return s3StagingDirectory;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.staging-directory")
     @ConfigDescription("Temporary directory for staging files before uploading to S3")
     public HiveS3Config setS3StagingDirectory(File s3StagingDirectory)
@@ -411,6 +461,7 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     @MinDataSize("16MB")
     public DataSize getS3MultipartMinFileSize()
@@ -418,6 +469,7 @@ public class HiveS3Config
         return s3MultipartMinFileSize;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.multipart.min-file-size")
     @ConfigDescription("Minimum file size for an S3 multipart upload")
     public HiveS3Config setS3MultipartMinFileSize(DataSize size)
@@ -426,6 +478,7 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     @MinDataSize("5MB")
     public DataSize getS3MultipartMinPartSize()
@@ -433,6 +486,7 @@ public class HiveS3Config
         return s3MultipartMinPartSize;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.multipart.min-part-size")
     @ConfigDescription("Minimum part size for an S3 multipart upload")
     public HiveS3Config setS3MultipartMinPartSize(DataSize size)
@@ -441,11 +495,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public boolean isPinS3ClientToCurrentRegion()
     {
         return pinS3ClientToCurrentRegion;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.pin-client-to-current-region")
     @ConfigDescription("Should the S3 client be pinned to the current EC2 region")
     public HiveS3Config setPinS3ClientToCurrentRegion(boolean pinS3ClientToCurrentRegion)
@@ -454,12 +510,14 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     public String getS3UserAgentPrefix()
     {
         return s3UserAgentPrefix;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.user-agent-prefix")
     @ConfigDescription("The user agent prefix to use for S3 calls")
     public HiveS3Config setS3UserAgentPrefix(String s3UserAgentPrefix)
@@ -468,12 +526,14 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     public TrinoS3AclType getS3AclType()
     {
         return s3AclType;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.upload-acl-type")
     @ConfigDescription("Canned ACL type for S3 uploads")
     public HiveS3Config setS3AclType(TrinoS3AclType s3AclType)
@@ -482,11 +542,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public boolean isSkipGlacierObjects()
     {
         return skipGlacierObjects;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.skip-glacier-objects")
     public HiveS3Config setSkipGlacierObjects(boolean skipGlacierObjects)
     {
@@ -494,11 +556,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public boolean isRequesterPaysEnabled()
     {
         return requesterPaysEnabled;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.requester-pays.enabled")
     public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
     {
@@ -506,11 +570,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public boolean isS3StreamingUploadEnabled()
     {
         return s3StreamingUploadEnabled;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.streaming.enabled")
     public HiveS3Config setS3StreamingUploadEnabled(boolean s3StreamingUploadEnabled)
     {
@@ -518,6 +584,7 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @NotNull
     @MinDataSize("5MB")
     @MaxDataSize("256MB")
@@ -526,6 +593,7 @@ public class HiveS3Config
         return s3StreamingPartSize;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.streaming.part-size")
     @ConfigDescription("Part size for S3 streaming upload")
     public HiveS3Config setS3StreamingPartSize(DataSize s3StreamingPartSize)
@@ -534,11 +602,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3ProxyHost()
     {
         return s3proxyHost;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.proxy.host")
     public HiveS3Config setS3ProxyHost(String s3proxyHost)
     {
@@ -546,11 +616,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public int getS3ProxyPort()
     {
         return s3proxyPort;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.proxy.port")
     public HiveS3Config setS3ProxyPort(int s3proxyPort)
     {
@@ -558,11 +630,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public TrinoS3Protocol getS3ProxyProtocol()
     {
         return s3ProxyProtocol;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.proxy.protocol")
     public HiveS3Config setS3ProxyProtocol(String s3ProxyProtocol)
     {
@@ -570,11 +644,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public List<String> getS3NonProxyHosts()
     {
         return s3nonProxyHosts;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.proxy.non-proxy-hosts")
     public HiveS3Config setS3NonProxyHosts(List<String> s3nonProxyHosts)
     {
@@ -582,11 +658,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3ProxyUsername()
     {
         return s3proxyUsername;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.proxy.username")
     public HiveS3Config setS3ProxyUsername(String s3proxyUsername)
     {
@@ -594,11 +672,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3ProxyPassword()
     {
         return s3proxyPassword;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.proxy.password")
     @ConfigSecuritySensitive
     public HiveS3Config setS3ProxyPassword(String s3proxyPassword)
@@ -607,11 +687,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public boolean getS3PreemptiveBasicProxyAuth()
     {
         return s3preemptiveBasicProxyAuth;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.proxy.preemptive-basic-auth")
     public HiveS3Config setS3PreemptiveBasicProxyAuth(boolean s3preemptiveBasicProxyAuth)
     {
@@ -619,11 +701,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3StsEndpoint()
     {
         return s3StsEndpoint;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.sts.endpoint")
     public HiveS3Config setS3StsEndpoint(String s3StsEndpoint)
     {
@@ -631,11 +715,13 @@ public class HiveS3Config
         return this;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     public String getS3StsRegion()
     {
         return s3StsRegion;
     }
 
+    @Deprecated(forRemoval = true, since = "470")
     @Config("hive.s3.sts.region")
     public HiveS3Config setS3StsRegion(String s3StsRegion)
     {

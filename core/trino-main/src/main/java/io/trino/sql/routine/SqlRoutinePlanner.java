@@ -85,6 +85,7 @@ import static io.trino.sql.planner.LogicalPlanner.buildLambdaDeclarationToSymbol
 import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constantNull;
 import static io.trino.sql.relational.Expressions.field;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class SqlRoutinePlanner
@@ -360,7 +361,10 @@ public final class SqlRoutinePlanner
         private static String identifierValue(Identifier name)
         {
             // TODO: this should use getCanonicalValue()
-            return name.getValue();
+            // stop-gap: lowercasing for now to match what is happening during analysis;
+            // otherwise we do not support non-lowercase variables in functions.
+            // Rework as part of https://github.com/trinodb/trino/pull/24829
+            return name.getValue().toLowerCase(ENGLISH);
         }
     }
 

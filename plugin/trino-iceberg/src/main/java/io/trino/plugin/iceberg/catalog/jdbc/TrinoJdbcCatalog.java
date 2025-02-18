@@ -42,7 +42,6 @@ import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
-import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.catalog.Namespace;
@@ -284,7 +283,7 @@ public class TrinoJdbcCatalog
             Schema schema,
             PartitionSpec partitionSpec,
             SortOrder sortOrder,
-            String location,
+            Optional<String> location,
             Map<String, String> properties)
     {
         return newCreateTableTransaction(
@@ -338,7 +337,7 @@ public class TrinoJdbcCatalog
     @Override
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        BaseTable table = (BaseTable) loadTable(session, schemaTableName);
+        BaseTable table = loadTable(session, schemaTableName);
 
         jdbcCatalog.dropTable(toIdentifier(schemaTableName), false);
         try {
@@ -381,14 +380,14 @@ public class TrinoJdbcCatalog
     }
 
     @Override
-    public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
+    public BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         TableMetadata metadata;
         try {
             metadata = uncheckedCacheGet(
                     tableMetadataCache,
                     schemaTableName,
-                    () -> ((BaseTable) loadIcebergTable(this, tableOperationsProvider, session, schemaTableName)).operations().current());
+                    () -> loadIcebergTable(this, tableOperationsProvider, session, schemaTableName).operations().current());
         }
         catch (UncheckedExecutionException e) {
             throwIfUnchecked(e.getCause());

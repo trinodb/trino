@@ -206,7 +206,10 @@ public final class Session
 
     public TimeZoneKey getTimeZoneKey()
     {
-        return timeZoneKey;
+        // Allow overriding timezone key with a session property regardless of it's source
+        return SystemSessionProperties.getTimeZoneId(this)
+                .map(TimeZoneKey::getTimeZoneKey)
+                .orElse(timeZoneKey);
     }
 
     public Locale getLocale()
@@ -416,6 +419,11 @@ public final class Session
                     .putAll(catalogEntry.getValue());
         }
 
+        return withProperties(systemProperties, catalogProperties);
+    }
+
+    public Session withProperties(Map<String, String> systemProperties, Map<String, Map<String, String>> catalogProperties)
+    {
         return new Session(
                 queryId,
                 querySpan,
