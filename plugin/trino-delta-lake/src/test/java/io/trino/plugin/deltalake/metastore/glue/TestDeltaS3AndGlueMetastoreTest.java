@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.Set;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaS3AndGlueMetastoreTest
@@ -105,5 +107,28 @@ public class TestDeltaS3AndGlueMetastoreTest
         return getOnlyElement(getTableFiles(tableLocation).stream()
                 .filter(path -> path.contains("/_trino_meta"))
                 .collect(Collectors.toUnmodifiableSet()));
+    }
+
+    @Test
+    void testCreateDropDynamicCatalog()
+    {
+        String catalog = "new_catalog_" + randomNameSuffix();
+        String createCatalogSql = """
+                CREATE CATALOG %1$s USING delta_lake
+                WITH (
+                    "hive.metastore" = 'glue',
+                    "hive.metastore.glue.default-warehouse-dir" = '%2$s'
+                )""".formatted(catalog, schemaPath());
+        assertUpdate(createCatalogSql);
+        assertCatalogs("system", "delta", "tpch", catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs("system", "delta", "tpch");
+        // re-add the same catalog
+        assertUpdate(createCatalogSql);
+        assertCatalogs("system", "delta", "tpch", catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs("system", "delta", "tpch");
     }
 }
