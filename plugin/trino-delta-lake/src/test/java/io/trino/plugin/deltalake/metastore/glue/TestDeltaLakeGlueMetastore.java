@@ -35,6 +35,7 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
+import io.trino.plugin.deltalake.DeltaLakeSecurityModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.NodeManager;
@@ -126,6 +127,7 @@ public class TestDeltaLakeGlueMetastore
                     binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
+                new DeltaLakeSecurityModule(),
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
                 // test setup
