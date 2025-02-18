@@ -42,10 +42,11 @@ public interface VarianceState
 
     default void merge(VarianceState otherState)
     {
-        long count = otherState.getCount();
-        double mean = otherState.getMean();
-        double m2 = otherState.getM2();
+        merge(otherState.getCount(), otherState.getMean(), otherState.getM2());
+    }
 
+    default void merge(long count, double mean, double m2)
+    {
         checkArgument(count >= 0, "count is negative");
         if (count == 0) {
             return;
