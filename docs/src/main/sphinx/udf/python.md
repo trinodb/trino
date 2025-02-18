@@ -105,6 +105,23 @@ not available within a Python UDF:
 * `wsgiref`
 * `xmlrpc`
 
+The following libraries are explicitly added to the runtime and therefore
+available within a Python UDF:
+
+* `attrs`
+* `bleach`
+* `charset-normalizer`
+* `defusedxml`
+* `idna`
+* `jmespath`
+* `jsonschema`
+* `pyasn1`
+* `pyparsing`
+* `python-dateutil`
+* `rsa`
+* `tomli`
+* `ua-parser`
+
 ## Type mapping
 
 The following table shows supported Trino types and their corresponding Python
