@@ -2842,9 +2842,7 @@ public class HiveMetadata
     @Override
     public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> optionalSchemaName)
     {
-        return listSchemas(session, optionalSchemaName).stream()
-                .map(metastore::getTables)
-                .flatMap(List::stream)
+        return streamTables(session, optionalSchemaName)
                 .filter(tableInfo -> tableInfo.extendedRelationType().toRelationType() == RelationType.VIEW)
                 .map(TableInfo::tableName)
                 .collect(toImmutableList());
