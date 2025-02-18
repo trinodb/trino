@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -274,7 +275,7 @@ class TestResultRowsDecoder
                 null,
                 ImmutableList.of(),
                 null,
-                0L);
+                OptionalLong.of(0L));
     }
 
     private static QueryResults fromSegments(Segment... segments)

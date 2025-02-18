@@ -122,8 +122,8 @@ public abstract class AbstractTestingTrinoClient<T>
                 if (results.getUpdateType() != null) {
                     resultsSession.setUpdateType(results.getUpdateType());
                 }
-                if (results.getUpdateCount() != null) {
-                    resultsSession.setUpdateCount(results.getUpdateCount());
+                if (results.getUpdateCount().isPresent()) {
+                    resultsSession.setUpdateCount(results.getUpdateCount().getAsLong());
                 }
 
                 resultsSession.setWarnings(results.getWarnings());

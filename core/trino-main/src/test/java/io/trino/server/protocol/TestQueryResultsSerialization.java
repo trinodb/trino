@@ -33,6 +33,7 @@ import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.List;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.client.ClientStandardTypes.BIGINT;
@@ -196,6 +197,6 @@ public class TestQueryResultsSerialization
                 null,
                 ImmutableList.of(),
                 null,
-                null));
+                OptionalLong.empty()));
     }
 }
