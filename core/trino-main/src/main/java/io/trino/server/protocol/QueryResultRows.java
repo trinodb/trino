@@ -42,7 +42,8 @@ public class QueryResultRows
 
     private QueryResultRows(Optional<List<OutputColumn>> columns, List<Page> pages)
     {
-        this.columns = requireNonNull(columns, "columns is null").map(values -> values.stream()
+        this.columns = requireNonNull(columns, "columns is null")
+                .map(values -> values.stream()
                 .filter(column -> !isSpooledMetadataColumn(column))
                 .collect(toImmutableList()));
         this.pages = ImmutableList.copyOf(pages);
