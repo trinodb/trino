@@ -39,9 +39,7 @@ public class JsonBytesQueryDataProducer
             return null;
         }
 
-        List<OutputColumn> columns = rows.getOutputColumns()
-                .orElseThrow(() -> new IllegalStateException("Data present without columns"));
-
+        List<OutputColumn> columns = rows.getOutputColumns();
         if (typeEncoders == null) {
             typeEncoders = createTypeEncoders(session, columns);
             sourcePageChannels = requireNonNull(columns, "columns is null").stream()
