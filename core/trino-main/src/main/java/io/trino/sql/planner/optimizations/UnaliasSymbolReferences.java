@@ -329,6 +329,7 @@ public class UnaliasSymbolReferences
                         properties.argumentName(),
                         properties.rowSemantics(),
                         properties.pruneWhenEmpty(),
+                        properties.preferStreaming(),
                         newPassThroughSpecification,
                         inputMapper.map(properties.requiredColumns()),
                         newSpecification));
@@ -361,7 +362,7 @@ public class UnaliasSymbolReferences
                                 mapper.map(node.getProperOutputs()),
                                 Optional.empty(),
                                 node.isPruneWhenEmpty(),
-                                node.isRowSemantics(),
+                                node.isPreferStreaming(),
                                 ImmutableList.of(),
                                 ImmutableList.of(),
                                 Optional.empty(),

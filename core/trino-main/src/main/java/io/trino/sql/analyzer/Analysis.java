@@ -2284,6 +2284,7 @@ public class Analysis
         private final Optional<OrderBy> orderBy;
         private final boolean pruneWhenEmpty;
         private final boolean rowSemantics;
+        private final boolean preferStreaming;
         private final boolean skipPartitionColumnsAsPassThrough;
         private final boolean passThroughColumns;
 
@@ -2295,6 +2296,7 @@ public class Analysis
                 Optional<OrderBy> orderBy,
                 boolean pruneWhenEmpty,
                 boolean rowSemantics,
+                boolean preferStreaming,
                 boolean skipPartitionColumnsAsPassThrough,
                 boolean passThroughColumns)
         {
@@ -2305,6 +2307,7 @@ public class Analysis
             this.orderBy = requireNonNull(orderBy, "orderBy is null");
             this.pruneWhenEmpty = pruneWhenEmpty;
             this.rowSemantics = rowSemantics;
+            this.preferStreaming = preferStreaming;
             this.skipPartitionColumnsAsPassThrough = skipPartitionColumnsAsPassThrough;
             this.passThroughColumns = passThroughColumns;
         }
@@ -2344,6 +2347,11 @@ public class Analysis
             return rowSemantics;
         }
 
+        public boolean isPreferStreaming()
+        {
+            return preferStreaming;
+        }
+
         public boolean isSkipPartitionColumnsAsPassThrough()
         {
             return skipPartitionColumnsAsPassThrough;
@@ -2368,6 +2376,7 @@ public class Analysis
             private Optional<OrderBy> orderBy = Optional.empty();
             private boolean pruneWhenEmpty;
             private boolean rowSemantics;
+            private boolean preferStreaming;
             private boolean skipPartitionColumnsAsPassThrough;
             private boolean passThroughColumns;
 
@@ -2423,6 +2432,13 @@ public class Analysis
             }
 
             @CanIgnoreReturnValue
+            public Builder withPreferStreaming(boolean preferStreaming)
+            {
+                this.preferStreaming = preferStreaming;
+                return this;
+            }
+
+            @CanIgnoreReturnValue
             public Builder withSkipPartitionColumnsAsPassThrough(boolean skipPartitionColumnsAsPassThrough)
             {
                 this.skipPartitionColumnsAsPassThrough = skipPartitionColumnsAsPassThrough;
@@ -2438,7 +2454,7 @@ public class Analysis
 
             public TableArgumentAnalysis build()
             {
-                return new TableArgumentAnalysis(argumentName, name, relation, partitionBy, orderBy, pruneWhenEmpty, rowSemantics, skipPartitionColumnsAsPassThrough, passThroughColumns);
+                return new TableArgumentAnalysis(argumentName, name, relation, partitionBy, orderBy, pruneWhenEmpty, rowSemantics, preferStreaming, skipPartitionColumnsAsPassThrough, passThroughColumns);
             }
         }
     }

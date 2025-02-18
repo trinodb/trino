@@ -24,10 +24,11 @@ public class TableArgumentSpecification
 {
     private final boolean rowSemantics;
     private final boolean pruneWhenEmpty;
+    private final boolean preferStreaming;
     private final boolean skipPartitionColumnsAsPassThrough;
     private final boolean passThroughColumns;
 
-    private TableArgumentSpecification(String name, boolean rowSemantics, Boolean pruneWhenEmpty, boolean skipPartitionColumnsAsPassThrough, boolean passThroughColumns)
+    private TableArgumentSpecification(String name, boolean rowSemantics, Boolean pruneWhenEmpty, boolean preferStreaming, boolean skipPartitionColumnsAsPassThrough, boolean passThroughColumns)
     {
         super(name, true, null);
 
@@ -36,6 +37,7 @@ public class TableArgumentSpecification
 
         this.rowSemantics = rowSemantics;
         this.pruneWhenEmpty = pruneWhenEmpty;
+        this.preferStreaming = preferStreaming;
         this.skipPartitionColumnsAsPassThrough = skipPartitionColumnsAsPassThrough;
         this.passThroughColumns = passThroughColumns;
     }
@@ -50,14 +52,19 @@ public class TableArgumentSpecification
         return pruneWhenEmpty;
     }
 
-    public boolean isPassThroughColumns()
+    public boolean isPreferStreaming()
     {
-        return passThroughColumns;
+        return preferStreaming;
     }
 
     public boolean isSkipPartitionColumnsAsPassThrough()
     {
         return skipPartitionColumnsAsPassThrough;
+    }
+
+    public boolean isPassThroughColumns()
+    {
+        return passThroughColumns;
     }
 
     public static Builder builder()
@@ -70,6 +77,7 @@ public class TableArgumentSpecification
         private String name;
         private boolean rowSemantics;
         private Boolean pruneWhenEmpty;
+        private boolean preferStreaming;
         private boolean skipPartitionColumnsAsPassThrough;
         private boolean passThroughColumns;
 
@@ -94,6 +102,12 @@ public class TableArgumentSpecification
             return this;
         }
 
+        public Builder preferStreaming()
+        {
+            this.preferStreaming = true;
+            return this;
+        }
+
         public Builder keepWhenEmpty()
         {
             this.pruneWhenEmpty = false;
@@ -114,7 +128,7 @@ public class TableArgumentSpecification
 
         public TableArgumentSpecification build()
         {
-            return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, skipPartitionColumnsAsPassThrough, passThroughColumns);
+            return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, preferStreaming, skipPartitionColumnsAsPassThrough, passThroughColumns);
         }
     }
 }

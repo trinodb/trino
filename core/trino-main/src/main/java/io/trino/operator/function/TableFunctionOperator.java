@@ -94,7 +94,7 @@ public class TableFunctionOperator
         // pruneWhenEmpty is false if and only if all original input tables are KEEP WHEN EMPTY
         private final boolean pruneWhenEmpty;
 
-        private final boolean isRowSemantics;
+        private final boolean preferStreaming;
 
         // partitioning channels from all sources
         private final List<Integer> partitionChannels;
@@ -129,7 +129,7 @@ public class TableFunctionOperator
                 Optional<Map<Integer, Integer>> markerChannels,
                 List<PassThroughColumnSpecification> passThroughSpecifications,
                 boolean pruneWhenEmpty,
-                boolean isRowSemantics,
+                boolean preferStreaming,
                 List<Integer> partitionChannels,
                 List<Integer> prePartitionedChannels,
                 List<Integer> sortChannels,
@@ -169,7 +169,7 @@ public class TableFunctionOperator
             this.markerChannels = markerChannels.map(ImmutableMap::copyOf);
             this.passThroughSpecifications = ImmutableList.copyOf(passThroughSpecifications);
             this.pruneWhenEmpty = pruneWhenEmpty;
-            this.isRowSemantics = isRowSemantics;
+            this.preferStreaming = preferStreaming;
             this.partitionChannels = ImmutableList.copyOf(partitionChannels);
             this.prePartitionedChannels = ImmutableList.copyOf(prePartitionedChannels);
             this.sortChannels = ImmutableList.copyOf(sortChannels);
@@ -197,7 +197,7 @@ public class TableFunctionOperator
                     markerChannels,
                     passThroughSpecifications,
                     pruneWhenEmpty,
-                    isRowSemantics,
+                    preferStreaming,
                     partitionChannels,
                     prePartitionedChannels,
                     sortChannels,
@@ -229,7 +229,7 @@ public class TableFunctionOperator
                     markerChannels,
                     passThroughSpecifications,
                     pruneWhenEmpty,
-                    isRowSemantics,
+                    preferStreaming,
                     partitionChannels,
                     prePartitionedChannels,
                     sortChannels,
@@ -258,7 +258,7 @@ public class TableFunctionOperator
             Optional<Map<Integer, Integer>> markerChannels,
             List<PassThroughColumnSpecification> passThroughSpecifications,
             boolean pruneWhenEmpty,
-            boolean isRowSemantics,
+            boolean preferStreaming,
             List<Integer> partitionChannels,
             List<Integer> prePartitionedChannels,
             List<Integer> sortChannels,
@@ -294,7 +294,7 @@ public class TableFunctionOperator
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
         HashStrategies hashStrategies = new HashStrategies(pagesIndex, partitionChannels, prePartitionedChannels, sortChannels, sortOrders, preSortedPrefix);
 
-        if (isRowSemantics && passThroughSpecifications.isEmpty()) {
+        if (preferStreaming && passThroughSpecifications.isEmpty() && sortOrders.isEmpty()) {
             StreamingWorkProcessor streamingWorkProcessor = new StreamingWorkProcessor(processEmptyInput, getOnlyElement(requiredChannels));
             this.outputPages = pageBuffer.pages()
                     .transform(streamingWorkProcessor.toTableFunctionInput())

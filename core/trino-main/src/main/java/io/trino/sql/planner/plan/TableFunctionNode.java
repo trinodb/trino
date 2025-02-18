@@ -162,6 +162,7 @@ public class TableFunctionNode
             String argumentName,
             boolean rowSemantics,
             boolean pruneWhenEmpty,
+            boolean preferStreaming,
             PassThroughSpecification passThroughSpecification,
             List<Symbol> requiredColumns,
             Optional<DataOrganizationSpecification> specification)

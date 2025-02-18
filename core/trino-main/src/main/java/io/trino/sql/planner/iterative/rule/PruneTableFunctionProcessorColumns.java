@@ -75,7 +75,7 @@ public class PruneTableFunctionProcessorColumns
                 node.getProperOutputs(),
                 node.getSource(),
                 node.isPruneWhenEmpty(),
-                node.isRowSemantics(),
+                node.isPreferStreaming(),
                 prunedPassThroughSpecifications,
                 node.getRequiredSymbols(),
                 node.getMarkerSymbols(),

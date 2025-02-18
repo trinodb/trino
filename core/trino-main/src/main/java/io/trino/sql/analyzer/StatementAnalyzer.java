@@ -2024,6 +2024,9 @@ class StatementAnalyzer
             }
             analysisBuilder.withPruneWhenEmpty(pruneWhenEmpty);
 
+            // TODO Add verification for prefer streaming
+            analysisBuilder.withPreferStreaming(argumentSpecification.isPreferStreaming());
+
             // record remaining properties
             analysisBuilder.withRowSemantics(argumentSpecification.isRowSemantics());
             analysisBuilder.withPassThroughColumns(argumentSpecification.isPassThroughColumns());

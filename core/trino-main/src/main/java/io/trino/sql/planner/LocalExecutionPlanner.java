@@ -1804,7 +1804,7 @@ public class LocalExecutionPlanner
                     markerChannels,
                     passThroughColumnSpecifications.build(),
                     node.isPruneWhenEmpty(),
-                    node.isRowSemantics(),
+                    node.isPreferStreaming(),
                     partitionChannels,
                     getChannelsForSymbols(ImmutableList.copyOf(node.getPrePartitioned()), source.getLayout()),
                     sortChannels,
