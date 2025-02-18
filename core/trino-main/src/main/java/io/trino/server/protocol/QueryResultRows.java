@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.Column;
 import io.trino.spi.Page;
-import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -33,7 +32,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class QueryResultRows
@@ -168,16 +166,6 @@ public class QueryResultRows
             if (columns != null || types != null) {
                 this.columns = Optional.of(combine(columns, types));
             }
-
-            return this;
-        }
-
-        public Builder withSingleBooleanValue(Column column, boolean value)
-        {
-            BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(1);
-            BOOLEAN.writeBoolean(blockBuilder, value);
-            pages = ImmutableList.<Page>builder().add(new Page(blockBuilder.build()));
-            columns = Optional.of(combine(ImmutableList.of(column), ImmutableList.of(BOOLEAN)));
 
             return this;
         }
