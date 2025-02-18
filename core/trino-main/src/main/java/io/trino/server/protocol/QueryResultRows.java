@@ -15,7 +15,6 @@ package io.trino.server.protocol;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
 import io.trino.client.Column;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -38,14 +37,12 @@ import static java.util.Objects.requireNonNull;
 
 public class QueryResultRows
 {
-    private final Session session;
     private final Optional<List<OutputColumn>> columns;
     private final List<Page> pages;
     private final long totalRows;
 
-    private QueryResultRows(Session session, Optional<List<OutputColumn>> columns, List<Page> pages)
+    private QueryResultRows(Optional<List<OutputColumn>> columns, List<Page> pages)
     {
-        this.session = requireNonNull(session, "session is null");
         this.columns = requireNonNull(columns, "columns is null").map(values -> values.stream()
                 .filter(column -> !isSpooledMetadataColumn(column))
                 .collect(toImmutableList()));
@@ -131,26 +128,20 @@ public class QueryResultRows
                 .toString();
     }
 
-    public static QueryResultRows empty(Session session)
+    public static QueryResultRows empty()
     {
-        return new QueryResultRows(session, Optional.empty(), ImmutableList.of());
+        return new QueryResultRows(Optional.empty(), ImmutableList.of());
     }
 
-    public static Builder queryResultRowsBuilder(Session session)
+    public static Builder queryResultRowsBuilder()
     {
-        return new Builder(session);
+        return new Builder();
     }
 
     public static class Builder
     {
-        private final Session session;
         private ImmutableList.Builder<Page> pages = ImmutableList.builder();
         private Optional<List<OutputColumn>> columns = Optional.empty();
-
-        public Builder(Session session)
-        {
-            this.session = requireNonNull(session, "session is null");
-        }
 
         public Builder addPage(Page page)
         {
@@ -175,10 +166,7 @@ public class QueryResultRows
 
         public QueryResultRows build()
         {
-            return new QueryResultRows(
-                    session,
-                    columns,
-                    pages.build());
+            return new QueryResultRows(columns, pages.build());
         }
 
         private static List<OutputColumn> combine(@Nullable List<Column> columns, @Nullable List<Type> types)
