@@ -541,7 +541,7 @@ class RelationPlanner
                         .map(symbol -> new PassThroughColumn(symbol, partitionBy.contains(symbol)))
                         .forEach(passThroughColumns::add);
             }
-            else if (tableArgument.getPartitionBy().isPresent()) {
+            else if (tableArgument.getPartitionBy().isPresent() && !tableArgument.isSkipPartitionColumnsAsPassThrough() ) {
                 tableArgument.getPartitionBy().get().stream()
                         // the original symbols for partitioning columns, not coerced
                         .map(sourcePlanBuilder::translate)

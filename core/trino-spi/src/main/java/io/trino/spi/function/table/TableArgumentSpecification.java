@@ -24,9 +24,10 @@ public class TableArgumentSpecification
 {
     private final boolean rowSemantics;
     private final boolean pruneWhenEmpty;
+    private final boolean skipPartitionColumnsAsPassThrough;
     private final boolean passThroughColumns;
 
-    private TableArgumentSpecification(String name, boolean rowSemantics, Boolean pruneWhenEmpty, boolean passThroughColumns)
+    private TableArgumentSpecification(String name, boolean rowSemantics, Boolean pruneWhenEmpty, boolean skipPartitionColumnsAsPassThrough, boolean passThroughColumns)
     {
         super(name, true, null);
 
@@ -35,6 +36,7 @@ public class TableArgumentSpecification
 
         this.rowSemantics = rowSemantics;
         this.pruneWhenEmpty = pruneWhenEmpty;
+        this.skipPartitionColumnsAsPassThrough = skipPartitionColumnsAsPassThrough;
         this.passThroughColumns = passThroughColumns;
     }
 
@@ -53,6 +55,11 @@ public class TableArgumentSpecification
         return passThroughColumns;
     }
 
+    public boolean isSkipPartitionColumnsAsPassThrough()
+    {
+        return skipPartitionColumnsAsPassThrough;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -63,6 +70,7 @@ public class TableArgumentSpecification
         private String name;
         private boolean rowSemantics;
         private Boolean pruneWhenEmpty;
+        private boolean skipPartitionColumnsAsPassThrough;
         private boolean passThroughColumns;
 
         private Builder() {}
@@ -92,6 +100,12 @@ public class TableArgumentSpecification
             return this;
         }
 
+        public Builder skipPartitionColumnsAsPassThrough()
+        {
+            this.skipPartitionColumnsAsPassThrough = true;
+            return this;
+        }
+
         public Builder passThroughColumns()
         {
             this.passThroughColumns = true;
@@ -100,7 +114,7 @@ public class TableArgumentSpecification
 
         public TableArgumentSpecification build()
         {
-            return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, passThroughColumns);
+            return new TableArgumentSpecification(name, rowSemantics, pruneWhenEmpty, skipPartitionColumnsAsPassThrough, passThroughColumns);
         }
     }
 }
