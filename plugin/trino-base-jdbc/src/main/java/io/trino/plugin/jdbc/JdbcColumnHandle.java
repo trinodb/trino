@@ -172,7 +172,7 @@ public class JdbcColumnHandle
 
         public Builder() {}
 
-        private Builder(JdbcColumnHandle handle)
+        public Builder(JdbcColumnHandle handle)
         {
             this.columnName = handle.getColumnName();
             this.jdbcTypeHandle = handle.getJdbcTypeHandle();
