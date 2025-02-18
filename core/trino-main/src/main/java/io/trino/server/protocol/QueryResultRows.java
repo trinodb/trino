@@ -18,7 +18,6 @@ import io.trino.client.Column;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -146,7 +145,7 @@ public class QueryResultRows
             return this;
         }
 
-        public Builder withColumnsAndTypes(@Nullable List<Column> columns, @Nullable List<Type> types)
+        public Builder withColumnsAndTypes(List<Column> columns, List<Type> types)
         {
             this.columns = combine(columns, types);
             return this;
@@ -157,7 +156,7 @@ public class QueryResultRows
             return new QueryResultRows(columns, pages.build());
         }
 
-        private static Optional<List<OutputColumn>> combine(@Nullable List<Column> columns, @Nullable List<Type> types)
+        private static Optional<List<OutputColumn>> combine(List<Column> columns, List<Type> types)
         {
             if (columns == null && types == null) {
                 return Optional.empty();
