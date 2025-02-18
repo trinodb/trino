@@ -213,10 +213,10 @@ public class NodeStateManager
     {
         boolean success = nodeState.compareAndSet(DRAINING, DRAINED);
         if (success) {
-            log.info("NodeState: DRAINED, server can be safely SHUT DOWN.");
+            log.info("Worker State change: DRAINING -> DRAINED, server can be safely SHUT DOWN.");
         }
         else {
-            log.info("NodeState: " + nodeState.get() + ", will not transition to DRAINED");
+            log.info("Worker State change: " + nodeState.get() + ", will not transition to DRAINED");
         }
     }
 
