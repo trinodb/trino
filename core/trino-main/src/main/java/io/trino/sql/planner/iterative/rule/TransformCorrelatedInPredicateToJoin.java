@@ -259,7 +259,7 @@ public class TransformCorrelatedInPredicateToJoin
                 Optional.of(filter),
                 Optional.empty(),
                 Optional.empty(), /* mask */
-                true);
+                false);
     }
 
     private static Expression isGreaterThan(Symbol symbol, long value)

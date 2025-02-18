@@ -87,7 +87,7 @@ public class SimplifyCountOverConstant
                         Optional.empty(),
                         Optional.empty(),
                         aggregation.getMask(),
-                        true));
+                        false));
             }
         }
 

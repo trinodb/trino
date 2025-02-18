@@ -90,7 +90,7 @@ public class StatisticsAggregationPlanner
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    true);
+                    false);
             Symbol symbol = symbolAllocator.newSymbol("rowCount", BIGINT);
             aggregations.put(symbol, aggregation);
             descriptor.addTableStatistic(ROW_COUNT, symbol);

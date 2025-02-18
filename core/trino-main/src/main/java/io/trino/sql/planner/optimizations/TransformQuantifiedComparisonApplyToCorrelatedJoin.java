@@ -150,7 +150,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty(),
-                                    true),
+                                    false),
                             countNonNullValue, new Aggregation(
                                     metadata.resolveBuiltinFunction("count", fromTypes(outputColumnType)),
                                     outputColumnReferences,
@@ -158,7 +158,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                                     Optional.empty(),
                                     Optional.empty(),
                                     Optional.empty(),
-                                    true)),
+                                    false)),
                     globalAggregation());
 
             PlanNode join = new CorrelatedJoinNode(

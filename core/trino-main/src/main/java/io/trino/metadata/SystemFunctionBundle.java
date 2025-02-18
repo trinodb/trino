@@ -78,6 +78,7 @@ import io.trino.operator.aggregation.RealGeometricMeanAggregations;
 import io.trino.operator.aggregation.RealHistogramAggregation;
 import io.trino.operator.aggregation.RealRegressionAggregation;
 import io.trino.operator.aggregation.RealSumAggregation;
+import io.trino.operator.aggregation.Sum0Aggregation;
 import io.trino.operator.aggregation.SumDataSizeForStats;
 import io.trino.operator.aggregation.TDigestAggregationFunction;
 import io.trino.operator.aggregation.VarcharApproximateMostFrequent;
@@ -375,6 +376,7 @@ public final class SystemFunctionBundle
                 .aggregates(SumDataSizeForStats.class)
                 .aggregates(MaxDataSizeForStats.class)
                 .aggregates(CountAggregation.class)
+                .aggregates(Sum0Aggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
