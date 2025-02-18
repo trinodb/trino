@@ -31,16 +31,19 @@ public class ManagerSpec
     private final List<ResourceGroupSpec> rootGroups;
     private final List<SelectorSpec> selectors;
     private final Optional<Duration> cpuQuotaPeriod;
+    private final Optional<Duration> physicalDataScanQuotaPeriod;
 
     @JsonCreator
     public ManagerSpec(
             @JsonProperty("rootGroups") List<ResourceGroupSpec> rootGroups,
             @JsonProperty("selectors") List<SelectorSpec> selectors,
-            @JsonProperty("cpuQuotaPeriod") Optional<Duration> cpuQuotaPeriod)
+            @JsonProperty("cpuQuotaPeriod") Optional<Duration> cpuQuotaPeriod,
+            @JsonProperty("physicalDataScanQuotaPeriod") Optional<Duration> physicalDataScanQuotaPeriod)
     {
         this.rootGroups = ImmutableList.copyOf(requireNonNull(rootGroups, "rootGroups is null"));
         this.selectors = ImmutableList.copyOf(requireNonNull(selectors, "selectors is null"));
         this.cpuQuotaPeriod = requireNonNull(cpuQuotaPeriod, "cpuQuotaPeriod is null");
+        this.physicalDataScanQuotaPeriod = requireNonNull(physicalDataScanQuotaPeriod, "physicalDataScanQuotaPeriod is null");
         Set<ResourceGroupNameTemplate> names = new HashSet<>();
         for (ResourceGroupSpec group : rootGroups) {
             checkArgument(!names.contains(group.getName()), "Duplicated root group: %s", group.getName());
@@ -61,5 +64,10 @@ public class ManagerSpec
     public Optional<Duration> getCpuQuotaPeriod()
     {
         return cpuQuotaPeriod;
+    }
+
+    public Optional<Duration> getPhysicalDataScanQuotaPeriod()
+    {
+        return physicalDataScanQuotaPeriod;
     }
 }
