@@ -308,6 +308,12 @@
                                     <old>method java.lang.String io.trino.spi.block.VariableWidthBlock::getEncodingName()</old>
                                     <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.connector.Connector::getInitialMemoryRequirement()</old>
+                                    <justification>Remove unused connector method</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -147,18 +147,6 @@ public interface Connector
     }
 
     /**
-     * Retrieves the initial memory requirement for the connector.
-     * <p>
-     * The memory allocation is per catalog and is freed when the catalog is shut down.
-     *
-     * @return the initial memory requirement in bytes.
-     */
-    default long getInitialMemoryRequirement()
-    {
-        return 0;
-    }
-
-    /**
      * @return the set of table functions provided by this connector
      */
     default Set<ConnectorTableFunction> getTableFunctions()
