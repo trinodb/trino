@@ -54,10 +54,11 @@ public class MockManagedQueryExecution
 
     private DataSize memoryUsage;
     private Duration cpuUsage;
+    private DataSize physicalDataScanUsage;
     private QueryState state = QUEUED;
     private Throwable failureCause;
 
-    private MockManagedQueryExecution(String queryId, int priority, DataSize memoryUsage, Duration cpuUsage)
+    private MockManagedQueryExecution(String queryId, int priority, DataSize memoryUsage, Duration cpuUsage, DataSize physicalDataScanUsage)
     {
         requireNonNull(queryId, "queryId is null");
         this.session = testSessionBuilder()
@@ -67,6 +68,7 @@ public class MockManagedQueryExecution
 
         this.memoryUsage = requireNonNull(memoryUsage, "memoryUsage is null");
         this.cpuUsage = requireNonNull(cpuUsage, "cpuUsage is null");
+        this.physicalDataScanUsage = requireNonNull(physicalDataScanUsage, "physicalDataScanUsage is null");
     }
 
     public void consumeCpuTimeMillis(long cpuTimeDeltaMillis)
@@ -82,9 +84,16 @@ public class MockManagedQueryExecution
         this.memoryUsage = memoryUsage;
     }
 
+    public void setPhysicalDataScanUsage(DataSize physicalDataScanUsage)
+    {
+        checkState(state == RUNNING, "cannot set physical data scan usage in a non-running state");
+        this.physicalDataScanUsage = physicalDataScanUsage;
+    }
+
     public void complete()
     {
         memoryUsage = DataSize.ofBytes(0);
+        physicalDataScanUsage = DataSize.ofBytes(0);
         state = FINISHED;
         fireStateChange();
     }
@@ -134,7 +143,7 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(14),
                         15,
                         DataSize.ofBytes(13),
-                        DataSize.ofBytes(13),
+                        physicalDataScanUsage,
                         DataSize.ofBytes(13),
                         DataSize.ofBytes(13),
                         16.0,
@@ -223,7 +232,7 @@ public class MockManagedQueryExecution
                         false,
                         ImmutableSet.of(),
 
-                        DataSize.ofBytes(241),
+                        physicalDataScanUsage,
                         DataSize.ofBytes(0),
                         251,
                         0,
@@ -356,6 +365,7 @@ public class MockManagedQueryExecution
     {
         private DataSize memoryUsage = DataSize.ofBytes(0);
         private Duration cpuUsage = new Duration(0, MILLISECONDS);
+        private DataSize physicalDataScanUsage = DataSize.ofBytes(0);
         private int priority = 1;
         private String queryId = "query_id";
 
@@ -373,6 +383,12 @@ public class MockManagedQueryExecution
             return this;
         }
 
+        public MockManagedQueryExecutionBuilder withInitialPhysicalDataScanUsage(DataSize physicalDataScanUsage)
+        {
+            this.physicalDataScanUsage = physicalDataScanUsage;
+            return this;
+        }
+
         public MockManagedQueryExecutionBuilder withPriority(int priority)
         {
             this.priority = priority;
@@ -387,7 +403,7 @@ public class MockManagedQueryExecution
 
         public MockManagedQueryExecution build()
         {
-            return new MockManagedQueryExecution(queryId, priority, memoryUsage, cpuUsage);
+            return new MockManagedQueryExecution(queryId, priority, memoryUsage, cpuUsage, physicalDataScanUsage);
         }
     }
 }

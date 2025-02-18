@@ -49,6 +49,7 @@ public class ResourceGroupSpec
     private final Optional<Boolean> jmxExport;
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
+    private final Optional<DataSize> softPhysicalDataScanLimit;
 
     @JsonCreator
     public ResourceGroupSpec(
@@ -63,7 +64,8 @@ public class ResourceGroupSpec
             @JsonProperty("subGroups") Optional<List<ResourceGroupSpec>> subGroups,
             @JsonProperty("jmxExport") Optional<Boolean> jmxExport,
             @JsonProperty("softCpuLimit") Optional<Duration> softCpuLimit,
-            @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit)
+            @JsonProperty("hardCpuLimit") Optional<Duration> hardCpuLimit,
+            @JsonProperty("softPhysicalDataScanLimit") Optional<DataSize> softPhysicalDataScanLimit)
     {
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null");
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null");
@@ -72,6 +74,7 @@ public class ResourceGroupSpec
         checkArgument(maxQueued >= 0, "maxQueued is negative");
         this.maxQueued = maxQueued;
         this.softConcurrencyLimit = softConcurrencyLimit;
+        this.softPhysicalDataScanLimit = requireNonNull(softPhysicalDataScanLimit, "softPhysicalDataScanLimit is null");
 
         checkArgument(hardConcurrencyLimit.isPresent() || maxRunning.isPresent(), "Missing required property: hardConcurrencyLimit");
         this.hardConcurrencyLimit = hardConcurrencyLimit.orElseGet(maxRunning::get);
@@ -161,6 +164,11 @@ public class ResourceGroupSpec
         return hardCpuLimit;
     }
 
+    public Optional<DataSize> getSoftPhysicalDataScanLimit()
+    {
+        return softPhysicalDataScanLimit;
+    }
+
     @Override
     public boolean equals(Object other)
     {
@@ -180,7 +188,8 @@ public class ResourceGroupSpec
                 subGroups.equals(that.subGroups) &&
                 jmxExport.equals(that.jmxExport) &&
                 softCpuLimit.equals(that.softCpuLimit) &&
-                hardCpuLimit.equals(that.hardCpuLimit));
+                hardCpuLimit.equals(that.hardCpuLimit) &&
+                softPhysicalDataScanLimit.equals(that.softPhysicalDataScanLimit));
     }
 
     // Subgroups not included, used to determine whether a group needs to be reconfigured
@@ -198,7 +207,8 @@ public class ResourceGroupSpec
                 schedulingWeight.equals(other.schedulingWeight) &&
                 jmxExport.equals(other.jmxExport) &&
                 softCpuLimit.equals(other.softCpuLimit) &&
-                hardCpuLimit.equals(other.hardCpuLimit));
+                hardCpuLimit.equals(other.hardCpuLimit) &&
+                softPhysicalDataScanLimit.equals(other.softPhysicalDataScanLimit));
     }
 
     @Override
@@ -215,7 +225,8 @@ public class ResourceGroupSpec
                 subGroups,
                 jmxExport,
                 softCpuLimit,
-                hardCpuLimit);
+                hardCpuLimit,
+                softPhysicalDataScanLimit);
     }
 
     @Override
@@ -232,6 +243,7 @@ public class ResourceGroupSpec
                 .add("jmxExport", jmxExport)
                 .add("softCpuLimit", softCpuLimit)
                 .add("hardCpuLimit", hardCpuLimit)
+                .add("softPhysicalDataScanLimit", softPhysicalDataScanLimit)
                 .toString();
     }
 }
