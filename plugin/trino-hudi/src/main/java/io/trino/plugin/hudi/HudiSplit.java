@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.hudi;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -33,43 +31,29 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class HudiSplit
+public record HudiSplit(
+        String location,
+        long start,
+        long length,
+        long fileSize,
+        long fileModifiedTime,
+        TupleDomain<HiveColumnHandle> predicate,
+        List<HivePartitionKey> partitionKeys,
+        SplitWeight splitWeight)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = toIntExact(instanceSize(HudiSplit.class));
 
-    private final String location;
-    private final long start;
-    private final long length;
-    private final long fileSize;
-    private final long fileModifiedTime;
-    private final TupleDomain<HiveColumnHandle> predicate;
-    private final List<HivePartitionKey> partitionKeys;
-    private final SplitWeight splitWeight;
-
-    @JsonCreator
-    public HudiSplit(
-            @JsonProperty("location") String location,
-            @JsonProperty("start") long start,
-            @JsonProperty("length") long length,
-            @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("fileModifiedTime") long fileModifiedTime,
-            @JsonProperty("predicate") TupleDomain<HiveColumnHandle> predicate,
-            @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+    public HudiSplit
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
         checkArgument(start + length <= fileSize, "fileSize must be at least start + length");
 
-        this.location = requireNonNull(location, "location is null");
-        this.start = start;
-        this.length = length;
-        this.fileSize = fileSize;
-        this.fileModifiedTime = fileModifiedTime;
-        this.predicate = requireNonNull(predicate, "predicate is null");
-        this.partitionKeys = ImmutableList.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
-        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        requireNonNull(location, "location is null");
+        requireNonNull(predicate, "predicate is null");
+        partitionKeys = ImmutableList.copyOf(partitionKeys);
+        requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @Override
@@ -82,55 +66,6 @@ public class HudiSplit
                 .put("fileSize", String.valueOf(fileSize))
                 .put("fileModifiedTime", String.valueOf(fileModifiedTime))
                 .buildOrThrow();
-    }
-
-    @JsonProperty
-    @Override
-    public SplitWeight getSplitWeight()
-    {
-        return splitWeight;
-    }
-
-    @JsonProperty
-    public String getLocation()
-    {
-        return location;
-    }
-
-    @JsonProperty
-    public long getStart()
-    {
-        return start;
-    }
-
-    @JsonProperty
-    public long getLength()
-    {
-        return length;
-    }
-
-    @JsonProperty
-    public long getFileSize()
-    {
-        return fileSize;
-    }
-
-    @JsonProperty
-    public long getFileModifiedTime()
-    {
-        return fileModifiedTime;
-    }
-
-    @JsonProperty
-    public TupleDomain<HiveColumnHandle> getPredicate()
-    {
-        return predicate;
-    }
-
-    @JsonProperty
-    public List<HivePartitionKey> getPartitionKeys()
-    {
-        return partitionKeys;
     }
 
     @Override
