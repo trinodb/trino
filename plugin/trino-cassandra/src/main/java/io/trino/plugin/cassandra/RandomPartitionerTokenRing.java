@@ -32,6 +32,12 @@ public final class RandomPartitionerTokenRing
 
     private RandomPartitionerTokenRing() {}
 
+    private static void checkTokenBounds(BigInteger token)
+    {
+        checkArgument(token.compareTo(MIN_TOKEN) >= 0, "token [%s] must be greater or equal than %s", token, MIN_TOKEN);
+        checkArgument(token.compareTo(MAX_TOKEN) <= 0, "token [%s] must be less or equal than %s", token, MAX_TOKEN);
+    }
+
     @Override
     public double getRingFraction(Token start, Token end)
     {
@@ -58,11 +64,5 @@ public final class RandomPartitionerTokenRing
             result = result.add(TOTAL_TOKEN_COUNT);
         }
         return result;
-    }
-
-    private static void checkTokenBounds(BigInteger token)
-    {
-        checkArgument(token.compareTo(MIN_TOKEN) >= 0, "token [%s] must be greater or equal than %s", token, MIN_TOKEN);
-        checkArgument(token.compareTo(MAX_TOKEN) <= 0, "token [%s] must be less or equal than %s", token, MAX_TOKEN);
     }
 }

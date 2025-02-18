@@ -185,7 +185,7 @@ public final class CassandraTestingUtils
                     .value("typetimestamp", literal(Instant.ofEpochMilli(date.getTime())))
                     .value("typeansi", literal("ansi " + rowNumber))
                     .value("typeboolean", literal(rowNumber % 2 == 0))
-                    .value("typedecimal", literal(new BigDecimal(Math.pow(2, rowNumber))))
+                    .value("typedecimal", literal(BigDecimal.valueOf(Math.pow(2, rowNumber))))
                     .value("typedouble", literal(Math.pow(4, rowNumber)))
                     .value("typefloat", literal((float) Math.pow(8, rowNumber)))
                     .value("typeinet", literal(InetAddresses.forString("127.0.0.1")))

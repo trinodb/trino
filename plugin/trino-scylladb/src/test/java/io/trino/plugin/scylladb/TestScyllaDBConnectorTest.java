@@ -11,26 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylladb;
 
+import io.trino.plugin.cassandra.BaseCassandraConnectorTest;
 import io.trino.testing.QueryRunner;
 
 import java.sql.Timestamp;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 
-public class TestScyllaConnectorSmokeTest
-        extends BaseCassandraConnectorSmokeTest
+public class TestScyllaDBConnectorTest
+        extends BaseCassandraConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer());
-        CassandraSession session = server.getSession();
+        server = closeAfterClass(new TestingScyllaDBServer());
+        session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return ScyllaQueryRunner.builder(server)
-                .setInitialTables(REQUIRED_TPCH_TABLES)
-                .build();
+        return ScyllaDBQueryRunner.builder(server).setInitialTables(REQUIRED_TPCH_TABLES).build();
     }
 }

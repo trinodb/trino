@@ -58,6 +58,14 @@ public class CassandraTokenSplitManager
         this.configSplitsPerNode = configSplitsPerNode;
     }
 
+    private static TokenSplit createSplit(TokenRange range, List<String> endpoints)
+    {
+        checkArgument(!range.isEmpty(), "tokenRange must not be empty");
+        requireNonNull(range.getStart(), "tokenRange.start is null");
+        requireNonNull(range.getEnd(), "tokenRange.end is null");
+        return new TokenSplit(range, endpoints);
+    }
+
     public List<TokenSplit> getSplits(String keyspace, String table, Optional<Long> sessionSplitsPerNode)
     {
         Set<TokenRange> tokenRanges = session.getTokenRanges();
@@ -139,14 +147,6 @@ public class CassandraTokenSplitManager
         return endpoints.stream()
                 .map(endpoint -> endpoint.getEndPoint().resolve().toString())
                 .collect(toImmutableList());
-    }
-
-    private static TokenSplit createSplit(TokenRange range, List<String> endpoints)
-    {
-        checkArgument(!range.isEmpty(), "tokenRange must not be empty");
-        requireNonNull(range.getStart(), "tokenRange.start is null");
-        requireNonNull(range.getEnd(), "tokenRange.end is null");
-        return new TokenSplit(range, endpoints);
     }
 
     public static class TokenSplit
