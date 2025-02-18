@@ -1357,34 +1357,34 @@ public class TestCassandraConnectorTest
     @Test
     public void testNestedCollectionType()
     {
-        String keyspaceName = "keyspace_test_nested_collection" + randomNameSuffix();
+        String tableNameForSet = "table_set_" + randomNameSuffix();
+        String tableNameForList = "table_list_" + randomNameSuffix();
+        String tableNameForMap = "table_map_" + randomNameSuffix();
+
         try {
-            createKeyspace(keyspaceName);
-            assertContainsEventually(() -> computeActual("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
-                    .row(keyspaceName)
+            session.execute("CREATE TABLE tpch." + tableNameForSet + " (column_5 bigint PRIMARY KEY, nested_collection frozen<set<set<bigint>>>)");
+            session.execute("CREATE TABLE tpch." + tableNameForList + " (column_5 bigint PRIMARY KEY, nested_collection frozen<list<list<bigint>>>)");
+            session.execute("CREATE TABLE tpch." + tableNameForMap + " (column_5 bigint PRIMARY KEY, nested_collection frozen<map<int, map<bigint, bigint>>>)");
+
+            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra.tpch"), resultBuilder(getSession(), createUnboundedVarcharType())
+                    .row(tableNameForSet)
+                    .row(tableNameForList)
+                    .row(tableNameForMap)
                     .build(), new Duration(1, MINUTES));
 
-            session.execute("CREATE TABLE " + keyspaceName + ".table_set (column_5 bigint PRIMARY KEY, nested_collection frozen<set<set<bigint>>>)");
-            session.execute("CREATE TABLE " + keyspaceName + ".table_list (column_5 bigint PRIMARY KEY, nested_collection frozen<list<list<bigint>>>)");
-            session.execute("CREATE TABLE " + keyspaceName + ".table_map (column_5 bigint PRIMARY KEY, nested_collection frozen<map<int, map<bigint, bigint>>>)");
+            session.execute("INSERT INTO tpch." + tableNameForSet + " (column_5, nested_collection) VALUES (1, {{1, 2, 3}})");
+            assertThat(computeActual("SELECT nested_collection FROM cassandra.tpch." + tableNameForSet).getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "[[1,2,3]]"));
 
-            assertContainsEventually(() -> computeActual("SHOW TABLES FROM cassandra." + keyspaceName), resultBuilder(getSession(), createUnboundedVarcharType())
-                    .row("table_set")
-                    .row("table_list")
-                    .row("table_map")
-                    .build(), new Duration(1, MINUTES));
+            session.execute("INSERT INTO tpch." + tableNameForList + " (column_5, nested_collection) VALUES (1, [[4, 5, 6]])");
+            assertThat(computeActual("SELECT nested_collection FROM cassandra.tpch." + tableNameForList).getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "[[4,5,6]]"));
 
-            session.execute("INSERT INTO " + keyspaceName + ".table_set (column_5, nested_collection) VALUES (1, {{1, 2, 3}})");
-            assertThat(computeActual("SELECT nested_collection FROM cassandra." + keyspaceName + ".table_set").getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "[[1,2,3]]"));
-
-            session.execute("INSERT INTO " + keyspaceName + ".table_list (column_5, nested_collection) VALUES (1, [[4, 5, 6]])");
-            assertThat(computeActual("SELECT nested_collection FROM cassandra." + keyspaceName + ".table_list").getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "[[4,5,6]]"));
-
-            session.execute("INSERT INTO " + keyspaceName + ".table_map (column_5, nested_collection) VALUES (1, {7:{8:9}})");
-            assertThat(computeActual("SELECT nested_collection FROM cassandra." + keyspaceName + ".table_map").getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "{7:{8:9}}"));
+            session.execute("INSERT INTO tpch." + tableNameForMap + " (column_5, nested_collection) VALUES (1, {7:{8:9}})");
+            assertThat(computeActual("SELECT nested_collection FROM cassandra.tpch." + tableNameForMap).getMaterializedRows().get(0)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, "{7:{8:9}}"));
         }
         finally {
-            dropKeyspace(keyspaceName);
+            onCassandra("DROP TABLE IF EXISTS tpch." + tableNameForSet);
+            onCassandra("DROP TABLE IF EXISTS tpch." + tableNameForList);
+            onCassandra("DROP TABLE IF EXISTS tpch." + tableNameForMap);
         }
     }
 
