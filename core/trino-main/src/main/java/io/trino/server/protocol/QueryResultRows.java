@@ -61,9 +61,9 @@ public class QueryResultRows
         return totalRows == 0;
     }
 
-    public Optional<List<OutputColumn>> getOutputColumns()
+    public List<OutputColumn> getOutputColumns()
     {
-        return columns;
+        return columns.orElseThrow(() -> new IllegalStateException("Columns are not present"));
     }
 
     public Optional<List<Column>> getColumns()

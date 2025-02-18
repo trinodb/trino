@@ -62,11 +62,11 @@ public class SpooledQueryDataProducer
         EncodedQueryData.Builder builder = EncodedQueryData.builder(encoderFactory.encoding());
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
         if (encoder == null) {
-            encoder = encoderFactory.create(session, rows.getOutputColumns().orElseThrow());
+            encoder = encoderFactory.create(session, rows.getOutputColumns());
             builder.withAttributes(encoder.attributes());
         }
 
-        List<OutputColumn> outputColumns = rows.getOutputColumns().orElseThrow();
+        List<OutputColumn> outputColumns = rows.getOutputColumns();
 
         try {
             for (Page page : rows.getPages()) {
