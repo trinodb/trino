@@ -26,6 +26,7 @@ import io.trino.plugin.iceberg.util.HiveSchemaUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import jakarta.annotation.Nullable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
@@ -135,10 +136,18 @@ public abstract class AbstractIcebergTableOperations
     public TableMetadata refresh(boolean invalidateCaches)
     {
         if (location.isPresent()) {
-            refreshFromMetadataLocation(null);
+            try {
+                String newLocation = fixBrokenMetadataLocation(getRefreshedLocation(invalidateCaches));
+                refreshFromMetadataLocation(newLocation);
+                return currentMetadata;
+            }
+            catch (TableNotFoundException e) {
+                refreshFromMetadataLocation(null);
+            }
             return currentMetadata;
         }
-        refreshFromMetadataLocation(fixBrokenMetadataLocation(getRefreshedLocation(invalidateCaches)));
+        String newLocation = fixBrokenMetadataLocation(getRefreshedLocation(invalidateCaches));
+        refreshFromMetadataLocation(newLocation);
         return currentMetadata;
     }
 
