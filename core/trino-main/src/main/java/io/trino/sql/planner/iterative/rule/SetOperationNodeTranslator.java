@@ -177,7 +177,7 @@ public class SetOperationNodeTranslator
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),
-                    true));
+                    false));
         }
 
         return singleAggregation(

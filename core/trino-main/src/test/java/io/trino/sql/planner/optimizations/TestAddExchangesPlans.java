@@ -640,7 +640,7 @@ public class TestAddExchangesPlans
                         Optional.empty(),
                         SINGLE, // no need for partial aggregation since data are already partitioned
                         project(aggregation(
-                                ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
+                                ImmutableMap.of("count", aggregationFunction("$sum0", false, ImmutableList.of(symbol("count_partial")))),
                                 Step.FINAL,
                                 exchange(LOCAL,
                                         // we only partition by partkey but aggregate by partkey and suppkey
@@ -668,7 +668,7 @@ public class TestAddExchangesPlans
                                         Optional.empty(),
                                         PARTIAL,
                                         project(aggregation(
-                                                ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                ImmutableMap.of("count", aggregationFunction("$sum0", false, ImmutableList.of(symbol("count_partial")))),
                                                 Step.FINAL,
                                                 exchange(LOCAL,
                                                         // forced exact partitioning
@@ -711,7 +711,7 @@ public class TestAddExchangesPlans
                                                 Optional.empty(),
                                                 PARTIAL,
                                                 project(aggregation(
-                                                        ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
+                                                        ImmutableMap.of("count", aggregationFunction("$sum0", false, ImmutableList.of(symbol("count_partial")))),
                                                         Step.FINAL,
                                                         exchange(LOCAL,
                                                                 // forced exact partitioning
@@ -743,7 +743,7 @@ public class TestAddExchangesPlans
                         Optional.empty(),
                         SINGLE, // no need for partial aggregation since data are already partitioned
                         project(aggregation(
-                                ImmutableMap.of("count", aggregationFunction("count", false, ImmutableList.of(symbol("count_partial")))),
+                                ImmutableMap.of("count", aggregationFunction("$sum0", false, ImmutableList.of(symbol("count_partial")))),
                                 Step.FINAL,
                                 exchange(LOCAL,
                                         // we don't partition by suppkey because it's not needed by the parent aggregation
