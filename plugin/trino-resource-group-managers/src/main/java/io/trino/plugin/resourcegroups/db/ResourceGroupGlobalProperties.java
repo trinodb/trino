@@ -14,11 +14,7 @@
 package io.trino.plugin.resourcegroups.db;
 
 import io.airlift.units.Duration;
-import org.jdbi.v3.core.mapper.RowMapper;
-import org.jdbi.v3.core.statement.StatementContext;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -27,10 +23,12 @@ import static java.util.Objects.requireNonNull;
 public class ResourceGroupGlobalProperties
 {
     private final Optional<Duration> cpuQuotaPeriod;
+    private final Optional<Duration> physicalDataScanQuotaPeriod;
 
-    public ResourceGroupGlobalProperties(Optional<Duration> cpuQuotaPeriod)
+    private ResourceGroupGlobalProperties(Optional<Duration> cpuQuotaPeriod, Optional<Duration> physicalDataScanQuotaPeriod)
     {
         this.cpuQuotaPeriod = requireNonNull(cpuQuotaPeriod, "cpuQuotaPeriod is null");
+        this.physicalDataScanQuotaPeriod = requireNonNull(physicalDataScanQuotaPeriod, "physicalDataScanQuotaPeriod is null");
     }
 
     public Optional<Duration> getCpuQuotaPeriod()
@@ -38,15 +36,9 @@ public class ResourceGroupGlobalProperties
         return cpuQuotaPeriod;
     }
 
-    public static class Mapper
-            implements RowMapper<ResourceGroupGlobalProperties>
+    public Optional<Duration> getPhysicalDataScanQuotaPeriod()
     {
-        @Override
-        public ResourceGroupGlobalProperties map(ResultSet resultSet, StatementContext context)
-                throws SQLException
-        {
-            return new ResourceGroupGlobalProperties(Optional.ofNullable(resultSet.getString("value")).map(Duration::valueOf));
-        }
+        return physicalDataScanQuotaPeriod;
     }
 
     @Override
@@ -59,12 +51,40 @@ public class ResourceGroupGlobalProperties
         if (!(other instanceof ResourceGroupGlobalProperties that)) {
             return false;
         }
-        return cpuQuotaPeriod.equals(that.cpuQuotaPeriod);
+        return cpuQuotaPeriod.equals(that.cpuQuotaPeriod) && physicalDataScanQuotaPeriod.equals(that.physicalDataScanQuotaPeriod);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(cpuQuotaPeriod);
+        return Objects.hash(cpuQuotaPeriod, physicalDataScanQuotaPeriod);
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private Optional<Duration> cpuQuotaPeriod = Optional.empty();
+        private Optional<Duration> physicalDataScanQuotaPeriod = Optional.empty();
+
+        public Builder setCpuQuotaPeriod(Optional<Duration> cpuQuotaPeriod)
+        {
+            this.cpuQuotaPeriod = cpuQuotaPeriod;
+            return this;
+        }
+
+        public Builder setPhysicalDataScanQuotaPeriod(Optional<Duration> physicalDataScanQuotaPeriod)
+        {
+            this.physicalDataScanQuotaPeriod = physicalDataScanQuotaPeriod;
+            return this;
+        }
+
+        public ResourceGroupGlobalProperties build()
+        {
+            return new ResourceGroupGlobalProperties(cpuQuotaPeriod, physicalDataScanQuotaPeriod);
+        }
     }
 }
