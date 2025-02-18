@@ -123,7 +123,7 @@ public class QueryResultRows
     {
         return toStringHelper(this)
                 .add("columns", columns)
-                .add("totalRowsCount", getTotalRowsCount())
+                .add("totalRowsCount", totalRows)
                 .add("pagesCount", pages.size())
                 .toString();
     }
