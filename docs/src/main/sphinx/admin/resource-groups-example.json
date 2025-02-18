@@ -50,7 +50,8 @@
                   "name": "${USER}",
                   "softMemoryLimit": "10%",
                   "hardConcurrencyLimit": 3,
-                  "maxQueued": 10
+                  "maxQueued": 10,
+                  "softPhysicalDataScanLimit": "10GB"
                 }
               ]
             }

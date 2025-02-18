@@ -114,7 +114,9 @@ public class ResourceGroupSpecBuilder
                 Optional.of(subGroups.build()),
                 jmxExport,
                 softCpuLimit,
-                hardCpuLimit);
+                hardCpuLimit,
+                // TODO: Implement DB resource group manager
+                Optional.empty());
     }
 
     public static class Mapper

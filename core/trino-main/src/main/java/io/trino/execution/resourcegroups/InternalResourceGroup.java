@@ -101,6 +101,8 @@ public class InternalResourceGroup
     @GuardedBy("root")
     private long cpuQuotaGenerationMillisPerSecond = Long.MAX_VALUE;
     @GuardedBy("root")
+    private long softPhysicalDataScanLimitBytes = Long.MAX_VALUE;
+    @GuardedBy("root")
     private int schedulingWeight = DEFAULT_WEIGHT;
     @GuardedBy("root")
     private SchedulingPolicy schedulingPolicy = FAIR;
@@ -440,6 +442,26 @@ public class InternalResourceGroup
         checkArgument(rate > 0, "Cpu quota generation must be positive");
         synchronized (root) {
             cpuQuotaGenerationMillisPerSecond = rate;
+        }
+    }
+
+    @Override
+    public long getSoftPhysicalDataScanLimitBytes()
+    {
+        synchronized (root) {
+            return softPhysicalDataScanLimitBytes;
+        }
+    }
+
+    @Override
+    public void setSoftPhysicalDataScanLimitBytes(long limit)
+    {
+        synchronized (root) {
+//            boolean oldCanRun = canRunMore();
+            this.softPhysicalDataScanLimitBytes = limit;
+//            if (canRunMore() != oldCanRun) {
+//                updateEligibility();
+//            }
         }
     }
 
