@@ -25,25 +25,29 @@ final class ResourceUsage
 {
     private final long cpuUsageMillis;
     private final long memoryUsageBytes;
+    private final long physicalInputDataUsageBytes;
 
-    public ResourceUsage(long cpuUsageMillis, long memoryUsageBytes)
+    public ResourceUsage(long cpuUsageMillis, long memoryUsageBytes, long physicalInputDataUsageBytes)
     {
         this.cpuUsageMillis = cpuUsageMillis;
         this.memoryUsageBytes = memoryUsageBytes;
+        this.physicalInputDataUsageBytes = physicalInputDataUsageBytes;
     }
 
     public ResourceUsage add(ResourceUsage other)
     {
         long newCpuUsageMillis = saturatedAdd(this.cpuUsageMillis, other.cpuUsageMillis);
         long newMemoryUsageBytes = saturatedAdd(this.memoryUsageBytes, other.memoryUsageBytes);
-        return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes);
+        long newPhysicalInputDataUsageBytes = saturatedAdd(this.physicalInputDataUsageBytes, other.physicalInputDataUsageBytes);
+        return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes, newPhysicalInputDataUsageBytes);
     }
 
     public ResourceUsage subtract(ResourceUsage other)
     {
         long newCpuUsageMillis = saturatedSubtract(this.cpuUsageMillis, other.cpuUsageMillis);
         long newMemoryUsageBytes = saturatedSubtract(this.memoryUsageBytes, other.memoryUsageBytes);
-        return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes);
+        long newPhysicalInputDataUsageBytes = saturatedSubtract(this.physicalInputDataUsageBytes, other.physicalInputDataUsageBytes);
+        return new ResourceUsage(newCpuUsageMillis, newMemoryUsageBytes, newPhysicalInputDataUsageBytes);
     }
 
     public long getCpuUsageMillis()
@@ -54,6 +58,11 @@ final class ResourceUsage
     public long getMemoryUsageBytes()
     {
         return memoryUsageBytes;
+    }
+
+    public long getPhysicalInputDataUsageBytes()
+    {
+        return physicalInputDataUsageBytes;
     }
 
     @Override
@@ -68,12 +77,13 @@ final class ResourceUsage
 
         ResourceUsage otherUsage = (ResourceUsage) other;
         return cpuUsageMillis == otherUsage.cpuUsageMillis
-                && memoryUsageBytes == otherUsage.memoryUsageBytes;
+                && memoryUsageBytes == otherUsage.memoryUsageBytes
+                && physicalInputDataUsageBytes == otherUsage.physicalInputDataUsageBytes;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(cpuUsageMillis, memoryUsageBytes);
+        return Objects.hash(cpuUsageMillis, memoryUsageBytes, physicalInputDataUsageBytes);
     }
 }

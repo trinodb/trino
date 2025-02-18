@@ -79,7 +79,7 @@ public final class InternalResourceGroupManager<C>
     private final ResourceGroupConfigurationManager<?> legacyManager;
     private final MBeanExporter exporter;
     private final AtomicBoolean started = new AtomicBoolean();
-    private final AtomicLong lastCpuQuotaGenerationNanos = new AtomicLong(System.nanoTime());
+    private final AtomicLong lastQuotaGenerationNanos = new AtomicLong(System.nanoTime());
     private final Map<String, ResourceGroupConfigurationManagerFactory> configurationManagerFactories = new ConcurrentHashMap<>();
     private final SecretsResolver secretsResolver;
 
@@ -202,19 +202,19 @@ public final class InternalResourceGroupManager<C>
     private void refreshAndStartQueries()
     {
         long nanoTime = System.nanoTime();
-        long elapsedSeconds = NANOSECONDS.toSeconds(nanoTime - lastCpuQuotaGenerationNanos.get());
+        long elapsedSeconds = NANOSECONDS.toSeconds(nanoTime - lastQuotaGenerationNanos.get());
         if (elapsedSeconds > 0) {
-            // Only advance our clock on second boundaries to avoid calling generateCpuQuota() too frequently, and because it would be a no-op for zero seconds.
-            lastCpuQuotaGenerationNanos.addAndGet(elapsedSeconds * 1_000_000_000L);
+            // Only advance our clock on second boundaries to avoid calling generateQuotas() too frequently, and because it would be a no-op for zero seconds.
+            lastQuotaGenerationNanos.addAndGet(elapsedSeconds * 1_000_000_000L);
         }
         else if (elapsedSeconds < 0) {
             // nano time has overflowed
-            lastCpuQuotaGenerationNanos.set(nanoTime);
+            lastQuotaGenerationNanos.set(nanoTime);
         }
         for (InternalResourceGroup group : rootGroups) {
             try {
                 if (elapsedSeconds > 0) {
-                    group.generateCpuQuota(elapsedSeconds);
+                    group.generateQuotas(elapsedSeconds);
                 }
             }
             catch (RuntimeException e) {
