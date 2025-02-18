@@ -66,12 +66,13 @@ public class QueryResultRows
         return columns.orElseThrow(() -> new IllegalStateException("Columns are not present"));
     }
 
-    public Optional<List<Column>> getColumns()
+    public List<Column> getOptionalColumns()
     {
         return columns
                 .map(columns -> columns.stream()
-                .map(value -> createColumn(value.columnName(), value.type(), true))
-                .collect(toImmutableList()));
+                    .map(value -> createColumn(value.columnName(), value.type(), true))
+                    .collect(toImmutableList()))
+                .orElse(null);
     }
 
     public List<Page> getPages()

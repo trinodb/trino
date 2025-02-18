@@ -515,7 +515,7 @@ class Query
                 getQueryInfoUri(queryInfoUrl, queryId, externalUriInfo),
                 partialCancelUri,
                 nextResultsUri,
-                resultRows.getColumns().orElse(null),
+                resultRows.getOptionalColumns(),
                 queryDataProducer.produce(externalUriInfo, session, resultRows, this::handleSerializationException),
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
