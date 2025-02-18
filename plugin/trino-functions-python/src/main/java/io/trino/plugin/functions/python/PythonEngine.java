@@ -112,7 +112,10 @@ final class PythonEngine
                 .withDirectory(guestRoot.toString(), guestRoot)
                 .build();
 
-        WasiPreview1 wasi = closer.register(new WasiPreview1(logger, wasiOptions));
+        WasiPreview1 wasi = closer.register(WasiPreview1.builder()
+                .withLogger(logger)
+                .withOptions(wasiOptions)
+                .build());
 
         ImportValues importValues = ImportValues.builder()
                 .addFunction(wasi.toHostFunctions())
