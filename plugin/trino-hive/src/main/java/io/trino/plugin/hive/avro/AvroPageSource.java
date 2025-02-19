@@ -18,9 +18,9 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.hive.formats.avro.AvroFileReader;
 import io.trino.hive.formats.avro.AvroTypeBlockHandler;
 import io.trino.hive.formats.avro.AvroTypeException;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import org.apache.avro.Schema;
 
 import java.io.IOException;
@@ -75,11 +75,11 @@ public class AvroPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         try {
             if (avroFileReader.hasNext()) {
-                return avroFileReader.next();
+                return SourcePage.create(avroFileReader.next());
             }
             else {
                 return null;

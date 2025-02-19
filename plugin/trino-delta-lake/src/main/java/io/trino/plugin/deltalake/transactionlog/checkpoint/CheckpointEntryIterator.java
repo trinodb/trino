@@ -20,8 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoInputFile;
-import io.trino.parquet.Column;
-import io.trino.parquet.Field;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaHiveTypeTranslator;
@@ -40,17 +38,16 @@ import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileS
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
-import io.trino.plugin.hive.ReaderPageSource;
-import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.block.ValueBlock;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
@@ -63,6 +60,8 @@ import io.trino.spi.type.TypeSignature;
 import jakarta.annotation.Nullable;
 import org.joda.time.DateTimeZone;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
@@ -74,8 +73,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
@@ -140,7 +137,7 @@ public class CheckpointEntryIterator
 
     private final String checkpointPath;
     private final ConnectorSession session;
-    private final ParquetPageSource pageSource;
+    private final ConnectorPageSource pageSource;
     private final MapType stringMap;
     private final ArrayType stringList;
     private final Queue<DeltaLakeTransactionLogEntry> nextEntries;
@@ -149,7 +146,6 @@ public class CheckpointEntryIterator
     private final TupleDomain<DeltaLakeColumnHandle> partitionConstraint;
     private final Optional<RowType> txnType;
     private final Optional<RowType> addType;
-    private final Optional<RowType> addPartitionValuesType;
     private final Optional<RowType> addDeletionVectorType;
     private final Optional<RowType> addParsedStatsFieldType;
     private final Optional<RowType> removeType;
@@ -164,7 +160,7 @@ public class CheckpointEntryIterator
     private boolean deletionVectorsEnabled;
     private List<DeltaLakeColumnMetadata> schema;
     private List<DeltaLakeColumnMetadata> columnsWithMinMaxStats;
-    private Page page;
+    private SourcePage page;
     private int pagePosition;
 
     public CheckpointEntryIterator(
@@ -213,17 +209,14 @@ public class CheckpointEntryIterator
             HiveColumnHandle column = buildColumnHandle(field, checkpointSchemaManager, this.metadataEntry, this.protocolEntry, addStatsMinMaxColumnFilter).toHiveColumnHandle();
             columnsBuilder.add(column);
             disjunctDomainsBuilder.add(buildTupleDomainColumnHandle(field, column));
-            if (field == ADD) {
-                Type addEntryPartitionValuesType = checkpointSchemaManager.getAddEntryPartitionValuesType();
-                columnsBuilder.add(new DeltaLakeColumnHandle("add", addEntryPartitionValuesType, OptionalInt.empty(), "add", addEntryPartitionValuesType, REGULAR, Optional.empty()).toHiveColumnHandle());
-            }
         }
+        List<HiveColumnHandle> columns = columnsBuilder.build();
 
-        ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
+        this.pageSource = ParquetPageSourceFactory.createPageSource(
                 checkpoint,
                 0,
                 fileSize,
-                columnsBuilder.build(),
+                columns,
                 disjunctDomainsBuilder.build(), // OR-ed condition
                 true,
                 DateTimeZone.UTC,
@@ -233,25 +226,21 @@ public class CheckpointEntryIterator
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize));
 
-        this.pageSource = (ParquetPageSource) pageSource.get();
         try {
-            verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
-
             this.nextEntries = new ArrayDeque<>();
             this.extractors = fields.stream()
                     .map(this::createCheckpointFieldExtractor)
                     .collect(toImmutableList());
-            txnType = getParquetType(fields, TRANSACTION);
-            addType = getAddParquetTypeContainingField(fields, "path");
-            addPartitionValuesType = getAddParquetTypeContainingField(fields, "partitionValues");
+            txnType = getParquetType(fields, TRANSACTION, columns);
+            addType = getAddParquetTypeContainingField(fields, "path", columns);
             addDeletionVectorType = addType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
             addParsedStatsFieldType = addType.flatMap(type -> getOptionalFieldType(type, "stats_parsed"));
-            removeType = getParquetType(fields, REMOVE);
+            removeType = getParquetType(fields, REMOVE, columns);
             removeDeletionVectorType = removeType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
-            metadataType = getParquetType(fields, METADATA);
-            protocolType = getParquetType(fields, PROTOCOL);
-            commitType = getParquetType(fields, COMMIT);
-            sidecarType = getParquetType(fields, SIDECAR);
+            metadataType = getParquetType(fields, METADATA, columns);
+            protocolType = getParquetType(fields, PROTOCOL, columns);
+            commitType = getParquetType(fields, COMMIT, columns);
+            sidecarType = getParquetType(fields, SIDECAR, columns);
         }
         catch (Exception e) {
             try {
@@ -259,7 +248,7 @@ public class CheckpointEntryIterator
             }
             catch (Exception _) {
             }
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()), e);
         }
     }
 
@@ -272,50 +261,48 @@ public class CheckpointEntryIterator
                 .map(RowType.class::cast);
     }
 
-    private Optional<RowType> getAddParquetTypeContainingField(Set<EntryType> fields, String fieldName)
+    private static Optional<RowType> getAddParquetTypeContainingField(Set<EntryType> fields, String fieldName, List<HiveColumnHandle> columns)
     {
         return fields.contains(ADD) ?
-                this.pageSource.getColumnFields().stream()
-                        .filter(column -> column.name().equals(ADD.getColumnName()) &&
-                                column.field().getType() instanceof RowType rowType &&
+                columns.stream()
+                        .filter(column -> column.getName().equals(ADD.getColumnName()) &&
+                                column.getType() instanceof RowType rowType &&
                                 rowType.getFields().stream().map(RowType.Field::getName).filter(Optional::isPresent).flatMap(Optional::stream).anyMatch(fieldName::equals))
                         // The field even if it was requested might not exist in Parquet file
                         .collect(toOptional())
-                        .map(Column::field)
-                        .map(Field::getType)
+                        .map(HiveColumnHandle::getType)
                         .map(RowType.class::cast)
                 : Optional.empty();
     }
 
-    private Optional<RowType> getParquetType(Set<EntryType> fields, EntryType field)
+    private static Optional<RowType> getParquetType(Set<EntryType> fields, EntryType field, List<HiveColumnHandle> columns)
     {
-        return fields.contains(field) ? getParquetType(field.getColumnName()).map(RowType.class::cast) : Optional.empty();
+        return fields.contains(field) ? getParquetType(field.getColumnName(), columns).map(RowType.class::cast) : Optional.empty();
     }
 
-    private Optional<Type> getParquetType(String columnName)
+    private static Optional<Type> getParquetType(String columnName, List<HiveColumnHandle> columns)
     {
-        return pageSource.getColumnFields().stream()
-                .filter(column -> column.name().equals(columnName))
+        return columns.stream()
+                .filter(column -> column.getName().equals(columnName))
                 // The field even if it was requested may not exist in Parquet file
                 .collect(toOptional())
-                .map(Column::field)
-                .map(Field::getType);
+                .map(HiveColumnHandle::getType);
     }
 
     private CheckpointFieldExtractor createCheckpointFieldExtractor(EntryType entryType)
     {
         return switch (entryType) {
-            case TRANSACTION -> (session, pagePosition, blocks) -> buildTxnEntry(session, pagePosition, blocks[0]);
+            case TRANSACTION -> this::buildTxnEntry;
             case ADD -> new AddFileEntryExtractor();
-            case REMOVE -> (session, pagePosition, blocks) -> buildRemoveEntry(session, pagePosition, blocks[0]);
-            case METADATA -> (session, pagePosition, blocks) -> buildMetadataEntry(session, pagePosition, blocks[0]);
-            case PROTOCOL -> (session, pagePosition, blocks) -> buildProtocolEntry(session, pagePosition, blocks[0]);
-            case COMMIT -> (session, pagePosition, blocks) -> buildCommitInfoEntry(session, pagePosition, blocks[0]);
-            case SIDECAR -> (session, pagePosition, blocks) -> buildSidecarEntry(session, pagePosition, blocks[0]);
+            case REMOVE -> this::buildRemoveEntry;
+            case METADATA -> this::buildMetadataEntry;
+            case PROTOCOL -> this::buildProtocolEntry;
+            case COMMIT -> this::buildCommitInfoEntry;
+            case SIDECAR -> this::buildSidecarEntry;
         };
     }
 
-    private DeltaLakeColumnHandle buildColumnHandle(
+    private static DeltaLakeColumnHandle buildColumnHandle(
             EntryType entryType,
             CheckpointSchemaManager schemaManager,
             MetadataEntry metadataEntry,
@@ -324,7 +311,7 @@ public class CheckpointEntryIterator
     {
         Type type = switch (entryType) {
             case TRANSACTION -> schemaManager.getTxnEntryType();
-            case ADD -> schemaManager.getAddEntryType(metadataEntry, protocolEntry, addStatsMinMaxColumnFilter.orElseThrow(), true, true, false);
+            case ADD -> schemaManager.getAddEntryType(metadataEntry, protocolEntry, addStatsMinMaxColumnFilter.orElseThrow(), true, true, true);
             case REMOVE -> schemaManager.getRemoveEntryType();
             case METADATA -> schemaManager.getMetadataEntryType();
             case PROTOCOL -> schemaManager.getProtocolEntryType(true, true);
@@ -584,22 +571,10 @@ public class CheckpointEntryIterator
     {
         @Nullable
         @Override
-        public DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block... blocks)
+        public DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block addBlock)
         {
-            checkState(blocks.length == getRequiredChannels(), "Unexpected amount of blocks: %s", blocks.length);
-            Block addBlock = blocks[0];
-            Block addPartitionValuesBlock = blocks[1];
             log.debug("Building add entry from %s pagePosition %d", addBlock, pagePosition);
             if (addBlock.isNull(pagePosition)) {
-                return null;
-            }
-
-            checkState(!addPartitionValuesBlock.isNull(pagePosition), "Inconsistent blocks provided while building the add file entry");
-            SqlRow addPartitionValuesRow = getRow(addPartitionValuesBlock, pagePosition);
-            CheckpointFieldReader addPartitionValuesReader = new CheckpointFieldReader(session, addPartitionValuesRow, addPartitionValuesType.orElseThrow());
-            Map<String, String> partitionValues = addPartitionValuesReader.getMap(stringMap, "partitionValues");
-            Map<String, Optional<String>> canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
-            if (!partitionConstraint.isAll() && !partitionMatchesPredicate(canonicalPartitionValues, partitionConstraint.getDomains().orElseThrow())) {
                 return null;
             }
 
@@ -608,6 +583,12 @@ public class CheckpointEntryIterator
             SqlRow addEntryRow = getRow(addBlock, pagePosition);
             log.debug("Block %s has %s fields", addBlock, addEntryRow.getFieldCount());
             CheckpointFieldReader addReader = new CheckpointFieldReader(session, addEntryRow, addType.orElseThrow());
+
+            Map<String, String> partitionValues = addReader.getMap(stringMap, "partitionValues");
+            Map<String, Optional<String>> canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
+            if (!partitionConstraint.isAll() && !partitionMatchesPredicate(canonicalPartitionValues, partitionConstraint.getDomains().orElseThrow())) {
+                return null;
+            }
 
             String path = addReader.getString("path");
             long size = addReader.getLong("size");
@@ -643,15 +624,9 @@ public class CheckpointEntryIterator
             log.debug("Result: %s", result);
             return DeltaLakeTransactionLogEntry.addFileEntry(result);
         }
-
-        @Override
-        public int getRequiredChannels()
-        {
-            return 2;
-        }
     }
 
-    private DeletionVectorEntry parseDeletionVectorFromParquet(ConnectorSession session, SqlRow row, RowType type)
+    private static DeletionVectorEntry parseDeletionVectorFromParquet(ConnectorSession session, SqlRow row, RowType type)
     {
         checkArgument(row.getFieldCount() == 5, "Deletion vector entry must have 5 fields");
 
@@ -784,29 +759,35 @@ public class CheckpointEntryIterator
     @Override
     protected DeltaLakeTransactionLogEntry computeNext()
     {
-        if (nextEntries.isEmpty()) {
-            fillNextEntries();
+        try {
+            if (nextEntries.isEmpty()) {
+                fillNextEntries();
+            }
+            if (!nextEntries.isEmpty()) {
+                return nextEntries.remove();
+            }
+            pageSource.close();
+            return endOfData();
         }
-        if (!nextEntries.isEmpty()) {
-            return nextEntries.remove();
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
-        pageSource.close();
-        return endOfData();
     }
 
     private boolean tryAdvancePage()
+            throws IOException
     {
         if (pageSource.isFinished()) {
             pageSource.close();
             return false;
         }
         boolean isFirstPage = page == null;
-        page = pageSource.getNextPage();
+        page = pageSource.getNextSourcePage();
         if (page == null) {
             return false;
         }
         if (isFirstPage) {
-            int requiredExtractorChannels = extractors.stream().mapToInt(CheckpointFieldExtractor::getRequiredChannels).sum();
+            int requiredExtractorChannels = extractors.size();
             if (page.getChannelCount() != requiredExtractorChannels) {
                 throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
                         format("Expected page in %s to contain %d channels, but found %d",
@@ -819,10 +800,16 @@ public class CheckpointEntryIterator
 
     public void close()
     {
-        pageSource.close();
+        try {
+            pageSource.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private void fillNextEntries()
+            throws IOException
     {
         while (nextEntries.isEmpty()) {
             // grab next page if needed
@@ -838,9 +825,7 @@ public class CheckpointEntryIterator
                 DeltaLakeTransactionLogEntry entry;
                 if (extractor instanceof AddFileEntryExtractor) {
                     // Avoid unnecessary loading of the block in case there is a partition predicate mismatch for this add entry
-                    Block addBlock = page.getBlock(blockIndex);
-                    Block addPartitionValuesBlock = page.getBlock(blockIndex + 1);
-                    entry = extractor.getEntry(session, pagePosition, addBlock, addPartitionValuesBlock.getLoadedBlock());
+                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex));
                 }
                 else {
                     entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex).getLoadedBlock());
@@ -848,7 +833,7 @@ public class CheckpointEntryIterator
                 if (entry != null) {
                     nextEntries.add(entry);
                 }
-                blockIndex += extractor.getRequiredChannels();
+                blockIndex++;
             }
             pagePosition++;
         }
@@ -876,12 +861,7 @@ public class CheckpointEntryIterator
          * checkpoint filter criteria.
          */
         @Nullable
-        DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block... blocks);
-
-        default int getRequiredChannels()
-        {
-            return 1;
-        }
+        DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block block);
     }
 
     private static SqlRow getRow(Block block, int position)

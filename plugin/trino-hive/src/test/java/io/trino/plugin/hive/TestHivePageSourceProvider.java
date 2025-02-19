@@ -14,14 +14,13 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
@@ -29,142 +28,81 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectColumnDereferences;
+import static io.trino.plugin.hive.TestHivePageSourceProvider.RowData.rowData;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.ROWTYPE_OF_ROW_AND_PRIMITIVES;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
-import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createTestFullColumns;
-import static io.trino.plugin.hive.TestReaderProjectionsAdapter.RowData.rowData;
+import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestReaderProjectionsAdapter
+class TestHivePageSourceProvider
 {
-    private static final String TEST_COLUMN_NAME = "col";
-    private static final Type TEST_COLUMN_TYPE = ROWTYPE_OF_ROW_AND_PRIMITIVES;
-
-    private static final Map<String, HiveColumnHandle> TEST_FULL_COLUMNS = createTestFullColumns(
-            ImmutableList.of(TEST_COLUMN_NAME),
-            ImmutableMap.of(TEST_COLUMN_NAME, TEST_COLUMN_TYPE));
+    private static final HiveColumnHandle BASE_COLUMN = createBaseColumn("col", 0, toHiveType(ROWTYPE_OF_ROW_AND_PRIMITIVES), ROWTYPE_OF_ROW_AND_PRIMITIVES, REGULAR, Optional.empty());
 
     @Test
-    public void testAdaptPage()
+    void testProjectColumnDereferences()
+            throws Exception
     {
         List<HiveColumnHandle> columns = ImmutableList.of(
-                createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col"), ImmutableList.of(0, 0)),
-                createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col"), ImmutableList.of(0)));
+                createProjectedColumnHandle(BASE_COLUMN, ImmutableList.of(0, 0)),
+                createProjectedColumnHandle(BASE_COLUMN, ImmutableList.of(0)));
 
-        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
-
-        List<Object> inputBlockData = new ArrayList<>();
-        inputBlockData.add(rowData(rowData(11L, 12L, 13L), 1L));
-        inputBlockData.add(rowData(null, 2L));
-        inputBlockData.add(null);
-        inputBlockData.add(rowData(rowData(31L, 32L, 33L), 3L));
-
-        ReaderProjectionsAdapter adapter = new ReaderProjectionsAdapter(
-                columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
-                readerProjections.get(),
-                column -> ((HiveColumnHandle) column).getType(),
-                HivePageSourceProvider::getProjection);
-        verifyPageAdaptation(adapter, ImmutableList.of(inputBlockData));
-    }
-
-    @Test
-    public void testLazyDereferenceProjectionLoading()
-    {
-        List<HiveColumnHandle> columns = ImmutableList.of(createProjectedColumnHandle(TEST_FULL_COLUMNS.get("col"), ImmutableList.of(0, 0)));
-
-        List<Object> inputBlockData = new ArrayList<>();
-        inputBlockData.add(rowData(rowData(11L, 12L, 13L), 1L));
-        inputBlockData.add(rowData(null, 2L));
-        inputBlockData.add(null);
-        inputBlockData.add(rowData(rowData(31L, 32L, 33L), 3L));
-
-        // Produce an output page by applying adaptation
-        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
-        ReaderProjectionsAdapter adapter = new ReaderProjectionsAdapter(
-                columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
-                readerProjections.get(),
-                column -> ((HiveColumnHandle) column).getType(),
-                HivePageSourceProvider::getProjection);
-        Page inputPage = createPage(ImmutableList.of(inputBlockData), adapter.getInputTypes());
-        adapter.adaptPage(inputPage).getLoadedPage();
-
-        // Verify that only the block corresponding to subfield "col.f_row_0.f_bigint_0" should be completely loaded, others are not.
-
-        // Assertion for "col"
-        Block lazyBlockLevel1 = inputPage.getBlock(0);
-        assertThat(lazyBlockLevel1 instanceof LazyBlock).isTrue();
-        assertThat(lazyBlockLevel1.isLoaded()).isFalse();
-        RowBlock rowBlockLevel1 = (RowBlock) ((LazyBlock) lazyBlockLevel1).getBlock();
-        assertThat(rowBlockLevel1.isLoaded()).isFalse();
-
-        // Assertion for "col.f_row_0" and col.f_bigint_0"
-        assertThat(rowBlockLevel1.getFieldBlock(0).isLoaded()).isFalse();
-        assertThat(rowBlockLevel1.getFieldBlock(1).isLoaded()).isFalse();
-
-        Block lazyBlockLevel2 = rowBlockLevel1.getFieldBlock(0);
-        assertThat(lazyBlockLevel2 instanceof LazyBlock).isTrue();
-        RowBlock rowBlockLevel2 = ((RowBlock) ((LazyBlock) lazyBlockLevel2).getBlock());
-        assertThat(rowBlockLevel2.isLoaded()).isFalse();
-        // Assertion for "col.f_row_0.f_bigint_0" and "col.f_row_0.f_bigint_1"
-        assertThat(rowBlockLevel2.getFieldBlock(0).isLoaded()).isTrue();
-        assertThat(rowBlockLevel2.getFieldBlock(1).isLoaded()).isFalse();
-    }
-
-    private void verifyPageAdaptation(ReaderProjectionsAdapter adapter, List<List<Object>> inputPageData)
-    {
-        List<ReaderProjectionsAdapter.ChannelMapping> columnMapping = adapter.getOutputToInputMapping();
-        List<Type> outputTypes = adapter.getOutputTypes();
-        List<Type> inputTypes = adapter.getInputTypes();
-
-        Page inputPage = createPage(inputPageData, inputTypes);
-        Page outputPage = adapter.adaptPage(inputPage).getLoadedPage();
-
+        Page outputPage;
+        try (ConnectorPageSource connectorPageSource = projectColumnDereferences(columns, TestHivePageSourceProvider::createPageSource)) {
+            outputPage = connectorPageSource
+                    .getNextSourcePage()
+                    .getPage();
+        }
         // Verify output block values
-        for (int i = 0; i < columnMapping.size(); i++) {
-            ReaderProjectionsAdapter.ChannelMapping mapping = columnMapping.get(i);
-            int inputBlockIndex = mapping.getInputChannelIndex();
+        Block baseInputBlock = createInputPage().getBlock(0);
+        for (int i = 0, columnsSize = columns.size(); i < columnsSize; i++) {
+            HiveColumnHandle column = columns.get(i);
             verifyBlock(
                     outputPage.getBlock(i),
-                    outputTypes.get(i),
-                    inputPage.getBlock(inputBlockIndex),
-                    inputTypes.get(inputBlockIndex),
-                    mapping.getDereferenceSequence());
+                    column.getType(),
+                    baseInputBlock,
+                    BASE_COLUMN.getType(),
+                    HivePageSourceProvider.getProjection(column, BASE_COLUMN));
         }
     }
 
-    private static Page createPage(List<List<Object>> pageData, List<Type> types)
+    private static FixedPageSource createPageSource(List<HiveColumnHandle> columns)
     {
-        Block[] inputPageBlocks = new Block[pageData.size()];
-        for (int i = 0; i < inputPageBlocks.length; i++) {
-            inputPageBlocks[i] = createInputBlock(pageData.get(i), types.get(i));
-        }
+        assertThat(columns).containsOnly(BASE_COLUMN);
+        return new FixedPageSource(ImmutableList.of(createInputPage()));
+    }
 
-        return new Page(inputPageBlocks);
+    private static Page createInputPage()
+    {
+        List<Object> inputBlockData = new ArrayList<>();
+        inputBlockData.add(rowData(rowData(11L, 12L, 13L), 1L));
+        inputBlockData.add(rowData(null, 2L));
+        inputBlockData.add(null);
+        inputBlockData.add(rowData(rowData(31L, 32L, 33L), 3L));
+
+        return new Page(createInputBlock(inputBlockData, BASE_COLUMN.getType()));
     }
 
     private static Block createInputBlock(List<Object> data, Type type)
     {
-        int positionCount = data.size();
-
         if (type instanceof RowType) {
-            return new LazyBlock(data.size(), () -> createRowBlockWithLazyNestedBlocks(data, (RowType) type));
+            return createRowBlock(data, (RowType) type);
         }
         if (BIGINT.equals(type)) {
-            return new LazyBlock(positionCount, () -> createLongArrayBlock(data));
+            return createLongArrayBlock(data);
         }
         throw new UnsupportedOperationException();
     }
 
-    private static Block createRowBlockWithLazyNestedBlocks(List<Object> data, RowType rowType)
+    private static Block createRowBlock(List<Object> data, RowType rowType)
     {
         int positionCount = data.size();
 
@@ -203,13 +141,12 @@ public class TestReaderProjectionsAdapter
     private static Block createLongArrayBlock(List<Object> data)
     {
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(data.size());
-        for (int i = 0; i < data.size(); i++) {
-            Long value = (Long) data.get(i);
-            if (value == null) {
+        for (Object datum : data) {
+            if (datum == null) {
                 builder.appendNull();
             }
             else {
-                BIGINT.writeLong(builder, value);
+                BIGINT.writeLong(builder, (Long) datum);
             }
         }
         return builder.build();
@@ -244,7 +181,7 @@ public class TestReaderProjectionsAdapter
             // Apply all dereferences except for the last one, because the type can be different
             for (int j = 0; j < dereferences.size() - 1; j++) {
                 if (isNull) {
-                    // If null element is discovered at any dereferencing step, break
+                    // If a null element is discovered at any dereferencing step, break
                     break;
                 }
 
@@ -261,7 +198,7 @@ public class TestReaderProjectionsAdapter
                     currentData = sourceType.getObject(fieldBlock, rawIndex);
                 }
 
-                isNull = isNull || (currentData == null);
+                isNull = currentData == null;
             }
 
             if (isNull) {
@@ -280,7 +217,7 @@ public class TestReaderProjectionsAdapter
 
     static class RowData
     {
-        private final List<? extends Object> data;
+        private final List<?> data;
 
         private RowData(Object... data)
         {

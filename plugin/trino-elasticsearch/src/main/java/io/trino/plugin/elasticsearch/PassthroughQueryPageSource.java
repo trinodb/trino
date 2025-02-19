@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
-import io.trino.spi.Page;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 
@@ -62,7 +61,7 @@ public class PassthroughQueryPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (done) {
             return null;
@@ -70,11 +69,10 @@ public class PassthroughQueryPageSource
 
         done = true;
 
-        PageBuilder page = new PageBuilder(1, ImmutableList.of(VARCHAR));
-        page.declarePosition();
-        BlockBuilder column = page.getBlockBuilder(0);
-        VARCHAR.writeSlice(column, Slices.utf8Slice(result));
-        return page.build();
+        Slice slice = Slices.utf8Slice(result);
+        BlockBuilder column = VARCHAR.createBlockBuilder(null, 0, slice.length());
+        VARCHAR.writeSlice(column, slice);
+        return SourcePage.create(column.build());
     }
 
     @Override

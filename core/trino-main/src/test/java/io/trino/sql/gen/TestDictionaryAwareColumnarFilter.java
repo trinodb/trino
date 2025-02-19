@@ -16,12 +16,12 @@ package io.trino.sql.gen;
 import com.google.common.collect.ImmutableList;
 import io.trino.FullConnectorSession;
 import io.trino.operator.project.InputChannels;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.gen.columnar.ColumnarFilter;
 import io.trino.sql.gen.columnar.DictionaryAwareColumnarFilter;
@@ -51,13 +51,13 @@ public class TestDictionaryAwareColumnarFilter
     {
         DictionaryAwareColumnarFilter filter = new DictionaryAwareColumnarFilter(new ColumnarFilter() {
             @Override
-            public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, Page loadedPage)
+            public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, SourcePage loadedPage)
             {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, Page loadedPage)
+            public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, SourcePage loadedPage)
             {
                 throw new UnsupportedOperationException();
             }
@@ -190,10 +190,10 @@ public class TestDictionaryAwareColumnarFilter
         int[] outputPositions = new int[block.getPositionCount()];
         int outputPositionsCount;
         if (usePositionsList) {
-            outputPositionsCount = filter.filterPositionsList(FULL_CONNECTOR_SESSION, outputPositions, toPositionsList(0, block.getPositionCount()), 0, block.getPositionCount(), new Page(block));
+            outputPositionsCount = filter.filterPositionsList(FULL_CONNECTOR_SESSION, outputPositions, toPositionsList(0, block.getPositionCount()), 0, block.getPositionCount(), SourcePage.create(block));
         }
         else {
-            outputPositionsCount = filter.filterPositionsRange(FULL_CONNECTOR_SESSION, outputPositions, 0, block.getPositionCount(), new Page(block));
+            outputPositionsCount = filter.filterPositionsRange(FULL_CONNECTOR_SESSION, outputPositions, 0, block.getPositionCount(), SourcePage.create(block));
         }
         IntSet actualSelectedPositions = new IntArraySet(Arrays.copyOfRange(outputPositions, 0, outputPositionsCount));
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
@@ -257,7 +257,7 @@ public class TestDictionaryAwareColumnarFilter
         }
 
         @Override
-        public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, Page loadedPage)
+        public int filterPositionsRange(ConnectorSession session, int[] outputPositions, int offset, int size, SourcePage loadedPage)
         {
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
@@ -283,7 +283,7 @@ public class TestDictionaryAwareColumnarFilter
         }
 
         @Override
-        public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, Page loadedPage)
+        public int filterPositionsList(ConnectorSession session, int[] outputPositions, int[] activePositions, int offset, int size, SourcePage loadedPage)
         {
             assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);

@@ -20,8 +20,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.orc.metadata.StripeInformation;
 import io.trino.orc.stream.OrcDataReader;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.SourcePage;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -201,6 +201,7 @@ public class TestCachingOrcDataSource
         OrcRecordReader orcRecordReader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
                 ImmutableList.of(VARCHAR),
+                false,
                 (numberOfRows, statisticsByColumnIndex) -> true,
                 HIVE_STORAGE_TIME_ZONE,
                 newSimpleAggregatedMemoryContext(),
@@ -208,11 +209,10 @@ public class TestCachingOrcDataSource
                 RuntimeException::new);
         int positionCount = 0;
         while (true) {
-            Page page = orcRecordReader.nextPage();
+            SourcePage page = orcRecordReader.nextPage();
             if (page == null) {
                 break;
             }
-            page = page.getLoadedPage();
             Block block = page.getBlock(0);
             positionCount += block.getPositionCount();
         }

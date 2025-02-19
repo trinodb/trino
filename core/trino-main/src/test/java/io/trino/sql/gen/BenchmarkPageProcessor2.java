@@ -27,6 +27,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -152,7 +153,7 @@ public class BenchmarkPageProcessor2
                         null,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        inputPage));
+                        SourcePage.create(inputPage)));
     }
 
     private RowExpression getFilter(Type type)

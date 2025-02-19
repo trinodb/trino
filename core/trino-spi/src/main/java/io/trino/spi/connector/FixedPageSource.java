@@ -74,6 +74,7 @@ public class FixedPageSource
     }
 
     @Override
+    @SuppressWarnings("removal")
     public Page getNextPage()
     {
         if (isFinished()) {

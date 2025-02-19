@@ -30,6 +30,7 @@ import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -141,7 +142,7 @@ public class MongoPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());
         for (int i = 0; i < ROWS_PER_REQUEST; i++) {
@@ -161,7 +162,7 @@ public class MongoPageSource
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return page;
+        return SourcePage.create(page);
     }
 
     private void appendTo(Type type, Object value, BlockBuilder output)
