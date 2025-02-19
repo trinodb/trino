@@ -493,30 +493,14 @@ public class CassandraTypeManager
             return false;
         }
 
-        if (dataType instanceof UserDefinedType userDefinedType) {
-            return userDefinedType.getFieldTypes().stream()
-                    .allMatch(this::isFullySupported);
-        }
-
-        if (dataType instanceof MapType mapType) {
-            return Arrays.stream(new DataType[] {mapType.getKeyType(), mapType.getValueType()})
-                    .allMatch(this::isFullySupported);
-        }
-
-        if (dataType instanceof ListType listType) {
-            return isFullySupported(listType.getElementType());
-        }
-
-        if (dataType instanceof TupleType tupleType) {
-            return tupleType.getComponentTypes().stream()
-                    .allMatch(this::isFullySupported);
-        }
-
-        if (dataType instanceof SetType setType) {
-            return isFullySupported(setType.getElementType());
-        }
-
-        return true;
+        return switch (dataType) {
+            case UserDefinedType userDefinedType -> userDefinedType.getFieldTypes().stream().allMatch(this::isFullySupported);
+            case MapType mapType -> Arrays.stream(new DataType[] {mapType.getKeyType(), mapType.getValueType()}).allMatch(this::isFullySupported);
+            case ListType listType -> isFullySupported(listType.getElementType());
+            case TupleType tupleType -> tupleType.getComponentTypes().stream().allMatch(this::isFullySupported);
+            case SetType setType -> isFullySupported(setType.getElementType());
+            default -> true;
+        };
     }
 
     public CassandraType toCassandraType(Type type, ProtocolVersion protocolVersion)
