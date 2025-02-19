@@ -124,10 +124,14 @@ public class JsonEncodingUtils
             generator.writeStartArray();
 
             for (Page page : pages) {
+                Block[] blocks = new Block[sourcePageChannels.length];
+                for (int i = 0; i < sourcePageChannels.length; i++) {
+                    blocks[i] = page.getBlock(sourcePageChannels[i]);
+                }
                 for (int position = 0; position < page.getPositionCount(); position++) {
                     generator.writeStartArray();
                     for (int column = 0; column < typeEncoders.length; column++) {
-                        typeEncoders[column].encode(generator, connectorSession, page.getBlock(sourcePageChannels[column]), position);
+                        typeEncoders[column].encode(generator, connectorSession, blocks[column], position);
                     }
                     generator.writeEndArray();
                 }
