@@ -13,7 +13,7 @@
  */
 package io.trino.server.protocol.retrieval;
 
-import io.trino.server.protocol.spooling.SpoolingConfig;
+import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 
 import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.COORDINATOR_STORAGE_REDIRECT;
 
@@ -21,7 +21,7 @@ public class TestCoordinatorStorageRedirectRetrievalModeSpooledQueries
         extends AbstractRetrievalModeSpooledQueries
 {
     @Override
-    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
+    SegmentRetrievalMode getSegmentRetrievalMode()
     {
         return COORDINATOR_STORAGE_REDIRECT;
     }
