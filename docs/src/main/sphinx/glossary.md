@@ -40,6 +40,7 @@ Connector
   define what data source the catalog connects to. A connector is one of many
   types of {ref}`plugins <glossPlugin>`
 
+(glosscontainer)=
 Container
 
 : A lightweight virtual package of software that contains libraries, binaries,
@@ -148,11 +149,9 @@ PKCS #12
 (glossplugin)=
 Plugin
 
-: A bundle of code implementing the Trino {doc}`Service Provider Interface
-  (SPI) </develop/spi-overview>` that is used to add new {ref}`connectors
-  <glossConnector>`, {doc}`data types </develop/types>`, {doc}`functions`,
-  {doc}`access control implementations </develop/system-access-control>`, and
-  other features of Trino.
+: A bundle of code implementing the Trino [Service Provider Interface
+  (SPI)](/develop/spi-overview). that is used to add new functionality.
+  More information is available in [](/installation/plugins).
 
 Presto and PrestoSQL
 
@@ -178,6 +177,7 @@ Structured Query Language (SQL)
 : The standard language used with relational databases. For more information,
   see {doc}`SQL </language>`.
 
+(glosstarball)=
 Tarball
 
 : A common abbreviation for [TAR file](<https://wikipedia.org/wiki/Tar_(computing)>), which is a common software
