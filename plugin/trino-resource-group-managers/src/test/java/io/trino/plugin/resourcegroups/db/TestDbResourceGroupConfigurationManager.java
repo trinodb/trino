@@ -32,6 +32,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
+import javax.xml.crypto.Data;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -75,8 +76,8 @@ public class TestDbResourceGroupConfigurationManager
         String devEnvironment = "dev";
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         // two resource groups are the same except the group for the prod environment has a larger softMemoryLimit
-        dao.insertResourceGroup(1, "prod_global", "10MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, prodEnvironment);
-        dao.insertResourceGroup(2, "dev_global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, devEnvironment);
+        dao.insertResourceGroup(1, "prod_global", "10MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "5MB", null, prodEnvironment);
+        dao.insertResourceGroup(2, "dev_global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "5MB", null, devEnvironment);
         dao.insertSelector(1, 1, ".*prod_user.*", null, null, null, null, null);
         dao.insertSelector(2, 2, ".*dev_user.*", null, null, null, null, null);
 
@@ -86,7 +87,7 @@ public class TestDbResourceGroupConfigurationManager
         assertThat(groups).hasSize(1);
         InternalResourceGroup prodGlobal = new InternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
         manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("prod_global")));
-        assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
+        assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1), "5MB");
         assertThat(manager.getSelectors()).hasSize(1);
         ResourceGroupSelector prodSelector = manager.getSelectors().get(0);
         ResourceGroupId prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
@@ -97,7 +98,7 @@ public class TestDbResourceGroupConfigurationManager
         assertThat(groups).hasSize(1);
         InternalResourceGroup devGlobal = new InternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
         manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("dev_global")));
-        assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
+        assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1), "5MB");
         assertThat(manager.getSelectors()).hasSize(1);
         ResourceGroupSelector devSelector = manager.getSelectors().get(0);
         ResourceGroupId devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
@@ -113,16 +114,16 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "1TB", null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, "10GB", 1L, ENVIRONMENT);
         dao.insertSelector(2, 1, null, null, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
         InternalResourceGroup global = new InternalResourceGroup("global", (group, export) -> {}, directExecutor());
         manager.configure(global, new SelectionContext<>(global.getId(), new ResourceGroupIdTemplate("global")));
-        assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
+        assertEqualsResourceGroup(global, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1), "1TB");
         InternalResourceGroup sub = global.getOrCreateSubGroup("sub");
         manager.configure(sub, new SelectionContext<>(sub.getId(), new ResourceGroupIdTemplate("global.sub")));
-        assertEqualsResourceGroup(sub, "2MB", 4, 3, 3, FAIR, 5, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
+        assertEqualsResourceGroup(sub, "2MB", 4, 3, 3, FAIR, 5, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE), "10GB");
     }
 
     @Test
@@ -133,8 +134,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
-        assertThatThrownBy(() -> dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT))
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, ENVIRONMENT);
+        assertThatThrownBy(() -> dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, ENVIRONMENT))
                 .isInstanceOfSatisfying(UnableToExecuteStatementException.class, ex -> {
                     assertThat(ex.getCause()).isInstanceOf(JdbcException.class);
                     assertThat(ex.getCause().getMessage()).startsWith("Unique index or primary key violation");
@@ -150,9 +151,9 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
-        assertThatThrownBy(() -> dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT))
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, null, 1L, ENVIRONMENT);
+        assertThatThrownBy(() -> dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, null, 1L, ENVIRONMENT))
                 .isInstanceOfSatisfying(UnableToExecuteStatementException.class, ex -> {
                     assertThat(ex.getCause()).isInstanceOf(JdbcException.class);
                     assertThat(ex.getCause().getMessage()).startsWith("Unique index or primary key violation");
@@ -168,8 +169,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, null, 1L, ENVIRONMENT);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         dao.insertSelector(2, 1, null, null, null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
@@ -190,8 +191,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", "1GB", null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, "100MB", 1L, ENVIRONMENT);
         dao.insertSelector(2, 1, null, null, null, null, null, null);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
@@ -201,14 +202,14 @@ public class TestDbResourceGroupConfigurationManager
         InternalResourceGroup globalSub = global.getOrCreateSubGroup("sub");
         manager.configure(globalSub, new SelectionContext<>(globalSub.getId(), new ResourceGroupIdTemplate("global.sub")));
         // Verify record exists
-        assertEqualsResourceGroup(globalSub, "2MB", 4, 3, 3, FAIR, 5, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE));
-        dao.updateResourceGroup(2, "sub", "3MB", 2, 1, 1, "weighted", 6, true, "1h", "1d", 1L, ENVIRONMENT);
+        assertEqualsResourceGroup(globalSub, "2MB", 4, 3, 3, FAIR, 5, false, Duration.ofMillis(Long.MAX_VALUE), Duration.ofMillis(Long.MAX_VALUE), "100MB");
+        dao.updateResourceGroup(2, "sub", "3MB", 2, 1, 1, "weighted", 6, true, "1h", "1d", "10MB", 1L, ENVIRONMENT);
         do {
             MILLISECONDS.sleep(500);
         }
         while (globalSub.getJmxExport() == false);
         // Verify update
-        assertEqualsResourceGroup(globalSub, "3MB", 2, 1, 1, WEIGHTED, 6, true, Duration.ofHours(1), Duration.ofDays(1));
+        assertEqualsResourceGroup(globalSub, "3MB", 2, 1, 1, WEIGHTED, 6, true, Duration.ofHours(1), Duration.ofDays(1), "10MB");
         // Verify delete
         dao.deleteSelectors(2);
         dao.deleteResourceGroup(2);
@@ -227,8 +228,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
         dao.createExactMatchSelectorsTable();
-        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, ENVIRONMENT);
-        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, 1L, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, "weighted", null, true, "1h", "1d", null, null, ENVIRONMENT);
+        dao.insertResourceGroup(2, "sub", "2MB", 4, 3, 3, null, 5, null, null, null, null, 1L, ENVIRONMENT);
         dao.insertSelector(2, 1, null, null, null, null, null, null);
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
         DbResourceGroupConfig config = new DbResourceGroupConfig();
@@ -253,7 +254,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, null, ENVIRONMENT);
 
         final int numberOfUsers = 100;
         List<String> expectedUsers = new ArrayList<>();
@@ -296,7 +297,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, null, ENVIRONMENT);
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 listener -> {},
@@ -316,7 +317,7 @@ public class TestDbResourceGroupConfigurationManager
         H2ResourceGroupsDao dao = daoProvider.get();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "100%", 100, 100, 100, null, null, null, null, null, null, null, ENVIRONMENT);
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
                 listener -> {},
@@ -344,7 +345,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "group", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(1, "group", "100%", 100, 100, 100, null, null, null, null, null, null, null, ENVIRONMENT);
         dao.insertSelector(1, 1, null, "first matching|second matching", null, null, null, null);
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
@@ -367,7 +368,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "group", "100%", 100, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(1, "group", "100%", 100, 100, 100, null, null, null, null, null, null, null, ENVIRONMENT);
         dao.insertSelector(1, 1, "Matching user", "Matching group", null, null, null, null);
 
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(
@@ -404,7 +405,7 @@ public class TestDbResourceGroupConfigurationManager
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.createResourceGroupsTable();
         dao.createSelectorsTable();
-        dao.insertResourceGroup(1, "global", "80%", 10, null, 1, null, null, null, null, null, null, ENVIRONMENT);
+        dao.insertResourceGroup(1, "global", "80%", 10, null, 1, null, null, null, null, null, null, null, ENVIRONMENT);
         dao.insertSelector(1, 1, null, "userGroup", null, null, null, null);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(_ -> {}, new DbResourceGroupConfig(), daoProvider.get(), ENVIRONMENT);
 
@@ -415,7 +416,7 @@ public class TestDbResourceGroupConfigurationManager
         InternalResourceGroup resourceGroup = new InternalResourceGroup("global", (_, _) -> {}, directExecutor());
 
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
-            dao.updateResourceGroup(1, "global", "80%", 10, null, 10, null, null, null, null, null, null, ENVIRONMENT);
+            dao.updateResourceGroup(1, "global", "80%", 10, null, 10, null, null, null, null, null, null, null, ENVIRONMENT);
 
             executor.submit(() -> {
                 synchronized (resourceGroup) {
@@ -448,7 +449,8 @@ public class TestDbResourceGroupConfigurationManager
             int schedulingWeight,
             boolean jmxExport,
             Duration softCpuLimit,
-            Duration hardCpuLimit)
+            Duration hardCpuLimit,
+            String softPhysicalDataScanLimit)
     {
         assertThat(group.getSoftMemoryLimitBytes()).isEqualTo(DataSize.valueOf(softMemoryLimit).toBytes());
         assertThat(group.getMaxQueuedQueries()).isEqualTo(maxQueued);
@@ -459,6 +461,7 @@ public class TestDbResourceGroupConfigurationManager
         assertThat(group.getJmxExport()).isEqualTo(jmxExport);
         assertThat(group.getSoftCpuLimit()).isEqualTo(softCpuLimit);
         assertThat(group.getHardCpuLimit()).isEqualTo(hardCpuLimit);
+        assertThat(group.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.valueOf(softPhysicalDataScanLimit).toBytes());
     }
 
     private static SelectionCriteria userGroupsSelectionCriteria(String... groups)

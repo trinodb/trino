@@ -14,6 +14,7 @@
 package io.trino.plugin.resourcegroups.db;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.resourcegroups.ResourceGroupNameTemplate;
 import io.trino.plugin.resourcegroups.ResourceGroupSpec;
@@ -39,6 +40,7 @@ public class ResourceGroupSpecBuilder
     private final Optional<Boolean> jmxExport;
     private final Optional<Duration> softCpuLimit;
     private final Optional<Duration> hardCpuLimit;
+    private final Optional<DataSize> softPhysicalDataScanLimit;
     private final Optional<Long> parentId;
     private final ImmutableList.Builder<ResourceGroupSpec> subGroups = ImmutableList.builder();
 
@@ -54,6 +56,7 @@ public class ResourceGroupSpecBuilder
             Optional<Boolean> jmxExport,
             Optional<String> softCpuLimit,
             Optional<String> hardCpuLimit,
+            Optional<String> softPhysicalDataScanLimit,
             Optional<Long> parentId)
     {
         this.id = id;
@@ -67,6 +70,7 @@ public class ResourceGroupSpecBuilder
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.softCpuLimit = softCpuLimit.map(Duration::valueOf);
         this.hardCpuLimit = hardCpuLimit.map(Duration::valueOf);
+        this.softPhysicalDataScanLimit = softPhysicalDataScanLimit.map(DataSize::valueOf);
         this.parentId = parentId;
     }
 
@@ -115,8 +119,7 @@ public class ResourceGroupSpecBuilder
                 jmxExport,
                 softCpuLimit,
                 hardCpuLimit,
-                // TODO: Implement DB resource group manager
-                Optional.empty());
+                softPhysicalDataScanLimit);
     }
 
     public static class Mapper
@@ -146,6 +149,7 @@ public class ResourceGroupSpecBuilder
             }
             Optional<String> softCpuLimit = Optional.ofNullable(resultSet.getString("soft_cpu_limit"));
             Optional<String> hardCpuLimit = Optional.ofNullable(resultSet.getString("hard_cpu_limit"));
+            Optional<String> softPhysicalDataScanLimit = Optional.ofNullable(resultSet.getString("soft_physical_data_scan_limit"));
             Optional<Long> parentId = Optional.of(resultSet.getLong("parent"));
             if (resultSet.wasNull()) {
                 parentId = Optional.empty();
@@ -162,6 +166,7 @@ public class ResourceGroupSpecBuilder
                     jmxExport,
                     softCpuLimit,
                     hardCpuLimit,
+                    softPhysicalDataScanLimit,
                     parentId);
         }
     }
