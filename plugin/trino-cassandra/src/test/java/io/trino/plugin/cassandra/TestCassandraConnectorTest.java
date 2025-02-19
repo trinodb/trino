@@ -196,17 +196,19 @@ public class TestCassandraConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE cassandra.tpch.orders (\n" +
-                        "   orderkey bigint,\n" +
-                        "   custkey bigint,\n" +
-                        "   orderstatus varchar,\n" +
-                        "   totalprice double,\n" +
-                        "   orderdate date,\n" +
-                        "   orderpriority varchar,\n" +
-                        "   clerk varchar,\n" +
-                        "   shippriority integer,\n" +
-                        "   comment varchar\n" +
-                        ")");
+                .isEqualTo(
+                        """
+                        CREATE TABLE cassandra.tpch.orders (
+                           orderkey bigint,
+                           custkey bigint,
+                           orderstatus varchar,
+                           totalprice double,
+                           orderdate date,
+                           orderpriority varchar,
+                           clerk varchar,
+                           shippriority integer,
+                           comment varchar
+                        )""");
     }
 
     @Test
