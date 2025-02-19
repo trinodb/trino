@@ -32,6 +32,8 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.hive.avro.AvroFileWriterFactory;
 import io.trino.plugin.hive.avro.AvroPageSourceFactory;
+import io.trino.plugin.hive.ion.IonFileWriterFactory;
+import io.trino.plugin.hive.ion.IonPageSourceFactory;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
@@ -141,6 +143,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildColumnMappings;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
+import static io.trino.plugin.hive.HiveStorageFormat.ION;
 import static io.trino.plugin.hive.HiveStorageFormat.JSON;
 import static io.trino.plugin.hive.HiveStorageFormat.OPENX_JSON;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
@@ -363,6 +366,29 @@ public final class TestHiveFileFormats
                 .withSkipGenericWriterTest()
                 .withFileWriterFactory(fileSystemFactory -> new OpenXJsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .isReadableByPageSource(fileSystemFactory -> new OpenXJsonPageSourceFactory(fileSystemFactory, new HiveConfig()));
+    }
+
+    @Test(dataProvider = "validRowAndFileSizePadding")
+    public void testIonWithBinaryEncoding(int rowCount, long fileSizePadding)
+            throws Exception
+    {
+        List<TestColumn> testColumns = TEST_COLUMNS.stream()
+                // even though maps with text keys work with the native trino impl
+                // there is an error when testing against the hive serde
+                .filter(tc -> !(tc.type instanceof MapType))
+                .collect(toList());
+
+        HiveConfig hiveConfig = new HiveConfig();
+        // enable Ion native trino integration for testing while the implementation is in progress
+        // TODO: In future this flag should change to `true` as default and then the following statement can be removed.
+        hiveConfig.setIonNativeTrinoEnabled(true);
+
+        assertThatFileFormat(ION)
+                .withColumns(testColumns)
+                .withRowsCount(rowCount)
+                .withFileSizePadding(fileSizePadding)
+                .withFileWriterFactory(fileSystemFactory -> new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, hiveConfig))
+                .isReadableByPageSource(fileSystemFactory -> new IonPageSourceFactory(fileSystemFactory, hiveConfig));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")
