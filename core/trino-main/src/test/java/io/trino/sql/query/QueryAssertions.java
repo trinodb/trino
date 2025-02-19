@@ -701,6 +701,20 @@ public class QueryAssertions
             return this;
         }
 
+        public ResultAssert hasQueryDataEncoding(String encoding)
+        {
+            assertThat(actual.getQueryDataEncoding())
+                    .isPresent()
+                    .hasValue(encoding);
+            return this;
+        }
+
+        public ResultAssert hasNoQueryDataEncoding()
+        {
+            assertThat(actual.getQueryDataEncoding()).isEmpty();
+            return this;
+        }
+
         public AbstractIntegerAssert<?> rowCount()
         {
             return assertThat(actual.getRowCount())

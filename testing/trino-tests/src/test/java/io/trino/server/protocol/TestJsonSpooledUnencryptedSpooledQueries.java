@@ -13,12 +13,20 @@
  */
 package io.trino.server.protocol;
 
-public class TestJsonSpooledDistributedQueries
-        extends AbstractSpooledQueryDataDistributedQueries
+import java.util.Map;
+
+public class TestJsonSpooledUnencryptedSpooledQueries
+        extends AbstractSpooledQueries
 {
     @Override
     protected String encoding()
     {
-        return "json";
+        return "json+zstd";
+    }
+
+    @Override
+    protected Map<String, String> spoolingFileSystemConfig()
+    {
+        return Map.of("fs.segment.encryption", "false");
     }
 }

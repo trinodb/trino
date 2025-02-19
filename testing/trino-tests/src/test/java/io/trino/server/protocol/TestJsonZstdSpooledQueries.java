@@ -11,18 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.protocol.retrieval;
+package io.trino.server.protocol;
 
-import io.trino.server.protocol.spooling.SpoolingConfig;
-
-import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.COORDINATOR_PROXY;
-
-public class TestSpooledCoordinatorProxyRetrievalDistributedQueries
-        extends AbstractSpooledQueryDataRetrievalDistributedQueries
+public class TestJsonZstdSpooledQueries
+        extends AbstractSpooledQueries
 {
     @Override
-    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
+    protected String encoding()
     {
-        return COORDINATOR_PROXY;
+        return "json+zstd";
     }
 }

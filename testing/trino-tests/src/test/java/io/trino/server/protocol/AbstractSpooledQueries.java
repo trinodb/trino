@@ -17,19 +17,22 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
-import io.trino.connector.MockConnectorFactory;
-import io.trino.connector.MockConnectorPlugin;
 import io.trino.plugin.memory.MemoryQueryRunner;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spooling.filesystem.FileSystemSpoolingPlugin;
-import io.trino.testing.AbstractTestEngineOnlyQueries;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingStatementClientFactory;
 import io.trino.testing.TestingTrinoClient;
+import io.trino.tests.tpch.TpchQueryRunner;
 import io.trino.tpch.TpchTable;
 import okhttp3.OkHttpClient;
+import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -42,16 +45,25 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.SystemSessionProperties.SPOOLING_ENABLED;
 import static io.trino.client.StatementClientFactory.newStatementClient;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.INLINING_ENABLED;
+import static io.trino.server.protocol.spooling.SpoolingSessionProperties.INLINING_MAX_ROWS;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.util.Base64.getEncoder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-public abstract class AbstractSpooledQueryDataDistributedQueries
-        extends AbstractTestEngineOnlyQueries
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
+public abstract class AbstractSpooledQueries
 {
     private LocalStackContainer localstack;
+    private DistributedQueryRunner spooledRunner;
+    private DistributedQueryRunner nonSpooledRunner;
+    private QueryAssertions assertions;
+
     private final String testBucket = "segments" + UUID.randomUUID();
 
     protected abstract String encoding();
@@ -66,18 +78,18 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
         return Map.of();
     }
 
-    @Override
-    protected QueryRunner createQueryRunner()
+    @BeforeAll
+    protected void createQueryRunner()
             throws Exception
     {
-        localstack = closeAfterClass(new LocalStackContainer("s3-latest"));
+        localstack = new LocalStackContainer("s3-latest");
         localstack.start();
 
         try (S3Client client = createS3Client(localstack)) {
             client.createBucket(CreateBucketRequest.builder().bucket(testBucket).build());
         }
 
-        DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
+        spooledRunner = MemoryQueryRunner.builder()
                 .setInitialTables(TpchTable.getTables())
                 .setTestingTrinoClientFactory((trinoServer, session) -> createClient(trinoServer, session, encoding()))
                 .addExtraProperty("protocol.spooling.enabled", "true")
@@ -99,41 +111,71 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                     runner.loadSpoolingManager("filesystem", spoolingConfig);
                 })
                 .build();
-        queryRunner.getCoordinator().getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        try {
-            queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
-                    .withSessionProperties(TEST_CATALOG_PROPERTIES)
-                    .build()));
-            queryRunner.createCatalog(TESTING_CATALOG, "mock");
+
+        nonSpooledRunner = TpchQueryRunner.builder()
+                .build();
+
+        assertions = new QueryAssertions(spooledRunner);
+    }
+
+    @AfterAll
+    public void destroy()
+    {
+        if (spooledRunner != null) {
+            spooledRunner.close();
+            spooledRunner = null;
+            assertions = null;
         }
-        catch (RuntimeException e) {
-            throw closeAllSuppress(e, queryRunner);
+
+        if (nonSpooledRunner != null) {
+            nonSpooledRunner.close();
+            nonSpooledRunner = null;
         }
-        return queryRunner;
+
+        if (localstack != null) {
+            localstack.close();
+        }
     }
 
     @Test
-    public void testSpoolingDisabledForNonSelectQueries()
+    public void testDifferentQueryShapes()
     {
         // Ensure that spooling is enabled for SELECT queries
-        assertThat(computeActual("SELECT * FROM nation").getQueryDataEncoding())
-                .hasValue(encoding());
+        assertThat(assertions.query(spoolingDisabled(), "SELECT * FROM nation"))
+                .result()
+                .hasNoQueryDataEncoding();
+
+        // Ensure that spooling can be disabled for SELECT queries
+        assertThat(assertions.query("SELECT * FROM nation"))
+                .result()
+                .hasQueryDataEncoding(encoding());
 
         // The rest of the cases are not meant to cover all possible query shapes
-        assertThat(computeActual("EXPLAIN SELECT * FROM nation").getQueryDataEncoding())
-                .isEmpty();
+        assertThat(assertions.query("EXPLAIN SELECT * FROM nation"))
+                .result()
+                .hasNoQueryDataEncoding();
 
-        assertThat(computeActual("CREATE TABLE spooling_test (col INT)").getQueryDataEncoding())
-                .isEmpty();
+        assertThat(assertions.query("CREATE TABLE spooling_test (col INT)"))
+                .result()
+                .hasNoQueryDataEncoding();
 
-        assertThat(computeActual("INSERT INTO spooling_test (col) VALUES (2137)").getQueryDataEncoding())
-                .isEmpty();
+        assertThat(assertions.query("INSERT INTO spooling_test (col) VALUES (2137)"))
+                .result()
+                .hasNoQueryDataEncoding();
 
-        assertThat(computeActual("SHOW SESSION").getQueryDataEncoding())
-                .isEmpty();
+        assertThat(assertions.query("SHOW SESSION"))
+                .result()
+                .hasNoQueryDataEncoding();
 
-        assertThat(computeActual("DROP TABLE spooling_test").getQueryDataEncoding())
-                .isEmpty();
+        assertThat(assertions.query("DROP TABLE spooling_test"))
+                .result()
+                .hasNoQueryDataEncoding();
+    }
+
+    @Test
+    public void testReadingNationTable()
+    {
+        assertSameResult("SELECT * FROM nation");
     }
 
     private static TestingTrinoClient createClient(TestingTrinoServer testingTrinoServer, Session session, String encoding)
@@ -149,6 +191,42 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
                 return newStatementClient(httpClient, clientSessionSpooled, query, Optional.empty());
             }
         }, session, new OkHttpClient());
+    }
+
+    public void assertSameResult(Session session, @Language("SQL") String query)
+    {
+        assertThat(assertions.query(session, query))
+                .result()
+                .matches(nonSpooledRunner.execute(query));
+    }
+
+    public void assertSameResult(@Language("SQL") String query)
+    {
+        assertSameResult(inliningEnabled(), query);
+        assertSameResult(inliningDisabled(), query);
+        assertSameResult(spoolingDisabled(), query);
+    }
+
+    private Session inliningDisabled()
+    {
+        return Session.builder(spooledRunner.getDefaultSession())
+                .setSystemProperty(INLINING_ENABLED, "false")
+                .build();
+    }
+
+    private Session inliningEnabled()
+    {
+        return Session.builder(spooledRunner.getDefaultSession())
+                .setSystemProperty(INLINING_ENABLED, "true")
+                .setSystemProperty(INLINING_MAX_ROWS, "1000")
+                .build();
+    }
+
+    private Session spoolingDisabled()
+    {
+        return Session.builder(spooledRunner.getDefaultSession())
+                .setSystemProperty(SPOOLING_ENABLED, "false")
+                .build();
     }
 
     private static String randomAES256Key()

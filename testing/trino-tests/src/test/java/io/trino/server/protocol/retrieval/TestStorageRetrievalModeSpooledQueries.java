@@ -13,25 +13,16 @@
  */
 package io.trino.server.protocol.retrieval;
 
-import io.trino.server.protocol.AbstractSpooledQueryDataDistributedQueries;
-import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
+import io.trino.server.protocol.spooling.SpoolingConfig;
 
-import java.util.Map;
+import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.STORAGE;
 
-public abstract class AbstractSpooledQueryDataRetrievalDistributedQueries
-        extends AbstractSpooledQueryDataDistributedQueries
+public class TestStorageRetrievalModeSpooledQueries
+        extends AbstractRetrievalModeSpooledQueries
 {
-    abstract SegmentRetrievalMode getSegmentRetrievalMode();
-
     @Override
-    protected Map<String, String> spoolingConfig()
+    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
     {
-        return Map.of("protocol.spooling.retrieval-mode", getSegmentRetrievalMode().name());
-    }
-
-    @Override
-    protected String encoding()
-    {
-        return "json+zstd";
+        return STORAGE;
     }
 }
