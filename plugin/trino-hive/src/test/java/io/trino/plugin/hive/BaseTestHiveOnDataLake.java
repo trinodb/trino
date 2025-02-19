@@ -112,8 +112,6 @@ abstract class BaseTestHiveOnDataLake
                                 .put("hive.metastore-refresh-interval", "1d")
                                 // This is required to reduce memory pressure to test writing large files
                                 .put("s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
-                                // This is required to enable AWS Athena partition projection
-                                .put("hive.partition-projection-enabled", "true")
                                 .buildOrThrow())
                 .build();
     }

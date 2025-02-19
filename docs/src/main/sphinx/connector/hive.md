@@ -283,7 +283,7 @@ Hive connector documentation.
   - `false`
 * - `hive.partition-projection-enabled`
   - Enables Athena partition projection support
-  - `false`
+  - `true`
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000
