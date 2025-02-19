@@ -11,14 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.protocol;
+package io.trino.server.protocol.retrieval;
 
-public class TestJsonLz4SpooledDistributedQueries
-        extends AbstractSpooledQueryDataDistributedQueries
+import io.trino.server.protocol.spooling.SpoolingConfig;
+
+public class TestWorkerProxyRetrievalModeSpooledQueries
+        extends AbstractRetrievalModeSpooledQueries
 {
     @Override
-    protected String encoding()
+    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
     {
-        return "json+lz4";
+        return SpoolingConfig.SegmentRetrievalMode.WORKER_PROXY;
     }
 }
