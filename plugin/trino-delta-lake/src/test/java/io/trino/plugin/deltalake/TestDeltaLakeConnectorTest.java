@@ -5213,4 +5213,22 @@ public class TestDeltaLakeConnectorTest
                     .contains(entry("comment", "Presto View"));
         }
     }
+
+    // test writing checkpoint to exceed default page size limit
+    @Test
+    public void testWriteLargeCheckpoint()
+    {
+        int columnSize = 100;
+        String columns = IntStream.range(0, columnSize)
+                .mapToObj("data_%d bigint"::formatted)
+                .collect(Collectors.joining(", ", "(", ")"));
+        int size = 200;
+        try (TestTable table = newTrinoTable("test_large_checkpoint", columns + " WITH (checkpoint_interval = %d)".formatted(size))) {
+            for (int i = 0; i < size; i++) {
+                String value = ",%d".formatted(i).repeat(columnSize).substring(1);
+                assertUpdate("INSERT INTO " + table.getName() + " VALUES (" + value + ")", 1);
+            }
+            assertQuery("SELECT COUNT(*) FROM " + table.getName(), "VALUES " + size);
+        }
+    }
 }

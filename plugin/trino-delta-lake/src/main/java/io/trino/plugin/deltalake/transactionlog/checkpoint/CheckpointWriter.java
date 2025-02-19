@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.alwaysTrue;
@@ -142,7 +143,7 @@ public class CheckpointWriter
 
         ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(columnTypes, columnNames, false, false);
 
-        ParquetWriter writer = new ParquetWriter(
+        ParquetWriter parquetWriter = new ParquetWriter(
                 outputFile.create(),
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
@@ -154,25 +155,68 @@ public class CheckpointWriter
 
         PageBuilder pageBuilder = new PageBuilder(columnTypes);
 
-        writeMetadataEntry(pageBuilder, metadataEntryType, entries.metadataEntry());
-        writeProtocolEntry(pageBuilder, protocolEntryType, entries.protocolEntry());
-        for (TransactionEntry transactionEntry : entries.transactionEntries()) {
-            writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry);
-        }
-        List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.metadataEntry(), entries.protocolEntry(), typeManager);
-        List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
-                .map(column -> RowType.field(column.basePhysicalColumnName(), column.type()))
-                .collect(toImmutableList());
-        for (AddFileEntry addFileEntry : entries.addFileEntries()) {
-            writeAddFileEntry(pageBuilder, addEntryType, addFileEntry, entries.metadataEntry(), entries.protocolEntry(), partitionColumns, partitionValuesParsedFieldTypes, writeStatsAsJson, writeStatsAsStruct);
-        }
-        for (RemoveFileEntry removeFileEntry : entries.removeFileEntries()) {
-            writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry);
+        try (CheckpointPageWriter writer = new CheckpointPageWriter(parquetWriter, pageBuilder)) {
+            writer.addEntry(_ -> writeMetadataEntry(pageBuilder, metadataEntryType, entries.metadataEntry()));
+            writer.addEntry(_ -> writeProtocolEntry(pageBuilder, protocolEntryType, entries.protocolEntry()));
+            for (TransactionEntry transactionEntry : entries.transactionEntries()) {
+                writer.addEntry(_ -> writeTransactionEntry(pageBuilder, txnEntryType, transactionEntry));
+            }
+            List<DeltaLakeColumnHandle> partitionColumns = extractPartitionColumns(entries.metadataEntry(), entries.protocolEntry(), typeManager);
+            List<RowType.Field> partitionValuesParsedFieldTypes = partitionColumns.stream()
+                    .map(column -> RowType.field(column.basePhysicalColumnName(), column.type()))
+                    .collect(toImmutableList());
+            for (AddFileEntry addFileEntry : entries.addFileEntries()) {
+                writer.addEntry(_ -> writeAddFileEntry(
+                        pageBuilder,
+                        addEntryType,
+                        addFileEntry,
+                        entries.metadataEntry(),
+                        entries.protocolEntry(), partitionColumns,
+                        partitionValuesParsedFieldTypes,
+                        writeStatsAsJson,
+                        writeStatsAsStruct));
+            }
+            for (RemoveFileEntry removeFileEntry : entries.removeFileEntries()) {
+                writer.addEntry(_ -> writeRemoveFileEntry(pageBuilder, removeEntryType, removeFileEntry));
+            }
         }
         // Not writing commit infos for now. DB does not keep them in the checkpoints by default
+    }
 
-        writer.write(pageBuilder.build());
-        writer.close();
+    private record CheckpointPageWriter(ParquetWriter writer, PageBuilder pageBuilder)
+            implements AutoCloseable
+    {
+        private CheckpointPageWriter(ParquetWriter writer, PageBuilder pageBuilder)
+        {
+            this.writer = requireNonNull(writer, "writer is null");
+            this.pageBuilder = requireNonNull(pageBuilder, "pageBuilder is null");
+        }
+
+        public void addEntry(Consumer<PageBuilder> entryWriter)
+                throws IOException
+        {
+            entryWriter.accept(pageBuilder);
+            if (pageBuilder.isFull()) {
+                flush();
+            }
+        }
+
+        private void flush()
+                throws IOException
+        {
+            if (!pageBuilder.isEmpty()) {
+                writer.write(pageBuilder.build());
+                pageBuilder.reset();
+            }
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            flush();
+            writer.close();
+        }
     }
 
     private void writeMetadataEntry(PageBuilder pageBuilder, RowType entryType, MetadataEntry metadataEntry)
