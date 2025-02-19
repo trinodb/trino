@@ -36,8 +36,8 @@ public class TestCassandraSplit
         String json = codec.toJson(expected);
         CassandraSplit actual = codec.fromJson(json);
 
-        assertThat(actual.getSplitCondition()).isEqualTo(expected.getSplitCondition());
-        assertThat(actual.getAddresses()).isEqualTo(expected.getAddresses());
+        assertThat(actual.splitCondition()).isEqualTo(expected.splitCondition());
+        assertThat(actual.addresses()).isEqualTo(expected.addresses());
     }
 
     @Test
