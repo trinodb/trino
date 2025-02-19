@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
@@ -206,6 +207,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class EventDrivenFaultTolerantQueryScheduler
         implements QueryScheduler
 {
+    @VisibleForTesting
+    public static final Duration NO_FINAL_TASK_INFO_CHECK_INTERVAL = new Duration(1, MINUTES);
+
     private static final Logger log = Logger.get(EventDrivenFaultTolerantQueryScheduler.class);
 
     private final QueryStateMachine queryStateMachine;
@@ -1676,17 +1680,18 @@ public class EventDrivenFaultTolerantQueryScheduler
                                 log.error("Did not receive final task info for task %s after it FINISHED; internal inconsistency; failing query", task.getTaskId());
                                 queryStateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "Did not receive final task info for task after it finished; failing query"));
                             }
-                        }, 1, MINUTES);
+                        }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
                         case CANCELED, ABORTED, FAILED -> scheduledExecutorService.schedule(() -> {
                             if (!finalTaskInfoReceived.get()) {
                                 log.error("Did not receive final task info for task %s after it %s; internal inconsistency; marking task failed in scheduler to unblock query progression", taskStatus.getState(), task.getTaskId());
                                 eventQueue.add(new RemoteTaskCompletedEvent(taskStatus));
                             }
-                        }, 1, MINUTES);
+                        }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
                         default -> throw new IllegalStateException("Unexpected task state: " + taskStatus.getState());
                     }
                 });
 
+                task.addFinalTaskInfoListener(_ -> finalTaskInfoReceived.set(true));
                 task.addFinalTaskInfoListener(taskExecutionStats::update);
                 task.addFinalTaskInfoListener(taskInfo -> eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.taskStatus())));
                 nodeLease.attachTaskId(task.getTaskId());
