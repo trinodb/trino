@@ -39,7 +39,7 @@ import static io.trino.tpch.TpchTable.NATION;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestMetadataOnlyQueries
+public class TestFaultTolerantMetadataOnlyQueries
         extends AbstractTestQueryFramework
 {
     @Override
