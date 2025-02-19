@@ -15,6 +15,7 @@ package io.trino.client.spooling.encoding;
 
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
@@ -22,12 +23,15 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.TimeStampVector;
+import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.util.TransferPair;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -56,7 +60,6 @@ import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static io.trino.client.IntervalDayTime.formatMillis;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -71,17 +74,20 @@ public class ArrowDecodingUtils
     {
     }
 
-    public static TypeDecoder[] createTypeDecoders(List<Column> columns, VectorSchemaRoot vectorSchemaRoot)
+    public static VectorTypeDecoder[] createVectorTypeDecoders(List<Column> columns, BufferAllocator allocator, List<FieldVector> vectors)
     {
         verify(!columns.isEmpty(), "Columns must not be empty");
-        TypeDecoder[] decoders = new TypeDecoder[columns.size()];
+        VectorTypeDecoder[] decoders = new VectorTypeDecoder[columns.size()];
         for (int i = 0; i < columns.size(); i++) {
-            decoders[i] = debugging(createTypeDecoder(columns.get(i).getTypeSignature(), vectorSchemaRoot.getVector(i)));
+            TransferPair transferPair = vectors.get(i).getTransferPair(allocator);
+            transferPair.getTo().allocateNew();
+            transferPair.transfer();
+            decoders[i] = debugging(createVectorTypeDecoder(columns.get(i).getTypeSignature(), transferPair.getTo()));
         }
         return decoders;
     }
 
-    private static TypeDecoder createTypeDecoder(ClientTypeSignature signature, FieldVector vector)
+    private static VectorTypeDecoder createVectorTypeDecoder(ClientTypeSignature signature, ValueVector vector)
     {
         switch (signature.getRawType()) {
             case BIGINT:
@@ -138,11 +144,11 @@ public class ArrowDecodingUtils
     }
 
     private static class PassThroughDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
-        private final FieldVector vector;
+        private final ValueVector vector;
 
-        public PassThroughDecoder(FieldVector vector)
+        public PassThroughDecoder(ValueVector vector)
         {
             this.vector = requireNonNull(vector, "vector is null");
         }
@@ -155,10 +161,16 @@ public class ArrowDecodingUtils
             }
             return vector.getObject(position);
         }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
     }
 
     private static class VarcharDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
         private final VarCharVector vector;
 
@@ -173,15 +185,21 @@ public class ArrowDecodingUtils
             if (vector.isNull(position)) {
                 return null;
             }
-            return new String(vector.get(position), UTF_8);
+            return vector.getObject(position).toString();
+        }
+
+        @Override
+        public void close()
+        {
+            vector.close();
         }
     }
 
     private static class MapDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
-        private final TypeDecoder keyDecoder;
-        private final TypeDecoder valueDecoder;
+        private final VectorTypeDecoder keyDecoder;
+        private final VectorTypeDecoder valueDecoder;
         private final MapVector vector;
 
         public MapDecoder(ClientTypeSignature signature, MapVector vector)
@@ -191,8 +209,8 @@ public class ArrowDecodingUtils
             StructVector structVector = (StructVector) vector.getDataVector();
 
             checkArgument(signature.getRawType().equals(MAP), "not a map type signature: %s", signature);
-            this.keyDecoder = debugging(createTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), structVector.getChild("key")));
-            this.valueDecoder = debugging(createTypeDecoder(signature.getArgumentsAsTypeSignatures().get(1), structVector.getChild("value")));
+            this.keyDecoder = debugging(createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), structVector.getChild("key")));
+            this.valueDecoder = debugging(createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(1), structVector.getChild("value")));
         }
 
         @Override
@@ -204,12 +222,21 @@ public class ArrowDecodingUtils
             }
             return unmodifiableMap(values);
         }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            keyDecoder.close();
+            valueDecoder.close();
+            vector.close();
+        }
     }
 
     private static class ArrayDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
-        private final TypeDecoder valueDecoder;
+        private final VectorTypeDecoder valueDecoder;
         private final ListVector vector;
 
         public ArrayDecoder(ClientTypeSignature signature, ListVector vector)
@@ -217,7 +244,7 @@ public class ArrowDecodingUtils
             requireNonNull(signature, "signature is null");
             this.vector = requireNonNull(vector, "vector is null");
             checkArgument(signature.getRawType().equals(ARRAY), "not an array type signature: %s", signature);
-            this.valueDecoder = debugging(createTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), vector.getDataVector()));
+            this.valueDecoder = debugging(createVectorTypeDecoder(signature.getArgumentsAsTypeSignatures().get(0), vector.getDataVector()));
         }
 
         @Override
@@ -229,10 +256,18 @@ public class ArrowDecodingUtils
             }
             return unmodifiableList(values);
         }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            valueDecoder.close();
+            vector.close();
+        }
     }
 
     private static class BigintDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
         private final BigIntVector vector;
 
@@ -249,10 +284,16 @@ public class ArrowDecodingUtils
             }
             return vector.get(position);
         }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
     }
 
     private static class DateDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
         private final DateDayVector vector;
 
@@ -269,10 +310,16 @@ public class ArrowDecodingUtils
             }
             return LocalDate.ofEpochDay(vector.get(position)).toString();
         }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
     }
 
     private static class TimestampDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
         private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
 
@@ -312,10 +359,16 @@ public class ArrowDecodingUtils
 //                }
 //            }
         }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
     }
 
     private static class DecimalDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
         private final DecimalVector vector;
 
@@ -333,10 +386,16 @@ public class ArrowDecodingUtils
             // TODO: expect BigDecimal directly in the JDBC driver
             return vector.getObject(position).toString();
         }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
     }
 
     private static class UuidDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
         private final FixedSizeBinaryVector vector;
 
@@ -355,10 +414,16 @@ public class ArrowDecodingUtils
             // TODO: expect UUID directly in the JDBC driver
             return nameUUIDFromBytes(vector.get(position)).toString();
         }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
     }
 
     private static class IntervalDayTimeDecoder
-            implements TypeDecoder
+            implements VectorTypeDecoder
     {
         private final IntervalDayVector vector;
 
@@ -377,25 +442,44 @@ public class ArrowDecodingUtils
             Duration duration = vector.getObject(position);
             return formatMillis(duration.toNanos() / 1_000_000);
         }
+
+        @Override
+        public void close()
+        {
+            vector.close();
+        }
     }
 
-    public interface TypeDecoder
+    public interface VectorTypeDecoder
+            extends Closeable
     {
         Object decode(int position);
     }
 
-    private static TypeDecoder debugging(TypeDecoder delegate)
+    private static VectorTypeDecoder debugging(VectorTypeDecoder delegate)
     {
         if (!DEBUG) {
             return delegate;
         }
-        return (position) -> {
-            System.out.println(delegate.getClass().getSimpleName() + "[" + position + "] = " + delegate.decode(position));
-            return delegate.decode(position);
+        return new VectorTypeDecoder() {
+            @Override
+            public Object decode(int position)
+            {
+                Object object = delegate.decode(position);
+                System.out.println(delegate.getClass().getSimpleName() + "[" + position + "] = " + object);
+                return object;
+            }
+
+            @Override
+            public void close()
+                    throws IOException
+            {
+                delegate.close();
+            }
         };
     }
 
-    private static <T extends FieldVector> T checkedCast(FieldVector vector, Class<T> clazz)
+    private static <T extends FieldVector> T checkedCast(ValueVector vector, Class<T> clazz)
     {
         checkArgument(clazz.isInstance(vector), "Expected %s, but got %s", clazz, vector.getClass());
         return clazz.cast(vector);

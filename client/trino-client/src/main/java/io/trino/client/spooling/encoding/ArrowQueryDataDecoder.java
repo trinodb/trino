@@ -18,7 +18,7 @@ import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
 import io.trino.client.QueryDataDecoder;
 import io.trino.client.spooling.DataAttributes;
-import io.trino.client.spooling.encoding.ArrowDecodingUtils.TypeDecoder;
+import io.trino.client.spooling.encoding.ArrowDecodingUtils.VectorTypeDecoder;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import static io.trino.client.spooling.encoding.ArrowDecodingUtils.createTypeDecoders;
+import static io.trino.client.spooling.encoding.ArrowDecodingUtils.createVectorTypeDecoders;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
@@ -54,7 +54,7 @@ public class ArrowQueryDataDecoder
     {
         BufferAllocator allocator = ROOT_ALLOCATOR.newChildAllocator(randomUUID().toString(), Integer.MAX_VALUE, Integer.MAX_VALUE);
         ArrowStreamReader streamReader = new ArrowStreamReader(input, allocator, new AirliftCompressionCodecFactory());
-        return new ArrowRowIterator(allocator, streamReader, createTypeDecoders(columns, streamReader.getVectorSchemaRoot()));
+        return new ArrowRowIterator(allocator, streamReader, columns);
     }
 
     public static class ArrowRowIterator
@@ -62,26 +62,29 @@ public class ArrowQueryDataDecoder
     {
         private final BufferAllocator allocator;
         private final ArrowReader reader;
-        private final TypeDecoder[] decoders;
+        private final List<Column> columns;
 
+        private VectorTypeDecoder[] currentVectorDecoders;
         private int currentRow;
         private int currentMaxRows;
 
-        public ArrowRowIterator(BufferAllocator allocator, ArrowReader reader, TypeDecoder[] decoders)
+        public ArrowRowIterator(BufferAllocator allocator, ArrowReader reader, List<Column> columns)
                 throws IOException
         {
             this.allocator = requireNonNull(allocator, "allocator is null");
             this.reader = requireNonNull(reader, "reader is null");
-            this.decoders = requireNonNull(decoders, "decoders is null");
+            this.columns = requireNonNull(columns, "columns is null");
             this.currentMaxRows = reader.getVectorSchemaRoot().getRowCount();
         }
 
         private boolean advance()
         {
+            clearVectors();
             try {
                 if (reader.loadNextBatch()) {
                     currentRow = 0;
                     currentMaxRows = reader.getVectorSchemaRoot().getRowCount();
+                    currentVectorDecoders = createVectorTypeDecoders(columns, allocator, reader.getVectorSchemaRoot().getFieldVectors());
                     return true;
                 }
                 return false;
@@ -104,17 +107,11 @@ public class ArrowQueryDataDecoder
                 throw new NoSuchElementException();
             }
 
-            List<Object> row = getRow();
-            currentRow++;
-            return row;
-        }
-
-        public List<Object> getRow()
-        {
             ArrayList<Object> row = new ArrayList<>();
-            for (TypeDecoder decoder : decoders) {
-                row.add(decoder.decode(currentRow));
+            for (VectorTypeDecoder vectorDecoder : currentVectorDecoders) {
+                row.add(vectorDecoder.decode(currentRow));
             }
+            currentRow++;
             return row;
         }
 
@@ -128,8 +125,23 @@ public class ArrowQueryDataDecoder
         public void close()
                 throws IOException
         {
+            clearVectors();
             reader.close();
             allocator.close();
+        }
+
+        private void clearVectors()
+        {
+            if (currentVectorDecoders != null) {
+                for (VectorTypeDecoder vectorDecoder : currentVectorDecoders) {
+                    try {
+                        vectorDecoder.close();
+                    }
+                    catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                }
+            }
         }
     }
 
