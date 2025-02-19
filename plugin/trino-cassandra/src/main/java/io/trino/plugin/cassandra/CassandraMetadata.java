@@ -511,7 +511,7 @@ public class CassandraMetadata
             return Optional.empty();
         }
 
-        CassandraTableHandle tableHandle = queryHandle.getTableHandle();
+        CassandraTableHandle tableHandle = queryHandle.tableHandle();
         List<ColumnHandle> columnHandles = getColumnHandles(((CassandraQueryRelationHandle) tableHandle.relationHandle()).getQuery());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
