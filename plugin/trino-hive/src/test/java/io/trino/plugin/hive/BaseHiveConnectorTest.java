@@ -224,7 +224,6 @@ public abstract class BaseHiveConnectorTest
                 .addHiveProperty("hive.writer-sort-buffer-size", "1MB")
                 // Make weighted split scheduling more conservative to avoid OOMs in test
                 .addHiveProperty("hive.minimum-assigned-split-weight", "0.5")
-                .addHiveProperty("hive.partition-projection-enabled", "true")
                 // This is needed for e2e scale writers test otherwise 50% threshold of
                 // bufferSize won't get exceeded for scaling to happen.
                 .addExtraProperty("task.max-local-exchange-buffer-size", "32MB")

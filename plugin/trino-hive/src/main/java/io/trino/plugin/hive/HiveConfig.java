@@ -170,7 +170,7 @@ public class HiveConfig
     private double minimumAssignedSplitWeight = 0.05;
     private boolean autoPurge;
 
-    private boolean partitionProjectionEnabled;
+    private boolean partitionProjectionEnabled = true;
 
     private S3StorageClassFilter s3StorageClassFilter = S3StorageClassFilter.READ_ALL;
 
