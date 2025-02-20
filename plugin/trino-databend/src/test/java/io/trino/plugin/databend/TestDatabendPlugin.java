@@ -22,7 +22,7 @@ import org.junit.jupiter.api.Test;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestDatabendPlugin
+final class TestDatabendPlugin
 {
     @Test
     public void testCreateConnector()
