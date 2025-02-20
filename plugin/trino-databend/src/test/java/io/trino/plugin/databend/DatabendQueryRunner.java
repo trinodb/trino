@@ -97,6 +97,9 @@ public final class DatabendQueryRunner
     public static void main(String[] args)
             throws Exception
     {
+        // If want to start the server locally, need to config databend with the object store like s3, or will get errors like:
+        // Failed to insert data: java.sql.SQLException: Failed to do presign. Exception: java.sql.SQLException: Failover Retry Error executing query after 0 failover retry: SQL:
+        // PRESIGN UPLOAD Query failed: QueryErrors{code=3902, message=storage doesn't support presign operation} cause: null
         QueryRunner queryRunner = builder(new TestingDatabendServer())
                 .addCoordinatorProperty("http-server.http.port", "8000")
                 .setInitialTables(TpchTable.getTables())
