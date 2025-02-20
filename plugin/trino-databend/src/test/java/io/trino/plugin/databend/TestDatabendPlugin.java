@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 final class TestDatabendPlugin
 {
     @Test
-    public void testCreateConnector()
+    void testCreateConnector()
     {
         Plugin plugin = new DatabendPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
