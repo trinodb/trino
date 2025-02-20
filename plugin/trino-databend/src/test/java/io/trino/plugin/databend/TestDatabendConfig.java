@@ -27,7 +27,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 final class TestDatabendConfig
 {
     @Test
-    public void testDefaults()
+    void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(DatabendConfig.class)
                 .setConnectionTimeout(Duration.valueOf("60s"))
