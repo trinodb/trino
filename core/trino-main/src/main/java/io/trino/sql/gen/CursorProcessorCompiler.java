@@ -254,29 +254,43 @@ public class CursorProcessorCompiler
                 .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
+        ifStatement.ifTrue()
+                .append(generateProjectInvocations(classDefinition, method, session, cursor, pageBuilder, projections));
+
+        return ifStatement;
+    }
+
+    private static BytecodeBlock generateProjectInvocations(
+            ClassDefinition classDefinition,
+            MethodDefinition methodDefinition,
+            Parameter session,
+            Parameter cursor,
+            Parameter pageBuilder,
+            int projections)
+    {
+        BytecodeBlock block = new BytecodeBlock();
+
         // this.project_43(session, cursor, pageBuilder.getBlockBuilder(42)));
         for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
-            ifStatement.ifTrue()
-                    .append(method.getThis())
+            block.append(methodDefinition.getThis())
                     .getVariable(session)
                     .getVariable(cursor);
 
             // pageBuilder.getBlockBuilder(0)
-            ifStatement.ifTrue()
-                    .getVariable(pageBuilder)
+            block.getVariable(pageBuilder)
                     .push(projectionIndex)
                     .invokeVirtual(PageBuilder.class, "getBlockBuilder", BlockBuilder.class, int.class);
 
             // project(block..., blockBuilder)gen
-            ifStatement.ifTrue()
-                    .invokeVirtual(classDefinition.getType(),
-                            "project_" + projectionIndex,
-                            type(void.class),
-                            type(ConnectorSession.class),
-                            type(RecordCursor.class),
-                            type(BlockBuilder.class));
+            block.invokeVirtual(classDefinition.getType(),
+                    "project_" + projectionIndex,
+                    type(void.class),
+                    type(ConnectorSession.class),
+                    type(RecordCursor.class),
+                    type(BlockBuilder.class));
         }
-        return ifStatement;
+
+        return block;
     }
 
     private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
