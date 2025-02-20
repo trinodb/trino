@@ -153,6 +153,9 @@ public class IcebergPageSinkProvider
             case REMOVE_ORPHAN_FILES:
             case ADD_FILES:
             case ADD_FILES_FROM_TABLE:
+            case CREATE_BRANCH:
+            case DROP_BRANCH:
+            case FAST_FORWARD:
                 // handled via ConnectorMetadata.executeTableExecute
         }
         throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());

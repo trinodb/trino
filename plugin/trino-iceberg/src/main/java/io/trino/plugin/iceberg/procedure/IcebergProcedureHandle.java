@@ -28,5 +28,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         @JsonSubTypes.Type(value = IcebergRemoveOrphanFilesHandle.class, name = "remove_orphan_files"),
         @JsonSubTypes.Type(value = IcebergAddFilesHandle.class, name = "add_files"),
         @JsonSubTypes.Type(value = IcebergAddFilesFromTableHandle.class, name = "add_files_from_table"),
+        @JsonSubTypes.Type(value = IcebergCreateBranchHandle.class, name = "create_branch"),
+        @JsonSubTypes.Type(value = IcebergDropBranchHandle.class, name = "drop_branch"),
+        @JsonSubTypes.Type(value = IcebergFastForwardHandle.class, name = "fast_forward"),
 })
 public interface IcebergProcedureHandle {}

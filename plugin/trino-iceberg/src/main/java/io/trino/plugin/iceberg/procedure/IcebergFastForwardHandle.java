@@ -13,17 +13,14 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
-public enum IcebergTableProcedureId
+import static java.util.Objects.requireNonNull;
+
+public record IcebergFastForwardHandle(String from, String to)
+        implements IcebergProcedureHandle
 {
-    OPTIMIZE,
-    OPTIMIZE_MANIFESTS,
-    DROP_EXTENDED_STATS,
-    ROLLBACK_TO_SNAPSHOT,
-    EXPIRE_SNAPSHOTS,
-    REMOVE_ORPHAN_FILES,
-    ADD_FILES,
-    ADD_FILES_FROM_TABLE,
-    CREATE_BRANCH,
-    DROP_BRANCH,
-    FAST_FORWARD,
+    public IcebergFastForwardHandle
+    {
+        requireNonNull(from, "from is null");
+        requireNonNull(to, "to is null");
+    }
 }
