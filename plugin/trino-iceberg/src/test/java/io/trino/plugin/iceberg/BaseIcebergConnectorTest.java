@@ -1604,9 +1604,8 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['\"row_t\".\"comment\"'])"))
                 .failure().hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
-        assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
-                "WITH (sorted_by = ARRAY['\"row_t.comment\"'])"))
-                .failure().hasMessageContaining("Column not found: row_t.comment");
+        assertUpdate("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                "WITH (sorted_by = ARRAY['\"row_t.comment\"'])");
     }
 
     @Test

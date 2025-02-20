@@ -19,17 +19,16 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.SortOrderBuilder;
-import org.apache.iceberg.types.Types;
+import org.apache.iceberg.types.TypeUtil;
 
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.PartitionFields.fromIdentifierToColumn;
 import static io.trino.plugin.iceberg.PartitionFields.quotedName;
@@ -60,11 +59,10 @@ public final class SortFieldUtils
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid " + SORTED_BY_PROPERTY + " definition", e);
         }
 
-        Set<Integer> baseColumnFieldIds = schema.columns().stream()
-                .map(Types.NestedField::fieldId)
-                .collect(toImmutableSet());
+        Map<Integer, String> baseColumnFieldIds = TypeUtil.indexNameById(schema.asStruct());
+
         for (SortField field : sortOrder.fields()) {
-            if (!baseColumnFieldIds.contains(field.sourceId())) {
+            if (!baseColumnFieldIds.containsKey(field.sourceId())) {
                 throw new TrinoException(COLUMN_NOT_FOUND, "Column not found: " + schema.findColumnName(field.sourceId()));
             }
         }
