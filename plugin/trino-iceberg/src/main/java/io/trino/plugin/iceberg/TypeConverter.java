@@ -105,6 +105,11 @@ public final class TypeConverter
                 return RowType.from(fields.stream()
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
+            case VARIANT:
+                // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
+                break;
+            case UNKNOWN:
+                break;
         }
         throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
     }
