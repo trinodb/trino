@@ -192,6 +192,7 @@ public class TestDatabendTypeMapping
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST('99999999999999999999999999999999999999' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999999' AS decimal(38, 0))")
                 .execute(getQueryRunner(), databendCreateAndInsert("tpch.test_decimal"));
     }
 
