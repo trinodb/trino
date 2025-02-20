@@ -15,11 +15,7 @@ package io.trino.plugin.databend;
 
 public enum DatabendEngineType
 {
-    FUSE("FUSE"),
-    MEMORY("Memory"),
-    RANDOM("Random"),
-    DELTA("Delta"),
-    ICEBERG("Iceberg");
+    FUSE("FUSE");
 
     private final String engineType;
 

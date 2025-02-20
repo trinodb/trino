@@ -221,13 +221,6 @@ public class DatabendClient
     }
 
     @Override
-    protected String getTableSchemaName(ResultSet resultSet)
-            throws SQLException
-    {
-        return resultSet.getString("TABLE_SCHEM");
-    }
-
-    @Override
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
     {
         StringBuilder sb = new StringBuilder();
@@ -608,9 +601,7 @@ public class DatabendClient
 
     private static LongWriteFunction uInt32WriteFunction()
     {
-        return (preparedStatement, parameterIndex, value) -> {
-            preparedStatement.setLong(parameterIndex, value);
-        };
+        return PreparedStatement::setLong;
     }
 
     private static ColumnMapping dateColumnMappingUsingLocalDate()
