@@ -3,7 +3,7 @@
 ## General
 
 * Add [](/functions/ai) for textual tasks on data using OpenAI, Anthropic, or
-  other LLMs using Ollama as backend.  ({issue}`25028`)
+  other LLMs using Ollama as backend.  ({issue}`24963`)
 * Include split count and total split distribution time in the `EXPLAIN ANALYZE`
   output. ({issue}`25028`)
 * Add support for JSON logging format to console with `log.console-format=JSON`. ({issue}`25081`)
