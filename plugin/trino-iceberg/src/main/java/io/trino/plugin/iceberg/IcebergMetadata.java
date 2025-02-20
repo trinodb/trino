@@ -132,6 +132,7 @@ import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.ContentFileParsers;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
@@ -162,6 +163,7 @@ import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.TableUtil;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.UpdatePartitionSpec;
 import org.apache.iceberg.UpdateProperties;
@@ -1372,6 +1374,7 @@ public class IcebergMetadata
     {
         return new IcebergWritableTableHandle(
                 name,
+                TableUtil.formatVersion(table),
                 SchemaParser.toJson(table.schema()),
                 transformValues(table.specs(), PartitionSpecParser::toJson),
                 table.spec().specId(),
@@ -1484,7 +1487,7 @@ public class IcebergMetadata
                         INCREMENTAL_UPDATE,
                         collectedStatistics);
                 transaction.updateStatistics()
-                        .setStatistics(newSnapshotId, statisticsFile)
+                        .setStatistics(statisticsFile)
                         .commit();
 
                 commitTransaction(transaction, "update statistics on insert");
@@ -1996,7 +1999,7 @@ public class IcebergMetadata
             StatisticsFile newStatsFile = tableStatisticsWriter.rewriteStatisticsFile(session, reloadedTable, newSnapshotId);
 
             transaction.updateStatistics()
-                    .setStatistics(newSnapshotId, newStatsFile)
+                    .setStatistics(newStatsFile)
                     .commit();
             commitTransaction(transaction, "update statistics after optimize");
         }
@@ -2944,7 +2947,7 @@ public class IcebergMetadata
                 REPLACE,
                 collectedStatistics);
         transaction.updateStatistics()
-                .setStatistics(snapshotId, statisticsFile)
+                .setStatistics(statisticsFile)
                 .commit();
 
         commitTransaction(transaction, "statistics collection");
@@ -2985,7 +2988,11 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return getInsertLayout(session, tableHandle)
+        Optional<ConnectorTableLayout> insertLayout = getInsertLayout(session, tableHandle);
+        if (insertLayout.isEmpty() || insertLayout.get().getPartitioning().isEmpty()) {
+            return Optional.of(new IcebergPartitioningHandle(true, List.of()));
+        }
+        return insertLayout
                 .flatMap(ConnectorTableLayout::getPartitioning)
                 .map(IcebergPartitioningHandle.class::cast)
                 .map(IcebergPartitioningHandle::forUpdate);
@@ -3079,10 +3086,22 @@ public class IcebergMetadata
                 case POSITION_DELETES -> {
                     FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
                             .withPath(task.path())
-                            .withFormat(task.fileFormat().toIceberg())
+                            .withFormat(task.fileFormat())
                             .ofPositionDeletes()
                             .withFileSizeInBytes(task.fileSizeInBytes())
                             .withMetrics(task.metrics().metrics());
+
+                    if (task.fileFormat() == FileFormat.PUFFIN) {
+                        deleteBuilder.withRecordCount(task.metrics().recordCount());
+                        deleteBuilder.withContentOffset(task.contentOffset().orElseThrow(() -> new IllegalArgumentException("Content offset is required for deletion vector")));
+                        deleteBuilder.withContentSizeInBytes(task.contentSize().orElseThrow(() -> new IllegalArgumentException("Content size is required for deletion vector")));
+                        deleteBuilder.withReferencedDataFile(task.referencedDataFile().orElseThrow());
+                        for (String rewrittenDeleteFile : task.rewrittenDeleteFiles()) {
+                            DeleteFile deleteFile = (DeleteFile) ContentFileParsers.fromJson(rewrittenDeleteFile, partitionSpec);
+                            rowDelta.removeDeletes(deleteFile);
+                        }
+                    }
+
                     task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
                     if (!partitionSpec.fields().isEmpty()) {
                         String partitionDataJson = task.partitionDataJson()
@@ -3096,7 +3115,7 @@ public class IcebergMetadata
                 case DATA -> {
                     DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                             .withPath(task.path())
-                            .withFormat(task.fileFormat().toIceberg())
+                            .withFormat(task.fileFormat())
                             .withFileSizeInBytes(task.fileSizeInBytes())
                             .withMetrics(task.metrics().metrics());
                     if (!icebergTable.spec().fields().isEmpty()) {
