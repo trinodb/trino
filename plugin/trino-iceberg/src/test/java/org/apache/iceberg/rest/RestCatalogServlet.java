@@ -22,7 +22,7 @@ import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.io.CharStreams;
-import org.apache.iceberg.rest.RESTCatalogAdapter.HTTPMethod;
+import org.apache.iceberg.rest.HTTPRequest.HTTPMethod;
 import org.apache.iceberg.rest.RESTCatalogAdapter.Route;
 import org.apache.iceberg.rest.responses.ErrorResponse;
 import org.apache.iceberg.util.Pair;
@@ -98,15 +98,19 @@ public class RestCatalogServlet
             return;
         }
 
+        HTTPRequest request = restCatalogAdapter.buildRequest(
+                context.method(),
+                context.path(),
+                context.queryParams(),
+                context.headers(),
+                context.body());
+
         try {
             Object responseBody = restCatalogAdapter.execute(
-                    context.method(),
-                    context.path(),
-                    context.queryParams(),
-                    context.body(),
+                    request,
                     context.route().responseClass(),
-                    context.headers(),
-                    handle(response));
+                    handle(response),
+                    _ -> {});
 
             if (responseBody != null) {
                 RESTObjectMapper.mapper().writeValue(response.getWriter(), responseBody);
