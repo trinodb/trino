@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestDatabendTypeMapping
+final class TestDatabendTypeMapping
         extends AbstractTestQueryFramework
 {
     private TestingDatabendServer databendServer;
@@ -74,7 +74,7 @@ public class TestDatabendTypeMapping
     }
 
     @Test
-    public void testTinyint()
+    void testTinyint()
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("tinyint", "NULL", TINYINT, "CAST(NULL AS TINYINT)")
@@ -139,10 +139,10 @@ public class TestDatabendTypeMapping
         try (TestTable table = new TestTable(databendServer::execute, "tpch.test_unsupported_integer", "(data integer)")) {
             assertDatabendQueryFails(
                     "INSERT INTO " + table.getName() + " VALUES (-2147483649)", // min - 1
-                    "Query failed");
+                    "number overflowed while evaluating function `to_int32(-2147483649)` in expr `to_int32()`, during run expr: `CAST(-2147483649 AS Int32 NULL)`");
             assertDatabendQueryFails(
                     "INSERT INTO " + table.getName() + " VALUES (2147483648)", // max + 1
-                    "Query failed");
+                    "number overflowed while evaluating function `to_int32(2147483648)` in expr `to_int32()`, during run expr: `CAST(2147483648 AS Int32 NULL)`");
         }
     }
 
