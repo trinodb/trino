@@ -1484,7 +1484,7 @@ public class IcebergMetadata
                         INCREMENTAL_UPDATE,
                         collectedStatistics);
                 transaction.updateStatistics()
-                        .setStatistics(newSnapshotId, statisticsFile)
+                        .setStatistics(statisticsFile)
                         .commit();
 
                 commitTransaction(transaction, "update statistics on insert");
@@ -1996,7 +1996,7 @@ public class IcebergMetadata
             StatisticsFile newStatsFile = tableStatisticsWriter.rewriteStatisticsFile(session, reloadedTable, newSnapshotId);
 
             transaction.updateStatistics()
-                    .setStatistics(newSnapshotId, newStatsFile)
+                    .setStatistics(newStatsFile)
                     .commit();
             commitTransaction(transaction, "update statistics after optimize");
         }
@@ -2944,7 +2944,7 @@ public class IcebergMetadata
                 REPLACE,
                 collectedStatistics);
         transaction.updateStatistics()
-                .setStatistics(snapshotId, statisticsFile)
+                .setStatistics(statisticsFile)
                 .commit();
 
         commitTransaction(transaction, "statistics collection");
