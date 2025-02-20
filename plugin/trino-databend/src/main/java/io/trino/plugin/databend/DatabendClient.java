@@ -19,8 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Shorts;
 import com.google.inject.Inject;
-import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
-import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -29,31 +27,15 @@ import io.trino.plugin.jdbc.CaseSensitivity;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.LongReadFunction;
 import io.trino.plugin.jdbc.LongWriteFunction;
-import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.StandardColumnMappings;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
-import io.trino.plugin.jdbc.aggregation.ImplementCorr;
-import io.trino.plugin.jdbc.aggregation.ImplementCount;
-import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
-import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
-import io.trino.plugin.jdbc.aggregation.ImplementCovariancePop;
-import io.trino.plugin.jdbc.aggregation.ImplementCovarianceSamp;
-import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
-import io.trino.plugin.jdbc.aggregation.ImplementStddevPop;
-import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
-import io.trino.plugin.jdbc.aggregation.ImplementSum;
-import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
-import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
@@ -69,29 +51,19 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Int128;
-import io.trino.spi.type.StandardTypes;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.MathContext;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -102,9 +74,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.databend.DatabendTableProperties.ENGINE_PROPERTY;
 import static io.trino.plugin.databend.DatabendUtil.convertToQuotedString;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
@@ -140,29 +109,20 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_SECONDS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Math.floorDiv;
-import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -170,15 +130,9 @@ import static java.util.stream.Collectors.joining;
 public class DatabendClient
         extends BaseJdbcClient
 {
-    private static final DecimalType UINT64_TYPE = createDecimalType(20, 0);
-
     // An empty character means that the table doesn't have a comment in Databend
     private static final String NO_COMMENT = "";
-    private final Type jsonType;
-
     public static final int DEFAULT_DOMAIN_COMPACTION_THRESHOLD = 1_000;
-
-    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
     public DatabendClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, TypeManager typeManager, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
@@ -186,29 +140,6 @@ public class DatabendClient
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder().addStandardRules(this::quoted).build();
-        this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
-        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(connectorExpressionRewriter, ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
-                .add(new ImplementCountAll(bigintTypeHandle))
-                .add(new ImplementCount(bigintTypeHandle))
-                .add(new ImplementCountDistinct(bigintTypeHandle, false))
-                .add(new ImplementMinMax(false))
-                .add(new ImplementSum(DatabendClient::toTypeHandle))
-                .add(new ImplementAvgFloatingPoint())
-                .add(new ImplementAvgBigint())
-                .add(new ImplementCorr())
-                .add(new ImplementCovarianceSamp())
-                .add(new ImplementStddevSamp())
-                .add(new ImplementStddevPop())
-                .add(new ImplementVarianceSamp())
-                .add(new ImplementVariancePop())
-                .add(new ImplementCovariancePop()).build());
-    }
-
-    @Override
-    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
-    {
-        // TODO support complex ConnectorExpressions
-        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     @Override
@@ -286,9 +217,7 @@ public class DatabendClient
             // Databend maps their "database" to SQL catalogs and does not have schemas
             return metadata.getTables(schemaName.orElse(null), null, tableName.get(), getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
         }
-        else {
-            return metadata.getTables(schemaName.orElse(null), null, tableName.orElse(null), getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
-        }
+        return metadata.getTables(schemaName.orElse(null), null, tableName.orElse(null), getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
     @Override
@@ -384,7 +313,7 @@ public class DatabendClient
         }
         if (prop.size() == 1) {
             // only one column
-            return Optional.of(quoted(prop.get(0)));
+            return Optional.of(quoted(prop.getFirst()));
         }
         // include more than one column
         return Optional.of(prop.stream().map(this::quoted).collect(Collectors.joining(",", "(", ")")));
@@ -394,7 +323,7 @@ public class DatabendClient
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            PreparedStatement statement = connection.prepareStatement("" + "SELECT engine " + "FROM system.tables " + "WHERE database = ? AND name = ?");
+            PreparedStatement statement = connection.prepareStatement("SELECT engine " + "FROM system.tables " + "WHERE database = ? AND name = ?");
             statement.setString(1, tableHandle.asPlainTable().getRemoteTableName().getCatalogName().orElse(null));
             statement.setString(2, tableHandle.asPlainTable().getRemoteTableName().getTableName());
 
@@ -574,7 +503,6 @@ public class DatabendClient
                 return Optional.of(bigintColumnMapping());
 
             case Types.FLOAT:
-            case Types.REAL:
                 return Optional.of(ColumnMapping.longMapping(REAL, (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)), realWriteFunction(), DISABLE_PUSHDOWN));
 
             case Types.DOUBLE:
@@ -600,7 +528,7 @@ public class DatabendClient
                     decimalColumnMapping = decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)));
                 }
                 return Optional.of(ColumnMapping.mapping(decimalColumnMapping.getType(), decimalColumnMapping.getReadFunction(), decimalColumnMapping.getWriteFunction(),
-                        DISABLE_PUSHDOWN));
+                        DISABLE_PUSHDOWN)); // To avoid potential data loss or precision issues during pushdown operations
 
             case Types.DATE:
                 return Optional.of(dateColumnMappingUsingLocalDate());
@@ -617,11 +545,6 @@ public class DatabendClient
     {
         VarcharType varcharType = varcharLength <= VarcharType.MAX_LENGTH ? createVarcharType(varcharLength) : createUnboundedVarcharType();
         return StandardColumnMappings.varcharColumnMapping(varcharType, caseSensitivity.orElse(CASE_INSENSITIVE) == CASE_SENSITIVE);
-    }
-
-    private ColumnMapping jsonColumnMapping()
-    {
-        return ColumnMapping.sliceMapping(jsonType, (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))), varcharWriteFunction(), DISABLE_PUSHDOWN);
     }
 
     @Override
@@ -666,9 +589,6 @@ public class DatabendClient
         if (type == DATE) {
             return WriteMapping.longMapping("Date", dateWriteFunctionUsingLocalDate());
         }
-        if (type == TIMESTAMP_SECONDS) {
-            return WriteMapping.longMapping("DateTime", timestampSecondsWriteFunction());
-        }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
     }
 
@@ -693,15 +613,6 @@ public class DatabendClient
         };
     }
 
-    private static ObjectWriteFunction uInt64WriteFunction()
-    {
-        return ObjectWriteFunction.of(Int128.class, (statement, index, value) -> {
-            BigInteger unscaledValue = value.toBigInteger();
-            BigDecimal bigDecimal = new BigDecimal(unscaledValue, UINT64_TYPE.getScale(), new MathContext(UINT64_TYPE.getPrecision()));
-            statement.setBigDecimal(index, bigDecimal);
-        });
-    }
-
     private static ColumnMapping dateColumnMappingUsingLocalDate()
     {
         return ColumnMapping.longMapping(DATE, dateReadFunctionUsingLocalDate(), dateWriteFunctionUsingLocalDate());
@@ -712,34 +623,6 @@ public class DatabendClient
         return (statement, index, value) -> {
             LocalDate date = LocalDate.ofEpochDay(value);
             statement.setObject(index, date);
-        };
-    }
-
-    private static LongWriteFunction timestampSecondsWriteFunction()
-    {
-        return (statement, index, value) -> {
-            long epochSecond = floorDiv(value, MICROSECONDS_PER_SECOND);
-            int nanoFraction = floorMod(value, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            verify(nanoFraction == 0, "Nanos of second must be zero: '%s'", value);
-            LocalDateTime timestamp = LocalDateTime.ofEpochSecond(epochSecond, 0, UTC);
-            statement.setObject(index, timestamp);
-        };
-    }
-
-    private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
-    {
-        return (resultSet, columnIndex) -> {
-            ZonedDateTime zonedDateTime = resultSet.getObject(columnIndex, ZonedDateTime.class);
-            return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), zonedDateTime.getZone().getId());
-        };
-    }
-
-    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction()
-    {
-        return (statement, index, value) -> {
-            long millisUtc = unpackMillisUtc(value);
-            TimeZoneKey timeZoneKey = unpackZoneKey(value);
-            statement.setObject(index, Instant.ofEpochMilli(millisUtc).atZone(timeZoneKey.getZoneId()));
         };
     }
 }

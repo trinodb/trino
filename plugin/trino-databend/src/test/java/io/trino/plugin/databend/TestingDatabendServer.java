@@ -28,7 +28,7 @@ import static java.lang.String.format;
 public class TestingDatabendServer
         implements Closeable
 {
-    private static final DockerImageName DATABEND_IMAGE = DockerImageName.parse("datafuselabs/databend:v1.2.615");
+    private static final DockerImageName DATABEND_IMAGE = DockerImageName.parse("datafuselabs/databend");
     public static final DockerImageName DATABEND_DEFAULT_IMAGE = DATABEND_IMAGE.withTag("v1.2.615");
 
     private final DatabendContainer dockerContainer;
@@ -64,6 +64,7 @@ public class TestingDatabendServer
 
     public String getJdbcUrl()
     {
+        // The databend testContainer has something wrong and the getJdbcUrl can't work correctly.
         return format("jdbc:databend://%s:%s@%s:%s/",
                 dockerContainer.getUsername(),
                 dockerContainer.getPassword(),

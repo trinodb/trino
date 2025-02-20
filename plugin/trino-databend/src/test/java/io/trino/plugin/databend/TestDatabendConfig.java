@@ -13,13 +13,16 @@
  */
 package io.trino.plugin.databend;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
+import java.util.Map;
 
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestDatabendConfig
 {
@@ -28,14 +31,21 @@ public class TestDatabendConfig
     {
         assertRecordedDefaults(recordDefaults(DatabendConfig.class)
                 .setConnectionTimeout(Duration.valueOf("60s"))
-                .setPresignedUrlDisabled(false)
-                .setCacheMaximumSize(10000)
-                .setCacheMissing(false)
-                .setConnectionUrl(null)
-                .setJdbcTypesMappedToVarchar(new HashSet<>())
-                .setMetadataCacheTtl(Duration.ZERO)
-                .setSchemaNamesCacheTtl(Duration.ZERO)
-                .setStatisticsCacheTtl(Duration.ZERO)
-                .setTableNamesCacheTtl(Duration.ZERO));
+                .setPresignedUrlDisabled(false));
+    }
+
+    @Test
+    public void testExplicitPropertyMappings()
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("databend.presigned-url-disabled", "true")
+                .put("databend.connection-timeout", "10s")
+                .buildOrThrow();
+
+        DatabendConfig expected = new DatabendConfig()
+                .setPresignedUrlDisabled(true)
+                .setConnectionTimeout(new Duration(10, SECONDS));
+
+        assertFullMapping(properties, expected);
     }
 }

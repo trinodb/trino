@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -134,21 +132,6 @@ public class TestDatabendConnectorTest
 
             default -> super.hasBehavior(connectorBehavior);
         };
-    }
-
-    @Test
-    @Override
-    public void testNumericAggregationPushdown()
-    {
-        String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = createAggregationTestTable(schemaName + ".test_aggregation_pushdown",
-                ImmutableList.of("100.000, 100000000.000000000, 100.000, 100000000", "123.321, 123456789.987654321, 123.321, 123456789"))) {
-            assertThat(query("SELECT min(short_decimal), min(long_decimal), min(a_bigint), min(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal), max(a_bigint), max(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal), sum(a_bigint), sum(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(a_bigint), avg(t_double) FROM " + testTable.getName())).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
-        }
     }
 
     @Test
@@ -768,10 +751,6 @@ public class TestDatabendConnectorTest
     public void testDistinctHaving()
     {
         // wait this pr: https://github.com/databendlabs/databend-jdbc/pull/290
-//        assertQuery("SELECT COUNT(DISTINCT clerk) AS count " +
-//                "FROM orders " +
-//                "GROUP BY orderdate " +
-//                "HAVING COUNT(DISTINCT clerk) > 1");
         abort();
     }
 
@@ -780,11 +759,6 @@ public class TestDatabendConnectorTest
     public void testMultipleRangesPredicate()
     {
         // wait this pr: https://github.com/databendlabs/databend-jdbc/pull/290
-        // List columns explicitly. Some connectors do not maintain column ordering.
-//        assertQuery("" +
-//                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-//                "FROM orders " +
-//                "WHERE orderkey BETWEEN 10 AND 50 OR orderkey BETWEEN 100 AND 150");
         abort();
     }
 
@@ -793,11 +767,6 @@ public class TestDatabendConnectorTest
     public void testRangePredicate()
     {
         // wait this pr: https://github.com/databendlabs/databend-jdbc/pull/290
-        // List columns explicitly. Some connectors do not maintain column ordering.
-//        assertQuery("" +
-//                "SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment " +
-//                "FROM orders " +
-//                "WHERE orderkey BETWEEN 10 AND 50");
     }
 
     @Test
@@ -1128,55 +1097,6 @@ public class TestDatabendConnectorTest
     {
         assertThat(query("SELECT name AS region_name FROM tpch.region WHERE regionkey = 0"))
                 .matches("VALUES CAST('AFRICA' AS VARCHAR)");
-    }
-
-    @Test
-    public void testPredicatePushdown()
-    {
-        // varchar like
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name LIKE '%ROM%'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
-                .isNotFullyPushedDown(FilterNode.class);
-
-        // varchar equality
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
-                .isNotFullyPushedDown(FilterNode.class);
-
-        // varchar range
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
-                .isNotFullyPushedDown(FilterNode.class);
-
-        // varchar different case
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
-                .returnsEmptyResult()
-                .isNotFullyPushedDown(FilterNode.class);
-
-        // bigint equality
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
-                .isFullyPushedDown();
-
-        // bigint range, with decimal to bigint simplification
-        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
-                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar))")
-                .isFullyPushedDown();
-
-        onRemoteDatabase().execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
-        onRemoteDatabase().execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
-
-        onRemoteDatabase().execute("DROP TABLE tpch.binary_test");
-
-        // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
-        assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
-                .matches("VALUES (BIGINT '3', BIGINT '77')")
-                .isFullyPushedDown();
-
-        // predicate over aggregation result
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
-                .matches("VALUES (BIGINT '3', BIGINT '77')")
-                .isFullyPushedDown();
     }
 
     /**
