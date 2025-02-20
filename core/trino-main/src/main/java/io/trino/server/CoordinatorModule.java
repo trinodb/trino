@@ -185,7 +185,7 @@ public class CoordinatorModule
         install(new FailureDetectorModule());
         jaxrsBinder(binder).bind(NodeResource.class);
         jaxrsBinder(binder).bind(WorkerResource.class);
-        install(internalHttpClientModule("workerInfo", ForWorkerInfo.class).build());
+        install(internalHttpClientModule("worker-info", ForWorkerInfo.class).build());
 
         // query monitor
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);

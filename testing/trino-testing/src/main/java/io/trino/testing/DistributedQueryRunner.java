@@ -327,7 +327,7 @@ public class DistributedQueryRunner
             propertiesBuilder.put("failure-detector.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("memoryManager.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
-            propertiesBuilder.put("workerInfo.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("worker-info.http-client.min-threads", "1"); // default 8
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.buildOrThrow());
         properties.putAll(extraProperties);
