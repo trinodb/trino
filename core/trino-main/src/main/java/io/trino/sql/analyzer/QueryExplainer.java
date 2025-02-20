@@ -71,6 +71,7 @@ public class QueryExplainer
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final NodeVersion version;
+    private Analysis analysis;
 
     QueryExplainer(
             PlanOptimizersFactory planOptimizersFactory,
@@ -114,7 +115,7 @@ public class QueryExplainer
                     session,
                     false,
                     version);
-            case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
+            case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session, analysis);
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);
         };
     }
@@ -146,7 +147,7 @@ public class QueryExplainer
         }
 
         return switch (planType) {
-            case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
+            case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session, analysis);
             case LOGICAL -> {
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
                 yield jsonLogicalPlan(plan.getRoot(), session, plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts());
@@ -163,7 +164,7 @@ public class QueryExplainer
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         // analyze statement
-        Analysis analysis = analyze(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
+        analysis = analyze(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
