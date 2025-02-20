@@ -567,7 +567,7 @@ public final class IcebergUtil
                 .collect(toImmutableList());
 
         if (partitionSpecs.isEmpty()) {
-            return false;
+            return canEnforceConstraintWithinPartitioningSpec(typeOperators, table.spec(), columnHandle, domain);
         }
 
         return partitionSpecs.stream().allMatch(spec -> canEnforceConstraintWithinPartitioningSpec(typeOperators, spec, columnHandle, domain));
