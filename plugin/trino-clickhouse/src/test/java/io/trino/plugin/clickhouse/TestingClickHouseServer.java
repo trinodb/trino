@@ -21,7 +21,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 
-import static java.lang.String.format;
 import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class TestingClickHouseServer
@@ -70,7 +69,7 @@ public class TestingClickHouseServer
 
     public void execute(String sql)
     {
-        try (Connection connection = DriverManager.getConnection(getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(dockerContainer.getJdbcUrl(), dockerContainer.getUsername(), dockerContainer.getPassword());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
@@ -81,8 +80,17 @@ public class TestingClickHouseServer
 
     public String getJdbcUrl()
     {
-        return format("jdbc:clickhouse://%s:%s/", dockerContainer.getHost(),
-                dockerContainer.getMappedPort(8123));
+        return dockerContainer.getJdbcUrl();
+    }
+
+    public String getUsername()
+    {
+        return dockerContainer.getUsername();
+    }
+
+    public String getPassword()
+    {
+        return dockerContainer.getPassword();
     }
 
     @Override
