@@ -54,6 +54,9 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
 ## Build requirements
 
 * Mac OS X or Linux
+  * Note that some npm packages used to build the web UI are only available
+    for x86 architectures, so if you're building on Apple Silicon, you need 
+    to have Rosetta 2 installed
 * Java 23.0.0+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
