@@ -91,7 +91,8 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
             throws Exception
     {
         Network network = Network.newNetwork();
-        minio = closeAfterClass(Minio.builder().withNetwork(network).build());
+        // Use new MinIO version because Iceberg enables strong integrity checks
+        minio = closeAfterClass(Minio.builder().withImage("minio/minio:RELEASE.2025-01-20T14-49-07Z").withNetwork(network).build());
         minio.start();
         minio.createBucket(bucketName);
 

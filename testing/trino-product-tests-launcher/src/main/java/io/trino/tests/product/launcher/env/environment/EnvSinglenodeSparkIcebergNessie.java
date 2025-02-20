@@ -32,6 +32,7 @@ import java.io.File;
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.configureTempto;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -49,6 +50,7 @@ public class EnvSinglenodeSparkIcebergNessie
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
     private final String hadoopImagesVersion;
+    private final DockerFiles.ResourceProvider configDir;
 
     @Inject
     public EnvSinglenodeSparkIcebergNessie(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, EnvironmentConfig config, PortBinder portBinder)
@@ -57,6 +59,7 @@ public class EnvSinglenodeSparkIcebergNessie
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
+        this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-spark-iceberg-nessie");
     }
 
     @Override
@@ -70,6 +73,8 @@ public class EnvSinglenodeSparkIcebergNessie
         builder.configureContainer(TESTS, dockerContainer -> dockerContainer
                 // Binding instead of copying for avoiding OutOfMemoryError https://github.com/testcontainers/testcontainers-java/issues/2863
                 .withFileSystemBind(HIVE_JDBC_PROVIDER.getParent(), "/docker/jdbc", BindMode.READ_ONLY));
+
+        configureTempto(builder, configDir);
     }
 
     @SuppressWarnings("resource")

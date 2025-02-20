@@ -39,6 +39,7 @@ public enum IcebergFileFormat
             case AVRO -> AVRO;
             // Not used as a data file format
             case METADATA -> throw new IllegalArgumentException("Unexpected METADATA file format");
+            case PUFFIN -> throw new IllegalArgumentException("Unexpected PUFFIN file format");
         };
     }
 
