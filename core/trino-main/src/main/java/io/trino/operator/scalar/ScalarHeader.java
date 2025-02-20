@@ -34,6 +34,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ScalarHeader
 {
+    private final Optional<String> schemaName;
     private final String name;
     private final Optional<OperatorType> operatorType;
     private final Set<String> aliases;
@@ -41,8 +42,9 @@ public class ScalarHeader
     private final boolean hidden;
     private final boolean deterministic;
 
-    public ScalarHeader(String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic)
+    public ScalarHeader(Optional<String> schemaName, String name, Set<String> aliases, Optional<String> description, boolean hidden, boolean deterministic)
     {
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.name = requireNonNull(name, "name is null");
         checkArgument(!name.isEmpty());
         this.operatorType = Optional.empty();
@@ -55,6 +57,7 @@ public class ScalarHeader
 
     public ScalarHeader(OperatorType operatorType, Optional<String> description)
     {
+        this.schemaName = Optional.empty();
         this.name = mangleOperatorName(operatorType);
         this.operatorType = Optional.of(operatorType);
         this.description = requireNonNull(description, "description is null");
@@ -72,8 +75,9 @@ public class ScalarHeader
         ImmutableList.Builder<ScalarHeader> builder = ImmutableList.builder();
 
         if (scalarFunction != null) {
+            Optional<String> schemaName = scalarFunction.schema().isEmpty() ? Optional.empty() : Optional.of(scalarFunction.schema());
             String baseName = scalarFunction.value().isEmpty() ? camelToSnake(annotatedName(annotated)) : scalarFunction.value();
-            builder.add(new ScalarHeader(baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic()));
+            builder.add(new ScalarHeader(schemaName, baseName, ImmutableSet.copyOf(scalarFunction.alias()), description, scalarFunction.hidden(), scalarFunction.deterministic()));
         }
 
         if (scalarOperator != null) {
@@ -100,6 +104,11 @@ public class ScalarHeader
         }
 
         throw new IllegalArgumentException("Only Classes and Methods are supported as annotated elements.");
+    }
+
+    public Optional<String> getSchemaName()
+    {
+        return schemaName;
     }
 
     public String getName()
