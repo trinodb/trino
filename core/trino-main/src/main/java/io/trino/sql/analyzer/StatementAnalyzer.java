@@ -1605,9 +1605,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitUnnest(Unnest node, Optional<Scope> scope)
         {
-            ImmutableMap.Builder<NodeRef<Expression>, List<Field>> mappings = ImmutableMap.builder();
+            ImmutableMap.Builder<NodeRef<Expression>, List<Field>> mappingsBuilder = ImmutableMap.builder();
 
-            ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
+            ImmutableList.Builder<Field> outputFieldsBuilder = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, expression, "UNNEST");
                 List<Field> expressionOutputs = new ArrayList<>();
@@ -1634,8 +1634,8 @@ class StatementAnalyzer
                     throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
 
-                outputFields.addAll(expressionOutputs);
-                mappings.put(NodeRef.of(expression), expressionOutputs);
+                outputFieldsBuilder.addAll(expressionOutputs);
+                mappingsBuilder.put(NodeRef.of(expression), expressionOutputs);
             }
 
             Optional<Field> ordinalityField = Optional.empty();
@@ -1643,11 +1643,23 @@ class StatementAnalyzer
                 ordinalityField = Optional.of(Field.newUnqualified(Optional.empty(), BIGINT));
             }
 
-            ordinalityField.ifPresent(outputFields::add);
+            ordinalityField.ifPresent(outputFieldsBuilder::add);
 
-            analysis.setUnnest(node, new UnnestAnalysis(mappings.buildOrThrow(), ordinalityField));
+            Map<NodeRef<Expression>, List<Field>> mappings = mappingsBuilder.buildOrThrow();
+            analysis.setUnnest(node, new UnnestAnalysis(mappings, ordinalityField));
 
-            return createAndAssignScope(node, scope, outputFields.build());
+            List<Field> outputFields = outputFieldsBuilder.build();
+            for (Field field : outputFields) {
+                for (Map.Entry<NodeRef<Expression>, List<Field>> entry : mappings.entrySet()) {
+                    Expression expression = entry.getKey().getNode();
+                    List<Field> fields = entry.getValue();
+                    if (fields.contains(field)) {
+                        analysis.addSourceColumns(field, analysis.getExpressionSourceColumns(expression));
+                    }
+                }
+            }
+
+            return createAndAssignScope(node, scope, outputFields);
         }
 
         @Override
