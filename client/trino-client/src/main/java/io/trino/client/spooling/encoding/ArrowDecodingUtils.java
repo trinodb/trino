@@ -60,6 +60,8 @@ import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static io.trino.client.IntervalDayTime.formatMillis;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
@@ -216,6 +218,14 @@ public class ArrowDecodingUtils
         @Override
         public Object decode(int position)
         {
+            if (vector.isNull(position)) {
+                return null;
+            }
+
+            if (vector.isEmpty(position)) {
+                return emptyMap();
+            }
+
             Map<Object, Object> values = new HashMap<>();
             for (int i = vector.getElementStartIndex(position); i < vector.getElementEndIndex(position); i++) {
                 values.put(keyDecoder.decode(i), valueDecoder.decode(i));
@@ -250,6 +260,14 @@ public class ArrowDecodingUtils
         @Override
         public Object decode(int position)
         {
+            if (vector.isNull(position)) {
+                return null;
+            }
+
+            if (vector.isEmpty(position)) {
+                return emptyList();
+            }
+
             List<Object> values = new ArrayList<>();
             for (int i = vector.getElementStartIndex(position); i < vector.getElementEndIndex(position); i++) {
                 values.add(valueDecoder.decode(i));
