@@ -107,7 +107,12 @@ public class TestingFunctionResolution
 
     public ExpressionCompiler getExpressionCompiler()
     {
-        return new ExpressionCompiler(new CursorProcessorCompiler(plannerContext.getFunctionManager()), getPageFunctionCompiler(), getColumnarFilterCompiler());
+        return new ExpressionCompiler(getCursorProcessorCompiler(), getPageFunctionCompiler(), getColumnarFilterCompiler());
+    }
+
+    public CursorProcessorCompiler getCursorProcessorCompiler()
+    {
+        return new CursorProcessorCompiler(plannerContext.getFunctionManager());
     }
 
     public PageFunctionCompiler getPageFunctionCompiler()
