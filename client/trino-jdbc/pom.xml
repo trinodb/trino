@@ -466,6 +466,10 @@
                                     <shadedPattern>${shadeBase}.airlift</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>io.netty</pattern>
+                                    <shadedPattern>${shadeBase}.io.netty</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>jakarta.annotation</pattern>
                                     <shadedPattern>${shadeBase}.jakarta.annotation</shadedPattern>
                                 </relocation>
