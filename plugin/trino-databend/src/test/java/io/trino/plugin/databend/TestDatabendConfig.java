@@ -24,7 +24,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestDatabendConfig
+final class TestDatabendConfig
 {
     @Test
     public void testDefaults()
