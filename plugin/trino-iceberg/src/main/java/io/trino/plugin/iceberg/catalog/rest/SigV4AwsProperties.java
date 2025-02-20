@@ -20,6 +20,10 @@ import io.trino.filesystem.s3.S3FileSystemConfig;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.aws.AwsProperties.REST_ACCESS_KEY_ID;
+import static org.apache.iceberg.aws.AwsProperties.REST_SECRET_ACCESS_KEY;
+import static org.apache.iceberg.aws.AwsProperties.REST_SIGNER_REGION;
+import static org.apache.iceberg.aws.AwsProperties.REST_SIGNING_NAME;
 
 public class SigV4AwsProperties
         implements AwsProperties
@@ -31,10 +35,10 @@ public class SigV4AwsProperties
     {
         this.properties = ImmutableMap.<String, String>builder()
                 .put("rest.sigv4-enabled", "true")
-                .put("rest.signing-name", sigV4Config.getSigningName())
-                .put("rest.access-key-id", requireNonNull(s3Config.getAwsAccessKey(), "s3.aws-access-key is null"))
-                .put("rest.secret-access-key", requireNonNull(s3Config.getAwsSecretKey(), "s3.aws-secret-key is null"))
-                .put("rest.signing-region", requireNonNull(s3Config.getRegion(), "s3.region is null"))
+                .put(REST_SIGNING_NAME, sigV4Config.getSigningName())
+                .put(REST_ACCESS_KEY_ID, requireNonNull(s3Config.getAwsAccessKey(), "s3.aws-access-key is null"))
+                .put(REST_SECRET_ACCESS_KEY, requireNonNull(s3Config.getAwsSecretKey(), "s3.aws-secret-key is null"))
+                .put(REST_SIGNER_REGION, requireNonNull(s3Config.getRegion(), "s3.region is null"))
                 .put("rest-metrics-reporting-enabled", "false")
                 .buildOrThrow();
     }
