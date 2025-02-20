@@ -66,6 +66,7 @@ class ContinuousTaskStatusFetcher
     private final Supplier<SpanBuilder> spanBuilderFactory;
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
+    private final RemoteTaskCleaner remoteTaskCleaner;
 
     @GuardedBy("this")
     private boolean running;
@@ -84,7 +85,8 @@ class ContinuousTaskStatusFetcher
             Supplier<SpanBuilder> spanBuilderFactory,
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            RemoteTaskCleaner remoteTaskCleaner)
     {
         requireNonNull(initialTaskStatus, "initialTaskStatus is null");
 
@@ -102,6 +104,7 @@ class ContinuousTaskStatusFetcher
 
         this.errorTracker = new RequestErrorTracker(taskId, initialTaskStatus.getSelf(), maxErrorDuration, errorScheduledExecutor, "getting task status");
         this.stats = requireNonNull(stats, "stats is null");
+        this.remoteTaskCleaner = requireNonNull(remoteTaskCleaner, "remoteTaskCleaner is null");
     }
 
     public synchronized void start()
@@ -121,6 +124,7 @@ class ContinuousTaskStatusFetcher
             future.cancel(true);
             future = null;
         }
+        remoteTaskCleaner.markTaskStatusFetcherStopped(taskStatus.get().getState());
     }
 
     private synchronized void scheduleNextRequest()
@@ -253,7 +257,7 @@ class ContinuousTaskStatusFetcher
             onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
 
-        dynamicFiltersFetcher.updateDynamicFiltersVersionAndFetchIfNecessary(newValue.getDynamicFiltersVersion());
+        dynamicFiltersFetcher.updateDynamicFiltersVersionAndFetchIfNecessary(newValue.getDynamicFiltersVersion(), taskStatus.get().getState().isDone());
     }
 
     /**
