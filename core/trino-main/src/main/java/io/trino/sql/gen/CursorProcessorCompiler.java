@@ -18,11 +18,14 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
+import io.airlift.bytecode.DynamicClassLoader;
+import io.airlift.bytecode.FieldDefinition;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
@@ -55,6 +58,7 @@ import io.trino.sql.relational.VariableReferenceExpression;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -64,6 +68,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.bytecode.Access.FINAL;
+import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.PUBLIC;
 import static io.airlift.bytecode.Access.a;
 import static io.airlift.bytecode.Parameter.arg;
@@ -85,6 +90,8 @@ import static java.util.Objects.requireNonNull;
 
 public class CursorProcessorCompiler
 {
+    private static final int MAX_PROJECTIONS_PER_CHUNK = 100;
+
     private final FunctionManager functionManager;
 
     private final NonEvictableLoadingCache<CacheKey, Class<? extends CursorProcessor>> cursorProcessors;
@@ -137,14 +144,29 @@ public class CursorProcessorCompiler
 
     private Class<? extends CursorProcessor> compileProcessor(RowExpression filter, List<RowExpression> projections)
     {
+        CallSiteBinder callSiteBinder = new CallSiteBinder();
+
+        // Projections are split into multiple classes to prevent the process method from exceeding the JVM method size limit
+        // and to avoid hitting the constant pool size limit in the generated CursorProcessor.
+        List<CursorProcessorChunkClass> chunkClasses = new ArrayList<>();
+        List<List<RowExpression>> partitions = Lists.partition(projections, MAX_PROJECTIONS_PER_CHUNK);
+        int projectionStartIndex = 0;
+        for (List<RowExpression> partition : partitions) {
+            int chunkNumber = chunkClasses.size();
+
+            CursorProcessorChunkClass chunkClass = generateCursorProcessorChunk(partition, projectionStartIndex, callSiteBinder, chunkNumber);
+            chunkClasses.add(chunkClass);
+
+            projectionStartIndex += partition.size();
+        }
+
         ClassDefinition classDefinition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(CursorProcessor.class.getSimpleName()),
                 type(Object.class),
                 type(CursorProcessor.class));
 
-        CallSiteBinder callSiteBinder = new CallSiteBinder();
-        generateMethods(classDefinition, callSiteBinder, filter, projections);
+        generateMethods(classDefinition, callSiteBinder, filter, chunkClasses);
 
         //
         // toString method
@@ -157,23 +179,21 @@ public class CursorProcessorCompiler
                         .add("projections", projections)
                         .toString());
 
-        return defineClass(classDefinition, CursorProcessor.class, callSiteBinder.getBindings(), getClass().getClassLoader());
+        DynamicClassLoader dynamicClassLoader = new DynamicClassLoader(getClass().getClassLoader(), callSiteBinder.getBindings());
+        for (CursorProcessorChunkClass chunkClass : chunkClasses) {
+            defineClass(chunkClass.classDefinition(), Object.class, dynamicClassLoader);
+        }
+        return defineClass(classDefinition, CursorProcessor.class, dynamicClassLoader);
     }
 
-    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<RowExpression> projections)
+    private void generateMethods(ClassDefinition classDefinition, CallSiteBinder callSiteBinder, RowExpression filter, List<CursorProcessorChunkClass> chunkClasses)
     {
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(classDefinition, callSiteBinder);
 
-        generateProcessMethod(classDefinition, projections.size());
+        generateProcessMethod(classDefinition, chunkClasses);
 
         Map<LambdaDefinitionExpression, CompiledLambda> filterCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, filter, "filter");
         generateFilterMethod(classDefinition, callSiteBinder, cachedInstanceBinder, filterCompiledLambdaMap, filter);
-
-        for (int i = 0; i < projections.size(); i++) {
-            String methodName = "project_" + i;
-            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(classDefinition, callSiteBinder, cachedInstanceBinder, projections.get(i), methodName);
-            generateProjectMethod(classDefinition, callSiteBinder, cachedInstanceBinder, projectCompiledLambdaMap, methodName, projections.get(i));
-        }
 
         MethodDefinition constructorDefinition = classDefinition.declareConstructor(a(PUBLIC));
         BytecodeBlock constructorBody = constructorDefinition.getBody();
@@ -182,11 +202,16 @@ public class CursorProcessorCompiler
                 .append(thisVariable)
                 .invokeConstructor(Object.class);
 
+        for (CursorProcessorChunkClass chunkClass : chunkClasses) {
+            FieldDefinition chunkField = classDefinition.declareField(a(PRIVATE, FINAL), "chunk_" + chunkClass.chunkNumber(), chunkClass.classDefinition().getType());
+            constructorBody.append(thisVariable.setField(chunkField, newInstance(chunkClass.classDefinition().getType())));
+        }
+
         cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
         constructorBody.ret();
     }
 
-    private static void generateProcessMethod(ClassDefinition classDefinition, int projections)
+    private static void generateProcessMethod(ClassDefinition classDefinition, List<CursorProcessorChunkClass> chunkClasses)
     {
         Parameter session = arg("session", ConnectorSession.class);
         Parameter yieldSignal = arg("yieldSignal", DriverYieldSignal.class);
@@ -222,7 +247,7 @@ public class CursorProcessorCompiler
                                         .putVariable(finishedVariable, true)
                                         .gotoLabel(done)))
                         .comment("do the projection")
-                        .append(createProjectIfStatement(classDefinition, method, session, cursor, pageBuilder, projections))
+                        .append(createProjectIfStatement(classDefinition, method, session, cursor, pageBuilder, chunkClasses))
                         .comment("completedPositions++;")
                         .incrementVariable(completedPositionsVariable, (byte) 1));
 
@@ -239,7 +264,7 @@ public class CursorProcessorCompiler
             Parameter session,
             Parameter cursor,
             Parameter pageBuilder,
-            int projections)
+            List<CursorProcessorChunkClass> chunkClasses)
     {
         // if (filter(cursor))
         IfStatement ifStatement = new IfStatement();
@@ -254,24 +279,83 @@ public class CursorProcessorCompiler
                 .getVariable(pageBuilder)
                 .invokeVirtual(PageBuilder.class, "declarePosition", void.class);
 
-        ifStatement.ifTrue()
-                .append(generateProjectInvocations(classDefinition, method, session, cursor, pageBuilder, projections));
+        for (CursorProcessorChunkClass chunkClass : chunkClasses) {
+            ifStatement.ifTrue()
+                    .append(method.getThis()
+                            .getField(classDefinition.getType(), "chunk_" + chunkClass.chunkNumber(), chunkClass.classDefinition().getType())
+                            .invoke(chunkClass.projectMethod(), ImmutableList.of(session, cursor, pageBuilder)));
+        }
 
         return ifStatement;
     }
 
-    private static BytecodeBlock generateProjectInvocations(
-            ClassDefinition classDefinition,
-            MethodDefinition methodDefinition,
-            Parameter session,
-            Parameter cursor,
-            Parameter pageBuilder,
-            int projections)
+    private CursorProcessorChunkClass generateCursorProcessorChunk(
+            List<RowExpression> projections,
+            int projectionStartIndex,
+            CallSiteBinder callSiteBinder,
+            int chunkNumber)
     {
-        BytecodeBlock block = new BytecodeBlock();
+        ClassDefinition definition = new ClassDefinition(
+                a(PUBLIC, FINAL),
+                makeClassName("CursorProcessorChunk"),
+                type(Object.class));
 
-        // this.project_43(session, cursor, pageBuilder.getBlockBuilder(42)));
-        for (int projectionIndex = 0; projectionIndex < projections; projectionIndex++) {
+        CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, callSiteBinder);
+
+        MethodDefinition constructorDefinition = definition.declareConstructor(a(PUBLIC));
+        BytecodeBlock constructorBody = constructorDefinition.getBody();
+        Variable thisVariable = constructorDefinition.getThis();
+        constructorBody.comment("super();")
+                .append(thisVariable)
+                .invokeConstructor(Object.class);
+
+        MethodDefinition project = generateProjectChunk(definition, projectionStartIndex, callSiteBinder, cachedInstanceBinder, projections);
+
+        cachedInstanceBinder.generateInitializations(thisVariable, constructorBody);
+        constructorBody.ret();
+
+        return new CursorProcessorChunkClass(definition, project, chunkNumber);
+    }
+
+    private MethodDefinition generateProjectChunk(
+            ClassDefinition classDefinition,
+            int projectionStartIndex,
+            CallSiteBinder callSiteBinder,
+            CachedInstanceBinder cachedInstanceBinder,
+            List<RowExpression> projections)
+    {
+        Parameter session = arg("session", ConnectorSession.class);
+        Parameter cursor = arg("cursor", RecordCursor.class);
+        Parameter pageBuilder = arg("pageBuilder", PageBuilder.class);
+
+        MethodDefinition methodDefinition = classDefinition.declareMethod(
+                a(PUBLIC),
+                "project",
+                type(void.class),
+                session,
+                cursor,
+                pageBuilder);
+
+        BytecodeBlock block = methodDefinition.getBody();
+
+        // this.project_43(session, cursor, pageBuilder.getBlockBuilder(43)));
+        int projectionIndex = projectionStartIndex;
+        for (RowExpression projection : projections) {
+            String methodName = "project_" + projectionIndex;
+            Map<LambdaDefinitionExpression, CompiledLambda> projectCompiledLambdaMap = generateMethodsForLambda(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    projection,
+                    methodName);
+            generateProjectMethod(
+                    classDefinition,
+                    callSiteBinder,
+                    cachedInstanceBinder,
+                    projectCompiledLambdaMap,
+                    methodName,
+                    projection);
+
             block.append(methodDefinition.getThis())
                     .getVariable(session)
                     .getVariable(cursor);
@@ -283,14 +367,18 @@ public class CursorProcessorCompiler
 
             // project(block..., blockBuilder)gen
             block.invokeVirtual(classDefinition.getType(),
-                    "project_" + projectionIndex,
+                    methodName,
                     type(void.class),
                     type(ConnectorSession.class),
                     type(RecordCursor.class),
                     type(BlockBuilder.class));
+
+            projectionIndex++;
         }
 
-        return block;
+        block.ret();
+
+        return methodDefinition;
     }
 
     private Map<LambdaDefinitionExpression, CompiledLambda> generateMethodsForLambda(
@@ -494,4 +582,6 @@ public class CursorProcessorCompiler
             projections = ImmutableList.copyOf(requireNonNull(projections, "projections is null"));
         }
     }
+
+    private record CursorProcessorChunkClass(ClassDefinition classDefinition, MethodDefinition projectMethod, int chunkNumber) {}
 }
