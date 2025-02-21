@@ -27,6 +27,7 @@ import static java.util.Objects.requireNonNull;
 public record CommitInfoEntry(
         long version,
         long timestamp,
+        Long inCommitTimestamp, // TODO: support in the HistoryTable
         String userId,
         String userName,
         String operation,
@@ -48,7 +49,7 @@ public record CommitInfoEntry(
 
     public CommitInfoEntry withVersion(long version)
     {
-        return new CommitInfoEntry(version, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend, operationMetrics);
+        return new CommitInfoEntry(version, timestamp, inCommitTimestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend, operationMetrics);
     }
 
     public long getRetainedSizeInBytes()
