@@ -131,8 +131,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
         waitForRunningQueryCount(queryRunner, 1);
         // Update db to allow for 1 more running query in dashboard resource group
-        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         waitForQueryState(queryRunner, secondDashboardQuery, RUNNING);
         QueryId thirdDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
@@ -181,8 +181,8 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, thirdDashboardQuery, FAILED);
 
         // Allow one more query to run and resubmit third query
-        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(3, "user-${USER}", "1MB", 3, 4, 4, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 2, 2, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().get();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
@@ -194,7 +194,7 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, thirdDashboardQuery, QUEUED);
 
         // Lower running queries in dashboard resource groups and reload the config
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, 1, 1, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
 
         // Cancel query and verify that third query is still queued
@@ -258,7 +258,7 @@ public class TestQueuesDb
         assertThat(resourceGroup.get().toString()).isEqualTo("global.user-user.dashboard-user");
 
         // create a new resource group that rejects all queries submitted to it
-        dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         // add a new selector that has a higher priority than the existing dashboard selector and that routes queries to the "reject-all-queries" resource group
         dao.insertSelector(8, 200, "user.*", null, "(?i).*dashboard.*", null, null, null);
@@ -302,7 +302,7 @@ public class TestQueuesDb
         assertThat(queryManager.getFullQueryInfo(firstQuery).getErrorCode()).isEqualTo(EXCEEDED_TIME_LIMIT.toErrorCode());
         assertThat(queryManager.getFullQueryInfo(firstQuery).getFailureInfo().getMessage()).contains("Query exceeded the maximum execution time limit of 1.00ms");
         // set max running queries to 0 for the dashboard resource group so that new queries get queued immediately
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 0, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
         QueryId secondQuery = createQuery(
                 queryRunner,
@@ -320,7 +320,7 @@ public class TestQueuesDb
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         assertThat(dispatchManager.getQueryInfo(secondQuery).getState()).isEqualTo(QUEUED);
         // reconfigure the resource group to run the second query
-        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(5, "dashboard-${USER}", "1MB", 1, null, 1, null, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
         // cancel the first one and let the second one start
         dispatchManager.cancelQuery(firstQuery);
@@ -390,14 +390,14 @@ public class TestQueuesDb
         InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
 
-        dao.updateResourceGroup(2, "bi-${USER}", "100%", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(2, "bi-${USER}", "100%", 3, 2, 2, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
         assertThat(manager.tryGetResourceGroupInfo(new ResourceGroupId(new ResourceGroupId("global"), "bi-user"))
                 .orElseThrow(() -> new IllegalStateException("Resource group not found"))
                 .softMemoryLimit()
                 .toBytes()).isEqualTo(queryRunner.getCoordinator().getClusterMemoryManager().getClusterMemoryBytes());
 
-        dao.updateResourceGroup(2, "bi-${USER}", "123MB", 3, 2, 2, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(2, "bi-${USER}", "123MB", 3, 2, 2, null, null, null, null, null, null, 1L, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
 
         // wait for SqlQueryManager which enforce memory limits per second
@@ -417,9 +417,9 @@ public class TestQueuesDb
         InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
 
-        dao.insertResourceGroup(10, "queued", "80%", 10, null, 1, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(10, "queued", "80%", 10, null, 1, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dao.insertSelector(10, 1, null, null, null, null, "[\"queued\"]", null);
-        dao.insertResourceGroup(11, "running", "80%", 10, null, 2, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(11, "running", "80%", 10, null, 2, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dao.insertSelector(11, 1, null, null, null, null, "[\"running\"]", null);
         dbConfigurationManager.load();
 
@@ -432,10 +432,10 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, firstQueryFromRunningGroup, RUNNING);
 
         dao.deleteSelectors(10);
-        dao.insertResourceGroup(12, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 10L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(12, "subgroup", "80%", 10, null, 1, null, null, null, null, null, null,10L, TEST_ENVIRONMENT);
         dao.insertSelector(12, 1, null, null, null, null, "[\"queued\"]", null);
         dao.deleteSelectors(11);
-        dao.insertResourceGroup(13, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 11L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(13, "subgroup", "80%", 10, null, 1, null, null, null, null, null, null, 11L, TEST_ENVIRONMENT);
         dao.insertSelector(13, 1, null, null, null, null, "[\"running\"]", null);
         dbConfigurationManager.load();
 
@@ -457,11 +457,11 @@ public class TestQueuesDb
         InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
 
-        dao.insertResourceGroup(10, "queued", "80%", 10, null, 3, null, null, null, null, null, null, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(11, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 10L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(10, "queued", "80%", 10, null, 3, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(11, "subgroup", "80%", 10, null, 1, null, null, null, null, null, null, 10L, TEST_ENVIRONMENT);
         dao.insertSelector(11, 1, null, null, null, null, "[\"queued\"]", null);
-        dao.insertResourceGroup(12, "running", "80%", 10, null, 3, null, null, null, null, null, null, TEST_ENVIRONMENT);
-        dao.insertResourceGroup(13, "subgroup", "80%", 10, null, 1, null, null, null, null, null, 12L, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(12, "running", "80%", 10, null, 3, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(13, "subgroup", "80%", 10, null, 1, null, null, null, null, null, null, 12L, TEST_ENVIRONMENT);
         dao.insertSelector(13, 1, null, null, null, null, "[\"running\"]", null);
         dbConfigurationManager.load();
 
@@ -499,7 +499,7 @@ public class TestQueuesDb
         InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
 
-        dao.insertResourceGroup(10, "${USER}", "80%", 0, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(10, "${USER}", "80%", 0, null, 0, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dao.insertSelector(10, 1, null, null, null, null, "[\"tag\"]", null);
         dbConfigurationManager.load();
 
@@ -507,13 +507,13 @@ public class TestQueuesDb
         waitForQueryState(queryRunner, firstQuery, FAILED);
         assertFailureMessage(firstQuery, "Too many queued queries for \"admin\"");
 
-        dao.updateResourceGroup(10, "admin", "80%", 1, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(10, "admin", "80%", 1, null, 0, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
 
         QueryId secondQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, secondQuery, QUEUED);
 
-        dao.updateResourceGroup(10, "${USER}", "80%", 1, null, 2, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(10, "${USER}", "80%", 1, null, 2, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
 
         QueryId thirdQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
@@ -529,7 +529,7 @@ public class TestQueuesDb
         InternalResourceGroupManager<?> manager = queryRunner.getCoordinator().getResourceGroupManager().orElseThrow();
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
 
-        dao.insertResourceGroup(10, "${USER}", "80%", 100, null, 100, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(10, "${USER}", "80%", 100, null, 100, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dao.insertSelector(10, 100, null, null, null, null, "[\"tag\"]", null);
         dbConfigurationManager.load();
 
@@ -537,14 +537,14 @@ public class TestQueuesDb
         QueryId firstQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, firstQuery, RUNNING);
 
-        dao.updateResourceGroup(10, "admin", "80%", 100, null, 100, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.updateResourceGroup(10, "admin", "80%", 100, null, 100, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dbConfigurationManager.load();
 
         // associate the resource group with config 'admin'
         QueryId secondQuery = createQuery(queryRunner, session("admin", "tag"), LONG_LASTING_QUERY);
         waitForQueryState(queryRunner, secondQuery, RUNNING);
 
-        dao.insertResourceGroup(11, "${USER}", "80%", 0, null, 0, null, null, null, null, null, null, TEST_ENVIRONMENT);
+        dao.insertResourceGroup(11, "${USER}", "80%", 0, null, 0, null, null, null, null, null, null, null, TEST_ENVIRONMENT);
         dao.insertSelector(11, 101, null, null, null, null, "[\"tag\"]", null);
         dbConfigurationManager.load();
 

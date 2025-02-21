@@ -31,6 +31,7 @@ public class TestingResourceGroup
     private long quotaGenerationRate;
     private int softConcurrencyLimit;
     private int hardConcurrencyLimit;
+    private long softPhysicalDataScanLimitBytes;
     private int maxQueued;
     private int schedulingWeight;
     private SchedulingPolicy policy;
@@ -94,6 +95,16 @@ public class TestingResourceGroup
     public void setCpuQuotaGenerationMillisPerSecond(long rate)
     {
         quotaGenerationRate = rate;
+    }
+
+    @Override
+    public long getSoftPhysicalDataScanLimitBytes() {
+        return softPhysicalDataScanLimitBytes;
+    }
+
+    @Override
+    public void setSoftPhysicalDataScanLimitBytes(long limit) {
+        this.softPhysicalDataScanLimitBytes = limit;
     }
 
     @Override
