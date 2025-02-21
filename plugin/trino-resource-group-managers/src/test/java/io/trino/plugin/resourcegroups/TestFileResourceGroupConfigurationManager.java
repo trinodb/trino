@@ -207,6 +207,20 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(resourceGroup.getHardConcurrencyLimit()).isEqualTo(3);
         assertThat(resourceGroup.getMaxQueuedQueries()).isEqualTo(10);
         assertThat(resourceGroup.getSoftMemoryLimitBytes()).isEqualTo(memoryPoolSize / 10);
+
+        selectionContext = match(manager, new SelectionCriteria(
+                true,
+                "Amanda",
+                ImmutableSet.of(),
+                Optional.empty(),
+                ImmutableSet.of(),
+                EMPTY_RESOURCE_ESTIMATES,
+                Optional.empty()));
+        assertThat(selectionContext.getResourceGroupId().toString()).isEqualTo("global.adhoc.other.Amanda");
+        resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
+        manager.configure(resourceGroup, selectionContext);
+        assertThat(resourceGroup.getHardConcurrencyLimit()).isEqualTo(1);
+        assertThat(resourceGroup.getMaxQueuedQueries()).isEqualTo(100);
         assertThat(resourceGroup.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, GIGABYTE).toBytes());
     }
 

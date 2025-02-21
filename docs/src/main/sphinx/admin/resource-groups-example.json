@@ -3,6 +3,7 @@
     {
       "name": "global",
       "softMemoryLimit": "80%",
+      "softPhysicalDataScanLimit": "50TB",
       "hardConcurrencyLimit": 100,
       "maxQueued": 1000,
       "schedulingPolicy": "weighted",
@@ -34,7 +35,8 @@
                   "name": "${USER}",
                   "softMemoryLimit": "10%",
                   "hardConcurrencyLimit": 1,
-                  "maxQueued": 100
+                  "maxQueued": 100,
+                  "softPhysicalDataScanLimit": "10GB"
                 }
               ]
             },
@@ -50,8 +52,7 @@
                   "name": "${USER}",
                   "softMemoryLimit": "10%",
                   "hardConcurrencyLimit": 3,
-                  "maxQueued": 10,
-                  "softPhysicalDataScanLimit": "10GB"
+                  "maxQueued": 10
                 }
               ]
             }

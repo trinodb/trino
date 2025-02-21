@@ -60,7 +60,8 @@ final class ResourceUsage
         return memoryUsageBytes;
     }
 
-    public long getPhysicalDataScanUsageBytes() {
+    public long getPhysicalDataScanUsageBytes()
+    {
         return physicalDataScanUsageBytes;
     }
 
