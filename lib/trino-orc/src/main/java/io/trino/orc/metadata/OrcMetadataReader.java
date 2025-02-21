@@ -150,7 +150,8 @@ public class OrcMetadataReader
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
                 toUserMetadata(footer.getMetadataList()),
-                Optional.of(footer.getWriter()));
+                Optional.of(footer.getWriter()),
+                toCalendarKind(footer.getCalendar()));
     }
 
     private static List<StripeInformation> toStripeInformation(List<OrcProto.StripeInformation> types)
@@ -407,6 +408,15 @@ public class OrcMetadataReader
         }
 
         return new BinaryStatistics(binaryStatistics.getSum());
+    }
+
+    private static CalendarKind toCalendarKind(OrcProto.CalendarKind calendarKind)
+    {
+        return switch (calendarKind) {
+            case UNKNOWN_CALENDAR -> CalendarKind.UNKNOWN_CALENDAR;
+            case JULIAN_GREGORIAN -> CalendarKind.JULIAN_GREGORIAN;
+            case PROLEPTIC_GREGORIAN -> CalendarKind.PROLEPTIC_GREGORIAN;
+        };
     }
 
     private static Slice byteStringToSlice(ByteString value)
