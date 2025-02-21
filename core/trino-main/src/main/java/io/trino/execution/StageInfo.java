@@ -176,7 +176,7 @@ public class StageInfo
                 plan,
                 coordinatorOnly,
                 types,
-                stageStats,
+                stageStats.pruneDigests(),
                 tasks.stream().map(TaskInfo::pruneDigests).collect(toImmutableList()),
                 subStages.stream().map(StageInfo::pruneDigests).collect(toImmutableList()),
                 tables,
