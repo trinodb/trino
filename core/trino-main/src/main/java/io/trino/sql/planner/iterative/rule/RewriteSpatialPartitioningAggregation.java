@@ -119,7 +119,8 @@ public class RewriteSpatialPartitioningAggregation
                                 false,
                                 Optional.empty(),
                                 Optional.empty(),
-                                aggregation.getMask()));
+                                aggregation.getMask(),
+                                aggregation.isLegacyDecomposition()));
             }
             else {
                 aggregations.put(entry);

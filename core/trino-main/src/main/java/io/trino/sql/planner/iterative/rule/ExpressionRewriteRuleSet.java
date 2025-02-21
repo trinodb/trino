@@ -173,7 +173,8 @@ public class ExpressionRewriteRuleSet
                         aggregation.isDistinct(),
                         aggregation.getFilter(),
                         aggregation.getOrderingScheme(),
-                        aggregation.getMask());
+                        aggregation.getMask(),
+                        aggregation.isLegacyDecomposition());
                 aggregations.put(entry.getKey(), newAggregation);
                 if (!aggregation.equals(newAggregation)) {
                     anyRewritten = true;

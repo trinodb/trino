@@ -19,7 +19,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InputFunction;
@@ -46,18 +46,7 @@ public final class ArbitraryAggregationFunction
         }
     }
 
-    @CombineFunction
-    public static void combine(
-            @AggregationState("T") InOut state,
-            @AggregationState("T") InOut otherState)
-            throws Throwable
-    {
-        if (state.isNull()) {
-            state.set(otherState);
-        }
-    }
-
-    @OutputFunction("T")
+    @OutputFunction(value = "T", decomposition = @Decomposition(partial = "any_value", output = "any_value"))
     public static void output(@AggregationState("T") InOut state, BlockBuilder out)
     {
         state.get(out);

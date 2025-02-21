@@ -43,7 +43,6 @@ import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 @OutputTimeUnit(TimeUnit.SECONDS)
 //@BenchmarkMode(Mode.AverageTime)
@@ -114,7 +113,7 @@ public class BenchmarkGroupedTypedHistogram
             }
 
             TestingAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
-            groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())
+            groupedAggregator = aggregationFunction.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty())
                     .createGroupedAggregator(new AggregationMetrics());
         }
     }

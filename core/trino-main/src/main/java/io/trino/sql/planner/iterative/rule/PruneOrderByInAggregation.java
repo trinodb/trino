@@ -66,7 +66,8 @@ public class PruneOrderByInAggregation
                         aggregation.isDistinct(),
                         aggregation.getFilter(),
                         Optional.empty(),
-                        aggregation.getMask());
+                        aggregation.getMask(),
+                        aggregation.isLegacyDecomposition());
                 anyRewritten = true;
             }
             aggregations.put(entry.getKey(), aggregation);

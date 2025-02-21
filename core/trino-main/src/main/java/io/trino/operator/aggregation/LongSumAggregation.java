@@ -18,7 +18,7 @@ import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
@@ -41,18 +41,7 @@ public final class LongSumAggregation
         state.setValue(BigintOperators.add(state.getValue(), value));
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState NullableLongState state, @AggregationState NullableLongState otherState)
-    {
-        if (state.isNull()) {
-            state.set(otherState);
-            return;
-        }
-
-        state.setValue(BigintOperators.add(state.getValue(), otherState.getValue()));
-    }
-
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "sum", output = "sum"))
     public static void output(@AggregationState NullableLongState state, BlockBuilder out)
     {
         NullableLongState.write(BIGINT, state, out);
