@@ -11,7 +11,7 @@ defaults:
 jobs:
   set-milestone:
     if: github.repository_owner == 'trinodb'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
