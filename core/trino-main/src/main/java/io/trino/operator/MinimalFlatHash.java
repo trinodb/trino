@@ -13,21 +13,32 @@
  */
 package io.trino.operator;
 
+import com.google.common.primitives.Ints;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
+import static io.airlift.slice.SizeOf.sizeOfObjectArray;
+import static io.trino.operator.FlatHash.sumExact;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static java.lang.Math.addExact;
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public final class MinimalFlatHash
@@ -48,36 +59,34 @@ public final class MinimalFlatHash
     private static final int RECORDS_PER_GROUP_SHIFT = 10;
     private static final int RECORDS_PER_GROUP = 1 << RECORDS_PER_GROUP_SHIFT;
     private static final int RECORDS_PER_GROUP_MASK = RECORDS_PER_GROUP - 1;
-    private static final int RECORD_VALUE_OFFSET = Long.BYTES; // raw hash prefix
-
-    private static final int ESTIMATED_VARIABLE_WIDTH_BYTES_PER_ENTRY = 32; // From AbstractVariableWidthType.EXPECTED_BYTES_PER_ENTRY
 
     private static final int VECTOR_LENGTH = Long.BYTES;
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, LITTLE_ENDIAN);
 
-    private final int fixedRecordSize;
+    private final MinimalFlatHashStrategy flatHashStrategy;
+    private final MinimalVariableWidthData variableWidthData;
+    private final UpdateMemory checkMemoryReservation;
+
     private byte[] control;
     private int[] groupIdsByHash;
     private byte[][] fixedSizeRecords;
-    private byte[][] variableWidthData;
-    private final MinimalFlatHashStrategy flatHashStrategy;
+
+    private final int fixedRecordSize;
+    private final int variableWidthOffset;
+    private final int fixedValueOffset;
 
     private int capacity;
     private int mask;
     private int nextGroupId;
     private int maxFill;
-    private int currentVariableWidthOffset;
-
-    private final UpdateMemory checkMemoryReservation;
 
     public MinimalFlatHash(MinimalFlatHashStrategy flatHashStrategy, int expectedSize, UpdateMemory checkMemoryReservation)
     {
         this.flatHashStrategy = requireNonNull(flatHashStrategy, "flatHashStrategy is null");
         this.checkMemoryReservation = requireNonNull(checkMemoryReservation, "checkMemoryReservation is null");
         boolean hasVariableData = flatHashStrategy.isAnyVariableWidth();
+        this.variableWidthData = hasVariableData ? new MinimalVariableWidthData() : null;
 
-        this.fixedRecordSize = Long.BYTES + // raw hash
-                flatHashStrategy.getTotalFlatFixedLength();
         this.capacity = max(VECTOR_LENGTH, computeCapacity(expectedSize, DEFAULT_LOAD_FACTOR));
         this.mask = capacity - 1;
         this.control = new byte[capacity + VECTOR_LENGTH];
@@ -87,12 +96,14 @@ public final class MinimalFlatHash
 
         int groupsRequired = recordGroupsRequiredForCapacity(capacity);
         this.fixedSizeRecords = new byte[groupsRequired][];
-        if (hasVariableData) {
-            variableWidthData = new byte[groupsRequired][];
-        }
-        else {
-            variableWidthData = null;
-        }
+
+        // the record is laid out as follows:
+        // 1. raw hash (long)
+        // 2. optional variable width pointer (int chunkIndex, int chunkOffset)
+        // 3. fixed data for each type
+        this.variableWidthOffset = Long.BYTES;
+        this.fixedValueOffset = variableWidthOffset + (hasVariableData ? MinimalVariableWidthData.POINTER_SIZE : 0);
+        this.fixedRecordSize = fixedValueOffset + flatHashStrategy.getTotalFlatFixedLength();
     }
 
     public int size()
@@ -119,12 +130,19 @@ public final class MinimalFlatHash
 
         byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
         int recordOffset = getFixedRecordOffset(groupId);
-        byte[] variableWidthData = getVariableWidthData(groupId);
+
+        byte[] variableWidthChunk = null;
+        int variableChunkOffset = 0;
+        if (variableWidthData != null) {
+            variableWidthChunk = variableWidthData.getChunk(fixedSizeRecords, recordOffset + variableWidthOffset);
+            variableChunkOffset = MinimalVariableWidthData.getChunkOffset(fixedSizeRecords, recordOffset + variableWidthOffset);
+        }
 
         flatHashStrategy.readFlat(
                 fixedSizeRecords,
-                recordOffset + RECORD_VALUE_OFFSET,
-                variableWidthData,
+                recordOffset + fixedValueOffset,
+                variableWidthChunk,
+                variableChunkOffset,
                 blockBuilders);
     }
 
@@ -152,7 +170,11 @@ public final class MinimalFlatHash
     {
         int index = getIndex(blocks, position, hash);
         if (index >= 0) {
-            return groupIdsByHash[index];
+            int groupId = groupIdsByHash[index];
+            if (groupId < 0) {
+                throw new IllegalStateException("groupId out of range");
+            }
+            return groupId;
         }
 
         index = -index - 1;
@@ -222,7 +244,7 @@ public final class MinimalFlatHash
         int fixedRecordOffset = getFixedRecordOffset(groupId);
         if (fixedRecordOffset == 0) {
             // new record batch start, populate the record batch fields
-            createRecordGroupBatch(recordGroupIndexForGroupId(groupId));
+            fixedSizeRecords[recordGroupIndexForGroupId(groupId)] = new byte[multiplyExact(capacity, fixedRecordSize)];
         }
         byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
         LONG_HANDLE.set(fixedSizeRecords, fixedRecordOffset, hash);
@@ -231,21 +253,15 @@ public final class MinimalFlatHash
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             int variableWidthSize = flatHashStrategy.getTotalVariableWidth(blocks, position);
-            int recordGroupIndex = recordGroupIndexForGroupId(groupId);
-            variableWidthChunk = variableWidthData[recordGroupIndex];
-            variableWidthChunkOffset = currentVariableWidthOffset;
-            currentVariableWidthOffset += variableWidthSize;
-            if (currentVariableWidthOffset > variableWidthChunk.length) {
-                variableWidthChunk = Arrays.copyOf(variableWidthChunk, computeNewVariableWidthCapacity(variableWidthChunk.length, currentVariableWidthOffset));
-                variableWidthData[recordGroupIndex] = variableWidthChunk;
-            }
+            variableWidthChunk = variableWidthData.allocate(fixedSizeRecords, fixedRecordOffset + variableWidthOffset, variableWidthSize);
+            variableWidthChunkOffset = MinimalVariableWidthData.getChunkOffset(fixedSizeRecords, fixedRecordOffset + variableWidthOffset);
         }
 
         flatHashStrategy.writeFlat(
                 blocks,
                 position,
                 fixedSizeRecords,
-                fixedRecordOffset + RECORD_VALUE_OFFSET,
+                fixedRecordOffset + fixedValueOffset,
                 variableWidthChunk,
                 variableWidthChunkOffset);
 
@@ -289,11 +305,8 @@ public final class MinimalFlatHash
         maxFill = calculateMaxFill(capacity);
         mask = capacity - 1;
 
-        // Resize the record groups arrays
+        // Resize the record groups top level array to accommodate the new record groups
         fixedSizeRecords = Arrays.copyOf(fixedSizeRecords, recordGroupsRequiredForCapacity(capacity));
-        if (variableWidthData != null) {
-            variableWidthData = Arrays.copyOf(variableWidthData, recordGroupsRequiredForCapacity(capacity));
-        }
 
         // Construct the new hash table
         control = new byte[capacity + VECTOR_LENGTH];
@@ -316,7 +329,9 @@ public final class MinimalFlatHash
                 int emptyIndex = findEmptyInVector(controlVector, bucket);
                 if (emptyIndex >= 0) {
                     setControl(emptyIndex, hashPrefix);
-                    verify(groupIdsByHash[emptyIndex] == -1, "groupId mapping already at index");
+                    if (groupIdsByHash[emptyIndex] != -1) {
+                        throw new IllegalStateException("groupId mapping already exists at index");
+                    }
                     groupIdsByHash[emptyIndex] = groupId;
                     break;
                 }
@@ -349,14 +364,6 @@ public final class MinimalFlatHash
         return (groupId & RECORDS_PER_GROUP_MASK) * fixedRecordSize;
     }
 
-    private byte[] getVariableWidthData(int groupId)
-    {
-        if (variableWidthData == null) {
-            return null;
-        }
-        return variableWidthData[groupId >> RECORDS_PER_GROUP_SHIFT];
-    }
-
     private boolean valueIdentical(int groupId, Block[] rightBlocks, int rightPosition, long rightHash)
     {
         checkArgument(groupId >= 0, "groupId is negative");
@@ -367,11 +374,18 @@ public final class MinimalFlatHash
             return false;
         }
 
-        byte[] variableWidthData = getVariableWidthData(groupId);
+        byte[] variableWidthChunk = null;
+        int variableWidthChunkOffset = 0;
+        if (variableWidthData != null) {
+            variableWidthChunk = variableWidthData.getChunk(fixedSizeRecords, fixedRecordsOffset + variableWidthOffset);
+            variableWidthChunkOffset = MinimalVariableWidthData.getChunkOffset(fixedSizeRecords, fixedRecordsOffset + variableWidthOffset);
+        }
+
         return flatHashStrategy.valueIdentical(
                 fixedSizeRecords,
-                fixedRecordsOffset + RECORD_VALUE_OFFSET,
-                variableWidthData,
+                fixedRecordsOffset + fixedValueOffset,
+                variableWidthChunk,
+                variableWidthChunkOffset,
                 rightBlocks,
                 rightPosition);
     }
@@ -387,22 +401,6 @@ public final class MinimalFlatHash
             throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed 1 billion entries");
         }
         return toIntExact(newCapacityLong);
-    }
-
-    private void createRecordGroupBatch(int recordGroupIndex)
-    {
-        fixedSizeRecords[recordGroupIndex] = new byte[multiplyExact(capacity, fixedRecordSize)];
-        if (variableWidthData != null) {
-            int estimatedCapacity;
-            if (recordGroupIndex == 0) {
-                estimatedCapacity = RECORDS_PER_GROUP * ESTIMATED_VARIABLE_WIDTH_BYTES_PER_ENTRY;
-            }
-            else {
-                estimatedCapacity = estimateNewVariableWidthCapacity(currentVariableWidthOffset);
-            }
-            variableWidthData[recordGroupIndex] = new byte[estimatedCapacity];
-            currentVariableWidthOffset = 0;
-        }
     }
 
     private static long repeat(byte value)
@@ -436,5 +434,116 @@ public final class MinimalFlatHash
             newCapacityLong *= 2;
         }
         return toIntExact(newCapacityLong);
+    }
+
+    /**
+     * Duplicated from {@link VariableWidthData}, except with {@link VariableWidthData#free} and the associated
+     * length argument from the pointer removed since it takes extra space unnecessarily
+     */
+    private static final class MinimalVariableWidthData
+    {
+        private static final int INSTANCE_SIZE = instanceSize(MinimalVariableWidthData.class);
+
+        public static final int MIN_CHUNK_SIZE = 1024;
+        public static final int MAX_CHUNK_SIZE = 8 * 1024 * 1024;
+
+        public static final int POINTER_SIZE = Integer.BYTES + Integer.BYTES;
+
+        private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
+        public static final byte[] EMPTY_CHUNK = new byte[0];
+
+        private final List<byte[]> chunks = new ArrayList<>();
+        private int openChunkOffset;
+
+        private long chunksRetainedSizeInBytes;
+
+        private long allocatedBytes;
+        private long freeBytes;
+
+        public MinimalVariableWidthData() {}
+
+        public long getRetainedSizeBytes()
+        {
+            return sumExact(
+                    INSTANCE_SIZE,
+                    chunksRetainedSizeInBytes,
+                    sizeOfObjectArray(chunks.size()));
+        }
+
+        public List<byte[]> getAllChunks()
+        {
+            return chunks;
+        }
+
+        public long getAllocatedBytes()
+        {
+            return allocatedBytes;
+        }
+
+        public long getFreeBytes()
+        {
+            return freeBytes;
+        }
+
+        public byte[] allocate(byte[] pointer, int pointerOffset, int size)
+        {
+            if (size == 0) {
+                writePointer(pointer, pointerOffset, 0, 0);
+                return EMPTY_CHUNK;
+            }
+
+            byte[] openChunk = chunks.isEmpty() ? EMPTY_CHUNK : chunks.getLast();
+            if (openChunk.length - openChunkOffset < size) {
+                // record unused space as free bytes
+                freeBytes += (openChunk.length - openChunkOffset);
+
+                // allocate enough space for 32 values of the current size, or double the current chunk size, whichever is larger
+                int newSize = Ints.saturatedCast(max(size * 32L, openChunk.length * 2L));
+                // constrain to be between min and max chunk size
+                newSize = clamp(newSize, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
+                // jumbo rows get a separate allocation
+                newSize = max(newSize, size);
+                openChunk = new byte[newSize];
+                chunks.add(openChunk);
+                allocatedBytes += newSize;
+                chunksRetainedSizeInBytes = addExact(chunksRetainedSizeInBytes, sizeOf(openChunk));
+                openChunkOffset = 0;
+            }
+
+            writePointer(
+                    pointer,
+                    pointerOffset,
+                    chunks.size() - 1,
+                    openChunkOffset);
+            openChunkOffset += size;
+            return openChunk;
+        }
+
+        public byte[] getChunk(byte[] pointer, int pointerOffset)
+        {
+            int chunkIndex = getChunkIndex(pointer, pointerOffset);
+            if (chunks.isEmpty()) {
+                verify(chunkIndex == 0);
+                return EMPTY_CHUNK;
+            }
+            checkIndex(chunkIndex, chunks.size());
+            return chunks.get(chunkIndex);
+        }
+
+        private static int getChunkIndex(byte[] pointer, int pointerOffset)
+        {
+            return (int) INT_HANDLE.get(pointer, pointerOffset);
+        }
+
+        public static int getChunkOffset(byte[] pointer, int pointerOffset)
+        {
+            return (int) INT_HANDLE.get(pointer, pointerOffset + Integer.BYTES);
+        }
+
+        public static void writePointer(byte[] pointer, int pointerOffset, int chunkIndex, int chunkOffset)
+        {
+            INT_HANDLE.set(pointer, pointerOffset, chunkIndex);
+            INT_HANDLE.set(pointer, pointerOffset + Integer.BYTES, chunkOffset);
+        }
     }
 }
