@@ -13,6 +13,7 @@
  */
 package io.trino.server.protocol.spooling;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.server.protocol.OutputColumn;
@@ -30,6 +31,11 @@ public interface QueryDataEncoder
         QueryDataEncoder create(Session session, List<OutputColumn> columns);
 
         String encoding();
+
+        default List<OutputColumn> unsupported(List<OutputColumn> columns)
+        {
+            return ImmutableList.of();
+        }
     }
 
     DataAttributes encodeTo(OutputStream output, List<Page> pages)
