@@ -14,11 +14,16 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -28,25 +33,26 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
+import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 
-public class JdbcRecordCursor
-        implements RecordCursor
+public final class JdbcPageSource
+        implements ConnectorPageSource
 {
-    private static final Logger log = Logger.get(JdbcRecordCursor.class);
+    private static final Logger log = Logger.get(JdbcPageSource.class);
 
-    private final ExecutorService executor;
-
-    private final JdbcColumnHandle[] columnHandles;
+    private final List<JdbcColumnHandle> columnHandles;
     private final ReadFunction[] readFunctions;
     private final BooleanReadFunction[] booleanReadFunctions;
     private final DoubleReadFunction[] doubleReadFunctions;
@@ -58,16 +64,18 @@ public class JdbcRecordCursor
     private final Connection connection;
     private final PreparedStatement statement;
     private final AtomicLong readTimeNanos = new AtomicLong(0);
+    private final PageBuilder pageBuilder;
+    private final CompletableFuture<ResultSet> resultSetFuture;
     @Nullable
     private ResultSet resultSet;
+    private boolean finished;
     private boolean closed;
+    private long completedPositions;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, BaseJdbcConnectorTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        this.executor = requireNonNull(executor, "executor is null");
-
-        this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
+        this.columnHandles = ImmutableList.copyOf(columnHandles);
 
         readFunctions = new ReadFunction[columnHandles.size()];
         booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
@@ -84,7 +92,7 @@ public class JdbcRecordCursor
                 connection = jdbcClient.getConnection(session, split, (JdbcTableHandle) table);
             }
 
-            for (int i = 0; i < this.columnHandles.length; i++) {
+            for (int i = 0; i < this.columnHandles.size(); i++) {
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
                 ColumnMapping columnMapping = jdbcClient.toColumnMapping(session, connection, columnHandle.getJdbcTypeHandle())
                         .orElseThrow(() -> new VerifyException("Column %s has unsupported type %s".formatted(columnHandle.getColumnName(), columnHandle.getJdbcTypeHandle())));
@@ -119,6 +127,22 @@ public class JdbcRecordCursor
             else {
                 statement = jdbcClient.buildSql(session, connection, split, (JdbcTableHandle) table, columnHandles);
             }
+            pageBuilder = new PageBuilder(columnHandles.stream()
+                    .map(JdbcColumnHandle::getColumnType)
+                    .collect(toImmutableList()));
+            resultSetFuture = supplyAsync(() -> {
+                long start = nanoTime();
+                try {
+                    log.debug("Executing: %s", statement);
+                    return statement.executeQuery();
+                }
+                catch (SQLException e) {
+                    throw handleSqlException(e);
+                }
+                finally {
+                    readTimeNanos.addAndGet(nanoTime() - start);
+                }
+            }, executor);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -132,140 +156,86 @@ public class JdbcRecordCursor
     }
 
     @Override
+    public boolean isFinished()
+    {
+        return finished;
+    }
+
+    @Override
+    public SourcePage getNextSourcePage()
+    {
+        verify(pageBuilder.isEmpty(), "Expected pageBuilder to be empty");
+        try {
+            if (resultSet == null) {
+                if (!resultSetFuture.isDone()) {
+                    return null;
+                }
+                resultSet = requireNonNull(getFutureValue(resultSetFuture), "resultSet is null");
+            }
+
+            checkState(!closed, "page source is closed");
+            while (!pageBuilder.isFull() && resultSet.next()) {
+                pageBuilder.declarePosition();
+                completedPositions++;
+                for (int i = 0; i < columnHandles.size(); i++) {
+                    BlockBuilder output = pageBuilder.getBlockBuilder(i);
+                    Type type = columnHandles.get(i).getColumnType();
+                    if (readFunctions[i].isNull(resultSet, i + 1)) {
+                        output.appendNull();
+                    }
+                    else if (booleanReadFunctions[i] != null) {
+                        type.writeBoolean(output, booleanReadFunctions[i].readBoolean(resultSet, i + 1));
+                    }
+                    else if (doubleReadFunctions[i] != null) {
+                        type.writeDouble(output, doubleReadFunctions[i].readDouble(resultSet, i + 1));
+                    }
+                    else if (longReadFunctions[i] != null) {
+                        type.writeLong(output, longReadFunctions[i].readLong(resultSet, i + 1));
+                    }
+                    else if (sliceReadFunctions[i] != null) {
+                        type.writeSlice(output, sliceReadFunctions[i].readSlice(resultSet, i + 1));
+                    }
+                    else {
+                        type.writeObject(output, objectReadFunctions[i].readObject(resultSet, i + 1));
+                    }
+                }
+            }
+
+            if (!pageBuilder.isFull()) {
+                finished = true;
+            }
+        }
+        catch (SQLException | RuntimeException e) {
+            throw handleSqlException(e);
+        }
+
+        Page page = pageBuilder.build();
+        pageBuilder.reset();
+        return SourcePage.create(page);
+    }
+
+    @Override
+    public long getMemoryUsage()
+    {
+        return pageBuilder.getRetainedSizeInBytes();
+    }
+
+    @Override
     public long getCompletedBytes()
     {
         return 0;
     }
 
     @Override
-    public Type getType(int field)
+    public OptionalLong getCompletedPositions()
     {
-        return columnHandles[field].getColumnType();
+        return OptionalLong.of(completedPositions);
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public CompletableFuture<?> isBlocked()
     {
-        if (closed) {
-            return false;
-        }
-
-        try {
-            if (resultSet == null) {
-                long start = System.nanoTime();
-                Future<ResultSet> resultSetFuture = executor.submit(() -> {
-                    log.debug("Executing: %s", statement);
-                    return statement.executeQuery();
-                });
-                try {
-                    // statement.executeQuery() may block uninterruptedly, using async way so we are able to cancel remote query
-                    // See javadoc of java.sql.Connection.setNetworkTimeout
-                    resultSet = resultSetFuture.get();
-                }
-                catch (ExecutionException e) {
-                    if (e.getCause() instanceof SQLException cause) {
-                        SQLException sqlException = new SQLException(cause.getMessage(), cause.getSQLState(), cause.getErrorCode(), e);
-                        if (cause.getNextException() != null) {
-                            sqlException.setNextException(cause.getNextException());
-                        }
-                        throw sqlException;
-                    }
-                    throw new RuntimeException(e);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    resultSetFuture.cancel(true);
-                    throw new RuntimeException(e);
-                }
-                finally {
-                    readTimeNanos.addAndGet(System.nanoTime() - start);
-                }
-            }
-            return resultSet.next();
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public boolean getBoolean(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return booleanReadFunctions[field].readBoolean(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public long getLong(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return longReadFunctions[field].readLong(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public double getDouble(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return doubleReadFunctions[field].readDouble(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public Slice getSlice(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return sliceReadFunctions[field].readSlice(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public Object getObject(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return objectReadFunctions[field].readObject(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public boolean isNull(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        checkArgument(field < columnHandles.length, "Invalid field index");
-        requireNonNull(resultSet, "resultSet is null");
-
-        try {
-            return readFunctions[field].isNull(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
+        return resultSetFuture;
     }
 
     @Override
@@ -291,11 +261,13 @@ public class JdbcRecordCursor
             }
             if (connection != null && resultSet != null) {
                 jdbcClient.abortReadConnection(connection, resultSet);
+                resultSetFuture.cancel(true);
             }
         }
         catch (SQLException | RuntimeException e) {
             // ignore exception from close
         }
+        resultSet = null;
     }
 
     private RuntimeException handleSqlException(Exception e)
