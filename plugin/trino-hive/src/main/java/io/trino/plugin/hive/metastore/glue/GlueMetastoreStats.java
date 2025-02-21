@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.metrics.RequestMetricCollector;
-import io.trino.plugin.hive.metastore.glue.v1.AwsSdkClientCoreStats;
-import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -50,8 +47,6 @@ public class GlueMetastoreStats
     private final AwsApiCallStats createUserDefinedFunction = new AwsApiCallStats();
     private final AwsApiCallStats updateUserDefinedFunction = new AwsApiCallStats();
     private final AwsApiCallStats deleteUserDefinedFunction = new AwsApiCallStats();
-
-    private final AwsSdkClientCoreStats clientCoreStats = new AwsSdkClientCoreStats();
 
     @Managed
     @Nested
@@ -254,17 +249,5 @@ public class GlueMetastoreStats
     public AwsApiCallStats getDeleteUserDefinedFunction()
     {
         return deleteUserDefinedFunction;
-    }
-
-    @Managed
-    @Flatten
-    public AwsSdkClientCoreStats getClientCoreStats()
-    {
-        return clientCoreStats;
-    }
-
-    public RequestMetricCollector newRequestMetricsCollector()
-    {
-        return clientCoreStats.newRequestMetricCollector();
     }
 }
