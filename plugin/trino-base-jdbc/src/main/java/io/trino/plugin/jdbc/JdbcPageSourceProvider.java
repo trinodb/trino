@@ -29,6 +29,7 @@ import io.trino.spi.connector.RecordPageSource;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -43,12 +44,14 @@ public class JdbcPageSourceProvider
 {
     private final JdbcClient jdbcClient;
     private final ConnectorRecordSetProvider recordSetProvider;
+    private final ExecutorService executor;
 
     @Inject
-    public JdbcPageSourceProvider(JdbcClient jdbcClient, ConnectorRecordSetProvider recordSetProvider)
+    public JdbcPageSourceProvider(JdbcClient jdbcClient, ConnectorRecordSetProvider recordSetProvider, @ForRecordCursor ExecutorService executor)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -70,10 +73,30 @@ public class JdbcPageSourceProvider
                 .filter(column -> column.getColumnName().equalsIgnoreCase(MERGE_ROW_ID))
                 .collect(toOptional());
         if (mergeRowId.isEmpty()) {
-            return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, tableHandle, columns));
+            return createPageSource(session, split, tableHandle, columns);
         }
 
         return createMergePageSource(transaction, session, split, columns, tableHandle, mergeRowId);
+    }
+
+    private JdbcPageSource createPageSource(
+            ConnectorSession session,
+            ConnectorSplit split,
+            JdbcTableHandle table,
+            List<ColumnHandle> columns)
+    {
+        ImmutableList.Builder<JdbcColumnHandle> handles = ImmutableList.builderWithExpectedSize(columns.size());
+        for (ColumnHandle handle : columns) {
+            handles.add((JdbcColumnHandle) handle);
+        }
+        JdbcSplit jdbcSplit = (JdbcSplit) split;
+        return new JdbcPageSource(
+                jdbcClient,
+                executor,
+                session,
+                jdbcSplit,
+                table.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
+                handles.build());
     }
 
     private MergeJdbcPageSource createMergePageSource(
