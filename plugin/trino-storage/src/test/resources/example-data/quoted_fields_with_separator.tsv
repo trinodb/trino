@@ -1,0 +1,5 @@
+header_1	header_2	"weird	 but valid header 3"	 header_4_with_extra_whitespace
+test	2	3	4
+"test	test	test	test"	3	3	5
+" even weirder	 but still valid	 value with extra whitespaces that remain due to quoting /  "	1	2	3
+   extra whitespaces that should get trimmed due to no quoting      	1	2	3
