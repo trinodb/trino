@@ -1797,7 +1797,7 @@ class StatementAnalyzer
                     argumentScope.getRelationType().getAllFields()
                             .forEach(fields::add);
                 }
-                else if (argument.getPartitionBy().isPresent()) {
+                else if (argument.getPartitionBy().isPresent() && !argument.isSkipPartitionColumnsAsPassThrough() ) {
                     argument.getPartitionBy().get().stream()
                             .map(expression -> validateAndGetInputField(expression, argumentScope))
                             .forEach(fields::add);
@@ -2024,9 +2024,13 @@ class StatementAnalyzer
             }
             analysisBuilder.withPruneWhenEmpty(pruneWhenEmpty);
 
+            // TODO Add verification for prefer streaming
+            analysisBuilder.withPreferStreaming(argumentSpecification.isPreferStreaming());
+
             // record remaining properties
             analysisBuilder.withRowSemantics(argumentSpecification.isRowSemantics());
             analysisBuilder.withPassThroughColumns(argumentSpecification.isPassThroughColumns());
+            analysisBuilder.withSkipPartitionColumnsAsPassThrough(argumentSpecification.isSkipPartitionColumnsAsPassThrough());
 
             return new ArgumentAnalysis(argumentBuilder.build(), Optional.of(analysisBuilder.build()));
         }
