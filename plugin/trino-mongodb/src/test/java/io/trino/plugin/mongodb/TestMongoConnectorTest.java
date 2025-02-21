@@ -53,7 +53,6 @@ import static com.mongodb.client.model.CollationCaseFirst.LOWER;
 import static com.mongodb.client.model.CollationStrength.PRIMARY;
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoClient;
 import static io.trino.plugin.mongodb.TypeUtils.isPushdownSupportedType;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -105,13 +104,11 @@ public class TestMongoConnectorTest
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
                  SUPPORTS_CREATE_VIEW,
                  SUPPORTS_DROP_FIELD,
-                 SUPPORTS_MERGE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
                  SUPPORTS_RENAME_FIELD,
                  SUPPORTS_RENAME_SCHEMA,
                  SUPPORTS_SET_FIELD_TYPE,
-                 SUPPORTS_TRUNCATE,
-                 SUPPORTS_UPDATE -> false;
+                 SUPPORTS_TRUNCATE -> false;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -120,6 +117,29 @@ public class TestMongoConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return abort("MongoDB connector does not support column default values");
+    }
+
+    @Test
+    public void testMergeWithCustomizeTypeIdColumn()
+    {
+        String targetTable = "merge_with_customize_type_id_column_target_" + randomNameSuffix();
+        String sourceTable = "merget_with_customize_type_id_column_source_" + randomNameSuffix();
+        createTableForWrites("CREATE TABLE %s (_id INT, customer VARCHAR, purchases INT, address VARCHAR)", targetTable, Optional.empty());
+
+        assertUpdate("INSERT INTO %s (_id, customer, purchases, address) VALUES (1, 'Aaron', 5, 'Antioch'), (2, 'Bill', 7, 'Buena'), (3, 'Carol', 3, 'Cambridge'), (4, 'Dave', 11, 'Devon')".formatted(targetTable), 4);
+
+        createTableForWrites("CREATE TABLE %s (_id INT, customer VARCHAR, purchases INT, address VARCHAR)", sourceTable, Optional.empty());
+
+        assertUpdate("INSERT INTO %s (_id, customer, purchases, address) VALUES (1, 'Aaron', 6, 'Arches'), (3, 'Ed', 7, 'Etherville'), (4, 'Carol', 9, 'Centreville'), (7, 'Dave', 11, 'Darbyshire')".formatted(sourceTable), 4);
+
+        assertUpdate("MERGE INTO %s t USING %s s ON (t._id = s._id)".formatted(targetTable, sourceTable) +
+                "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                "    WHEN NOT MATCHED THEN INSERT (_id, customer, purchases, address) VALUES(s._id, s.customer, s.purchases, s.address)", 4);
+        assertQuery("SELECT _id, customer, purchases, address FROM " + targetTable, "VALUES (1, 'Aaron', 11, 'Arches'),  (2, 'Bill', 7, 'Buena'),  (3, 'Carol', 10, 'Etherville'), (7, 'Dave', 11, 'Darbyshire')");
+
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
     }
 
     @Test
@@ -329,46 +349,6 @@ public class TestMongoConnectorTest
                 .isEqualTo("{\"name\":\"alice\"}");
         assertUpdate("DROP TABLE " + tableName);
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithComplexPredicate()
-    {
-        assertThatThrownBy(super::testDeleteWithComplexPredicate)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithLike()
-    {
-        assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithSemiJoin()
-    {
-        assertThatThrownBy(super::testDeleteWithSemiJoin)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testDeleteWithSubquery()
-    {
-        assertThatThrownBy(super::testDeleteWithSubquery)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
-    }
-
-    @Test
-    @Override
-    public void testExplainAnalyzeWithDeleteWithSubquery()
-    {
-        assertThatThrownBy(super::testExplainAnalyzeWithDeleteWithSubquery)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
     @Test
