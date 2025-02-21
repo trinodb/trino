@@ -42,6 +42,8 @@ public class StaticSelector
 
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> userGroupRegex;
+    private final Optional<Pattern> originalUserRegex;
+    private final Optional<Pattern> authenticatedUserRegex;
     private final Optional<Pattern> sourceRegex;
     private final Set<String> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
@@ -52,6 +54,8 @@ public class StaticSelector
     public StaticSelector(
             Optional<Pattern> userRegex,
             Optional<Pattern> userGroupRegex,
+            Optional<Pattern> originalUserRegex,
+            Optional<Pattern> authenticatedUserRegex,
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
@@ -60,6 +64,8 @@ public class StaticSelector
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
+        this.originalUserRegex = requireNonNull(originalUserRegex, "originalUserRegex is null");
+        this.authenticatedUserRegex = requireNonNull(authenticatedUserRegex, "authenticatedUserRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
@@ -69,6 +75,8 @@ public class StaticSelector
 
         HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE));
         userRegex.ifPresent(u -> addNamedGroups(u, variableNames));
+        originalUserRegex.ifPresent(u -> addNamedGroups(u, variableNames));
+        authenticatedUserRegex.ifPresent(u -> addNamedGroups(u, variableNames));
         sourceRegex.ifPresent(s -> addNamedGroups(s, variableNames));
         this.variableNames = ImmutableSet.copyOf(variableNames);
 
@@ -81,26 +89,24 @@ public class StaticSelector
     {
         Map<String, String> variables = new HashMap<>();
 
-        if (userRegex.isPresent()) {
-            Matcher userMatcher = userRegex.get().matcher(criteria.getUser());
-            if (!userMatcher.matches()) {
-                return Optional.empty();
-            }
-
-            addVariableValues(userRegex.get(), criteria.getUser(), variables);
+        if (!addVariablesForRegexIfMatching(userRegex, criteria.getUser(), variables)) {
+            return Optional.empty();
         }
 
         if (userGroupRegex.isPresent() && criteria.getUserGroups().stream().noneMatch(group -> userGroupRegex.get().matcher(group).matches())) {
             return Optional.empty();
         }
 
-        if (sourceRegex.isPresent()) {
-            String source = criteria.getSource().orElse("");
-            if (!sourceRegex.get().matcher(source).matches()) {
-                return Optional.empty();
-            }
+        if (!addVariablesForRegexIfMatching(originalUserRegex, criteria.getOriginalUser(), variables)) {
+            return Optional.empty();
+        }
 
-            addVariableValues(sourceRegex.get(), source, variables);
+        if (!addVariablesForRegexIfMatching(authenticatedUserRegex, criteria.getAuthenticatedUser().orElse(""), variables)) {
+            return Optional.empty();
+        }
+
+        if (!addVariablesForRegexIfMatching(sourceRegex, criteria.getSource().orElse(""), variables)) {
+            return Optional.empty();
         }
 
         if (!clientTags.isEmpty() && !criteria.getTags().containsAll(clientTags)) {
@@ -137,22 +143,34 @@ public class StaticSelector
         }
     }
 
-    private void addVariableValues(Pattern pattern, String candidate, Map<String, String> mapping)
+    /**
+     * @param optionalRegex The optional regex to match against the input.
+     * @param input The input to match against the regex.
+     * @param variables Variables to populate with the values from the regex.
+     * @return False iff the regex is present and the input does not match it, else true,
+     *         indicating matching should continue.
+     */
+    private boolean addVariablesForRegexIfMatching(Optional<Pattern> optionalRegex, String input, Map<String, String> variables)
     {
+        if (optionalRegex.isEmpty()) {
+            return true;
+        }
+        Pattern pattern = optionalRegex.get();
+        Matcher matcher = pattern.matcher(input);
+        if (!matcher.matches()) {
+            return false;
+        }
+
+        Map<String, Integer> namedGroups = matcher.namedGroups();
         for (String key : variableNames) {
-            Matcher keyMatcher = pattern.matcher(candidate);
-            if (keyMatcher.find()) {
-                try {
-                    String value = keyMatcher.group(key);
-                    if (value != null) {
-                        mapping.put(key, value);
-                    }
-                }
-                catch (IllegalArgumentException _) {
-                    // there was no capturing group with the specified name
+            if (namedGroups.containsKey(key)) {
+                String value = matcher.group(namedGroups.get(key));
+                if (value != null) {
+                    variables.put(key, value);
                 }
             }
         }
+        return true;
     }
 
     @VisibleForTesting

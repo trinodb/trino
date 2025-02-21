@@ -379,6 +379,8 @@ public class DbResourceGroupConfigurationManager
                         new SelectorSpec(
                                 selectorRecord.getUserRegex(),
                                 selectorRecord.getUserGroupRegex(),
+                                selectorRecord.getOriginalUserRegex(),
+                                selectorRecord.getAuthenticatedUserRegex(),
                                 selectorRecord.getSourceRegex(),
                                 selectorRecord.getQueryType(),
                                 selectorRecord.getClientTags(),
