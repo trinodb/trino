@@ -44,6 +44,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
+import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
@@ -160,6 +161,7 @@ public final class TaskTestUtils
                 PLANNER_CONTEXT.getTypeOperators(),
                 CatalogServiceProvider.fail());
 
+        CursorProcessorCompiler cursorProcessorCompiler = new CursorProcessorCompiler(PLANNER_CONTEXT.getFunctionManager());
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         return new LocalExecutionPlanner(
@@ -170,7 +172,7 @@ public final class TaskTestUtils
                 nodePartitioningManager,
                 new PageSinkManager(CatalogServiceProvider.fail()),
                 new MockDirectExchangeClientSupplier(),
-                new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler, columnarFilterCompiler),
+                new ExpressionCompiler(cursorProcessorCompiler, pageFunctionCompiler, columnarFilterCompiler),
                 pageFunctionCompiler,
                 new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager()),
                 new IndexJoinLookupStats(),
