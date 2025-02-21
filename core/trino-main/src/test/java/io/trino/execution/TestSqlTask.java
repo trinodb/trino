@@ -41,6 +41,7 @@ import io.trino.operator.TaskContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.predicate.Domain;
 import io.trino.spiller.SpillSpaceTracker;
+import io.trino.sql.planner.DynamicFilterDomain;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -387,7 +388,7 @@ public class TestSqlTask
         assertThat(future.isDone()).isFalse();
 
         // make sure future gets unblocked when dynamic filters version is updated
-        taskContext.updateDomains(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(BIGINT)));
+        taskContext.updateDomains(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, DynamicFilterDomain.none(BIGINT)));
         assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
         assertThat(sqlTask.getTaskStatus().getDynamicFiltersVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION + 1);
         future.get();
