@@ -74,8 +74,8 @@ bigquery.project-id=<your Google Cloud Platform project id>
 
 ### Multiple GCP projects
 
-The BigQuery connector can only access a single GCP project.Thus, if you have
-data in multiple GCP projects, You need to create several catalogs, each
+The BigQuery connector can only access a single GCP project. If you have
+data in multiple GCP projects, you must create several catalogs, each
 pointing to a different GCP project. For example, if you have two GCP projects,
 one for the sales and one for analytics, you can create two properties files in
 `etc/catalog` named `sales.properties` and `analytics.properties`, both
