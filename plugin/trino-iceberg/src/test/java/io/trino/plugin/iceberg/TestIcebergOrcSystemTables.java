@@ -13,7 +13,11 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Test;
+
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergOrcSystemTables
         extends BaseIcebergSystemTables
@@ -21,5 +25,18 @@ public class TestIcebergOrcSystemTables
     public TestIcebergOrcSystemTables()
     {
         super(ORC);
+    }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        try (TestTable table = newTrinoTable("test_properties_table", "AS SELECT 1 x")) {
+            assertThat(query("SELECT * FROM \"%s$properties\"".formatted(table.getName())))
+                    .matches("""
+                            VALUES (VARCHAR 'write.format.default', VARCHAR 'ORC'),
+                            (VARCHAR 'commit.retry.num-retries', VARCHAR '4'),
+                            (VARCHAR 'write.orc.compression-codec', VARCHAR 'zstd'),
+                            (VARCHAR 'write.parquet.compression-codec', VARCHAR 'zstd')""");
+        }
     }
 }
