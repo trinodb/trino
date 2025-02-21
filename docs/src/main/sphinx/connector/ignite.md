@@ -204,6 +204,15 @@ statements, the connector supports the following features:
 ```{include} procedures-execute.fragment
 ```
 
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+(ignite-table-statistics)=
+```{include} jdbc-table-statistics.fragment
+```
+
 (ignite-pushdown)=
 ### Pushdown
 
