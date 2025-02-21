@@ -74,7 +74,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /*
  * The test currently uses AWS Default Credential Provider Chain,
- * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
+ * See https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials-chain.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
 @Execution(SAME_THREAD)

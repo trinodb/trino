@@ -71,7 +71,6 @@ import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.metastore.glue.v1.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -356,9 +355,8 @@ public abstract class AbstractTrinoCatalog
 
     private List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties)
     {
-        Schema schemaWithTimestampTzPreserved = schemaFromMetadata(mappedCopy(
-                definition.getColumns(),
-                column -> {
+        Schema schemaWithTimestampTzPreserved = schemaFromMetadata(definition.getColumns().stream()
+                .map(column -> {
                     Type type = typeManager.getType(column.getType());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6) {
                         // For now preserve timestamptz columns so that we can parse partitioning
@@ -368,7 +366,8 @@ public abstract class AbstractTrinoCatalog
                         type = typeForMaterializedViewStorageTable(type);
                     }
                     return new ColumnMetadata(column.getName(), type);
-                }));
+                })
+                .collect(toImmutableList()));
         PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(materializedViewProperties));
         Set<String> temporalPartitioningSources = partitionSpec.fields().stream()
                 .flatMap(partitionField -> {
@@ -382,9 +381,8 @@ public abstract class AbstractTrinoCatalog
                 })
                 .collect(toImmutableSet());
 
-        return mappedCopy(
-                definition.getColumns(),
-                column -> {
+        return definition.getColumns().stream()
+                .map(column -> {
                     Type type = typeManager.getType(column.getType());
                     if (type instanceof TimestampWithTimeZoneType timestampTzType && timestampTzType.getPrecision() <= 6 && temporalPartitioningSources.contains(column.getName())) {
                         // Apply point-in-time semantics to maintain partitioning capabilities
@@ -394,7 +392,8 @@ public abstract class AbstractTrinoCatalog
                         type = typeForMaterializedViewStorageTable(type);
                     }
                     return new ColumnMetadata(column.getName(), type);
-                });
+                })
+                .collect(toImmutableList());
     }
 
     /**

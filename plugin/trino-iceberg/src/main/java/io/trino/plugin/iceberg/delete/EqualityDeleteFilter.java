@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.iceberg.delete;
 
-import com.amazonaws.annotation.ThreadSafe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
+import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.delete.DeleteManager.DeletePageSourceProvider;
 import io.trino.spi.Page;
