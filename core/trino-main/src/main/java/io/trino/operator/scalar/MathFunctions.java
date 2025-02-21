@@ -38,6 +38,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
 import org.apache.commons.math3.distribution.BetaDistribution;
+import org.apache.commons.math3.distribution.ChiSquaredDistribution;
 import org.apache.commons.math3.distribution.TDistribution;
 import org.apache.commons.math3.special.Erf;
 
@@ -1448,5 +1449,33 @@ public final class MathFunctions
         }
 
         return Math.sqrt(norm);
+    }
+
+    @Description("ChiSquared cdf given the df parameter and value")
+    @ScalarFunction("chi_squared_cdf")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double chiSquaredCdf(
+            @SqlType(StandardTypes.DOUBLE) double degreesOfFreedom,
+            @SqlType(StandardTypes.DOUBLE) double value)
+    {
+        checkCondition(degreesOfFreedom > 0 && isFinite(degreesOfFreedom), INVALID_FUNCTION_ARGUMENT, "degreesOfFreedom must be greater than 0");
+        checkCondition(value >= 0 && isFinite(value), INVALID_FUNCTION_ARGUMENT, "value must be non-negative");
+
+        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, degreesOfFreedom, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.cumulativeProbability(value);
+    }
+
+    @Description("Inverse of ChiSquared cdf given df parameter and probability")
+    @ScalarFunction("inverse_chi_squared_cdf")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double inverseChiSquaredCdf(
+            @SqlType(StandardTypes.DOUBLE) double degreesOfFreedom,
+            @SqlType(StandardTypes.DOUBLE) double probability)
+    {
+        checkCondition(degreesOfFreedom > 0 && isFinite(degreesOfFreedom), INVALID_FUNCTION_ARGUMENT, "degreesOfFreedom must be greater than 0");
+        checkCondition(probability >= 0 && probability <= 1 && isFinite(probability), INVALID_FUNCTION_ARGUMENT, "probability must be in the interval [0, 1]");
+
+        ChiSquaredDistribution distribution = new ChiSquaredDistribution(null, degreesOfFreedom, ChiSquaredDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY);
+        return distribution.inverseCumulativeProbability(probability);
     }
 }
