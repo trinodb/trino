@@ -714,33 +714,39 @@ public class IcebergMetadata
 
         // Only when dealing with an actual system table proceed to retrieve the base table for the system table
         String name = tableNameFrom(tableName.getTableName());
-        Table table;
-        try {
-            table = catalog.loadTable(session, new SchemaTableName(tableName.getSchemaName(), name));
-        }
-        catch (TableNotFoundException e) {
-            return Optional.empty();
-        }
-        catch (UnknownTableTypeException e) {
-            // avoid dealing with non Iceberg tables
-            return Optional.empty();
-        }
+        SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), name);
 
-        TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
-        return switch (tableType) {
-            case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType); // Handled above.
-            case HISTORY -> Optional.of(new HistoryTable(tableName, table));
-            case METADATA_LOG_ENTRIES -> Optional.of(new MetadataLogEntriesTable(tableName, table, icebergScanExecutor));
-            case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table, icebergScanExecutor));
-            case PARTITIONS -> Optional.of(new PartitionsTable(tableName, typeManager, table, getCurrentSnapshotId(table), icebergScanExecutor));
-            case ALL_MANIFESTS -> Optional.of(new AllManifestsTable(tableName, table, icebergScanExecutor));
-            case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
-            case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table), icebergScanExecutor));
-            case ALL_ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ALL_ENTRIES, icebergScanExecutor));
-            case ENTRIES -> Optional.of(new EntriesTable(typeManager, tableName, table, ENTRIES, icebergScanExecutor));
-            case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
-            case REFS -> Optional.of(new RefsTable(tableName, table, icebergScanExecutor));
-        };
+        return catalog.getMaterializedView(session, baseTableName)
+                .flatMap(_ -> catalog.getMaterializedViewStorageTable(session, baseTableName))
+                .or(() -> {
+                    try {
+                        return Optional.of(catalog.loadTable(session, baseTableName));
+                    }
+                    catch (TableNotFoundException e) {
+                        return Optional.empty();
+                    }
+                    catch (UnknownTableTypeException e) {
+                        // avoid dealing with non Iceberg tables
+                        return Optional.empty();
+                    }
+                })
+                .map(table -> {
+                    TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
+                    return switch (tableType) {
+                        case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType); // Handled above.
+                        case HISTORY -> new HistoryTable(tableName, table);
+                        case METADATA_LOG_ENTRIES -> new MetadataLogEntriesTable(tableName, table, icebergScanExecutor);
+                        case SNAPSHOTS -> new SnapshotsTable(tableName, typeManager, table, icebergScanExecutor);
+                        case PARTITIONS -> new PartitionsTable(tableName, typeManager, table, getCurrentSnapshotId(table), icebergScanExecutor);
+                        case ALL_MANIFESTS -> new AllManifestsTable(tableName, table, icebergScanExecutor);
+                        case MANIFESTS -> new ManifestsTable(tableName, table, getCurrentSnapshotId(table));
+                        case FILES -> new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table), icebergScanExecutor);
+                        case ALL_ENTRIES -> new EntriesTable(typeManager, tableName, table, ALL_ENTRIES, icebergScanExecutor);
+                        case ENTRIES -> new EntriesTable(typeManager, tableName, table, ENTRIES, icebergScanExecutor);
+                        case PROPERTIES -> new PropertiesTable(tableName, table);
+                        case REFS -> new RefsTable(tableName, table, icebergScanExecutor);
+                    };
+                });
     }
 
     @Override
