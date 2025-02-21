@@ -1285,6 +1285,122 @@ final class TestIcebergLocalConcurrentWrites
         }
     }
 
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
+    void testConcurrentOverlappingOptimize()
+            throws Exception
+    {
+        testConcurrentOverlappingOptimize(true);
+        testConcurrentOverlappingOptimize(false);
+    }
+
+    private void testConcurrentOverlappingOptimize(boolean partitioned)
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+
+        try (TestTable table = newTrinoTable(
+                "test_concurrent_non_overlapping_optimize_table_",
+                "(a INT, part INT) " + (partitioned ? " WITH (partitioning = ARRAY['part'])" : ""))) {
+
+            ImmutableList.Builder<String> expectedValues = ImmutableList.builder();
+            // Add 10 files to each partition
+            for (int i = 0; i < 10; i++) {
+                String values = format("(%1$d, 10), (%1$d, 20), (%1$d, NULL), (%1$d, 40)", i);
+                expectedValues.add(values);
+                assertUpdate(format("INSERT INTO %s VALUES %s", table.getName(), values), 4);
+            }
+
+            List<Future<Boolean>> futures = IntStream.range(0, threads)
+                    .mapToObj(_ -> executor.submit(() -> {
+                        barrier.await(10, SECONDS);
+                        try {
+                            getQueryRunner().execute("ALTER TABLE %s EXECUTE optimize".formatted(table.getName()));
+                            return true;
+                        }
+                        catch (Exception e) {
+                            RuntimeException trinoException = getTrinoExceptionCause(e);
+                            try {
+                                assertThat(trinoException).hasMessageMatching("Failed to commit the transaction during optimize.*|" +
+                                                                              "Failed to commit during optimize.*");
+                            }
+                            catch (Throwable verifyFailure) {
+                                if (verifyFailure != e) {
+                                    verifyFailure.addSuppressed(e);
+                                }
+                                throw verifyFailure;
+                            }
+                            return false;
+                        }
+                    }))
+                    .collect(toImmutableList());
+
+            long successes = futures.stream()
+                    .map(future -> tryGetFutureValue(future, 10, SECONDS).orElseThrow(() -> new RuntimeException("Wait timed out")))
+                    .filter(success -> success)
+                    .count();
+
+            assertThat(successes).isGreaterThanOrEqualTo(1);
+
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES " + String.join(", ", expectedValues.build()));
+        }
+        finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
+    void testConcurrentNonOverlappingOptimize()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+
+        try (TestTable table = newTrinoTable(
+                "test_concurrent_non_overlapping_optimize_table_",
+                "(a INT, part INT) WITH (partitioning = ARRAY['part']) ")) {
+
+            ImmutableList.Builder<String> expectedValues = ImmutableList.builder();
+            // Add 10 files to each partition
+            for (int i = 0; i < 10; i++) {
+                String values = format("(%1$d, 10), (%1$d, 20), (%1$d, NULL), (%1$d, 40)", i);
+                expectedValues.add(values);
+                assertUpdate(format("INSERT INTO %s VALUES %s", table.getName(), values), 4);
+            }
+
+            // optimize concurrently by using non-overlapping partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                assertUpdate("ALTER TABLE %s EXECUTE optimize WHERE part = 10".formatted(table.getName()));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                assertUpdate("ALTER TABLE %s EXECUTE optimize WHERE part = 20".formatted(table.getName()));
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                assertUpdate("ALTER TABLE %s EXECUTE optimize WHERE part IS NULL".formatted(table.getName()));
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES " + String.join(", ", expectedValues.build()));
+        }
+        finally {
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
+        }
+    }
+
     private long getCurrentSnapshotId(String tableName)
     {
         return (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
