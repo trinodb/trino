@@ -34,9 +34,9 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.execution.DistributionSnapshot.pruneOperatorStats;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -285,7 +285,8 @@ public class StageStats
 
         this.gcInfo = requireNonNull(gcInfo, "gcInfo is null");
 
-        this.operatorSummaries = pruneOperatorStats(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+        requireNonNull(operatorSummaries, "operatorSummaries is null");
+        this.operatorSummaries = operatorSummaries.stream().map(OperatorStats::pruneDigests).collect(toImmutableList());
     }
 
     @JsonProperty
