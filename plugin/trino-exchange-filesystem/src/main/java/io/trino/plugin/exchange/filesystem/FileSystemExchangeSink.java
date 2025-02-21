@@ -85,8 +85,8 @@ public class FileSystemExchangeSink
     private volatile boolean closed;
 
     private final MetricsBuilder metricsBuilder = new MetricsBuilder();
-    private final CounterMetricBuilder totalFilesMetric = metricsBuilder.getCounterMetric("FileSystemExchangeSource.filesTotal");
-    private final DistributionMetricBuilder fileSizeMetric = metricsBuilder.getDistributionMetric("FileSystemExchangeSource.fileSize");
+    private final CounterMetricBuilder totalFilesMetric = metricsBuilder.getCounterMetric("FileSystemExchangeSink.filesTotal");
+    private final DistributionMetricBuilder fileSizeMetric = metricsBuilder.getDistributionMetric("FileSystemExchangeSink.fileSize");
 
     public FileSystemExchangeSink(
             FileSystemExchangeStorage exchangeStorage,
