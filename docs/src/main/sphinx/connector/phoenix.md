@@ -14,6 +14,14 @@ The Phoenix connector allows querying data stored in
 [Apache HBase](https://hbase.apache.org/) using
 [Apache Phoenix](https://phoenix.apache.org/).
 
+## Installation
+
+The Phoenix connector plugin is optional and must be downloaded and installed
+as part of your Trino cluster provisioning.
+
+Download the plugin archive {maven_download}`phoenix` and follow the plugin
+installation instructions.
+
 ## Requirements
 
 To query HBase data through Phoenix, you need:

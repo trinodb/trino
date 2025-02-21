@@ -24,6 +24,7 @@ ARTIFACTS = {
     'jdbc': ('trino-jdbc', 'jar', None),
     'teradata-functions':  ('trino-teradata-functions', 'zip', None),
     'example-http':  ('trino-example-http', 'zip', None),
+    'phoenix':  ('trino-phoenix5', 'zip', None),
 }
 
 
