@@ -439,6 +439,17 @@ the following features:
 ```{include} sql-delete-limitation.fragment
 ```
 
+### Wildcard table
+
+The connector provides support to query multiple tables using a concise
+[wildcard table](https://cloud.google.com/bigquery/docs/querying-wildcard-tables)
+notation.
+
+```sql
+SELECT *
+FROM example.web."page_views_*";
+```
+
 ### Procedures
 
 ```{include} procedures-execute.fragment
