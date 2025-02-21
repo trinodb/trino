@@ -549,7 +549,7 @@ public class PipelineStats
                 outputBlockedTime,
                 physicalWrittenDataSize,
                 operatorSummaries.stream()
-                        .map(io.trino.execution.DistributionSnapshot::pruneOperatorStats)
+                        .map(OperatorStats::pruneDigests)
                         .collect(toImmutableList()),
                 drivers);
     }
