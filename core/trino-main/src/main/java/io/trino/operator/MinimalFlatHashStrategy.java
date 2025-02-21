@@ -24,14 +24,26 @@ public interface MinimalFlatHashStrategy
 
     int getTotalVariableWidth(Block[] blocks, int position);
 
-    void readFlat(byte[] fixedChunk, int fixedOffset, byte[] variableChunk, BlockBuilder[] blockBuilders);
+    void readFlat(
+            byte[] fixedChunk,
+            int fixedOffset,
+            byte[] variableChunk,
+            int variableChunkOffset,
+            BlockBuilder[] blockBuilders);
 
-    void writeFlat(Block[] blocks, int position, byte[] fixedChunk, int fixedOffset, byte[] variableChunk, int variableOffset);
+    void writeFlat(
+            Block[] blocks,
+            int position,
+            byte[] fixedChunk,
+            int fixedOffset,
+            byte[] variableChunk,
+            int variableChunkOffset);
 
     boolean valueIdentical(
             byte[] leftFixedChunk,
             int leftFixedOffset,
             byte[] leftVariableChunk,
+            int leftVariableChunkOffset,
             Block[] rightBlocks,
             int rightPosition);
 

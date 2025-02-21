@@ -129,6 +129,45 @@ public abstract class AbstractVariableWidthType
     }
 
     @Override
+    public int getMinimalFlatVariableWidthSize(Block block, int position)
+    {
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        return variableWidthBlock.getSliceLength(block.getUnderlyingValuePosition(position));
+    }
+
+    @Override
+    public void writeMinimalFlatVariableWidth(Block block, int position, byte[] variableSizeSlice, int variableSizeOffset)
+    {
+        VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int underlyingPosition = block.getUnderlyingValuePosition(position);
+        Slice rawSlice = variableWidthBlock.getRawSlice();
+        int rawSliceOffset = variableWidthBlock.getRawSliceOffset(underlyingPosition);
+        int length = variableWidthBlock.getSliceLength(underlyingPosition);
+        rawSlice.getBytes(rawSliceOffset, variableSizeSlice, variableSizeOffset, length);
+    }
+
+    @Override
+    public void readMinimalFlatVariableWidth(byte[] variableSizeSlice, int variableSizeOffset, int length, BlockBuilder blockBuilder)
+    {
+        ((VariableWidthBlockBuilder) blockBuilder).writeEntry(variableSizeSlice, variableSizeOffset, length);
+    }
+
+    @Override
+    public boolean minimalFlatVariableWidthIdentical(byte[] leftVariableSizeSlice, int leftVariableSizeOffset, int leftLength, Block rightBlock, int rightPosition)
+    {
+        VariableWidthBlock rightVariableWidthBlock = (VariableWidthBlock) rightBlock.getUnderlyingValueBlock();
+        int underlyingRightPosition = rightBlock.getUnderlyingValuePosition(rightPosition);
+        Slice rightRawSlice = rightVariableWidthBlock.getRawSlice();
+        int rightRawSliceOffset = rightVariableWidthBlock.getRawSliceOffset(underlyingRightPosition);
+        int rightLength = rightVariableWidthBlock.getSliceLength(underlyingRightPosition);
+
+        if (leftLength != rightLength) {
+            return false;
+        }
+        return rightRawSlice.equals(rightRawSliceOffset, rightLength, wrappedBuffer(leftVariableSizeSlice, leftVariableSizeOffset, leftLength), 0, leftLength);
+    }
+
+    @Override
     public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
     {
         int length = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);

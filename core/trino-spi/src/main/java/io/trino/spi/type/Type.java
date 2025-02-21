@@ -246,6 +246,27 @@ public interface Type
      */
     int getFlatVariableWidthSize(Block block, int position);
 
+    // TODO: Use real method handles
+    default int getMinimalFlatVariableWidthSize(Block block, int position)
+    {
+        return getFlatVariableWidthSize(block, position);
+    }
+
+    default void writeMinimalFlatVariableWidth(Block block, int position, byte[] variableSizeSlice, int variableSizeOffset)
+    {
+        throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    default void readMinimalFlatVariableWidth(byte[] variableSizeSlice, int variableSizeOffset, int length, BlockBuilder blockBuilder)
+    {
+        throw new UnsupportedOperationException("Operation not supported");
+    }
+
+    default boolean minimalFlatVariableWidthIdentical(byte[] leftVariableSizeSlice, int leftVariableSizeOffset, int leftLength, Block rightBlock, int rightPosition)
+    {
+        throw new UnsupportedOperationException("Operation not supported");
+    }
+
     /**
      * Update the variable width offsets recorded in the value.
      * This method is called after the value has been moved to a new location, and therefore the offsets
