@@ -2,6 +2,14 @@
 
 These functions provide compatibility with Teradata SQL.
 
+## Installation
+
+The Teradata functions plugin is optional and must be downloaded and installed
+as part of your Trino cluster provisioning. 
+
+Download the plugin archive {maven_download}`teradata-functions`
+and follow the plugin installation instructions.
+
 ## String functions
 
 :::{function} char2hexint(string) -> varchar

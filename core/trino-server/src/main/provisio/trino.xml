@@ -292,12 +292,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/teradata-functions">
-        <artifact id="${project.groupId}:trino-teradata-functions:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/thrift">
         <artifact id="${project.groupId}:trino-thrift:zip:${project.version}">
             <unpack />
