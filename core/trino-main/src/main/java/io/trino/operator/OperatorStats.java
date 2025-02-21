@@ -62,6 +62,7 @@ public class OperatorStats
     private final Duration getOutputCpu;
     private final DataSize outputDataSize;
     private final long outputPositions;
+    private final long updatedPositions;
 
     private final long dynamicFilterSplitsProcessed;
     private final Metrics metrics;
@@ -117,6 +118,7 @@ public class OperatorStats
             @JsonProperty("getOutputCpu") Duration getOutputCpu,
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+            @JsonProperty("updatedPositions") long updatedPositions,
 
             @JsonProperty("dynamicFilterSplitsProcessed") long dynamicFilterSplitsProcessed,
             @JsonProperty("metrics") Metrics metrics,
@@ -174,6 +176,8 @@ public class OperatorStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+        checkArgument(updatedPositions >= 0, "updatedPositions is negative");
+        this.updatedPositions = updatedPositions;
 
         this.dynamicFilterSplitsProcessed = dynamicFilterSplitsProcessed;
         this.metrics = requireNonNull(metrics, "metrics is null");
@@ -341,6 +345,12 @@ public class OperatorStats
     }
 
     @JsonProperty
+    public long getUpdatedPositions()
+    {
+        return updatedPositions;
+    }
+
+    @JsonProperty
     public long getDynamicFilterSplitsProcessed()
     {
         return dynamicFilterSplitsProcessed;
@@ -485,6 +495,7 @@ public class OperatorStats
         long getOutputCpu = this.getOutputCpu.roundTo(NANOSECONDS);
         long outputDataSize = this.outputDataSize.toBytes();
         long outputPositions = this.outputPositions;
+        long updatedPositions = this.updatedPositions;
 
         long dynamicFilterSplitsProcessed = this.dynamicFilterSplitsProcessed;
         Metrics.Accumulator metricsAccumulator = Metrics.accumulator().add(this.getMetrics());
@@ -535,6 +546,7 @@ public class OperatorStats
             getOutputCpu += operator.getGetOutputCpu().roundTo(NANOSECONDS);
             outputDataSize += operator.getOutputDataSize().toBytes();
             outputPositions += operator.getOutputPositions();
+            updatedPositions += operator.getUpdatedPositions();
 
             dynamicFilterSplitsProcessed += operator.getDynamicFilterSplitsProcessed();
             metricsAccumulator.add(operator.getMetrics());
@@ -596,6 +608,7 @@ public class OperatorStats
                 new Duration(getOutputCpu, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 DataSize.ofBytes(outputDataSize),
                 outputPositions,
+                updatedPositions,
 
                 dynamicFilterSplitsProcessed,
                 metricsAccumulator.get(),
@@ -672,6 +685,7 @@ public class OperatorStats
                 getOutputCpu,
                 outputDataSize,
                 outputPositions,
+                updatedPositions,
                 dynamicFilterSplitsProcessed,
                 metrics,
                 connectorMetrics,
@@ -717,6 +731,7 @@ public class OperatorStats
                 getOutputCpu,
                 outputDataSize,
                 outputPositions,
+                updatedPositions,
                 dynamicFilterSplitsProcessed,
                 metrics,
                 connectorMetrics,

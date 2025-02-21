@@ -27,12 +27,15 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
+import io.trino.execution.QueryStats;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.server.BasicQueryInfo;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.security.Identity;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.Plan;
@@ -45,6 +48,11 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.assertions.TrinoExceptionAssert;
+import io.trino.testing.eventlistener.EventsAwaitingQueries;
+import io.trino.testing.eventlistener.EventsCollector;
+import io.trino.testing.eventlistener.NamedClosable;
+import io.trino.testing.eventlistener.QueryEvents;
+import io.trino.testing.eventlistener.TestingEventListenerPlugin;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
@@ -68,6 +76,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -186,7 +195,7 @@ public abstract class BaseConnectorTest
 {
     private static final Logger log = Logger.get(BaseConnectorTest.class);
 
-    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableSet.<TpchTable<?>>builder()
+    public static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableSet.<TpchTable<?>>builder()
             .addAll(AbstractTestQueries.REQUIRED_TPCH_TABLES)
             .add(CUSTOMER)
             .build().asList();
@@ -5029,6 +5038,58 @@ public abstract class BaseConnectorTest
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 100), (1, 20), (2, 10)");
         }
     }
+
+    @Test
+    public void testUpdateStatsWithRaisedEvents()
+    {
+        if (!hasBehavior(SUPPORTS_UPDATE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
+            return;
+        }
+        Supplier<NamedClosable> supplier = () -> {
+            TestTable table = newTrinoTable("test_row_update", "AS SELECT * FROM nation");
+            return new NamedClosable(table.getName(), table);
+        };
+        runUpdateDeleteStatsWithRaisedEvents(supplier,
+                table -> "UPDATE " + table + " SET nationkey = 100 WHERE regionkey = 2");
+    }
+
+    @Test
+    public void testDeleteStatsWithRaisedEvents()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DELETE));
+        // delete successive parts of the table
+        Supplier<NamedClosable> supplier = () -> {
+            TestTable table = newTrinoTable("test_delete_", "AS SELECT * FROM orders");
+            return new NamedClosable(table.getName(), table);
+        };
+        runUpdateDeleteStatsWithRaisedEvents(supplier,
+                table -> "DELETE FROM " + table + " WHERE custkey <= 100");
+    }
+
+    protected void runUpdateDeleteStatsWithRaisedEvents(Supplier<NamedClosable> namedClosable,
+                                                        Function<String, String> querySupplier) {
+        EventsCollector generatedEvents = new EventsCollector();
+        EventsAwaitingQueries queries = new EventsAwaitingQueries(generatedEvents, getQueryRunner());
+        getQueryRunner().installPlugin(new TestingEventListenerPlugin(generatedEvents));
+        try(NamedClosable table = namedClosable.get()) {
+            EventsAwaitingQueries.MaterializedResultWithEvents result = queries.runQueryAndWaitForEvents(querySupplier.apply(table.getName()), getSession());
+            QueryEvents queryEvents = result.getQueryEvents();
+            try {
+                queryEvents.waitForQueryCompletion(new Duration(300, SECONDS));
+                SECONDS.sleep(1);
+                QueryCompletedEvent c = queryEvents.getQueryCompletedEvent();
+                QueryStats queryStats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(new QueryId(c.getMetadata().getQueryId())).getQueryStats();
+                assertThat(result.getMaterializedResult().getUpdateCount().orElse(0)).isEqualTo(queryStats.getUpdatedPositions());
+            } catch (InterruptedException | TimeoutException e) {
+                throw new RuntimeException(e);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
     @Test
     public void testUpdateWithNullValues()

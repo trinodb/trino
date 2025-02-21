@@ -82,6 +82,7 @@ public class PipelineStats
 
     private final DataSize outputDataSize;
     private final long outputPositions;
+    private final long updatedPositions;
 
     private final Duration outputBlockedTime;
 
@@ -140,6 +141,7 @@ public class PipelineStats
 
             @JsonProperty("outputDataSize") DataSize outputDataSize,
             @JsonProperty("outputPositions") long outputPositions,
+            @JsonProperty("updatedPositions") long updatedPositions,
 
             @JsonProperty("outputBlockedTime") Duration outputBlockedTime,
 
@@ -210,6 +212,8 @@ public class PipelineStats
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
         checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
+        checkArgument(updatedPositions >= 0, "updatedPositions is negative");
+        this.updatedPositions = updatedPositions;
 
         this.outputBlockedTime = requireNonNull(outputBlockedTime, "outputBlockedTime is null");
 
@@ -439,6 +443,12 @@ public class PipelineStats
     }
 
     @JsonProperty
+    public long getUpdatedPositions()
+    {
+        return updatedPositions;
+    }
+
+    @JsonProperty
     public Duration getOutputBlockedTime()
     {
         return outputBlockedTime;
@@ -501,6 +511,7 @@ public class PipelineStats
                 inputBlockedTime,
                 outputDataSize,
                 outputPositions,
+                updatedPositions,
                 outputBlockedTime,
                 physicalWrittenDataSize,
                 summarizeOperatorStats(operatorSummaries),
@@ -546,6 +557,7 @@ public class PipelineStats
                 inputBlockedTime,
                 outputDataSize,
                 outputPositions,
+                updatedPositions,
                 outputBlockedTime,
                 physicalWrittenDataSize,
                 operatorSummaries.stream()
