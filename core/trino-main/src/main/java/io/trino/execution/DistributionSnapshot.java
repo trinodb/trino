@@ -16,81 +16,23 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.base.MoreObjects.ToStringHelper;
-import io.trino.operator.OperatorStats;
 import io.trino.spi.metrics.Distribution;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NONE) // Do not add @class property
 @JsonSerialize
 public record DistributionSnapshot(long total, double min, double max, double p01, double p05, double p10, double p25, double p50, double p75, double p90, double p95, double p99)
         implements Metric<DistributionSnapshot>
 {
-    public static List<OperatorStats> pruneOperatorStats(List<OperatorStats> operatorStats)
-    {
-        requireNonNull(operatorStats, "operatorStats is null");
-        return operatorStats.stream()
-                .map(DistributionSnapshot::pruneOperatorStats)
-                .collect(toImmutableList());
-    }
-
-    public static OperatorStats pruneOperatorStats(OperatorStats operatorStats)
-    {
-        requireNonNull(operatorStats, "operatorStats is null");
-        return new OperatorStats(
-                operatorStats.getStageId(),
-                operatorStats.getPipelineId(),
-                operatorStats.getOperatorId(),
-                operatorStats.getPlanNodeId(),
-                operatorStats.getOperatorType(),
-                operatorStats.getTotalDrivers(),
-                operatorStats.getAddInputCalls(),
-                operatorStats.getAddInputWall(),
-                operatorStats.getAddInputCpu(),
-                operatorStats.getPhysicalInputDataSize(),
-                operatorStats.getPhysicalInputPositions(),
-                operatorStats.getPhysicalInputReadTime(),
-                operatorStats.getInternalNetworkInputDataSize(),
-                operatorStats.getInternalNetworkInputPositions(),
-                operatorStats.getRawInputDataSize(),
-                operatorStats.getInputDataSize(),
-                operatorStats.getInputPositions(),
-                operatorStats.getSumSquaredInputPositions(),
-                operatorStats.getGetOutputCalls(),
-                operatorStats.getGetOutputWall(),
-                operatorStats.getGetOutputCpu(),
-                operatorStats.getOutputDataSize(),
-                operatorStats.getOutputPositions(),
-                operatorStats.getDynamicFilterSplitsProcessed(),
-                pruneMetrics(operatorStats.getMetrics()),
-                pruneMetrics(operatorStats.getConnectorMetrics()),
-                pruneMetrics(operatorStats.getPipelineMetrics()),
-                operatorStats.getPhysicalWrittenDataSize(),
-                operatorStats.getBlockedWall(),
-                operatorStats.getFinishCalls(),
-                operatorStats.getFinishWall(),
-                operatorStats.getFinishCpu(),
-                operatorStats.getUserMemoryReservation(),
-                operatorStats.getRevocableMemoryReservation(),
-                operatorStats.getPeakUserMemoryReservation(),
-                operatorStats.getPeakRevocableMemoryReservation(),
-                operatorStats.getPeakTotalMemoryReservation(),
-                operatorStats.getSpilledDataSize(),
-                operatorStats.getBlockedReason(),
-                operatorStats.getInfo());
-    }
-
-    private static Metrics pruneMetrics(Metrics metrics)
+    public static Metrics pruneMetrics(Metrics metrics)
     {
         return new Metrics(metrics.getMetrics().entrySet().stream()
                 .collect(toImmutableMap(

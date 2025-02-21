@@ -32,8 +32,8 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.execution.DistributionSnapshot.pruneOperatorStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.Objects.requireNonNull;
 
@@ -336,7 +336,9 @@ public class QueryStats
 
         this.dynamicFiltersStats = requireNonNull(dynamicFiltersStats, "dynamicFiltersStats is null");
 
-        this.operatorSummaries = pruneOperatorStats(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+        requireNonNull(operatorSummaries, "operatorSummaries is null");
+        this.operatorSummaries = operatorSummaries.stream().map(OperatorStats::pruneDigests).collect(toImmutableList());
+
         this.optimizerRulesSummaries = ImmutableList.copyOf(requireNonNull(optimizerRulesSummaries, "optimizerRulesSummaries is null"));
     }
 
