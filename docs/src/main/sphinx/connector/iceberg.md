@@ -1801,6 +1801,22 @@ use the data from the storage tables, even after the grace period expired.
 Dropping a materialized view with {doc}`/sql/drop-materialized-view` removes
 the definition and the storage table.
 
+#### Incremental refresh limitations
+
+The connector supports incremental refreshes for materialized views with the
+following limitations:
+
+- Appends can only occur between `fromSnapshot`, time of last refresh, and
+  `currentSnapshot`.
+
+- The following are not supported:
+  - `JOIN`
+  - `GROUP BY`
+  - `DISTINCT`, such as `SELECT DISTINCT ... FROM ...`
+  - `SELECT` function calls, such as `SELECT SUM(price),
+    AVG(price) FROM ...`
+  - Window functions
+
 ### Table functions
 
 The connector supports the table functions described in the following sections.
