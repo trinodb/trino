@@ -25,6 +25,7 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DynamicFilterSourceConsumer;
+import io.trino.sql.planner.DynamicFilterTupleDomain;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
@@ -124,13 +125,12 @@ public class TestDynamicFilterSourceOperator
 
     private OperatorFactory createOperatorFactory(DynamicFilterSourceOperator.Channel... buildChannels)
     {
-        return createOperatorFactory(100, DataSize.of(10, KILOBYTE), 1_000_000, Arrays.asList(buildChannels));
+        return createOperatorFactory(100, DataSize.of(10, KILOBYTE), Arrays.asList(buildChannels));
     }
 
     private OperatorFactory createOperatorFactory(
             int maxFilterDistinctValues,
             DataSize maxFilterSize,
-            int minMaxCollectionLimit,
             Iterable<DynamicFilterSourceOperator.Channel> buildChannels)
     {
         return new DynamicFilterSourceOperator.DynamicFilterSourceOperatorFactory(
@@ -138,9 +138,9 @@ public class TestDynamicFilterSourceOperator
                 new PlanNodeId("PLAN_NODE_ID"),
                 new DynamicFilterSourceConsumer() {
                     @Override
-                    public void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
+                    public void addPartition(DynamicFilterTupleDomain<DynamicFilterId> tupleDomain)
                     {
-                        partitions.add(tupleDomain);
+                        partitions.add(tupleDomain.toTupleDomain());
                     }
 
                     @Override
@@ -154,8 +154,8 @@ public class TestDynamicFilterSourceOperator
                 },
                 ImmutableList.copyOf(buildChannels),
                 maxFilterDistinctValues,
+                maxFilterDistinctValues * 2,
                 maxFilterSize,
-                minMaxCollectionLimit,
                 typeOperators);
     }
 
@@ -171,13 +171,12 @@ public class TestDynamicFilterSourceOperator
 
     private void assertDynamicFilters(int maxFilterDistinctValues, List<Type> types, List<Page> pages, List<TupleDomain<DynamicFilterId>> expectedTupleDomains)
     {
-        assertDynamicFilters(maxFilterDistinctValues, DataSize.of(10, KILOBYTE), 1_000_000, types, pages, expectedTupleDomains);
+        assertDynamicFilters(maxFilterDistinctValues, DataSize.of(10, KILOBYTE), types, pages, expectedTupleDomains);
     }
 
     private void assertDynamicFilters(
             int maxFilterDistinctValues,
             DataSize maxFilterSize,
-            int minMaxCollectionLimit,
             List<Type> types,
             List<Page> pages,
             List<TupleDomain<DynamicFilterId>> expectedTupleDomains)
@@ -185,7 +184,7 @@ public class TestDynamicFilterSourceOperator
         List<DynamicFilterSourceOperator.Channel> buildChannels = IntStream.range(0, types.size())
                 .mapToObj(i -> channel(i, types.get(i)))
                 .collect(toImmutableList());
-        OperatorFactory operatorFactory = createOperatorFactory(maxFilterDistinctValues, maxFilterSize, minMaxCollectionLimit, buildChannels);
+        OperatorFactory operatorFactory = createOperatorFactory(maxFilterDistinctValues, maxFilterSize, buildChannels);
         Operator operator = createOperator(operatorFactory);
         verifyPassthrough(operator, types, pages);
         operatorFactory.noMoreOperators();
@@ -475,7 +474,7 @@ public class TestDynamicFilterSourceOperator
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         new DynamicFilterId("1"), Domain.singleValue(COLOR, 100L),
                         new DynamicFilterId("2"), Domain.singleValue(BIGINT, 200L))));
-        assertDynamicFilters(maxDistinctValues, DataSize.of(10, KILOBYTE), 100, ImmutableList.of(BIGINT, COLOR, BIGINT), ImmutableList.of(largePage), expectedTupleDomains);
+        assertDynamicFilters(maxDistinctValues, DataSize.of(10, KILOBYTE), ImmutableList.of(BIGINT, COLOR, BIGINT), ImmutableList.of(largePage), expectedTupleDomains);
     }
 
     @Test
@@ -504,7 +503,6 @@ public class TestDynamicFilterSourceOperator
         assertDynamicFilters(
                 100,
                 maxSize,
-                100,
                 ImmutableList.of(VARCHAR),
                 ImmutableList.of(largePage),
                 ImmutableList.of(TupleDomain.withColumnDomains(ImmutableMap.of(
@@ -532,7 +530,6 @@ public class TestDynamicFilterSourceOperator
         assertDynamicFilters(
                 100,
                 maxSize,
-                100,
                 ImmutableList.of(VARCHAR, VARCHAR),
                 ImmutableList.of(largePage),
                 expectedTupleDomains);
@@ -580,7 +577,6 @@ public class TestDynamicFilterSourceOperator
         assertDynamicFilters(
                 maxDistinctValues,
                 DataSize.of(10, KILOBYTE),
-                2 * maxDistinctValues,
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(new Page(createLongSequenceBlock(0, (2 * maxDistinctValues) + 1))),
                 ImmutableList.of(TupleDomain.all()));
@@ -593,7 +589,6 @@ public class TestDynamicFilterSourceOperator
         assertDynamicFilters(
                 maxDistinctValues,
                 DataSize.of(10, KILOBYTE),
-                (2 * maxDistinctValues) + 1,
                 ImmutableList.of(BIGINT),
                 ImmutableList.of(
                         new Page(createLongSequenceBlock(0, maxDistinctValues + 1)),

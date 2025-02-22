@@ -15,13 +15,15 @@ package io.trino.util;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.DynamicPageFilter;
 import io.trino.sql.gen.columnar.FilterEvaluator;
+import io.trino.sql.planner.DynamicFilterDomain;
+import io.trino.sql.planner.DynamicFilterTupleDomain;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.planner.Symbol;
 
 import java.util.Map;
@@ -85,7 +87,17 @@ public final class DynamicFiltersTestUtil
             double selectivityThreshold)
     {
         TestingDynamicFilter dynamicFilter = new TestingDynamicFilter(1);
-        dynamicFilter.update(tupleDomain);
+        DynamicFilterTupleDomain<ColumnHandle> dynamicFilterTupleDomain;
+        if (tupleDomain.isNone()) {
+            dynamicFilterTupleDomain = DynamicFilterTupleDomain.none();
+        }
+        else {
+            dynamicFilterTupleDomain = DynamicFilterTupleDomain.withColumnDomains(tupleDomain.getDomains().get()
+                    .entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> new DynamicFilterDomain(entry.getValue()))));
+        }
+
+        dynamicFilter.update(dynamicFilterTupleDomain);
         Map<ColumnHandle, Type> types = tupleDomain.getDomains().orElse(ImmutableMap.of())
                 .entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
@@ -110,20 +122,20 @@ public final class DynamicFiltersTestUtil
     }
 
     public static class TestingDynamicFilter
-            implements DynamicFilter
+            implements InternalDynamicFilter
     {
         private CompletableFuture<?> isBlocked;
-        private TupleDomain<ColumnHandle> currentPredicate;
+        private DynamicFilterTupleDomain<ColumnHandle> currentPredicate;
         private int futuresLeft;
 
         public TestingDynamicFilter(int expectedFilters)
         {
             this.futuresLeft = expectedFilters;
             this.isBlocked = expectedFilters == 0 ? NOT_BLOCKED : new CompletableFuture<>();
-            this.currentPredicate = TupleDomain.all();
+            this.currentPredicate = DynamicFilterTupleDomain.all();
         }
 
-        public void update(TupleDomain<ColumnHandle> predicate)
+        public void update(DynamicFilterTupleDomain<ColumnHandle> predicate)
         {
             futuresLeft -= 1;
             verify(futuresLeft >= 0);
@@ -160,6 +172,12 @@ public final class DynamicFiltersTestUtil
 
         @Override
         public TupleDomain<ColumnHandle> getCurrentPredicate()
+        {
+            return currentPredicate.toTupleDomain();
+        }
+
+        @Override
+        public DynamicFilterTupleDomain<ColumnHandle> getCurrentDynamicFilterTupleDomain()
         {
             return currentPredicate;
         }
