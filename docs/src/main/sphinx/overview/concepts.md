@@ -112,6 +112,14 @@ Trino](/language).
 
 More details are available in the [Trino client documentation](/client).
 
+(trino-concept-plugin)=
+## Plugin
+
+Trino uses a plugin architecture to extend its capabilities and integrate with
+various data sources and other systems. Details about different types of
+plugins, installation, removal, and other aspects are available in the [Plugin
+documentation](/installation/plugins).
+
 (trino-concept-data-source)=
 ## Data source
 
