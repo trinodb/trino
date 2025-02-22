@@ -28,7 +28,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.ZSTD;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static io.trino.sql.analyzer.RegexLibrary.RE2J;
@@ -53,7 +53,7 @@ public class TestFeaturesConfig
                 .setSpillMaxUsedSpaceThreshold(0.9)
                 .setMemoryRevokingThreshold(0.9)
                 .setMemoryRevokingTarget(0.5)
-                .setExchangeCompressionCodec(NONE)
+                .setExchangeCompressionCodec(LZ4)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(500, KILOBYTE))
