@@ -34,9 +34,10 @@ import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.trino.execution.DistributionSnapshot.pruneOperatorStats;
+import static io.trino.execution.DistributionSnapshot.pruneMetrics;
 import static io.trino.execution.StageState.RUNNING;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
@@ -285,7 +286,8 @@ public class StageStats
 
         this.gcInfo = requireNonNull(gcInfo, "gcInfo is null");
 
-        this.operatorSummaries = pruneOperatorStats(requireNonNull(operatorSummaries, "operatorSummaries is null"));
+        requireNonNull(operatorSummaries, "operatorSummaries is null");
+        this.operatorSummaries = operatorSummaries.stream().map(OperatorStats::pruneDigests).collect(toImmutableList());
     }
 
     @JsonProperty
@@ -678,6 +680,71 @@ public class StageStats
                 blockedReasons,
                 progressPercentage,
                 runningPercentage);
+    }
+
+    public StageStats pruneDigests()
+    {
+        return new StageStats(
+                schedulingComplete,
+                getSplitDistribution,
+                totalTasks,
+                runningTasks,
+                completedTasks,
+                failedTasks,
+                totalDrivers,
+                queuedDrivers,
+                runningDrivers,
+                blockedDrivers,
+                completedDrivers,
+                cumulativeUserMemory,
+                failedCumulativeUserMemory,
+                userMemoryReservation,
+                revocableMemoryReservation,
+                totalMemoryReservation,
+                peakUserMemoryReservation,
+                peakRevocableMemoryReservation,
+                totalScheduledTime,
+                failedScheduledTime,
+                totalCpuTime,
+                failedCpuTime,
+                totalBlockedTime,
+                fullyBlocked,
+                blockedReasons,
+                physicalInputDataSize,
+                failedPhysicalInputDataSize,
+                physicalInputPositions,
+                failedPhysicalInputPositions,
+                physicalInputReadTime,
+                failedPhysicalInputReadTime,
+                internalNetworkInputDataSize,
+                failedInternalNetworkInputDataSize,
+                internalNetworkInputPositions,
+                failedInternalNetworkInputPositions,
+                rawInputDataSize,
+                failedRawInputDataSize,
+                rawInputPositions,
+                failedRawInputPositions,
+                processedInputDataSize,
+                failedProcessedInputDataSize,
+                processedInputPositions,
+                failedProcessedInputPositions,
+                inputBlockedTime,
+                failedInputBlockedTime,
+                bufferedDataSize,
+                outputBufferUtilization,
+                outputDataSize,
+                failedOutputDataSize,
+                outputPositions,
+                failedOutputPositions,
+                pruneMetrics(outputBufferMetrics),
+                outputBlockedTime,
+                failedOutputBlockedTime,
+                physicalWrittenDataSize,
+                failedPhysicalWrittenDataSize,
+                gcInfo,
+                operatorSummaries.stream()
+                        .map(OperatorStats::pruneDigests)
+                        .collect(toImmutableList()));
     }
 
     public static StageStats createInitial()
