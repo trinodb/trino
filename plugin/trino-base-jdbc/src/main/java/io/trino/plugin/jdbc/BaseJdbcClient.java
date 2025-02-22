@@ -34,12 +34,14 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -93,11 +95,13 @@ import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteParallelism;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalInsert;
+import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.isNonTransactionalMerge;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
@@ -958,6 +962,12 @@ public abstract class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
+        return beginInsertTable(session, tableHandle, columns, ImmutableList.of());
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns, List<JdbcColumnHandle> additionalColumns)
+    {
         SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
         ConnectorIdentity identity = session.getIdentity();
 
@@ -976,7 +986,8 @@ public abstract class BaseJdbcClient
                     catalog,
                     remoteSchema,
                     remoteTable,
-                    columns);
+                    columns,
+                    additionalColumns);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -990,7 +1001,8 @@ public abstract class BaseJdbcClient
             String catalog,
             String remoteSchema,
             String remoteTable,
-            List<JdbcColumnHandle> columns)
+            List<JdbcColumnHandle> columns,
+            List<JdbcColumnHandle> additionalColumns)
             throws SQLException
     {
         ConnectorIdentity identity = session.getIdentity();
@@ -1016,14 +1028,22 @@ public abstract class BaseJdbcClient
         String remoteTemporaryTableName = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, generateTemporaryTableName(session));
         copyTableSchema(session, connection, catalog, remoteSchema, remoteTable, remoteTemporaryTableName, columnNames.build());
 
+        RemoteTableName remoteTableTemporaryTable = new RemoteTableName(
+                Optional.ofNullable(catalog),
+                Optional.ofNullable(remoteSchema),
+                remoteTemporaryTableName);
+
+        for (JdbcColumnHandle column : additionalColumns) {
+            addColumn(session, connection, remoteTableTemporaryTable, column.getColumnMetadata());
+            columnNames.add(column.getColumnName());
+            columnTypes.add(column.getColumnType());
+            jdbcColumnTypes.add(column.getJdbcTypeHandle());
+        }
+
         Optional<ColumnMetadata> pageSinkIdColumn = Optional.empty();
         if (shouldUseFaultTolerantExecution(session)) {
             pageSinkIdColumn = Optional.of(getPageSinkIdColumn(columnNames.build()));
-            addColumn(session, connection, new RemoteTableName(
-                    Optional.ofNullable(catalog),
-                    Optional.ofNullable(remoteSchema),
-                    remoteTemporaryTableName
-            ), pageSinkIdColumn.get());
+            addColumn(session, connection, remoteTableTemporaryTable, pageSinkIdColumn.get());
         }
 
         return new JdbcOutputTableHandle(
@@ -1103,7 +1123,7 @@ public abstract class BaseJdbcClient
                 quoted(catalogName, newRemoteSchemaName, newRemoteTableName)));
     }
 
-    private RemoteTableName constructPageSinkIdsTable(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, Set<Long> pageSinkIds, Closer closer)
+    protected RemoteTableName constructPageSinkIdsTable(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, Set<Long> pageSinkIds, Closer closer)
             throws SQLException
     {
         verify(handle.getPageSinkIdColumnName().isPresent(), "Output table handle's pageSinkIdColumn is empty");
@@ -1201,6 +1221,102 @@ public abstract class BaseJdbcClient
                 throw new TrinoException(JDBC_ERROR, e);
             }
         }
+    }
+
+    @Override
+    public JdbcMergeTableHandle beginMerge(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            MergeRollbackAction rollbackAction,
+            RetryMode retryMode)
+    {
+        if (!supportsMerge()) {
+            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+        }
+
+        List<JdbcColumnHandle> primaryKeys = getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
+        if (primaryKeys.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "The connector can not perform merge on the target table without primary keys");
+        }
+
+        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
+
+        List<JdbcColumnHandle> columns = getColumns(session, schemaTableName, remoteTableName);
+
+        JdbcTableHandle plainTable = new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty());
+
+        JdbcOutputTableHandle outputTableHandle = beginInsertTable(session, plainTable, columns, ImmutableList.of());
+        rollbackAction.appendRollback(() -> rollbackCreateTable(session, outputTableHandle));
+
+        return new JdbcMergeTableHandle(
+                handle,
+                outputTableHandle,
+                beginUpdate(session, plainTable, columns, primaryKeys, updateColumnHandles, rollbackAction),
+                beginDelete(session, plainTable, primaryKeys, rollbackAction),
+                primaryKeys,
+                columns,
+                updateColumnHandles);
+    }
+
+    protected Map<Integer, JdbcOutputTableHandle> beginUpdate(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            List<JdbcColumnHandle> columns,
+            List<JdbcColumnHandle> primaryKeys,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            MergeRollbackAction rollbackAction)
+    {
+        if (isNonTransactionalMerge(session)) {
+            return ImmutableMap.of();
+        }
+
+        ImmutableMap.Builder<Integer, JdbcOutputTableHandle> outputHandles = ImmutableMap.builder();
+        for (Map.Entry<Integer, Collection<ColumnHandle>> entry : updateColumnHandles.entrySet()) {
+            int caseNumber = entry.getKey();
+            checkArgument(caseNumber >= 0, "caseNumber shouldn't be negative");
+
+            ImmutableList.Builder<JdbcColumnHandle> columnHandles = ImmutableList.builder();
+            // add columns inorder, this is necessary because later build insert for temporary tables always follow the columns order
+            columns.stream().filter(entry.getValue()::contains).forEach(columnHandles::add);
+
+            List<String> updateNames = columnHandles.build().stream()
+                    .map(JdbcColumnHandle::getColumnName)
+                    .collect(toImmutableList());
+
+            // consider the query `update target set id = 3, val = 0 where id = 5`, we will create temporary table with columns: id, val and id_1.
+            // if target has row (3, 0, 5) in later final merge phrase, will use id(equals 5) to update the id and val two columns.
+            // the column id_1 is generated to avoid conflict with exists columns(id).
+            // the temporary table will first copy id, val two columns schema, then adding id_1 to the temporary table.
+            ImmutableList.Builder<JdbcColumnHandle> additional = ImmutableList.builder();
+            for (ColumnHandle columnHandle : primaryKeys) {
+                JdbcColumnHandle column = (JdbcColumnHandle) columnHandle;
+                String columName = nonRepeatNames(column.getColumnName(), updateNames);
+                additional.add(JdbcColumnHandle.builderFrom(column).setColumnName(columName).build());
+            }
+
+            JdbcOutputTableHandle handle = beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles.build(), additional.build());
+            rollbackAction.appendRollback(() -> rollbackCreateTable(session, handle));
+            outputHandles.put(caseNumber, handle);
+        }
+
+        return outputHandles.buildOrThrow();
+    }
+
+    protected Optional<JdbcOutputTableHandle> beginDelete(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            List<JdbcColumnHandle> primaryKeys,
+            MergeRollbackAction rollbackAction)
+    {
+        if (isNonTransactionalMerge(session)) {
+            return Optional.empty();
+        }
+
+        JdbcOutputTableHandle handle = beginInsertTable(session, (JdbcTableHandle) tableHandle, primaryKeys, ImmutableList.of());
+        rollbackAction.appendRollback(() -> rollbackCreateTable(session, handle));
+        return Optional.of(handle);
     }
 
     protected String postProcessInsertTableNameClause(ConnectorSession session, String tableName)
@@ -1795,14 +1911,18 @@ public abstract class BaseJdbcClient
     {
         // While it's unlikely this column name will collide with client table columns,
         // guarantee it will not by appending a deterministic suffix to it.
-        String baseColumnName = "trino_page_sink_id";
+        return new ColumnMetadata(nonRepeatNames("trino_page_sink_id", otherColumnNames), TRINO_PAGE_SINK_ID_COLUMN_TYPE);
+    }
+
+    public static String nonRepeatNames(String baseColumnName, List<String> otherColumnNames)
+    {
         String columnName = baseColumnName;
         int suffix = 1;
         while (otherColumnNames.contains(columnName)) {
             columnName = baseColumnName + "_" + suffix;
             suffix++;
         }
-        return new ColumnMetadata(columnName, TRINO_PAGE_SINK_ID_COLUMN_TYPE);
+        return columnName;
     }
 
     public RemoteIdentifiers getRemoteIdentifiers(Connection connection)

@@ -252,10 +252,13 @@ public abstract class BaseFailureRecoveryTest
     @Test
     protected void testUpdateWithSubquery()
     {
-        testTableModification(
+        testNonSelect(
+                Optional.empty(),
                 Optional.of("CREATE TABLE <table> AS SELECT * FROM orders"),
                 "UPDATE <table> SET shippriority = 101 WHERE custkey = (SELECT min(custkey) FROM customer)",
-                Optional.of("DROP TABLE <table>"));
+                Optional.of("DROP TABLE <table>"),
+                true,
+                Optional.of("orderkey"));
     }
 
     @Test
