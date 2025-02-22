@@ -9,9 +9,9 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-server</artifactId>
+    <artifactId>trino-server-core</artifactId>
     <packaging>provisio</packaging>
-    <description>Trino - Server package</description>
+    <description>Trino - Server core package</description>
 
     <properties>
         <air.check.skip-enforcer>false</air.check.skip-enforcer>
@@ -29,12 +29,6 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-server-core</artifactId>
-            <version>${project.version}</version>
-            <type>tar.gz</type>
-        </dependency>
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
@@ -59,8 +53,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <configuration>
-                    <!-- Temporarily skip until archive is reduced in size -->
-                    <skip>true</skip>
                     <rules combine.self="override">
                         <requireFilesSize>
                             <!-- Maven Central has a 1GB limit -->
