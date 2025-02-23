@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.scylla;
+package io.trino.plugin.scylladb;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -37,25 +37,32 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOC
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestingScyllaServer
+public class TestingScyllaDBServer
         implements CassandraServer
 {
-    private static final Logger log = Logger.get(TestingScyllaServer.class);
+    private static final Logger log = Logger.get(TestingScyllaDBServer.class);
 
     private static final int PORT = 9042;
+
+    private static final String VERSION = "6.2";
+
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
     private final GenericContainer<?> container;
     private final CassandraSession session;
 
-    public TestingScyllaServer()
+    public TestingScyllaDBServer()
     {
-        container = new GenericContainer<>("scylladb/scylla:6.2")
+        this(VERSION);
+    }
+
+    public TestingScyllaDBServer(String version)
+    {
+        container = new GenericContainer<>("scylladb/scylla:" + version)
                 .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
                 .withExposedPorts(PORT);
         container.start();
@@ -83,7 +90,7 @@ public class TestingScyllaServer
     @Override
     public CassandraSession getSession()
     {
-        return requireNonNull(session, "session is null");
+        return session;
     }
 
     @Override
@@ -132,9 +139,7 @@ public class TestingScyllaServer
     @Override
     public void close()
     {
-        if (session != null) {
-            session.close();
-        }
+        session.close();
         container.close();
     }
 }

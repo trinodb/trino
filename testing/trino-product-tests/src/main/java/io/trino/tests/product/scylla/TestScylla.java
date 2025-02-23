@@ -25,8 +25,6 @@ import org.testng.annotations.Test;
 import java.net.InetSocketAddress;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.SCYLLA;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -43,7 +41,7 @@ public class TestScylla
         onScylla("CREATE KEYSPACE test WITH replication={'class':'SimpleStrategy', 'replication_factor':1}");
     }
 
-    @Test(groups = {SCYLLA, PROFILE_SPECIFIC_TESTS})
+    @Test
     public void testCreateTableAsSelect()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS scylla.test.nation");

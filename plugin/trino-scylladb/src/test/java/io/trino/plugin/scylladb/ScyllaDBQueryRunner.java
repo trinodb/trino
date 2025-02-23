@@ -75,7 +75,7 @@ public final class ScyllaDBQueryRunner
         private Builder(CassandraServer server)
         {
             super(testSessionBuilder()
-                    .setCatalog("scylladb")
+                    .setCatalog("cassandra")
                     .setSchema("tpch")
                     .build());
             this.server = requireNonNull(server, "server is null");
@@ -105,12 +105,13 @@ public final class ScyllaDBQueryRunner
                 queryRunner.createCatalog("tpch", "tpch");
 
                 queryRunner.installPlugin(new ScyllaDBPlugin());
-                queryRunner.createCatalog("scylladb", "scylladb", connectorProperties);
+                queryRunner.createCatalog("cassandra", "scylladb", connectorProperties);
 
-                createKeyspace(server.getSession(), "tpch");
+                String schemaName = queryRunner.getDefaultSession().getSchema().orElseThrow();
+                createKeyspace(server.getSession(), schemaName);
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, initialTables);
                 for (TpchTable<?> table : initialTables) {
-                    server.refreshSizeEstimates("tpch", table.getTableName());
+                    server.refreshSizeEstimates(schemaName, table.getTableName());
                 }
                 return queryRunner;
             }
