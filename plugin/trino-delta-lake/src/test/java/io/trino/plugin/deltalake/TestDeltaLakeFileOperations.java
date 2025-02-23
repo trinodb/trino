@@ -29,6 +29,7 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -1293,6 +1294,68 @@ public class TestDeltaLakeFileOperations
                         .build());
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testReadMetadataAndProtocolEntry()
+    {
+        try (TestTable table = newTrinoTable("test_read_metadata_protocol", "(data int , part varchar) WITH (checkpoint_interval = 3)")) {
+            assertFileSystemAccesses(
+                    "SHOW CREATE TABLE " + table.getName(),
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                            .build());
+
+            // read all files
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'aa')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'bb')", 1);
+            assertFileSystemAccesses(
+                    "SHOW CREATE TABLE " + table.getName(),
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", "InputFile.length"))
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                            .build());
+
+            // generate a new checkpoint
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'cc')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 'dd')", 1);
+            assertFileSystemAccesses(
+                    "SHOW CREATE TABLE " + table.getName(),
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.length"))
+                            .add(new FileOperation(CHECKPOINT, "00000000000000000003.checkpoint.parquet", "InputFile.newInput"))
+                            .add(new FileOperation(CHECKPOINT, "00000000000000000003.checkpoint.parquet", "InputFile.length"))
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                            .build());
+
+            // generate metadata entry and protocol entry in a transaction log after the latest checkpoint
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+
+            // read from checkpoint and all active logs
+            assertFileSystemAccesses(
+                    "SHOW CREATE TABLE " + table.getName(),
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.length"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.newStream"))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000006.json", "InputFile.length"))
+                            .add(new FileOperation(CHECKPOINT, "00000000000000000003.checkpoint.parquet", "InputFile.newInput"))
+                            .add(new FileOperation(CHECKPOINT, "00000000000000000003.checkpoint.parquet", "InputFile.length"))
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                            .build());
+        }
     }
 
     private int countCdfFilesForKey(String partitionValue)
