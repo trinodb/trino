@@ -11,7 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
 package io.trino.plugin.scylladb;
+========
+package io.trino.plugin.scylla;
+>>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -41,15 +45,24 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
 public class TestingScyllaDBServer
+========
+public class TestingScyllaServer
+>>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
         implements CassandraServer
 {
     private static final Logger log = Logger.get(TestingScyllaDBServer.class);
 
-    private static final int PORT = 9042;
+    public static final String V4_TAG = "4.5.3";
+    public static final String V3_TAG = "3.0.0";
 
+<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
     private static final String VERSION = "6.2";
 
+========
+    private static final int PORT = 9042;
+>>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
     private final GenericContainer<?> container;
@@ -57,7 +70,11 @@ public class TestingScyllaDBServer
 
     public TestingScyllaDBServer()
     {
+<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
         this(VERSION);
+========
+        this(V3_TAG);
+>>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
     }
 
     public TestingScyllaDBServer(String version)
