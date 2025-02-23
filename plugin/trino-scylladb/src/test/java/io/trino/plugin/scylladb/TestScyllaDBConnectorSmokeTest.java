@@ -11,28 +11,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.scylladb;
+package io.trino.plugin.cassandra;
 
-import io.trino.plugin.cassandra.BaseCassandraConnectorSmokeTest;
-import io.trino.plugin.cassandra.CassandraSession;
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
 import java.sql.Timestamp;
+import java.util.Map;
 
+import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 
-public class TestScyllaDBConnectorSmokeTest
+public class TestDatastaxConnectorSmokeTest
         extends BaseCassandraConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingScyllaDBServer server = closeAfterClass(new TestingScyllaDBServer());
+        TestingCassandraServer server = closeAfterClass(new TestingCassandraServer(
+                "datastax/dse-server:6.8.25",
+                Map.of(
+                        "DS_LICENSE", "accept",
+                        "DC", "datacenter1"),
+                "/config/cassandra.yaml",
+                "cassandra-dse.yaml"));
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return ScyllaDBQueryRunner.builder(server)
-                .setInitialTables(REQUIRED_TPCH_TABLES)
-                .build();
+        return createCassandraQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }
