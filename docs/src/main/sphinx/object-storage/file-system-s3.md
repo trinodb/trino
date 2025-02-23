@@ -368,7 +368,7 @@ the following edits to your catalog configuration:
      - Also see `s3.retry-mode` in preceding sections for more retry behavior
        configuration options.
    * - `hive.s3.connect-timeout`
-     - `s3.connect-timeout`
+     - `s3.socket-connect-timeout`
      -
    * - `hive.s3.connect-ttl`
      - `s3.connection-ttl`
