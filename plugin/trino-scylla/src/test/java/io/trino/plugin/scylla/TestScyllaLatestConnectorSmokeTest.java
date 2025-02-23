@@ -22,7 +22,6 @@ import java.sql.Timestamp;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 import static io.trino.plugin.scylla.ScyllaQueryRunner.createScyllaQueryRunner;
-import static io.trino.plugin.scylla.TestingScyllaServer.V4_TAG;
 
 public class TestScyllaLatestConnectorSmokeTest
         extends BaseCassandraConnectorSmokeTest
@@ -31,7 +30,7 @@ public class TestScyllaLatestConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer(V4_TAG));
+        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer());
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
         return createScyllaQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);

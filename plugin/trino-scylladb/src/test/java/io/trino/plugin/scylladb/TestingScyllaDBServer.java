@@ -11,11 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
-package io.trino.plugin.scylladb;
-========
 package io.trino.plugin.scylla;
->>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -41,45 +37,26 @@ import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOC
 import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
-public class TestingScyllaDBServer
-========
 public class TestingScyllaServer
->>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
         implements CassandraServer
 {
-    private static final Logger log = Logger.get(TestingScyllaDBServer.class);
+    private static final Logger log = Logger.get(TestingScyllaServer.class);
 
-    public static final String V4_TAG = "4.5.3";
-    public static final String V3_TAG = "3.0.0";
-
-<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
-    private static final String VERSION = "6.2";
-
-========
     private static final int PORT = 9042;
->>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
     private final GenericContainer<?> container;
     private final CassandraSession session;
 
-    public TestingScyllaDBServer()
+    public TestingScyllaServer()
     {
-<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestingScyllaDBServer.java
-        this(VERSION);
-========
-        this(V3_TAG);
->>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestingScyllaServer.java
-    }
-
-    public TestingScyllaDBServer(String version)
-    {
-        container = new GenericContainer<>("scylladb/scylla:" + version)
+        container = new GenericContainer<>("scylladb/scylla:6.2")
+                .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638
                 .withExposedPorts(PORT);
         container.start();
 
@@ -106,7 +83,7 @@ public class TestingScyllaServer
     @Override
     public CassandraSession getSession()
     {
-        return session;
+        return requireNonNull(session, "session is null");
     }
 
     @Override
@@ -155,7 +132,9 @@ public class TestingScyllaServer
     @Override
     public void close()
     {
-        session.close();
+        if (session != null) {
+            session.close();
+        }
         container.close();
     }
 }

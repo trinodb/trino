@@ -11,14 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestScyllaDBLatestConnectorSmokeTest.java
-package io.trino.plugin.scylladb;
-
-========
 package io.trino.plugin.scylla;
 
 import com.google.common.collect.ImmutableMap;
->>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestScyllaConnectorSmokeTest.java
 import io.trino.plugin.cassandra.BaseCassandraConnectorSmokeTest;
 import io.trino.plugin.cassandra.CassandraSession;
 import io.trino.testing.QueryRunner;
@@ -26,26 +21,18 @@ import io.trino.testing.QueryRunner;
 import java.sql.Timestamp;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
-<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestScyllaDBLatestConnectorSmokeTest.java
-========
 import static io.trino.plugin.scylla.ScyllaQueryRunner.createScyllaQueryRunner;
-import static io.trino.plugin.scylla.TestingScyllaServer.V3_TAG;
->>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestScyllaConnectorSmokeTest.java
 
-public class TestScyllaDBLatestConnectorSmokeTest
+public class TestScyllaConnectorSmokeTest
         extends BaseCassandraConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-<<<<<<<< HEAD:plugin/trino-scylladb/src/test/java/io/trino/plugin/scylladb/TestScyllaDBLatestConnectorSmokeTest.java
-        TestingScyllaDBServer server = closeAfterClass(new TestingScyllaDBServer());
-========
-        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer(V3_TAG));
->>>>>>>> e08ec9c683 (Add ScyllaDB connector):plugin/trino-scylla/src/test/java/io/trino/plugin/scylla/TestScyllaConnectorSmokeTest.java
+        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer());
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return ScyllaDBQueryRunner.builder(server).setInitialTables(REQUIRED_TPCH_TABLES).build();
+        return createScyllaQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }
