@@ -37,7 +37,7 @@ public class TestCassandraTokenSplitManager
     private static final String KEYSPACE = "test_cassandra_token_split_manager_keyspace";
     private static final int PARTITION_COUNT = 1000;
 
-    private CassandraServer server;
+    private TestingCassandraServer server;
     private CassandraSession session;
     private CassandraTokenSplitManager splitManager;
 
@@ -45,7 +45,7 @@ public class TestCassandraTokenSplitManager
     public void setUp()
             throws Exception
     {
-        server = new CassandraServer();
+        server = new TestingCassandraServer();
         session = server.getSession();
         createKeyspace(session, KEYSPACE);
         splitManager = new CassandraTokenSplitManager(session, SPLIT_SIZE, Optional.empty());
