@@ -201,6 +201,7 @@ Faker supports the following non-character types:
 - `TIMESTAMP WITH TIME ZONE` and `TIMESTAMP(P) WITH TIME ZONE`
 - `TIME` and `TIME(P)`
 - `TIME WITH TIME ZONE` and `TIME(P) WITH TIME ZONE`
+- `ROW`
 - `IPADDRESS`
 - `UUID`
 
@@ -212,7 +213,7 @@ their data range, set the `min` and `max` column properties - see
 
 Faker does not support the following data types:
 
-- Structural types `ARRAY`, `MAP`, and `ROW`
+- Structural types `ARRAY` and `MAP`
 - `JSON`
 - Geometry
 - HyperLogLog and all digest types

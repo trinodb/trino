@@ -127,6 +127,12 @@ final class TestFakerQueries
                 .add(new TestDataType("rnd_nchar", "char(1000)", "count(distinct rnd_nchar)", "1000"))
                 .add(new TestDataType("rnd_ipaddress", "ipaddress", "count(distinct rnd_ipaddress)", "1000"))
                 .add(new TestDataType("rnd_uuid", "uuid", "count(distinct rnd_uuid)", "1000"))
+                .add(new TestDataType("rnd_array_int", "array(integer)", "count(distinct rnd_array_int)", "1"))
+                .add(new TestDataType("rnd_array_varchar", "array(varchar)", "count(distinct rnd_array_varchar)", "1"))
+                .add(new TestDataType("rnd_map_int", "map(integer, integer)", "count(distinct rnd_map_int)", "1"))
+                .add(new TestDataType("rnd_map_varchar", "map(varchar, varchar)", "count(distinct rnd_map_varchar)", "1"))
+                .add(new TestDataType("rnd_row", "row(integer, varchar)", "count(distinct rnd_row)", "1000"))
+                .add(new TestDataType("rnd_json", "json", "count(distinct rnd_json)", "1"))
                 .build();
 
         for (TestDataType testCase : testCases) {
