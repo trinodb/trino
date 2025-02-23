@@ -39,7 +39,7 @@ PostgreSQL      <connector/postgresql>
 Prometheus      <connector/prometheus>
 Redis           <connector/redis>
 Redshift        <connector/redshift>
-Scylla          <connector/scylla>
+ScyllaDB        <connector/scylladb>
 SingleStore     <connector/singlestore>
 Snowflake       <connector/snowflake>
 SQL Server      <connector/sqlserver>

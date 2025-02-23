@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylladb;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -21,27 +21,23 @@ import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBui
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.plugin.cassandra.CassandraServer;
+import io.trino.plugin.cassandra.CassandraSession;
+import io.trino.plugin.cassandra.ExtraColumnMetadata;
+import io.trino.plugin.cassandra.SizeEstimate;
 import org.testcontainers.containers.GenericContainer;
 
-import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
-import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.CONTROL_CONNECTION_AGREEMENT_TIMEOUT;
-import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.METADATA_SCHEMA_REFRESHED_KEYSPACES;
-import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.PROTOCOL_VERSION;
-import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.REQUEST_TIMEOUT;
+import static com.datastax.oss.driver.api.core.config.DefaultDriverOption.*;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.*;
 
-public class TestingScyllaServer
-        implements Closeable
-{
-    private static final Logger log = Logger.get(TestingScyllaServer.class);
+public class TestingScyllaDBServer extends CassandraServer {
+    private static final Logger log = Logger.get(TestingScyllaDBServer.class);
 
     private static final int PORT = 9042;
 
@@ -50,14 +46,12 @@ public class TestingScyllaServer
     private final GenericContainer<?> container;
     private final CassandraSession session;
 
-    public TestingScyllaServer()
-    {
+    public TestingScyllaDBServer() throws Exception {
         this("6.2");
     }
 
-    public TestingScyllaServer(String version)
-    {
-        container = new GenericContainer<>("scylladb/scylla:" + version)
+    public TestingScyllaDBServer(String version) throws Exception {
+        container = new GenericContainer<>("scylladb/scylladb:" + version)
                 .withExposedPorts(PORT);
         container.start();
 
@@ -81,24 +75,24 @@ public class TestingScyllaServer
                 new Duration(1, MINUTES));
     }
 
-    public CassandraSession getSession()
-    {
+    @Override
+    public CassandraSession getSession() {
         return session;
     }
 
-    public String getHost()
-    {
+    @Override
+    public String getHost() {
         return container.getHost();
     }
 
-    public int getPort()
-    {
+    @Override
+    public int getPort() {
         return container.getMappedPort(PORT);
     }
 
+    @Override
     public void refreshSizeEstimates(String keyspace, String table)
-            throws Exception
-    {
+            throws Exception {
         long deadline = System.nanoTime() + REFRESH_SIZE_ESTIMATES_TIMEOUT.roundTo(NANOSECONDS);
         while (System.nanoTime() - deadline < 0) {
             flushTable(keyspace, table);
@@ -115,20 +109,17 @@ public class TestingScyllaServer
     }
 
     private void flushTable(String keyspace, String table)
-            throws Exception
-    {
+            throws Exception {
         container.execInContainer("nodetool", "flush", keyspace, table);
     }
 
     private void refreshSizeEstimates()
-            throws Exception
-    {
+            throws Exception {
         container.execInContainer("nodetool", "refreshsizeestimates");
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         session.close();
         container.close();
     }

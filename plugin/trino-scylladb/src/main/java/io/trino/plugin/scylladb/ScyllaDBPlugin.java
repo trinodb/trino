@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.scylla;
+package io.trino.plugin.scylladb;
 
-import io.trino.plugin.cassandra.CassandraConnectorFactory;
+import com.google.common.collect.ImmutableList;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
-public class ScyllaConnectorFactory
-        extends CassandraConnectorFactory
-{
+public class ScyllaDBPlugin
+        implements Plugin {
     @Override
-    public String getName()
-    {
-        return "scylla";
+    public Iterable<ConnectorFactory> getConnectorFactories() {
+        return ImmutableList.of(new ScyllaDBConnectorFactory());
     }
 }

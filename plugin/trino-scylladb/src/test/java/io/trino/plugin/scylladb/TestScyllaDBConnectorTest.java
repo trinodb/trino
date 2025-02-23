@@ -11,29 +11,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.scylla;
+package io.trino.plugin.scylladb;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.cassandra.BaseCassandraConnectorSmokeTest;
-import io.trino.plugin.cassandra.CassandraSession;
+import io.trino.plugin.cassandra.BaseCassandraConnectorTest;
 import io.trino.testing.QueryRunner;
 
 import java.sql.Timestamp;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
-import static io.trino.plugin.scylla.ScyllaQueryRunner.createScyllaQueryRunner;
-import static io.trino.plugin.scylla.TestingScyllaServer.V4_TAG;
 
-public class TestScyllaLatestConnectorSmokeTest
-        extends BaseCassandraConnectorSmokeTest
-{
+public class TestScyllaDBConnectorTest
+        extends BaseCassandraConnectorTest {
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        TestingScyllaServer server = closeAfterClass(new TestingScyllaServer(V4_TAG));
-        CassandraSession session = server.getSession();
+            throws Exception {
+        server = closeAfterClass(new TestingScyllaDBServer("6.2"));
+        session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
-        return createScyllaQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return ScyllaDBQueryRunner.builder(server).setInitialTables(REQUIRED_TPCH_TABLES).build();
     }
 }
