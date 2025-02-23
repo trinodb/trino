@@ -21,11 +21,13 @@ import java.sql.Timestamp;
 import static io.trino.plugin.cassandra.CassandraTestingUtils.createTestTables;
 
 public class TestScyllaDBConnectorTest
-        extends BaseCassandraConnectorTest {
+        extends BaseCassandraConnectorTest
+{
     @Override
     protected QueryRunner createQueryRunner()
-            throws Exception {
-        server = closeAfterClass(new TestingScyllaDBServer("6.2"));
+            throws Exception
+    {
+        server = closeAfterClass(new TestingScyllaDBServer());
         session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
         return ScyllaDBQueryRunner.builder(server).setInitialTables(REQUIRED_TPCH_TABLES).build();

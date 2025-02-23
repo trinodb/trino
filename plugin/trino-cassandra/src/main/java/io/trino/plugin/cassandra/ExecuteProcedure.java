@@ -30,16 +30,6 @@ public final class ExecuteProcedure
         implements Provider<Procedure>
 {
     private static final MethodHandle EXECUTE;
-
-    static {
-        try {
-            EXECUTE = lookup().unreflect(ExecuteProcedure.class.getMethod("execute", String.class));
-        }
-        catch (ReflectiveOperationException e) {
-            throw new AssertionError(e);
-        }
-    }
-
     private final CassandraSession cassandraSession;
 
     @Inject
@@ -62,6 +52,15 @@ public final class ExecuteProcedure
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             cassandraSession.execute(query);
+        }
+    }
+
+    static {
+        try {
+            EXECUTE = lookup().unreflect(ExecuteProcedure.class.getMethod("execute", String.class));
+        }
+        catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
         }
     }
 }

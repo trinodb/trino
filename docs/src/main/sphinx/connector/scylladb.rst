@@ -1,6 +1,6 @@
-================
+==================
 ScyllaDB connector
-================
+==================
 
 The ScyllaDB connector allows querying data stored in
 `ScyllaDB <https://www.scylladb.com//>`_.

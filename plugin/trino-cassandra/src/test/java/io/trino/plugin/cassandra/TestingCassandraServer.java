@@ -51,18 +51,15 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.utility.MountableFile.forHostPath;
-import static org.testng.Assert.assertEquals;
 
 public class TestingCassandraServer
         implements CassandraServer
 {
-    private static Logger log = Logger.get(TestingCassandraServer.class);
-
     private static final int PORT = 9142;
-
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
-
+    private static final Logger log = Logger.get(TestingCassandraServer.class);
     private final GenericContainer<?> dockerContainer;
     private final CassandraSession session;
 
@@ -83,11 +80,7 @@ public class TestingCassandraServer
     {
         log.info("Starting cassandra...");
 
-        this.dockerContainer = new GenericContainer<>(imageName)
-                .withExposedPorts(PORT)
-                .withCopyFileToContainer(forHostPath(prepareCassandraYaml(configFileName)), configPath)
-                .withEnv(environmentVariables)
-                .withStartupTimeout(java.time.Duration.ofMinutes(10));
+        this.dockerContainer = new GenericContainer<>(imageName).withExposedPorts(PORT).withCopyFileToContainer(forHostPath(prepareCassandraYaml(configFileName)), configPath).withEnv(environmentVariables).withStartupTimeout(java.time.Duration.ofMinutes(10));
         this.dockerContainer.start();
 
         ProgrammaticDriverConfigLoaderBuilder driverConfigLoaderBuilder = DriverConfigLoader.programmaticBuilder();
@@ -97,17 +90,9 @@ public class TestingCassandraServer
         // allow the retrieval of metadata for the system keyspaces
         driverConfigLoaderBuilder.withStringList(METADATA_SCHEMA_REFRESHED_KEYSPACES, List.of());
 
-        CqlSessionBuilder cqlSessionBuilder = CqlSession.builder()
-                .withApplicationName("TestCluster")
-                .addContactPoint(new InetSocketAddress(this.dockerContainer.getHost(), this.dockerContainer.getMappedPort(PORT)))
-                .withLocalDatacenter("datacenter1")
-                .withConfigLoader(driverConfigLoaderBuilder.build());
+        CqlSessionBuilder cqlSessionBuilder = CqlSession.builder().withApplicationName("TestCluster").addContactPoint(new InetSocketAddress(this.dockerContainer.getHost(), this.dockerContainer.getMappedPort(PORT))).withLocalDatacenter("datacenter1").withConfigLoader(driverConfigLoaderBuilder.build());
 
-        CassandraSession session = new CassandraSession(
-                CASSANDRA_TYPE_MANAGER,
-                JsonCodec.listJsonCodec(ExtraColumnMetadata.class),
-                cqlSessionBuilder::build,
-                new Duration(1, MINUTES));
+        CassandraSession session = new CassandraSession(CASSANDRA_TYPE_MANAGER, JsonCodec.listJsonCodec(ExtraColumnMetadata.class), cqlSessionBuilder::build, new Duration(1, MINUTES));
 
         try {
             checkConnectivity(session);
@@ -139,6 +124,15 @@ public class TestingCassandraServer
         return yamlFile.getAbsolutePath();
     }
 
+    private static void checkConnectivity(CassandraSession session)
+    {
+        ResultSet result = session.execute("SELECT release_version FROM system.local");
+        List<Row> rows = result.all();
+        assertThat(rows.size()).isEqualTo(1);
+        String version = rows.get(0).getString(0);
+        log.info("Cassandra version: %s", version);
+    }
+
     @Override
     public CassandraSession getSession()
     {
@@ -155,15 +149,6 @@ public class TestingCassandraServer
     public int getPort()
     {
         return dockerContainer.getMappedPort(PORT);
-    }
-
-    private static void checkConnectivity(CassandraSession session)
-    {
-        ResultSet result = session.execute("SELECT release_version FROM system.local");
-        List<Row> rows = result.all();
-        assertEquals(rows.size(), 1);
-        String version = rows.get(0).getString(0);
-        log.info("Cassandra version: %s", version);
     }
 
     @Override

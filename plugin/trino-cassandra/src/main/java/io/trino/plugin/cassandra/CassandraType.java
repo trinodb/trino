@@ -23,6 +23,29 @@ import static java.util.Objects.requireNonNull;
 
 public record CassandraType(Kind kind, Type trinoType, List<CassandraType> argumentTypes)
 {
+    public CassandraType
+    {
+        requireNonNull(kind, "kind is null");
+        requireNonNull(trinoType, "trinoType is null");
+        argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+    }
+
+    public static CassandraType primitiveType(Kind kind, Type trinoType)
+    {
+        return new CassandraType(kind, trinoType, ImmutableList.of());
+    }
+
+    @Override
+    public String toString()
+    {
+        String result = format("%s(%s", kind, trinoType);
+        if (!argumentTypes.isEmpty()) {
+            result += "; " + argumentTypes;
+        }
+        result += ")";
+        return result;
+    }
+
     public enum Kind
     {
         BOOLEAN(true),
@@ -64,28 +87,5 @@ public record CassandraType(Kind kind, Type trinoType, List<CassandraType> argum
         {
             return supportedPartitionKey;
         }
-    }
-
-    public CassandraType
-    {
-        requireNonNull(kind, "kind is null");
-        requireNonNull(trinoType, "trinoType is null");
-        argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
-    }
-
-    public static CassandraType primitiveType(Kind kind, Type trinoType)
-    {
-        return new CassandraType(kind, trinoType, ImmutableList.of());
-    }
-
-    @Override
-    public String toString()
-    {
-        String result = format("%s(%s", kind, trinoType);
-        if (!argumentTypes.isEmpty()) {
-            result += "; " + argumentTypes;
-        }
-        result += ")";
-        return result;
     }
 }

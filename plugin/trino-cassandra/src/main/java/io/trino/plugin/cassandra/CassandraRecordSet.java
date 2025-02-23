@@ -45,6 +45,11 @@ public class CassandraRecordSet
         this.columnTypes = transformList(cassandraColumns, CassandraColumnHandle::getType);
     }
 
+    private static <T, R> List<R> transformList(List<T> list, Function<T, R> function)
+    {
+        return list.stream().map(function).collect(toImmutableList());
+    }
+
     @Override
     public List<Type> getColumnTypes()
     {
@@ -55,10 +60,5 @@ public class CassandraRecordSet
     public RecordCursor cursor()
     {
         return new CassandraRecordCursor(cassandraSession, cassandraTypeManager, cassandraNames, cassandraTypes, cql);
-    }
-
-    private static <T, R> List<R> transformList(List<T> list, Function<T, R> function)
-    {
-        return list.stream().map(function).collect(toImmutableList());
     }
 }

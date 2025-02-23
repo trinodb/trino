@@ -34,20 +34,6 @@ import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIAL
 public class CassandraTlsModule
         implements Module
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        configBinder(binder).bindConfig(CassandraTlsConfig.class);
-    }
-
-    @ProvidesIntoSet
-    @Singleton
-    public CassandraSessionConfigurator tlsConfigurator(CassandraTlsConfig config)
-    {
-        return builder -> buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
-                .ifPresent(builder::withSslContext);
-    }
-
     private static Optional<SSLContext> buildSslContext(
             Optional<File> keystorePath,
             Optional<String> keystorePassword,
@@ -64,5 +50,19 @@ public class CassandraTlsModule
         catch (GeneralSecurityException | IOException e) {
             throw new TrinoException(CASSANDRA_SSL_INITIALIZATION_FAILURE, e);
         }
+    }
+
+    @Override
+    public void configure(Binder binder)
+    {
+        configBinder(binder).bindConfig(CassandraTlsConfig.class);
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    public CassandraSessionConfigurator tlsConfigurator(CassandraTlsConfig config)
+    {
+        return builder -> buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTruststorePath(), config.getTruststorePassword())
+                .ifPresent(builder::withSslContext);
     }
 }

@@ -111,7 +111,7 @@ public class TestCassandraConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = closeAfterClass(new CassandraServer());
+        CassandraServer server = closeAfterClass(new TestingCassandraServer());
         session = server.getSession();
         return CassandraQueryRunner.builder(server)
                 .setInitialTables(REQUIRED_TPCH_TABLES)

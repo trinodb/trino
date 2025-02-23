@@ -24,9 +24,8 @@ import java.util.Objects;
 
 public class CassandraPartition
 {
-    static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
     public static final CassandraPartition UNPARTITIONED = new CassandraPartition();
-
+    static final String UNPARTITIONED_ID = "<UNPARTITIONED>";
     private final String partitionId;
     private final byte[] key;
     private final TupleDomain<ColumnHandle> tupleDomain;
