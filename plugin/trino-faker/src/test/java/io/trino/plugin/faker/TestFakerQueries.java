@@ -612,4 +612,20 @@ final class TestFakerQueries
             assertThat(createTable).containsPattern("comment varchar\\(79\\)");
         }
     }
+
+    @Test
+    void testCreateTableAsSelectBoolean()
+    {
+        String source = """
+                        SELECT
+                          sequential_number % 2 = 0 AS boolean,
+                          ARRAY[true, false, sequential_number % 2 = 0] AS boolean_array
+                        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+                        """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "booleans", "AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("boolean boolean WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("boolean_array array\\(boolean\\) WITH \\(null_probability = 0E0\\)");
+        }
+    }
 }
