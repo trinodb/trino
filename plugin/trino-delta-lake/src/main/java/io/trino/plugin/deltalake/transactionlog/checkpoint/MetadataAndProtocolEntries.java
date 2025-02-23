@@ -17,7 +17,6 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -29,20 +28,6 @@ public record MetadataAndProtocolEntries(Optional<MetadataEntry> metadata, Optio
     public MetadataAndProtocolEntries(MetadataEntry metadata, ProtocolEntry protocol)
     {
         this(Optional.ofNullable(metadata), Optional.ofNullable(protocol));
-    }
-
-    public Stream<Object> stream()
-    {
-        if (metadata.isPresent() && protocol.isPresent()) {
-            return Stream.of(metadata.get(), protocol.get());
-        }
-        if (metadata.isPresent()) {
-            return Stream.of(metadata.get());
-        }
-        if (protocol.isPresent()) {
-            return Stream.of(protocol.get());
-        }
-        return Stream.of();
     }
 
     public long getRetainedSizeInBytes()

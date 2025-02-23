@@ -1342,7 +1342,7 @@ public class TestDeltaLakeFileOperations
             // generate metadata entry and protocol entry in a transaction log after the latest checkpoint
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
 
-            // read from checkpoint and all active logs
+            // no need to read checkpoint file
             assertFileSystemAccesses(
                     "SHOW CREATE TABLE " + table.getName(),
                     ImmutableMultiset.<FileOperation>builder()
@@ -1351,8 +1351,6 @@ public class TestDeltaLakeFileOperations
                             .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.length"))
                             .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.newStream"))
                             .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000006.json", "InputFile.length"))
-                            .add(new FileOperation(CHECKPOINT, "00000000000000000003.checkpoint.parquet", "InputFile.newInput"))
-                            .add(new FileOperation(CHECKPOINT, "00000000000000000003.checkpoint.parquet", "InputFile.length"))
                             .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
                             .build());
         }

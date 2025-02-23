@@ -396,26 +396,23 @@ public class TestTransactionLogAccess
     }
 
     @Test
-    public void testAllGetProtocolEntries()
+    public void testGetProtocolEntry()
             throws Exception
     {
-        testAllGetProtocolEntries("person", "databricks73/person");
-        testAllGetProtocolEntries("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
-        testAllGetProtocolEntries("person_without_old_jsons", "databricks73/person_without_old_jsons");
-        testAllGetProtocolEntries("person_without_checkpoints", "databricks73/person_without_checkpoints");
+        testGetProtocolEntry("person", "databricks73/person");
+        testGetProtocolEntry("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
+        testGetProtocolEntry("person_without_old_jsons", "databricks73/person_without_old_jsons");
+        testGetProtocolEntry("person_without_checkpoints", "databricks73/person_without_checkpoints");
     }
 
-    private void testAllGetProtocolEntries(String tableName, String resourcePath)
+    private void testGetProtocolEntry(String tableName, String resourcePath)
             throws Exception
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
 
-        try (Stream<ProtocolEntry> protocolEntryStream = transactionLogAccess.getProtocolEntries(SESSION, tableSnapshot)) {
-            List<ProtocolEntry> protocolEntries = protocolEntryStream.toList();
-            assertThat(protocolEntries).hasSize(1);
-            assertThat(protocolEntries.get(0).minReaderVersion()).isEqualTo(1);
-            assertThat(protocolEntries.get(0).minWriterVersion()).isEqualTo(2);
-        }
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
+        assertThat(protocolEntry.minReaderVersion()).isEqualTo(1);
+        assertThat(protocolEntry.minWriterVersion()).isEqualTo(2);
     }
 
     @Test
