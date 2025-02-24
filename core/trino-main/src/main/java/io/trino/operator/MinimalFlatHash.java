@@ -30,8 +30,8 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static io.trino.operator.FlatHash.sumExact;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.addExact;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
@@ -43,6 +43,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class MinimalFlatHash
 {
+    private static final long INSTANCE_SIZE = instanceSize(MinimalFlatHash.class);
     private static final double DEFAULT_LOAD_FACTOR = 15.0 / 16;
 
     private static int computeCapacity(int maxSize, double loadFactor)
@@ -67,35 +68,29 @@ public final class MinimalFlatHash
     private final MinimalVariableWidthData variableWidthData;
     private final UpdateMemory checkMemoryReservation;
 
-    private byte[] control;
-    private int[] groupIdsByHash;
-    private byte[][] fixedSizeRecords;
-
+    private final boolean hasPrecomputedHash;
     private final int fixedRecordSize;
     private final int variableWidthOffset;
     private final int fixedValueOffset;
 
+    private byte[] control;
+    private int[] groupIdsByHash;
+    private byte[][] fixedSizeRecords;
+
+    private long fixedRecordGroupsRetainedSize;
+    private long temporaryRehashRetainedSize;
     private int capacity;
     private int mask;
     private int nextGroupId;
     private int maxFill;
 
-    public MinimalFlatHash(MinimalFlatHashStrategy flatHashStrategy, int expectedSize, UpdateMemory checkMemoryReservation)
+    public MinimalFlatHash(MinimalFlatHashStrategy flatHashStrategy, boolean hasPrecomputedHash, int expectedSize, UpdateMemory checkMemoryReservation)
     {
         this.flatHashStrategy = requireNonNull(flatHashStrategy, "flatHashStrategy is null");
         this.checkMemoryReservation = requireNonNull(checkMemoryReservation, "checkMemoryReservation is null");
         boolean hasVariableData = flatHashStrategy.isAnyVariableWidth();
         this.variableWidthData = hasVariableData ? new MinimalVariableWidthData() : null;
-
-        this.capacity = max(VECTOR_LENGTH, computeCapacity(expectedSize, DEFAULT_LOAD_FACTOR));
-        this.mask = capacity - 1;
-        this.control = new byte[capacity + VECTOR_LENGTH];
-        this.groupIdsByHash = new int[capacity];
-        Arrays.fill(groupIdsByHash, -1);
-        this.maxFill = calculateMaxFill(capacity);
-
-        int groupsRequired = recordGroupsRequiredForCapacity(capacity);
-        this.fixedSizeRecords = new byte[groupsRequired][];
+        this.hasPrecomputedHash = hasPrecomputedHash;
 
         // the record is laid out as follows:
         // 1. raw hash (long)
@@ -104,6 +99,49 @@ public final class MinimalFlatHash
         this.variableWidthOffset = Long.BYTES;
         this.fixedValueOffset = variableWidthOffset + (hasVariableData ? MinimalVariableWidthData.POINTER_SIZE : 0);
         this.fixedRecordSize = fixedValueOffset + flatHashStrategy.getTotalFlatFixedLength();
+
+        this.capacity = max(VECTOR_LENGTH, computeCapacity(expectedSize, DEFAULT_LOAD_FACTOR));
+        this.mask = capacity - 1;
+        this.maxFill = calculateMaxFill(capacity);
+
+        int groupsRequired = recordGroupsRequiredForCapacity(capacity);
+        this.control = new byte[capacity + VECTOR_LENGTH];
+        this.groupIdsByHash = new int[capacity];
+        Arrays.fill(groupIdsByHash, -1);
+        this.fixedSizeRecords = new byte[groupsRequired][];
+    }
+
+    public MinimalFlatHash(MinimalFlatHash other)
+    {
+        this.flatHashStrategy = other.flatHashStrategy;
+        this.checkMemoryReservation = other.checkMemoryReservation;
+        this.variableWidthData = other.variableWidthData == null ? null : new MinimalVariableWidthData(other.variableWidthData);
+        this.hasPrecomputedHash = other.hasPrecomputedHash;
+        this.fixedRecordSize = other.fixedRecordSize;
+        this.variableWidthOffset = other.variableWidthOffset;
+        this.fixedValueOffset = other.fixedValueOffset;
+        this.fixedRecordGroupsRetainedSize = other.fixedRecordGroupsRetainedSize;
+        this.capacity = other.capacity;
+        this.mask = other.mask;
+        this.nextGroupId = other.nextGroupId;
+        this.maxFill = other.maxFill;
+        this.control = Arrays.copyOf(other.control, other.control.length);
+        this.groupIdsByHash = Arrays.copyOf(other.groupIdsByHash, other.groupIdsByHash.length);
+        this.fixedSizeRecords = Arrays.stream(other.fixedSizeRecords)
+                .map(fixedSizeRecords -> fixedSizeRecords == null ? null : Arrays.copyOf(fixedSizeRecords, fixedSizeRecords.length))
+                .toArray(byte[][]::new);
+    }
+
+    public long getEstimatedSize()
+    {
+        return sumExact(
+                INSTANCE_SIZE,
+                fixedRecordGroupsRetainedSize,
+                temporaryRehashRetainedSize,
+                sizeOf(control),
+                sizeOf(groupIdsByHash),
+                sizeOf(fixedSizeRecords),
+                variableWidthData == null ? 0 : variableWidthData.getRetainedSizeBytes());
     }
 
     public int size()
@@ -144,6 +182,10 @@ public final class MinimalFlatHash
                 variableWidthChunk,
                 variableChunkOffset,
                 blockBuilders);
+
+        if (hasPrecomputedHash) {
+            BIGINT.writeLong(blockBuilders[blockBuilders.length - 1], (long) LONG_HANDLE.get(fixedSizeRecords, recordOffset));
+        }
     }
 
     public boolean contains(Block[] blocks, int position)
@@ -241,12 +283,16 @@ public final class MinimalFlatHash
         setControl(index, (byte) (hash & 0x7F | 0x80));
         int groupId = nextGroupId++;
         groupIdsByHash[index] = groupId;
+        int recordGroupIndex = recordGroupIndexForGroupId(groupId);
         int fixedRecordOffset = getFixedRecordOffset(groupId);
+        byte[] fixedSizeRecords = this.fixedSizeRecords[recordGroupIndex];
         if (fixedRecordOffset == 0) {
+            verify(fixedSizeRecords == null, "fixedSizeRecords already exists");
             // new record batch start, populate the record batch fields
-            fixedSizeRecords[recordGroupIndexForGroupId(groupId)] = new byte[multiplyExact(capacity, fixedRecordSize)];
+            fixedSizeRecords = new byte[multiplyExact(RECORDS_PER_GROUP, fixedRecordSize)];
+            this.fixedSizeRecords[recordGroupIndex] = fixedSizeRecords;
+            fixedRecordGroupsRetainedSize = addExact(fixedRecordGroupsRetainedSize, sizeOf(fixedSizeRecords));
         }
-        byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
         LONG_HANDLE.set(fixedSizeRecords, fixedRecordOffset, hash);
 
         byte[] variableWidthChunk = null;
@@ -289,8 +335,7 @@ public final class MinimalFlatHash
     private boolean tryRehash(int minimumRequiredCapacity)
     {
         int newCapacity = computeNewCapacity(minimumRequiredCapacity);
-
-        // TODO: compute new hash table size before this check
+        temporaryRehashRetainedSize = multiplyExact((long) newCapacity, Integer.BYTES + Byte.BYTES);
         if (!checkMemoryReservation.update()) {
             return false;
         }
@@ -340,7 +385,8 @@ public final class MinimalFlatHash
             }
         }
 
-        // TODO: memory usage calculations
+        // release temporary memory reservation
+        temporaryRehashRetainedSize = 0;
         checkMemoryReservation.update();
     }
 
@@ -356,7 +402,7 @@ public final class MinimalFlatHash
 
     private byte[] getFixedSizeRecords(int groupId)
     {
-        return fixedSizeRecords[recordGroupIndexForGroupId(groupId >> RECORDS_PER_GROUP_SHIFT)];
+        return fixedSizeRecords[recordGroupIndexForGroupId(groupId)];
     }
 
     private int getFixedRecordOffset(int groupId)
@@ -418,22 +464,21 @@ public final class MinimalFlatHash
     private static int recordGroupsRequiredForCapacity(int capacity)
     {
         checkArgument(capacity > 0, "capacity must be positive");
-        return (capacity + 1) >> RECORDS_PER_GROUP_SHIFT;
+        return max(1, (capacity + 1) >> RECORDS_PER_GROUP_SHIFT);
     }
 
-    private static int estimateNewVariableWidthCapacity(int previousUsedCapacity)
+    public static long sumExact(long... values)
     {
-        return (previousUsedCapacity / (RECORDS_PER_GROUP - 1)) * RECORDS_PER_GROUP;
-    }
-
-    private static int computeNewVariableWidthCapacity(int currentCapacity, int minimumRequiredCapacity)
-    {
-        checkArgument(minimumRequiredCapacity >= 0, "minimumRequiredCapacity must be positive");
-        long newCapacityLong = currentCapacity * 2L;
-        while (newCapacityLong < minimumRequiredCapacity) {
-            newCapacityLong *= 2;
+        long result = 0;
+        for (long value : values) {
+            result = addExact(result, value);
         }
-        return toIntExact(newCapacityLong);
+        return result;
+    }
+
+    public MinimalFlatHash copy()
+    {
+        return new MinimalFlatHash(this);
     }
 
     /**
@@ -461,6 +506,19 @@ public final class MinimalFlatHash
         private long freeBytes;
 
         public MinimalVariableWidthData() {}
+
+        public MinimalVariableWidthData(MinimalVariableWidthData other)
+        {
+            for (byte[] chunk : other.chunks) {
+                chunks.add(Arrays.copyOf(chunk, chunk.length));
+            }
+            this.openChunkOffset = other.openChunkOffset;
+
+            this.chunksRetainedSizeInBytes = other.chunksRetainedSizeInBytes;
+
+            this.allocatedBytes = other.allocatedBytes;
+            this.freeBytes = other.freeBytes;
+        }
 
         public long getRetainedSizeBytes()
         {

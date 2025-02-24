@@ -88,6 +88,7 @@ import static io.trino.util.CompilerUtils.makeClassName;
 public final class FlatHashStrategyCompiler
 {
     private final LoadingCache<List<Type>, FlatHashStrategy> flatHashStrategies;
+    private final MinimalFlatHashStrategyCompiler minimalFlatHashStrategyCompiler;
 
     @Inject
     public FlatHashStrategyCompiler(TypeOperators typeOperators)
@@ -97,11 +98,17 @@ public final class FlatHashStrategyCompiler
                         .recordStats()
                         .maximumSize(1000),
                 CacheLoader.from(key -> compileFlatHashStrategy(key, typeOperators)));
+        this.minimalFlatHashStrategyCompiler = new MinimalFlatHashStrategyCompiler(typeOperators);
     }
 
     public FlatHashStrategy getFlatHashStrategy(List<Type> types)
     {
         return flatHashStrategies.getUnchecked(ImmutableList.copyOf(types));
+    }
+
+    public MinimalFlatHashStrategy getMinimalFlatHashStrategy(List<Type> types)
+    {
+        return minimalFlatHashStrategyCompiler.getFlatHashStrategy(types);
     }
 
     @Managed
