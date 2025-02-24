@@ -64,6 +64,7 @@
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
         <module>plugin/trino-clickhouse</module>
+        <module>plugin/trino-databend</module>
         <module>plugin/trino-delta-lake</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-duckdb</module>
@@ -413,6 +414,14 @@
                 <groupId>com.clickhouse</groupId>
                 <artifactId>clickhouse-jdbc</artifactId>
                 <version>0.7.1-patch1</version>
+                <classifier>all</classifier>
+            </dependency>
+
+            <dependency>
+                <groupId>com.databend</groupId>
+                <artifactId>databend-jdbc</artifactId>
+                <version>0.3.2</version>
+                <!-- The 0.3.4 has some bugs and wait it to be fixed then upgrade databend-jdbc. -->
                 <classifier>all</classifier>
             </dependency>
 
