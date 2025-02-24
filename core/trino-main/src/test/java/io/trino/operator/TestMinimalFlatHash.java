@@ -33,8 +33,8 @@ public class TestMinimalFlatHash
         TypeOperators operators = new TypeOperators();
         MinimalFlatHashStrategyCompiler compiler = new MinimalFlatHashStrategyCompiler(operators);
         MinimalFlatHashStrategy flatHashStrategy = compiler.getFlatHashStrategy(List.of(VARCHAR, INTEGER, VARCHAR));
-        MinimalFlatHash flatHash = new MinimalFlatHash(flatHashStrategy, 10_000, () -> true);
-        Block[] blocks = new Block[]{
+        MinimalFlatHash flatHash = new MinimalFlatHash(flatHashStrategy, false, 10_000, () -> true);
+        Block[] blocks = new Block[] {
                 createStringSequenceBlock(0, 10),
                 createRandomIntsBlock(10, 0.5f),
                 createStringSequenceBlock(10, 20)

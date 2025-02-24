@@ -159,7 +159,7 @@ public final class MinimalFlatHashStrategyCompiler
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName("FlatHashStrategy"),
+                makeClassName("MinimalFlatHashStrategy"),
                 type(Object.class),
                 type(MinimalFlatHashStrategy.class));
 
