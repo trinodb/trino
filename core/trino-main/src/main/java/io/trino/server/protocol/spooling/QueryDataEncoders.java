@@ -15,11 +15,14 @@ package io.trino.server.protocol.spooling;
 
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
+import io.trino.spi.TrinoException;
 
 import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
+import static io.trino.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class QueryDataEncoders
@@ -39,7 +42,7 @@ public class QueryDataEncoders
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         if (enabled) {
-            LOG.info("Spooling protocol is enabled with encodings: " + getAvailableEncodings());
+            LOG.info("Spooling protocol is enabled with supported encodings %s", getAvailableEncodings());
         }
     }
 
@@ -54,10 +57,10 @@ public class QueryDataEncoders
     public QueryDataEncoder.Factory get(String encoding)
     {
         if (!enabled) {
-            throw new IllegalStateException("Spooling protocol is not enabled");
+            throw new TrinoException(CONFIGURATION_INVALID, "Spooling protocol was requested but is not enabled");
         }
         if (!exists(encoding)) {
-            throw new IllegalArgumentException("Unknown spooling protocol encoding: " + encoding);
+            throw new TrinoException(SERIALIZATION_ERROR, "Unknown spooling protocol encoding '%s'".formatted(encoding));
         }
 
         return factories.get(encoding);
@@ -66,7 +69,7 @@ public class QueryDataEncoders
     public Set<String> getAvailableEncodings()
     {
         if (!enabled) {
-            throw new IllegalStateException("Spooling protocol is not enabled");
+            throw new TrinoException(CONFIGURATION_INVALID, "Spooling protocol was requested but is not enabled");
         }
         return factories.keySet();
     }
