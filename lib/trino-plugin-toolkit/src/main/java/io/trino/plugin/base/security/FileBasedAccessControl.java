@@ -54,6 +54,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranchAndTag;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
@@ -64,6 +65,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSele
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranchAndTag;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
@@ -766,6 +768,22 @@ public class FileBasedAccessControl
         }
         catch (IllegalArgumentException exception) {
             throw new TrinoException(INVALID_COLUMN_MASK, "Multiple column masks defined for the same column", exception);
+        }
+    }
+
+    @Override
+    public void checkCanCreateBranchAndTag(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyCreateBranchAndTag(tableName.toString(), name);
+        }
+    }
+
+    @Override
+    public void checkCanDropBranchAndTag(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        if (!checkTablePermission(context, tableName, OWNERSHIP)) {
+            denyDropBranchAndTag(tableName.toString(), name);
         }
     }
 

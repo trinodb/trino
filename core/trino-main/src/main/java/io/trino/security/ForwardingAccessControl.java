@@ -535,4 +535,16 @@ public abstract class ForwardingAccessControl
     {
         return delegate().getColumnMasks(context, tableName, columns);
     }
+
+    @Override
+    public void checkCanCreateBranchAndTag(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        delegate().checkCanCreateBranchAndTag(context, tableName, name);
+    }
+
+    @Override
+    public void canCanDropBranchAndTag(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        delegate().canCanDropBranchAndTag(context, tableName, name);
+    }
 }
