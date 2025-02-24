@@ -2540,13 +2540,6 @@
                                     <bannedImport>jakarta.annotation.Nonnull</bannedImport>
                                     <bannedImport>org.jetbrains.annotations.NotNull</bannedImport>
                                 </bannedImports>
-                                <notFixable>
-                                    <in>io.trino.cache.ElementTypesAreNonnullByDefault</in>
-                                    <allowedImports>
-                                        <allowedImport>jakarta.annotation.Nonnull</allowedImport>
-                                    </allowedImports>
-                                    <because>Extending Guava's API</because>
-                                </notFixable>
                             </RestrictImports>
                             <RestrictImports>
                                 <bannedImports>
