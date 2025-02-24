@@ -441,6 +441,7 @@ public class IcebergMetadata
     private final Predicate<String> allowedExtraProperties;
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
+    private final Executor materializedViewExecutor;
 
     private final Map<IcebergTableHandle, AtomicReference<TableStatistics>> tableStatisticsCache = new ConcurrentHashMap<>();
 
@@ -458,7 +459,8 @@ public class IcebergMetadata
             boolean addFilesProcedureEnabled,
             Predicate<String> allowedExtraProperties,
             ExecutorService icebergScanExecutor,
-            Executor metadataFetchingExecutor)
+            Executor metadataFetchingExecutor,
+            Executor materializedViewExecutor)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.trinoCatalogHandle = requireNonNull(trinoCatalogHandle, "trinoCatalogHandle is null");
@@ -471,6 +473,7 @@ public class IcebergMetadata
         this.allowedExtraProperties = requireNonNull(allowedExtraProperties, "allowedExtraProperties is null");
         this.icebergScanExecutor = requireNonNull(icebergScanExecutor, "icebergScanExecutor is null");
         this.metadataFetchingExecutor = requireNonNull(metadataFetchingExecutor, "metadataFetchingExecutor is null");
+        this.materializedViewExecutor = requireNonNull(materializedViewExecutor, "materializedViewExecutor is null");
     }
 
     @Override
@@ -3807,47 +3810,32 @@ public class IcebergMetadata
         }
 
         boolean hasUnknownTables = false;
-        boolean hasStaleIcebergTables = false;
         Optional<Long> firstTableChange = Optional.of(Long.MAX_VALUE);
-
-        Iterable<String> tableToSnapshotIds = Splitter.on(',').split(dependsOnTables);
-        for (String entry : tableToSnapshotIds) {
-            if (entry.equals(UNKNOWN_SNAPSHOT_TOKEN)) {
-                // This is a "federated" materialized view (spanning across connectors). Trust user's choice and assume "fresh or fresh enough".
+        ImmutableList.Builder<Callable<TableChangeInfo>> tableChangeInfoTasks = ImmutableList.builder();
+        for (String tableToSnapShot : Splitter.on(',').split(dependsOnTables)) {
+            if (tableToSnapShot.equals(UNKNOWN_SNAPSHOT_TOKEN)) {
                 hasUnknownTables = true;
                 firstTableChange = Optional.empty();
                 continue;
             }
-            List<String> keyValue = Splitter.on("=").splitToList(entry);
-            if (keyValue.size() != 2) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid entry in '%s' property: %s'", DEPENDS_ON_TABLES, entry));
-            }
-            String tableName = keyValue.get(0);
-            String value = keyValue.get(1);
-            List<String> strings = Splitter.on(".").splitToList(tableName);
-            if (strings.size() == 3) {
-                strings = strings.subList(1, 3);
-            }
-            else if (strings.size() != 2) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
-            }
-            String schema = strings.get(0);
-            String name = strings.get(1);
-            SchemaTableName schemaTableName = new SchemaTableName(schema, name);
-            ConnectorTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
 
-            if (tableHandle == null || tableHandle instanceof CorruptedIcebergTableHandle) {
-                // Base table is gone or table is corrupted
-                return new MaterializedViewFreshness(STALE, Optional.empty());
-            }
-            Optional<Long> snapshotAtRefresh;
-            if (value.isEmpty()) {
-                snapshotAtRefresh = Optional.empty();
-            }
-            else {
-                snapshotAtRefresh = Optional.of(Long.parseLong(value));
-            }
-            switch (getTableChangeInfo(session, (IcebergTableHandle) tableHandle, snapshotAtRefresh)) {
+            tableChangeInfoTasks.add(() -> getTableChangeInfo(session, tableToSnapShot));
+        }
+
+        boolean hasStaleIcebergTables = false;
+        List<TableChangeInfo> tableChangeInfos;
+
+        try {
+            tableChangeInfos = processWithAdditionalThreads(tableChangeInfoTasks.build(), materializedViewExecutor);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e.getCause());
+        }
+
+        verifyNotNull(tableChangeInfos);
+
+        for (TableChangeInfo tableChangeInfo : tableChangeInfos) {
+            switch (tableChangeInfo) {
                 case NoTableChange() -> {
                     // Fresh
                 }
@@ -3859,6 +3847,9 @@ public class IcebergMetadata
                 case UnknownTableChange() -> {
                     hasStaleIcebergTables = true;
                     firstTableChange = Optional.empty();
+                }
+                case CorruptedTableChange() -> {
+                    return new MaterializedViewFreshness(STALE, Optional.empty());
                 }
             }
         }
@@ -3873,6 +3864,40 @@ public class IcebergMetadata
             return new MaterializedViewFreshness(UNKNOWN, lastFreshTime);
         }
         return new MaterializedViewFreshness(FRESH, Optional.empty());
+    }
+
+    private TableChangeInfo getTableChangeInfo(ConnectorSession session, String entry)
+    {
+        List<String> keyValue = Splitter.on("=").splitToList(entry);
+        if (keyValue.size() != 2) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid entry in '%s' property: %s'", DEPENDS_ON_TABLES, entry));
+        }
+        String tableName = keyValue.get(0);
+        String value = keyValue.get(1);
+        List<String> strings = Splitter.on(".").splitToList(tableName);
+        if (strings.size() == 3) {
+            strings = strings.subList(1, 3);
+        }
+        else if (strings.size() != 2) {
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
+        }
+        String schema = strings.get(0);
+        String name = strings.get(1);
+        SchemaTableName schemaTableName = new SchemaTableName(schema, name);
+        ConnectorTableHandle tableHandle = getTableHandle(session, schemaTableName, Optional.empty(), Optional.empty());
+
+        if (tableHandle == null || tableHandle instanceof CorruptedIcebergTableHandle) {
+            // Base table is gone or table is corrupted
+            return new CorruptedTableChange();
+        }
+        Optional<Long> snapshotAtRefresh;
+        if (value.isEmpty()) {
+            snapshotAtRefresh = Optional.empty();
+        }
+        else {
+            snapshotAtRefresh = Optional.of(Long.parseLong(value));
+        }
+        return getTableChangeInfo(session, (IcebergTableHandle) tableHandle, snapshotAtRefresh);
     }
 
     private TableChangeInfo getTableChangeInfo(ConnectorSession session, IcebergTableHandle table, Optional<Long> snapshotAtRefresh)
@@ -3989,7 +4014,7 @@ public class IcebergMetadata
     }
 
     private sealed interface TableChangeInfo
-            permits NoTableChange, FirstChangeSnapshot, UnknownTableChange {}
+            permits NoTableChange, FirstChangeSnapshot, UnknownTableChange, CorruptedTableChange {}
 
     private record NoTableChange()
             implements TableChangeInfo {}
@@ -4004,6 +4029,9 @@ public class IcebergMetadata
     }
 
     private record UnknownTableChange()
+            implements TableChangeInfo {}
+
+    private record CorruptedTableChange()
             implements TableChangeInfo {}
 
     private static TableStatistics getIncrementally(
