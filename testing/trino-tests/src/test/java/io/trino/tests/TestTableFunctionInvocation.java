@@ -142,12 +142,12 @@ public class TestTableFunctionInvocation
     {
         assertAccessDenied(
                 "SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column', ignored => 1))",
-                "Cannot select from columns .*",
+                "Cannot select from table or view " + TESTING_CATALOG + "\\.system\\.simple_table",
                 privilege("simple_table.boolean_column", SELECT_COLUMN));
 
         assertAccessDenied(
                 "SELECT boolean_column FROM TABLE(system.simple_table_function(column => 'boolean_column', ignored => 1))",
-                "Cannot select from columns .*",
+                "Cannot select from table or view " + TESTING_CATALOG + "\\.system\\.simple_table",
                 privilege("simple_table", SELECT_COLUMN));
     }
 
