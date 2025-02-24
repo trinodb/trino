@@ -109,7 +109,7 @@ public class QueryExplainer
                     session,
                     false,
                     version);
-            case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
+            case IO -> getIoPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
             default -> throw new IllegalArgumentException("Unhandled plan type: " + planType);
         };
     }
@@ -141,7 +141,7 @@ public class QueryExplainer
         }
 
         return switch (planType) {
-            case IO -> textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector), plannerContext, session);
+            case IO -> getIoPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
             case LOGICAL -> {
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
                 yield jsonLogicalPlan(plan.getRoot(), session, plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts());
@@ -155,11 +155,21 @@ public class QueryExplainer
         };
     }
 
+    private String getIoPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    {
+        Analysis analysis = analyze(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
+        Plan plan = getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector, analysis);
+        return textIoPlan(plan, plannerContext, session, analysis);
+    }
+
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        // analyze statement
         Analysis analysis = analyze(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
+        return getLogicalPlan(session, statement, parameters, warningCollector, planOptimizersStatsCollector, analysis);
+    }
 
+    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector, Analysis analysis)
+    {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
         // plan statement

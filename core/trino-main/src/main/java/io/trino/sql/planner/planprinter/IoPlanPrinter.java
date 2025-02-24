@@ -15,6 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.cost.PlanCostEstimate;
@@ -24,11 +25,14 @@ import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.OutputColumn;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.FilterNode;
@@ -47,12 +51,14 @@ import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.IoPlanBuilder;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static java.lang.String.format;
@@ -64,26 +70,28 @@ public class IoPlanPrinter
     private final PlannerContext plannerContext;
     private final Session session;
     private final ValuePrinter valuePrinter;
+    private final Optional<Analysis> analysis;
 
-    private IoPlanPrinter(Plan plan, PlannerContext plannerContext, Session session)
+    private IoPlanPrinter(Plan plan, PlannerContext plannerContext, Session session, Optional<Analysis> analysis)
     {
         this.plan = requireNonNull(plan, "plan is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.session = requireNonNull(session, "session is null");
+        this.analysis = requireNonNull(analysis, "analysis is null");
         this.valuePrinter = new ValuePrinter(plannerContext.getMetadata(), plannerContext.getFunctionManager(), session);
     }
 
     /**
      * @throws io.trino.NotInTransactionException if called without an active transaction
      */
-    public static String textIoPlan(Plan plan, PlannerContext plannerContext, Session session)
+    public static String textIoPlan(Plan plan, PlannerContext plannerContext, Session session, Analysis analysis)
     {
-        return new IoPlanPrinter(plan, plannerContext, session).print();
+        return new IoPlanPrinter(plan, plannerContext, session, Optional.of(analysis)).print();
     }
 
     private String print()
     {
-        IoPlanBuilder ioPlanBuilder = new IoPlanBuilder(plan);
+        IoPlanBuilder ioPlanBuilder = new IoPlanBuilder(plan, analysis);
         plan.getRoot().accept(new IoPlanVisitor(), ioPlanBuilder);
         return jsonCodec(IoPlan.class).toJson(ioPlanBuilder.build());
     }
@@ -93,16 +101,19 @@ public class IoPlanPrinter
         private final Set<TableColumnInfo> inputTableColumnInfos;
         private final Optional<CatalogSchemaTableName> outputTable;
         private final EstimatedStatsAndCost estimate;
+        private final Optional<List<OutputColumnMetadata>> columns;
 
         @JsonCreator
         public IoPlan(
                 @JsonProperty("inputTableColumnInfos") Set<TableColumnInfo> inputTableColumnInfos,
                 @JsonProperty("outputTable") Optional<CatalogSchemaTableName> outputTable,
-                @JsonProperty("estimate") EstimatedStatsAndCost estimate)
+                @JsonProperty("estimate") EstimatedStatsAndCost estimate,
+                @JsonProperty("outputColumns") Optional<List<OutputColumnMetadata>> columns)
         {
             this.inputTableColumnInfos = ImmutableSet.copyOf(requireNonNull(inputTableColumnInfos, "inputTableColumnInfos is null"));
             this.outputTable = requireNonNull(outputTable, "outputTable is null");
             this.estimate = requireNonNull(estimate, "estimate is null");
+            this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
         }
 
         @JsonProperty
@@ -123,6 +134,12 @@ public class IoPlanPrinter
             return estimate;
         }
 
+        @JsonProperty
+        public Optional<List<OutputColumnMetadata>> getColumns()
+        {
+            return columns;
+        }
+
         @Override
         public boolean equals(Object obj)
         {
@@ -134,7 +151,8 @@ public class IoPlanPrinter
             }
             IoPlan o = (IoPlan) obj;
             return Objects.equals(inputTableColumnInfos, o.inputTableColumnInfos) &&
-                    Objects.equals(outputTable, o.outputTable);
+                    Objects.equals(outputTable, o.outputTable) &&
+                    Objects.equals(columns, o.columns);
         }
 
         @Override
@@ -150,26 +168,57 @@ public class IoPlanPrinter
                     .add("inputTableColumnInfos", inputTableColumnInfos)
                     .add("outputTable", outputTable)
                     .add("estimate", estimate)
+                    .add("outputColumns", columns)
                     .toString();
         }
 
         protected static class IoPlanBuilder
         {
             private final Plan plan;
+            private final Optional<Analysis> analysis;
             private final Set<TableColumnInfo> inputTableColumnInfos;
             private Optional<CatalogSchemaTableName> outputTable;
+            private Optional<List<OutputColumnMetadata>> columns;
 
-            private IoPlanBuilder(Plan plan)
+            private IoPlanBuilder(Plan plan, Optional<Analysis> analysis)
             {
                 this.plan = plan;
+                this.analysis = analysis;
                 this.inputTableColumnInfos = new HashSet<>();
                 this.outputTable = Optional.empty();
+                this.columns = Optional.empty();
             }
 
             private IoPlanBuilder addInputTableColumnInfo(TableColumnInfo tableColumnInfo)
             {
                 inputTableColumnInfos.add(tableColumnInfo);
                 return this;
+            }
+
+            private IoPlanBuilder setOutputColumns(Optional<List<OutputColumnMetadata>> columns)
+            {
+                this.columns = columns;
+                return this;
+            }
+
+            private void setOutputColumns()
+            {
+                analysis.ifPresent(analysis ->
+                        setOutputColumns(analysis.getTarget()
+                                .flatMap(target -> target.getColumns()
+                                        .map(columns -> columns.stream()
+                                                .map(this::createOutputColumnMetadata)
+                                                .collect(toImmutableList())))));
+            }
+
+            private OutputColumnMetadata createOutputColumnMetadata(OutputColumn column)
+            {
+                return new OutputColumnMetadata(
+                        column.getColumn().getName(),
+                        column.getColumn().getType(),
+                        column.getSourceColumns().stream()
+                                .map(Analysis.SourceColumn::getColumnDetail)
+                                .collect(toImmutableSet()));
             }
 
             private IoPlanBuilder setOutputTable(CatalogSchemaTableName outputTable)
@@ -180,7 +229,7 @@ public class IoPlanPrinter
 
             private IoPlan build()
             {
-                return new IoPlan(inputTableColumnInfos, outputTable, getEstimatedStatsAndCost());
+                return new IoPlan(inputTableColumnInfos, outputTable, getEstimatedStatsAndCost(), columns);
             }
 
             private EstimatedStatsAndCost getEstimatedStatsAndCost()
@@ -721,6 +770,7 @@ public class IoPlanPrinter
             else {
                 throw new IllegalStateException(format("Unknown WriterTarget subclass %s", writerTarget.getClass().getSimpleName()));
             }
+            context.setOutputColumns();
             return processChildren(node, context);
         }
 
