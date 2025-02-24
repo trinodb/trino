@@ -250,6 +250,14 @@ public class TestDatabendConnectorTest
     }
 
     @Test
+    public void testCountColumn()
+    {
+        assertQuery("SELECT COUNT(orderkey) FROM orders");
+        assertQuery("SELECT COUNT(orderstatus) FROM orders");
+        assertQuery("SELECT COUNT(1) FROM orders");
+    }
+
+    @Test
     @Disabled
     @Override
     public void testAddColumnConcurrently()
