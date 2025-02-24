@@ -1793,6 +1793,22 @@ all Iceberg tables that are part of the materialized view's query in the
 materialized view metadata. When the materialized view is queried, the
 snapshot-ids are used to check if the data in the storage table is up to date.
 
+When performing an incremental refresh there are some limitations to the
+operations you can perform and some operations that are not supported.
+
+- Appends can only occur between the last refresh time, `fromSnapshot` and the
+  `currentSnapshot`.
+- Can only run simple `SELECT` or predicate-only queries on a single table
+  within the same catalog and schema.
+
+Incremental refresh does not support:
+
+- `DISTINCT` queries, like `SELECT DISTINCT department FROM ...`.
+- Function calls in `SELECT`, like` SELECT SUM(price), AVG(price) FROM ...`.
+- Combining data from multiple tables and grouping data using using `JOIN` and
+  `GROUP BY`.
+- Advanced sorting and calculations using window functions.
+
 Materialized views that use non-Iceberg tables in the query show the [default
 behavior around grace periods](mv-grace-period). If all tables are Iceberg
 tables, the connector can determine if the data has not changed and continue to
