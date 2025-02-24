@@ -314,6 +314,15 @@
                                     <old>method long io.trino.spi.connector.Connector::getInitialMemoryRequirement()</old>
                                     <justification>Remove unused connector method</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.visibilityIncreased</code>
+                                    <old>method long[] io.trino.spi.block.LongArrayBlock::getRawValues()</old>
+                                    <new>method long[] io.trino.spi.block.LongArrayBlock::getRawValues()</new>
+                                    <oldVisibility>package</oldVisibility>
+                                    <newVisibility>public</newVisibility>
+                                    <justification>Just a test</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
