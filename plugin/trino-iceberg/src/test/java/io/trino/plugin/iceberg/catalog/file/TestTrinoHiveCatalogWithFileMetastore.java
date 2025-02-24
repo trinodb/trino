@@ -128,7 +128,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
             catalog.createMaterializedView(
-                    SESSION,
+                    SESSION_WITH_PROPERTIES,
                     new SchemaTableName(namespace, materializedViewName),
                     new ConnectorMaterializedViewDefinition(
                             "SELECT * FROM tpch.tiny.nation",

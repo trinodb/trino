@@ -20,9 +20,15 @@ import io.trino.metastore.TableInfo;
 import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.IcebergSessionProperties;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
@@ -34,6 +40,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.VarcharType;
+import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.NullOrder;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -66,7 +73,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,6 +80,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(BaseTrinoCatalogTest.class);
+    protected static final ConnectorSession SESSION_WITH_PROPERTIES = TestingConnectorSession.builder()
+            .setPropertyMetadata(new IcebergSessionProperties(
+                    new IcebergConfig(),
+                    new OrcReaderConfig(),
+                    new OrcWriterConfig(),
+                    new ParquetReaderConfig(),
+                    new ParquetWriterConfig())
+                    .getSessionProperties())
+            .build();
 
     protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
             throws IOException;
@@ -92,12 +107,12 @@ public abstract class BaseTrinoCatalogTest
         Map<String, Object> namespaceProperties = new HashMap<>(defaultNamespaceProperties(namespace));
         String namespaceLocation = (String) namespaceProperties.computeIfAbsent(LOCATION_PROPERTY, _ -> "local:///a/path/");
         namespaceProperties = ImmutableMap.copyOf(namespaceProperties);
-        catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-        assertThat(catalog.listNamespaces(SESSION)).contains(namespace);
-        assertThat(catalog.loadNamespaceMetadata(SESSION, namespace)).isEqualTo(namespaceProperties);
-        assertThat(catalog.defaultTableLocation(SESSION, new SchemaTableName(namespace, "table"))).isEqualTo(namespaceLocation.replaceAll("/$", "") + "/table");
-        catalog.dropNamespace(SESSION, namespace);
-        assertThat(catalog.listNamespaces(SESSION)).doesNotContain(namespace);
+        catalog.createNamespace(SESSION_WITH_PROPERTIES, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser()));
+        assertThat(catalog.listNamespaces(SESSION_WITH_PROPERTIES)).contains(namespace);
+        assertThat(catalog.loadNamespaceMetadata(SESSION_WITH_PROPERTIES, namespace)).isEqualTo(namespaceProperties);
+        assertThat(catalog.defaultTableLocation(SESSION_WITH_PROPERTIES, new SchemaTableName(namespace, "table"))).isEqualTo(namespaceLocation.replaceAll("/$", "") + "/table");
+        catalog.dropNamespace(SESSION_WITH_PROPERTIES, namespace);
+        assertThat(catalog.listNamespaces(SESSION_WITH_PROPERTIES)).doesNotContain(namespace);
     }
 
     @Test
@@ -111,13 +126,13 @@ public abstract class BaseTrinoCatalogTest
         String schema = namespace.toLowerCase(ENGLISH);
 
         // Currently this is actually stored in lowercase by all Catalogs
-        catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        catalog.createNamespace(SESSION_WITH_PROPERTIES, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser()));
         try {
-            assertThat(catalog.namespaceExists(SESSION, namespace)).as("catalog.namespaceExists(namespace)")
+            assertThat(catalog.namespaceExists(SESSION_WITH_PROPERTIES, namespace)).as("catalog.namespaceExists(namespace)")
                     .isFalse();
-            assertThat(catalog.namespaceExists(SESSION, schema)).as("catalog.namespaceExists(schema)")
+            assertThat(catalog.namespaceExists(SESSION_WITH_PROPERTIES, schema)).as("catalog.namespaceExists(schema)")
                     .isTrue();
-            assertThat(catalog.listNamespaces(SESSION)).as("catalog.listNamespaces")
+            assertThat(catalog.listNamespaces(SESSION_WITH_PROPERTIES)).as("catalog.listNamespaces")
                     // Catalog listNamespaces may be used as a default implementation for ConnectorMetadata.schemaExists
                     .doesNotContain(namespace)
                     .contains(schema);
@@ -137,16 +152,16 @@ public abstract class BaseTrinoCatalogTest
                     _ -> false,
                     newDirectExecutorService(),
                     directExecutor());
-            assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
+            assertThat(icebergMetadata.schemaExists(SESSION_WITH_PROPERTIES, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
-            assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
+            assertThat(icebergMetadata.schemaExists(SESSION_WITH_PROPERTIES, schema)).as("icebergMetadata.schemaExists(schema)")
                     .isTrue();
-            assertThat(icebergMetadata.listSchemaNames(SESSION)).as("icebergMetadata.listSchemaNames")
+            assertThat(icebergMetadata.listSchemaNames(SESSION_WITH_PROPERTIES)).as("icebergMetadata.listSchemaNames")
                     .doesNotContain(namespace)
                     .contains(schema);
         }
         finally {
-            catalog.dropNamespace(SESSION, namespace);
+            catalog.dropNamespace(SESSION_WITH_PROPERTIES, namespace);
         }
     }
 
@@ -160,10 +175,10 @@ public abstract class BaseTrinoCatalogTest
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         Map<String, String> tableProperties = Map.of("test_key", "test_value");
         try {
-            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            String tableLocation = arbitraryTableLocation(catalog, SESSION, schemaTableName);
+            catalog.createNamespace(SESSION_WITH_PROPERTIES, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser()));
+            String tableLocation = arbitraryTableLocation(catalog, SESSION_WITH_PROPERTIES, schemaTableName);
             catalog.newCreateTableTransaction(
-                            SESSION,
+                            SESSION_WITH_PROPERTIES,
                             schemaTableName,
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
@@ -171,10 +186,10 @@ public abstract class BaseTrinoCatalogTest
                             Optional.of(tableLocation),
                             tableProperties)
                     .commitTransaction();
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
-            assertThat(catalog.listTables(SESSION, Optional.empty())).contains(new TableInfo(schemaTableName, TABLE));
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.empty())).contains(new TableInfo(schemaTableName, TABLE));
 
-            Table icebergTable = catalog.loadTable(SESSION, schemaTableName);
+            Table icebergTable = catalog.loadTable(SESSION_WITH_PROPERTIES, schemaTableName);
             assertThat(icebergTable.name()).isEqualTo(quotedTableName(schemaTableName));
             assertThat(icebergTable.schema().columns()).hasSize(1);
             assertThat(icebergTable.schema().columns().get(0).name()).isEqualTo("col1");
@@ -183,12 +198,12 @@ public abstract class BaseTrinoCatalogTest
             assertThat(icebergTable.sortOrder().isUnsorted()).isEqualTo(true);
             assertThat(icebergTable.properties()).containsAllEntriesOf(tableProperties);
 
-            catalog.dropTable(SESSION, schemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.empty()).stream().map(TableInfo::tableName).toList()).doesNotContain(schemaTableName);
+            catalog.dropTable(SESSION_WITH_PROPERTIES, schemaTableName);
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.empty()).stream().map(TableInfo::tableName).toList()).doesNotContain(schemaTableName);
         }
         finally {
             try {
-                catalog.dropNamespace(SESSION, namespace);
+                catalog.dropNamespace(SESSION_WITH_PROPERTIES, namespace);
             }
             catch (Exception e) {
                 LOG.warn("Failed to clean up namespace: %s", namespace);
@@ -205,7 +220,7 @@ public abstract class BaseTrinoCatalogTest
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         try {
-            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createNamespace(SESSION_WITH_PROPERTIES, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser()));
             Schema tableSchema = new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get()),
                     Types.NestedField.of(2, true, "col2", Types.StringType.get()),
                     Types.NestedField.of(3, true, "col3", Types.TimestampType.withZone()),
@@ -221,9 +236,9 @@ public abstract class BaseTrinoCatalogTest
                     .asc(Expressions.hour("col3"), NullOrder.NULLS_FIRST)
                     .desc(Expressions.bucket("col2", 10), NullOrder.NULLS_FIRST)
                     .desc(Expressions.truncate("col4", 5), NullOrder.NULLS_FIRST).build();
-            String tableLocation = arbitraryTableLocation(catalog, SESSION, schemaTableName);
+            String tableLocation = arbitraryTableLocation(catalog, SESSION_WITH_PROPERTIES, schemaTableName);
             catalog.newCreateTableTransaction(
-                            SESSION,
+                            SESSION_WITH_PROPERTIES,
                             schemaTableName,
                             tableSchema,
                             PartitionSpec.unpartitioned(),
@@ -231,10 +246,10 @@ public abstract class BaseTrinoCatalogTest
                             Optional.of(tableLocation),
                             ImmutableMap.of())
                     .commitTransaction();
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
-            assertThat(catalog.listTables(SESSION, Optional.empty())).contains(new TableInfo(schemaTableName, TABLE));
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(namespace))).contains(new TableInfo(schemaTableName, TABLE));
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.empty())).contains(new TableInfo(schemaTableName, TABLE));
 
-            Table icebergTable = catalog.loadTable(SESSION, schemaTableName);
+            Table icebergTable = catalog.loadTable(SESSION_WITH_PROPERTIES, schemaTableName);
             assertThat(icebergTable.name()).isEqualTo(quotedTableName(schemaTableName));
             assertThat(icebergTable.schema().columns()).hasSize(4);
             assertThat(icebergTable.schema().columns().get(0).name()).isEqualTo("col1");
@@ -249,14 +264,14 @@ public abstract class BaseTrinoCatalogTest
             assertThat(icebergTable.location()).isEqualTo(tableLocation);
             assertThat(icebergTable.sortOrder()).isEqualTo(sortOrder);
 
-            catalog.dropTable(SESSION, schemaTableName);
+            catalog.dropTable(SESSION_WITH_PROPERTIES, schemaTableName);
         }
         finally {
             try {
-                if (!catalog.listTables(SESSION, Optional.of(schemaTableName.getSchemaName())).isEmpty()) {
-                    catalog.dropTable(SESSION, schemaTableName);
+                if (!catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(schemaTableName.getSchemaName())).isEmpty()) {
+                    catalog.dropTable(SESSION_WITH_PROPERTIES, schemaTableName);
                 }
-                catalog.dropNamespace(SESSION, namespace);
+                catalog.dropNamespace(SESSION_WITH_PROPERTIES, namespace);
             }
             catch (RuntimeException e) {
                 LOG.warn("Failed to clean up namespace: %s", namespace);
@@ -275,38 +290,38 @@ public abstract class BaseTrinoCatalogTest
         String table = "tableName";
         SchemaTableName sourceSchemaTableName = new SchemaTableName(namespace, table);
         try {
-            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            catalog.createNamespace(SESSION, targetNamespace, defaultNamespaceProperties(targetNamespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+            catalog.createNamespace(SESSION_WITH_PROPERTIES, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser()));
+            catalog.createNamespace(SESSION_WITH_PROPERTIES, targetNamespace, defaultNamespaceProperties(targetNamespace), new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser()));
             catalog.newCreateTableTransaction(
-                            SESSION,
+                            SESSION_WITH_PROPERTIES,
                             sourceSchemaTableName,
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            Optional.of(arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName)),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION_WITH_PROPERTIES, sourceSchemaTableName)),
                             ImmutableMap.of())
                     .commitTransaction();
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(sourceSchemaTableName, TABLE));
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(namespace))).contains(new TableInfo(sourceSchemaTableName, TABLE));
 
             // Rename within the same schema
             SchemaTableName targetSchemaTableName = new SchemaTableName(sourceSchemaTableName.getSchemaName(), "newTableName");
-            catalog.renameTable(SESSION, sourceSchemaTableName, targetSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.empty()).stream().map(TableInfo::tableName).toList()).doesNotContain(sourceSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).contains(new TableInfo(targetSchemaTableName, TABLE));
+            catalog.renameTable(SESSION_WITH_PROPERTIES, sourceSchemaTableName, targetSchemaTableName);
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.empty()).stream().map(TableInfo::tableName).toList()).doesNotContain(sourceSchemaTableName);
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(namespace))).contains(new TableInfo(targetSchemaTableName, TABLE));
 
             // Move to a different schema
             sourceSchemaTableName = targetSchemaTableName;
             targetSchemaTableName = new SchemaTableName(targetNamespace, sourceSchemaTableName.getTableName());
-            catalog.renameTable(SESSION, sourceSchemaTableName, targetSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream().map(TableInfo::tableName).toList()).doesNotContain(sourceSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(targetNamespace))).contains(new TableInfo(targetSchemaTableName, TABLE));
+            catalog.renameTable(SESSION_WITH_PROPERTIES, sourceSchemaTableName, targetSchemaTableName);
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(namespace)).stream().map(TableInfo::tableName).toList()).doesNotContain(sourceSchemaTableName);
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(targetNamespace))).contains(new TableInfo(targetSchemaTableName, TABLE));
 
-            catalog.dropTable(SESSION, targetSchemaTableName);
+            catalog.dropTable(SESSION_WITH_PROPERTIES, targetSchemaTableName);
         }
         finally {
             try {
-                catalog.dropNamespace(SESSION, namespace);
-                catalog.dropNamespace(SESSION, targetNamespace);
+                catalog.dropNamespace(SESSION_WITH_PROPERTIES, namespace);
+                catalog.dropNamespace(SESSION_WITH_PROPERTIES, targetNamespace);
             }
             catch (Exception e) {
                 LOG.warn("Failed to clean up namespaces: %s, %s", namespace, targetNamespace);
@@ -327,10 +342,10 @@ public abstract class BaseTrinoCatalogTest
                 LOCATION_PROPERTY,
                 _ -> "local:///iceberg_catalog_test_rename_table_" + UUID.randomUUID());
 
-        catalog.createNamespace(SESSION, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
+        catalog.createNamespace(SESSION_WITH_PROPERTIES, namespace, namespaceProperties, new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser()));
         try {
-            String location1 = catalog.defaultTableLocation(SESSION, schemaTableName);
-            String location2 = catalog.defaultTableLocation(SESSION, schemaTableName);
+            String location1 = catalog.defaultTableLocation(SESSION_WITH_PROPERTIES, schemaTableName);
+            String location2 = catalog.defaultTableLocation(SESSION_WITH_PROPERTIES, schemaTableName);
             assertThat(location1)
                     .isNotEqualTo(location2);
 
@@ -341,7 +356,7 @@ public abstract class BaseTrinoCatalogTest
         }
         finally {
             try {
-                catalog.dropNamespace(SESSION, namespace);
+                catalog.dropNamespace(SESSION_WITH_PROPERTIES, namespace);
             }
             catch (Exception e) {
                 LOG.warn("Failed to clean up namespace: %s", namespace);
@@ -369,36 +384,36 @@ public abstract class BaseTrinoCatalogTest
                 ImmutableList.of(
                         new ConnectorViewDefinition.ViewColumn("name", VarcharType.createUnboundedVarcharType().getTypeId(), Optional.empty())),
                 Optional.empty(),
-                Optional.of(SESSION.getUser()),
+                Optional.of(SESSION_WITH_PROPERTIES.getUser()),
                 false,
                 ImmutableList.of());
 
         try {
-            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            catalog.createView(SESSION, schemaTableName, viewDefinition, false);
+            catalog.createNamespace(SESSION_WITH_PROPERTIES, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser()));
+            catalog.createView(SESSION_WITH_PROPERTIES, schemaTableName, viewDefinition, false);
 
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, getViewType()));
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(namespace)).stream()).contains(new TableInfo(schemaTableName, getViewType()));
 
-            Map<SchemaTableName, ConnectorViewDefinition> views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
+            Map<SchemaTableName, ConnectorViewDefinition> views = catalog.getViews(SESSION_WITH_PROPERTIES, Optional.of(schemaTableName.getSchemaName()));
             assertThat(views).hasSize(1);
             assertViewDefinition(views.get(schemaTableName), viewDefinition);
-            assertViewDefinition(catalog.getView(SESSION, schemaTableName).orElseThrow(), viewDefinition);
+            assertViewDefinition(catalog.getView(SESSION_WITH_PROPERTIES, schemaTableName).orElseThrow(), viewDefinition);
 
-            catalog.renameView(SESSION, schemaTableName, renamedSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.of(namespace)).stream().map(TableInfo::tableName).toList()).doesNotContain(schemaTableName);
-            views = catalog.getViews(SESSION, Optional.of(schemaTableName.getSchemaName()));
+            catalog.renameView(SESSION_WITH_PROPERTIES, schemaTableName, renamedSchemaTableName);
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(namespace)).stream().map(TableInfo::tableName).toList()).doesNotContain(schemaTableName);
+            views = catalog.getViews(SESSION_WITH_PROPERTIES, Optional.of(schemaTableName.getSchemaName()));
             assertThat(views).hasSize(1);
             assertViewDefinition(views.get(renamedSchemaTableName), viewDefinition);
-            assertViewDefinition(catalog.getView(SESSION, renamedSchemaTableName).orElseThrow(), viewDefinition);
-            assertThat(catalog.getView(SESSION, schemaTableName)).isEmpty();
+            assertViewDefinition(catalog.getView(SESSION_WITH_PROPERTIES, renamedSchemaTableName).orElseThrow(), viewDefinition);
+            assertThat(catalog.getView(SESSION_WITH_PROPERTIES, schemaTableName)).isEmpty();
 
-            catalog.dropView(SESSION, renamedSchemaTableName);
-            assertThat(catalog.listTables(SESSION, Optional.empty()).stream().map(TableInfo::tableName).toList())
+            catalog.dropView(SESSION_WITH_PROPERTIES, renamedSchemaTableName);
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.empty()).stream().map(TableInfo::tableName).toList())
                     .doesNotContain(renamedSchemaTableName);
         }
         finally {
             try {
-                catalog.dropNamespace(SESSION, namespace);
+                catalog.dropNamespace(SESSION_WITH_PROPERTIES, namespace);
             }
             catch (Exception e) {
                 LOG.warn("Failed to clean up namespace: %s", namespace);
@@ -416,39 +431,39 @@ public abstract class BaseTrinoCatalogTest
             throws Exception
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
-        TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, SESSION.getUser());
+        TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, SESSION_WITH_PROPERTIES.getUser());
 
         try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
             String ns1 = "ns1" + randomNameSuffix();
             String ns2 = "ns2" + randomNameSuffix();
-            catalog.createNamespace(SESSION, ns1, defaultNamespaceProperties(ns1), principal);
-            closer.register(() -> catalog.dropNamespace(SESSION, ns1));
-            catalog.createNamespace(SESSION, ns2, defaultNamespaceProperties(ns2), principal);
-            closer.register(() -> catalog.dropNamespace(SESSION, ns2));
+            catalog.createNamespace(SESSION_WITH_PROPERTIES, ns1, defaultNamespaceProperties(ns1), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION_WITH_PROPERTIES, ns1));
+            catalog.createNamespace(SESSION_WITH_PROPERTIES, ns2, defaultNamespaceProperties(ns2), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION_WITH_PROPERTIES, ns2));
 
             SchemaTableName table1 = new SchemaTableName(ns1, "t1");
             SchemaTableName table2 = new SchemaTableName(ns2, "t2");
             catalog.newCreateTableTransaction(
-                            SESSION,
+                            SESSION_WITH_PROPERTIES,
                             table1,
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            Optional.of(arbitraryTableLocation(catalog, SESSION, table1)),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION_WITH_PROPERTIES, table1)),
                             ImmutableMap.of())
                     .commitTransaction();
-            closer.register(() -> catalog.dropTable(SESSION, table1));
+            closer.register(() -> catalog.dropTable(SESSION_WITH_PROPERTIES, table1));
 
             catalog.newCreateTableTransaction(
-                            SESSION,
+                            SESSION_WITH_PROPERTIES,
                             table2,
                             new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
-                            Optional.of(arbitraryTableLocation(catalog, SESSION, table2)),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION_WITH_PROPERTIES, table2)),
                             ImmutableMap.of())
                     .commitTransaction();
-            closer.register(() -> catalog.dropTable(SESSION, table2));
+            closer.register(() -> catalog.dropTable(SESSION_WITH_PROPERTIES, table2));
 
             ImmutableList.Builder<TableInfo> allTables = ImmutableList.<TableInfo>builder()
                     .add(new TableInfo(table1, TABLE))
@@ -460,7 +475,7 @@ public abstract class BaseTrinoCatalogTest
             SchemaTableName view = new SchemaTableName(ns2, "view");
             try {
                 catalog.createView(
-                        SESSION,
+                        SESSION_WITH_PROPERTIES,
                         view,
                         new ConnectorViewDefinition(
                                 "SELECT name FROM local.tiny.nation",
@@ -469,11 +484,11 @@ public abstract class BaseTrinoCatalogTest
                                 ImmutableList.of(
                                         new ConnectorViewDefinition.ViewColumn("name", VarcharType.createUnboundedVarcharType().getTypeId(), Optional.empty())),
                                 Optional.empty(),
-                                Optional.of(SESSION.getUser()),
+                                Optional.of(SESSION_WITH_PROPERTIES.getUser()),
                                 false,
                                 ImmutableList.of()),
                         false);
-                closer.register(() -> catalog.dropView(SESSION, view));
+                closer.register(() -> catalog.dropView(SESSION_WITH_PROPERTIES, view));
                 allTables.add(new TableInfo(view, getViewType()));
             }
             catch (TrinoException e) {
@@ -483,7 +498,7 @@ public abstract class BaseTrinoCatalogTest
             try {
                 SchemaTableName materializedView = new SchemaTableName(ns2, "mv");
                 createMaterializedView(
-                        SESSION,
+                        SESSION_WITH_PROPERTIES,
                         catalog,
                         materializedView,
                         someMaterializedView(),
@@ -492,7 +507,7 @@ public abstract class BaseTrinoCatalogTest
                                 FORMAT_VERSION_PROPERTY, 1),
                         false,
                         false);
-                closer.register(() -> catalog.dropMaterializedView(SESSION, materializedView));
+                closer.register(() -> catalog.dropMaterializedView(SESSION_WITH_PROPERTIES, materializedView));
                 allTables.add(new TableInfo(materializedView, TRINO_MATERIALIZED_VIEW));
             }
             catch (TrinoException e) {
@@ -508,14 +523,14 @@ public abstract class BaseTrinoCatalogTest
             });
 
             // No namespace provided, all tables across all namespaces should be returned
-            assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(allTables.build());
-            assertThat(catalog.listIcebergTables(SESSION, Optional.empty())).containsAll(icebergTables.build());
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.empty())).containsAll(allTables.build());
+            assertThat(catalog.listIcebergTables(SESSION_WITH_PROPERTIES, Optional.empty())).containsAll(icebergTables.build());
             // Namespace is provided and exists
-            assertThat(catalog.listTables(SESSION, Optional.of(ns1))).containsExactly(new TableInfo(table1, TABLE));
-            assertThat(catalog.listIcebergTables(SESSION, Optional.of(ns1))).containsExactly(table1);
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of(ns1))).containsExactly(new TableInfo(table1, TABLE));
+            assertThat(catalog.listIcebergTables(SESSION_WITH_PROPERTIES, Optional.of(ns1))).containsExactly(table1);
             // Namespace is provided and does not exist
-            assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
-            assertThat(catalog.listIcebergTables(SESSION, Optional.of("non_existing"))).isEmpty();
+            assertThat(catalog.listTables(SESSION_WITH_PROPERTIES, Optional.of("non_existing"))).isEmpty();
+            assertThat(catalog.listIcebergTables(SESSION_WITH_PROPERTIES, Optional.of("non_existing"))).isEmpty();
         }
     }
 

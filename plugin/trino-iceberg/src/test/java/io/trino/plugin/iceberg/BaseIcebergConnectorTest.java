@@ -5057,19 +5057,27 @@ public abstract class BaseIcebergConnectorTest
     public void testGetIcebergTableProperties()
     {
         assertUpdate("CREATE TABLE test_iceberg_get_table_props (x BIGINT)");
-        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""));
+        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""), HiveCompressionCodec.ZSTD);
         assertUpdate("DROP TABLE test_iceberg_get_table_props");
     }
 
-    protected void verifyIcebergTableProperties(MaterializedResult actual)
+    protected void verifyIcebergTableProperties(MaterializedResult actual, HiveCompressionCodec codec)
     {
         assertThat(actual).isNotNull();
-        MaterializedResult expected = resultBuilder(getSession())
+        String codecName = switch (format) {
+            case AVRO -> codec.getAvroCompressionKind().map(IcebergUtil::convertToIceberg).orElseThrow();
+            case ORC -> codec.getOrcCompressionKind().name();
+            case PARQUET -> codec.getParquetCompressionCodec().orElseThrow().name();
+        };
+        MaterializedResult.Builder expected = resultBuilder(getSession())
                 .row("write.format.default", format.name())
-                .row("write.parquet.compression-codec", "zstd")
-                .row("commit.retry.num-retries", "4")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+                .row("write.%s.compression-codec".formatted(format.name().toLowerCase(ENGLISH)), codecName.toLowerCase(ENGLISH))
+                .row("commit.retry.num-retries", "4");
+        if (format != PARQUET) {
+            // this is incorrectly persisted in Iceberg: https://github.com/trinodb/trino/issues/20401
+            expected.row("write.parquet.compression-codec", "zstd");
+        }
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.build().getMaterializedRows());
     }
 
     @Test
@@ -8523,6 +8531,9 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(session, createTableSql, 25);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
+        verifyIcebergTableProperties(computeActual("SELECT * FROM \"%s$properties\"".formatted(tableName)), compressionCodec);
+        assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES \"write.parquet.compression-codec\" = 'zstd'"))
+                .failure().hasMessageContaining("Catalog 'iceberg' table property 'write.parquet.compression-codec' does not exist");
         assertUpdate("DROP TABLE " + tableName);
     }
 
