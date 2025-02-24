@@ -225,5 +225,6 @@ public abstract class AbstractResourceConfigurationManager
             rate = Math.max(1, rate);
             group.setCpuQuotaGenerationMillisPerSecond(rate);
         }
+        match.getSoftPhysicalDataScanLimit().map(DataSize::toBytes).ifPresent(group::setSoftPhysicalDataScanLimitBytes);
     }
 }
