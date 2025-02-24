@@ -14,12 +14,12 @@
 package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -339,12 +339,12 @@ public class PhoenixMetadata
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        JdbcMergeTableHandle mergeTableHandle = (JdbcMergeTableHandle) super.beginMerge(session, tableHandle, updateColumnHandles, retryMode);
 
-        List<JdbcColumnHandle> primaryKeys = mergeTableHandle.getPrimaryKeys();
-        List<JdbcColumnHandle> columns = phoenixClient.getColumns(session,
-                        handle.getRequiredNamedRelation().getSchemaTableName(),
-                        handle.getRequiredNamedRelation().getRemoteTableName()).stream()
+        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
+
+        List<JdbcColumnHandle> primaryKeys = phoenixClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
+        List<JdbcColumnHandle> columns = phoenixClient.getColumns(session, schemaTableName, remoteTableName).stream()
                 .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .collect(toImmutableList());
 
@@ -371,10 +371,12 @@ public class PhoenixMetadata
 
         return new PhoenixMergeTableHandle(
                 handle,
-                (PhoenixOutputTableHandle) mergeTableHandle.getOutputTableHandle(),
+                (PhoenixOutputTableHandle) beginInsert(session, new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty()), ImmutableList.copyOf(columns), retryMode),
+                ImmutableMap.of(),
+                Optional.empty(),
                 primaryKeys,
                 columns,
-                mergeTableHandle.getUpdateCaseColumns());
+                updateColumnHandles);
     }
 
     @Override
