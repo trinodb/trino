@@ -36,6 +36,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -61,6 +62,7 @@ public class DeltaLakeHistoryTable
                         requireNonNull(tableName, "tableName is null"),
                         ImmutableList.<ColumnMetadata>builder()
                                 .add(new ColumnMetadata("version", BIGINT))
+                                .add(new ColumnMetadata("in_commit_timestamp", TIMESTAMP_TZ_MILLIS))
                                 .add(new ColumnMetadata("timestamp", TIMESTAMP_TZ_MILLIS))
                                 .add(new ColumnMetadata("user_id", VARCHAR))
                                 .add(new ColumnMetadata("user_name", VARCHAR))
@@ -92,6 +94,7 @@ public class DeltaLakeHistoryTable
             pagesBuilder.beginRow();
 
             pagesBuilder.appendBigint(commitInfoEntry.version());
+            commitInfoEntry.inCommitTimestamp().ifPresentOrElse(inCommitTimestamp -> pagesBuilder.appendTimestampTzMillis(inCommitTimestamp, UTC_KEY), pagesBuilder::appendNull);
             pagesBuilder.appendTimestampTzMillis(commitInfoEntry.timestamp(), timeZoneKey);
             write(commitInfoEntry.userId(), pagesBuilder);
             write(commitInfoEntry.userName(), pagesBuilder);
