@@ -53,13 +53,6 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 })
 public class CassandraClientConfig
 {
-    public enum CassandraAuthenticationType
-    {
-        NONE,
-        PASSWORD,
-        /**/
-    }
-
     private ConsistencyLevel consistencyLevel = ConsistencyLevel.ONE;
     private int fetchSize = 5_000;
     private List<String> contactPoints = ImmutableList.of();
@@ -377,5 +370,12 @@ public class CassandraClientConfig
     {
         this.authenticationType = authenticationType;
         return this;
+    }
+
+    public enum CassandraAuthenticationType
+    {
+        NONE,
+        PASSWORD,
+        /**/
     }
 }

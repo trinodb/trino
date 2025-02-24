@@ -115,6 +115,34 @@ public class CassandraTypeManager
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
     }
 
+    // This is a copy of IpAddressOperators.castFromVarcharToIpAddress method
+    private static Slice castFromVarcharToIpAddress(Slice slice)
+    {
+        byte[] address;
+        try {
+            address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
+        }
+
+        byte[] bytes;
+        if (address.length == 4) {
+            bytes = new byte[16];
+            bytes[10] = (byte) 0xff;
+            bytes[11] = (byte) 0xff;
+            arraycopy(address, 0, bytes, 12, 4);
+        }
+        else if (address.length == 16) {
+            bytes = address;
+        }
+        else {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
+        }
+
+        return wrappedBuffer(bytes);
+    }
+
     public Optional<CassandraType> toCassandraType(DataType dataType)
     {
         return switch (dataType.getProtocolCode()) {
@@ -557,33 +585,5 @@ public class CassandraTypeManager
     public boolean isIpAddressType(Type type)
     {
         return type.equals(ipAddressType);
-    }
-
-    // This is a copy of IpAddressOperators.castFromVarcharToIpAddress method
-    private static Slice castFromVarcharToIpAddress(Slice slice)
-    {
-        byte[] address;
-        try {
-            address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
-        }
-        catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
-        }
-
-        byte[] bytes;
-        if (address.length == 4) {
-            bytes = new byte[16];
-            bytes[10] = (byte) 0xff;
-            bytes[11] = (byte) 0xff;
-            arraycopy(address, 0, bytes, 12, 4);
-        }
-        else if (address.length == 16) {
-            bytes = address;
-        }
-        else {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
-        }
-
-        return wrappedBuffer(bytes);
     }
 }

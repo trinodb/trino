@@ -74,6 +74,24 @@ public class CassandraSplitManager
         this.cassandraTypeManager = requireNonNull(cassandraTypeManager, "cassandraTypeManager is null");
     }
 
+    private static String buildTokenCondition(String tokenExpression, TokenRange tokenRange)
+    {
+        Number startTokenValue;
+        Number endTokenValue;
+        if (tokenRange instanceof Murmur3TokenRange murmur3TokenRange) {
+            startTokenValue = ((Murmur3Token) murmur3TokenRange.getStart()).getValue();
+            endTokenValue = ((Murmur3Token) murmur3TokenRange.getEnd()).getValue();
+        }
+        else if (tokenRange instanceof RandomTokenRange randomTokenRange) {
+            startTokenValue = ((RandomToken) randomTokenRange.getStart()).getValue();
+            endTokenValue = ((RandomToken) randomTokenRange.getEnd()).getValue();
+        }
+        else {
+            throw new IllegalStateException(format("Unsupported token range class %s", tokenRange.getClass().getName()));
+        }
+        return tokenExpression + " > " + startTokenValue + " AND " + tokenExpression + " <= " + endTokenValue;
+    }
+
     @Override
     public ConnectorSplitSource getSplits(
             ConnectorTransactionHandle transaction,
@@ -152,24 +170,6 @@ public class CassandraSplitManager
         }
 
         return builder.build();
-    }
-
-    private static String buildTokenCondition(String tokenExpression, TokenRange tokenRange)
-    {
-        Number startTokenValue;
-        Number endTokenValue;
-        if (tokenRange instanceof Murmur3TokenRange murmur3TokenRange) {
-            startTokenValue = ((Murmur3Token) murmur3TokenRange.getStart()).getValue();
-            endTokenValue = ((Murmur3Token) murmur3TokenRange.getEnd()).getValue();
-        }
-        else if (tokenRange instanceof RandomTokenRange randomTokenRange) {
-            startTokenValue = ((RandomToken) randomTokenRange.getStart()).getValue();
-            endTokenValue = ((RandomToken) randomTokenRange.getEnd()).getValue();
-        }
-        else {
-            throw new IllegalStateException(format("Unsupported token range class %s", tokenRange.getClass().getName()));
-        }
-        return tokenExpression + " > " + startTokenValue + " AND " + tokenExpression + " <= " + endTokenValue;
     }
 
     private List<ConnectorSplit> getSplitsForPartitions(CassandraNamedRelationHandle cassTableHandle, List<CassandraPartition> partitions, String clusteringPredicates)
