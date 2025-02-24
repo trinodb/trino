@@ -514,20 +514,15 @@ public class AddLocalExchanges
             PlanWithProperties child = planAndEnforce(node.getSource().orElseThrow(), childRequirements, childRequirements);
 
             List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-            if (!partitionBy.isEmpty()) {
-                desiredProperties.add(new GroupingProperty<>(partitionBy));
-            }
+            desiredProperties.add(new GroupingProperty<>(partitionBy));
             node.getSpecification().flatMap(DataOrganizationSpecification::orderingScheme).ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
-            Set<Symbol> prePartitionedInputs = ImmutableSet.of();
-            if (!partitionBy.isEmpty()) {
-                Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
-                Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
-                prePartitionedInputs = partitionBy.stream()
-                        .filter(symbol -> !unPartitionedInputs.contains(symbol))
-                        .collect(toImmutableSet());
-            }
+            Optional<LocalProperty<Symbol>> groupingRequirement = matchIterator.next();
+            Set<Symbol> unPartitionedInputs = groupingRequirement.map(LocalProperty::getColumns).orElse(ImmutableSet.of());
+            Set<Symbol> prePartitionedInputs = partitionBy.stream()
+                    .filter(symbol -> !unPartitionedInputs.contains(symbol))
+                    .collect(toImmutableSet());
 
             int preSortedOrderPrefix = 0;
             if (prePartitionedInputs.equals(ImmutableSet.copyOf(partitionBy))) {
