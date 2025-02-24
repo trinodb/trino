@@ -80,13 +80,15 @@ public interface H2ResourceGroupsDao
     void deleteResourceGroup(@Bind("resource_group_id") long resourceGroupId);
 
     @SqlUpdate("INSERT INTO selectors\n" +
-            "(resource_group_id, priority, user_regex, user_group_regex, source_regex, query_type, client_tags, selector_resource_estimate)\n" +
-            "VALUES (:resource_group_id, :priority, :user_regex, :user_group_regex, :source_regex, :query_type, :client_tags, :selector_resource_estimate)")
+            "(resource_group_id, priority, user_regex, user_group_regex, original_user_regex, authenticated_user_regex, source_regex, query_type, client_tags, selector_resource_estimate)\n" +
+            "VALUES (:resource_group_id, :priority, :user_regex, :user_group_regex, :original_user_regex, :authenticated_user_regex, :source_regex, :query_type, :client_tags, :selector_resource_estimate)")
     void insertSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("priority") long priority,
             @Bind("user_regex") String userRegex,
             @Bind("user_group_regex") String userGroupRegex,
+            @Bind("original_user_regex") String originalUserRegex,
+            @Bind("authenticated_user_regex") String authenticatedUserRegex,
             @Bind("source_regex") String sourceRegex,
             @Bind("query_type") String queryType,
             @Bind("client_tags") String clientTags,
@@ -95,28 +97,46 @@ public interface H2ResourceGroupsDao
     @SqlUpdate("UPDATE selectors SET\n" +
             " resource_group_id = :resource_group_id\n" +
             ", user_regex = :user_regex\n" +
+            ", user_group_regex = :user_group_regex\n" +
+            ", original_user_regex = :original_user_regex\n" +
+            ", authenticated_user_regex = :authenticated_user_regex\n" +
             ", source_regex = :source_regex\n" +
             ", client_tags = :client_tags\n" +
             "WHERE resource_group_id = :resource_group_id\n" +
             " AND ((user_regex IS NULL AND :old_user_regex IS NULL) OR user_regex = :old_user_regex)\n" +
+            " AND ((user_group_regex IS NULL AND :old_user_group_regex IS NULL) OR user_group_regex = :old_user_group_regex)\n" +
+            " AND ((original_user_regex IS NULL AND :old_original_user_regex IS NULL) OR original_user_regex = :old_original_user_regex)\n" +
+            " AND ((authenticated_user_regex IS NULL AND :old_authenticated_user_regex IS NULL) OR authenticated_user_regex = :old_authenticated_user_regex)\n" +
             " AND ((source_regex IS NULL AND :old_source_regex IS NULL) OR source_regex = :old_source_regex)\n" +
             " AND ((client_tags IS NULL AND :old_client_tags IS NULL) OR client_tags = :old_client_tags)")
     void updateSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("user_regex") String newUserRegex,
+            @Bind("user_group_regex") String newUserGroupRegex,
+            @Bind("original_user_regex") String newOriginalUserRegex,
+            @Bind("authenticated_user_regex") String newAuthenticatedUserRegex,
             @Bind("source_regex") String newSourceRegex,
             @Bind("client_tags") String newClientTags,
             @Bind("old_user_regex") String oldUserRegex,
+            @Bind("old_user_group_regex") String oldUserGroupRegex,
+            @Bind("old_original_user_regex") String oldOriginalUserRegex,
+            @Bind("old_authenticated_user_regex") String oldAuthenticatedUserRegex,
             @Bind("old_source_regex") String oldSourceRegex,
             @Bind("old_client_tags") String oldClientTags);
 
     @SqlUpdate("DELETE FROM selectors WHERE resource_group_id = :resource_group_id\n" +
             " AND ((user_regex IS NULL AND :user_regex IS NULL) OR user_regex = :user_regex)\n" +
+            " AND ((user_group_regex IS NULL AND :user_group_regex IS NULL) OR user_group_regex = :user_group_regex)\n" +
+            " AND ((original_user_regex IS NULL AND :original_user_regex IS NULL) OR original_user_regex = :original_user_regex)\n" +
+            " AND ((authenticated_user_regex IS NULL AND :authenticated_user_regex IS NULL) OR authenticated_user_regex = :authenticated_user_regex)\n" +
             " AND ((source_regex IS NULL AND :source_regex IS NULL) OR source_regex = :source_regex)\n" +
             " AND ((client_tags IS NULL AND :client_tags IS NULL) OR client_tags = :client_tags)")
     void deleteSelector(
             @Bind("resource_group_id") long resourceGroupId,
             @Bind("user_regex") String userRegex,
+            @Bind("user_group_regex") String userGroupRegex,
+            @Bind("original_user_regex") String originalUserRegex,
+            @Bind("authenticated_user_regex") String authenticatedUserRegex,
             @Bind("source_regex") String sourceRegex,
             @Bind("client_tags") String clientTags);
 
