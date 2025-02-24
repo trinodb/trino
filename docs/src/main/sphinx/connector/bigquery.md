@@ -74,13 +74,40 @@ bigquery.project-id=<your Google Cloud Platform project id>
 
 ### Multiple GCP projects
 
-The BigQuery connector can only access a single GCP project.Thus, if you have
+The BigQuery connector can only access a single GCP project. Thus, if you have
 data in multiple GCP projects, You need to create several catalogs, each
 pointing to a different GCP project. For example, if you have two GCP projects,
 one for the sales and one for analytics, you can create two properties files in
 `etc/catalog` named `sales.properties` and `analytics.properties`, both
 having `connector.name=bigquery` but with different `project-id`. This will
 create the two catalogs, `sales` and `analytics` respectively.
+
+### Understanding Project ID Resolution
+
+The BigQuery connector determines the project ID to use based on the 
+configuration settings. The following table explains how project IDs 
+are resolved in different scenarios:
+
+:::{list-table} Project ID Resolution
+:widths: 30, 55
+:header-rows: 1
+
+* - Configuration
+  - Effective Project ID Usage
+* - Only `bigquery.credentials-key`
+  - The project ID from the service account in the credentials key is used for both querying data and billing.
+* - `bigquery.credentials-key` + `bigquery.project-id`
+  - The specified `bigquery.project-id` is used for querying data, while the project ID from the credentials key is used for billing.
+* - `bigquery.credentials-key` + `bigquery.parent-project-id`
+  - The project ID from the credentials key is used for querying data, while the specified `bigquery.parent-project-id` is used for billing.
+* - `bigquery.credentials-key` + `bigquery.parent-project-id` + `bigquery.project-id`
+  - The specified `bigquery.project-id` is used for querying data, and the specified `bigquery.parent-project-id` is used for billing.
+:::
+
+If neither `bigquery.project-id` nor `bigquery.parent-project-id` is set, 
+the project ID from the credentials key is used for both querying and billing. 
+This behavior ensures that users have flexibility in specifying which project 
+to query from and which project to charge for BigQuery operations.
 
 (bigquery-arrow-serialization-support)=
 ### Arrow serialization support
@@ -122,7 +149,7 @@ a few caveats:
   - Default
 * - `bigquery.project-id`
   - The Google Cloud Project ID where the data reside.
-  - Taken from the service account
+  - Taken from the service account or from `bigquery.parent-project-id`, if set
 * - `bigquery.parent-project-id`
   - The project ID Google Cloud Project to bill for the export.
   - Taken from the service account
