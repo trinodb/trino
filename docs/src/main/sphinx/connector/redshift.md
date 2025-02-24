@@ -224,6 +224,10 @@ FROM
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(redshift-table-statistics)=
+```{include} jdbc-table-statistics.fragment
+```
+
 ### Parallel read via S3
 
 The connector supports the Redshift `UNLOAD` command to transfer data to Parquet

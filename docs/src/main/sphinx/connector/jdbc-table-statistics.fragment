@@ -1,0 +1,23 @@
+### Table statistics
+
+The connector can use [table and column statistics](/optimizer/statistics) for
+[cost based optimizations](/optimizer/cost-based-optimizations), to improve query
+processing performance based on the actual data in the data source.
+
+The statistics are collected by the data source and retrieved by the connector.
+
+The connector may automatically update its table and column statistics. In some
+cases, you may want to force a statistics update. For example, after creating
+new columns or after changing data in the table.
+
+To force an update, run the following [ANALYZE](/sql/analyze) statement:
+
+```sql
+ANALYZE TABLE table_name;
+```
+
+To deactivate table statistics use the `statistics.enabled=false` configuration
+property.
+
+Disabling table statistics is not recommended, as it prevents cost-based
+optimizations.

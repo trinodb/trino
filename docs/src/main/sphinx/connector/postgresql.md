@@ -469,20 +469,7 @@ The connector includes a number of performance improvements, detailed in the
 following sections.
 
 (postgresql-table-statistics)=
-### Table statistics
-
-The PostgreSQL connector can use {doc}`table and column statistics
-</optimizer/statistics>` for {doc}`cost based optimizations
-</optimizer/cost-based-optimizations>`, to improve query processing performance
-based on the actual data in the data source.
-
-The statistics are collected by PostgreSQL and retrieved by the connector.
-
-To collect statistics for a table, execute the following statement in
-PostgreSQL.
-
-```text
-ANALYZE table_schema.table_name;
+```{include} jdbc-table-statistics.fragment
 ```
 
 Refer to PostgreSQL documentation for additional `ANALYZE` options.

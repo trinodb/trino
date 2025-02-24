@@ -353,6 +353,13 @@ statements, the connector supports the following features:
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(singlestore-table-statistics)=
+```{include} jdbc-table-statistics.fragment
+```
+
+Table-level statistics are based on SingleStore’s
+`INFORMATION_SCHEMA.TABLE_STATISTICS` table.
+
 (singlestore-pushdown)=
 ### Pushdown
 
