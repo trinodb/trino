@@ -90,6 +90,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                 false,
                 EXPECTED_GROUP_COUNT,
                 false,
+                data.useMinimalGroupByHash(),
                 hashStrategyCompiler,
                 NOOP);
         List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
@@ -230,6 +231,9 @@ public class BenchmarkGroupByHashOnSimulatedData
         @Param({"0", ".1", ".5", ".9"})
         private double nullChance;
 
+        @Param({"true", "false"})
+        private boolean minimalGroupByHash = true;
+
         private final int positions;
         private List<Page> pages;
         private List<Type> types;
@@ -293,6 +297,11 @@ public class BenchmarkGroupByHashOnSimulatedData
         public WorkType getWorkType()
         {
             return workType;
+        }
+
+        public boolean useMinimalGroupByHash()
+        {
+            return minimalGroupByHash;
         }
     }
 
