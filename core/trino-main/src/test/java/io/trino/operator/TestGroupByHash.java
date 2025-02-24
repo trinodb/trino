@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -57,7 +58,7 @@ public class TestGroupByHash
 
     private enum GroupByHashType
     {
-        BIGINT, FLAT;
+        BIGINT, FLAT, MINIMAL_FLAT;
 
         public GroupByHash createGroupByHash()
         {
@@ -69,6 +70,13 @@ public class TestGroupByHash
             return switch (this) {
                 case BIGINT -> new BigintGroupByHash(true, expectedSize, updateMemory);
                 case FLAT -> new FlatGroupByHash(
+                        ImmutableList.of(BigintType.BIGINT),
+                        true,
+                        expectedSize,
+                        true,
+                        new FlatHashStrategyCompiler(new TypeOperators()),
+                        updateMemory);
+                case MINIMAL_FLAT -> new MinimalFlatGroupByHash(
                         ImmutableList.of(BigintType.BIGINT),
                         true,
                         expectedSize,
@@ -123,11 +131,10 @@ public class TestGroupByHash
             assertThat(groupByHash.getGroupCount()).isEqualTo(1);
 
             Work<int[]> work = groupByHash.getGroupIds(page);
-            if (groupByHashType == GroupByHashType.FLAT) {
-                assertThat(work).isInstanceOf(FlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
-            }
-            else {
-                assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+            switch (groupByHashType) {
+                case FLAT -> assertThat(work).isInstanceOf(FlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+                case MINIMAL_FLAT -> assertThat(work).isInstanceOf(MinimalFlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+                case BIGINT -> assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
             }
             work.process();
             int[] groupIds = work.getResult();
@@ -450,7 +457,7 @@ public class TestGroupByHash
             // assert we yield for every 3 rehashes
             // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
             // the rehash count is 10 = log(1_000 / 0.75)
-            assertThat(currentQuota.get()).isEqualTo(2 * (groupByHashType == GroupByHashType.FLAT ? 4 : 13));
+            assertThat(currentQuota.get()).isEqualTo(2 * (Set.of(GroupByHashType.FLAT, GroupByHashType.MINIMAL_FLAT).contains(groupByHashType) ? 4 : 13));
             assertThat(currentQuota.get() / 3 / 2).isEqualTo(yields);
 
             // test getGroupIds
@@ -479,7 +486,7 @@ public class TestGroupByHash
             // assert we yield for every 3 rehashes
             // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
             // the rehash count is 10 = log2(1_000 / 0.75)
-            assertThat(currentQuota.get()).isEqualTo(2 * (groupByHashType == GroupByHashType.FLAT ? 4 : 13));
+            assertThat(currentQuota.get()).isEqualTo(2 * (Set.of(GroupByHashType.FLAT, GroupByHashType.MINIMAL_FLAT).contains(groupByHashType) ? 4 : 13));
             assertThat(currentQuota.get() / 3 / 2).isEqualTo(yields);
         }
     }
@@ -499,7 +506,7 @@ public class TestGroupByHash
         Page page = new Page(firstBlock, secondBlock);
 
         Work<?> work = groupByHash.addPage(page);
-        assertThat(work).isInstanceOf(FlatGroupByHash.AddLowCardinalityDictionaryPageWork.class);
+        assertThat(work).isInstanceOf(MinimalFlatGroupByHash.AddLowCardinalityDictionaryPageWork.class);
         work.process();
         assertThat(groupByHash.getGroupCount()).isEqualTo(10); // Blocks are identical so only 10 distinct groups
 
@@ -541,7 +548,7 @@ public class TestGroupByHash
         Page page = new Page(block1, block2, block3, block4, sameValueBlock); // sameValueBlock will prevent low cardinality optimization to fire
 
         Work<int[]> lowCardinalityWork = lowCardinalityGroupByHash.getGroupIds(lowCardinalityPage);
-        assertThat(lowCardinalityWork).isInstanceOf(FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
+        assertThat(lowCardinalityWork).isInstanceOf(MinimalFlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
         Work<int[]> work = groupByHash.getGroupIds(page);
 
         lowCardinalityWork.process();
@@ -575,7 +582,7 @@ public class TestGroupByHash
         Page page = new Page(block1, block2);
 
         Work<int[]> work = groupByHash.getGroupIds(page);
-        assertThat(work).isInstanceOf(FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
+        assertThat(work).isInstanceOf(MinimalFlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
 
         work.process();
         int[] results = work.getResult();
