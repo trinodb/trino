@@ -18,7 +18,6 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -32,19 +31,15 @@ public class TpchConnector
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorNodePartitioningProvider nodePartitioningProvider;
-    private final ConnectorRecordSetProvider recordSetProvider;
     private final ConnectorPageSourceProvider pageSourceProvider;
-    private final boolean producePages;
 
     @Inject
-    public TpchConnector(ConnectorMetadata metadata, ConnectorSplitManager splitManager, ConnectorNodePartitioningProvider nodePartitioningProvider, ConnectorRecordSetProvider recordSetProvider, ConnectorPageSourceProvider pageSourceProvider, TpchConfig config)
+    public TpchConnector(ConnectorMetadata metadata, ConnectorSplitManager splitManager, ConnectorNodePartitioningProvider nodePartitioningProvider, ConnectorPageSourceProvider pageSourceProvider)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
-        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
-        this.producePages = requireNonNull(config, "config is null").isProducePages();
     }
 
     @Override
@@ -68,21 +63,7 @@ public class TpchConnector
     @Override
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
-        if (producePages) {
-            return pageSourceProvider;
-        }
-
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public ConnectorRecordSetProvider getRecordSetProvider()
-    {
-        if (!producePages) {
-            return recordSetProvider;
-        }
-
-        throw new UnsupportedOperationException();
+        return pageSourceProvider;
     }
 
     @Override

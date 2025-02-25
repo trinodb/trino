@@ -14,12 +14,13 @@
 package io.trino.plugin.tpch;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.DefunctConfig;
 
+@DefunctConfig("tpch.produce-pages")
 public class TpchConfig
 {
     private ColumnNaming columnNaming = ColumnNaming.SIMPLIFIED;
     private DecimalTypeMapping decimalTypeMapping = DecimalTypeMapping.DOUBLE;
-    private boolean producePages;
     private int maxRowsPerPage = 1_000_000;
     private String tableScanRedirectionCatalog;
     private String tableScanRedirectionSchema;
@@ -48,18 +49,6 @@ public class TpchConfig
     public TpchConfig setDecimalTypeMapping(DecimalTypeMapping decimalTypeMapping)
     {
         this.decimalTypeMapping = decimalTypeMapping;
-        return this;
-    }
-
-    public boolean isProducePages()
-    {
-        return producePages;
-    }
-
-    @Config("tpch.produce-pages")
-    public TpchConfig setProducePages(boolean producePages)
-    {
-        this.producePages = producePages;
         return this;
     }
 
