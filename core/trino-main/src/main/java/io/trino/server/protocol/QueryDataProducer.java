@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.protocol.spooling;
+package io.trino.server.protocol;
 
 import io.trino.Session;
 import io.trino.client.QueryData;
 import io.trino.server.ExternalUriInfo;
-import io.trino.server.protocol.QueryResultRows;
 import io.trino.spi.TrinoException;
 
 import java.util.function.Consumer;

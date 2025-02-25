@@ -47,7 +47,6 @@ import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.GoneException;
 import io.trino.server.ResultQueryInfo;
-import io.trino.server.protocol.spooling.QueryDataProducer;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
