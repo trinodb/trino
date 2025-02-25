@@ -1,0 +1,49 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "softCpuLimit": "1h",
+      "hardCpuLimit": "1d",
+      "subGroups": [
+        {
+          "name": "a",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "b",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "c",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "group": "global.a",
+      "user": "usr-foo",
+      "originalUser": "usr-foo-original"
+    },
+    {
+      "group": "global.b",
+      "originalUser": "usr-foo-original"
+    },
+    {
+      "group": "global.c",
+      "user": "usr-foo"
+    }
+  ],
+  "cpuQuotaPeriod": "1h"
+}
+

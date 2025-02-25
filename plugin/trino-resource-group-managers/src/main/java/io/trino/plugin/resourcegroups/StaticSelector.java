@@ -48,6 +48,8 @@ public class StaticSelector
     public StaticSelector(
             Optional<Pattern> userRegex,
             Optional<Pattern> userGroupRegex,
+            Optional<Pattern> originalUserRegex,
+            Optional<Pattern> authenticatedUserRegex,
             Optional<Pattern> sourceRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
@@ -56,6 +58,8 @@ public class StaticSelector
     {
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         requireNonNull(userGroupRegex, "userGroupRegex is null");
+        requireNonNull(originalUserRegex, "originalUserRegex is null");
+        requireNonNull(authenticatedUserRegex, "authenticatedUserRegex is null");
         requireNonNull(sourceRegex, "sourceRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
@@ -67,6 +71,14 @@ public class StaticSelector
         userRegex.ifPresent(u -> {
             addNamedGroups(u, variableNames);
             selectionMatcherBuilder.add(new PatternMatcher(variableNames, u, SelectionCriteria::getUser));
+        });
+        originalUserRegex.ifPresent(u -> {
+            addNamedGroups(u, variableNames);
+            selectionMatcherBuilder.add(new PatternMatcher(variableNames, u, SelectionCriteria::getOriginalUser));
+        });
+        authenticatedUserRegex.ifPresent(u -> {
+            addNamedGroups(u, variableNames);
+            selectionMatcherBuilder.add(new OptionalPatternMatcher(variableNames, u, SelectionCriteria::getAuthenticatedUser));
         });
         sourceRegex.ifPresent(s -> {
             addNamedGroups(s, variableNames);

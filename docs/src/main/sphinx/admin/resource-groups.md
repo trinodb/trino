@@ -166,6 +166,14 @@ documentation](https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java
 
 - `user` (optional): Java regex to match against user name.
 
+- `originalUser` (optional): Java regex to match against the _original_ user name,
+  i.e. before any changes to the session user. For example, if user "foo" runs
+  `SET SESSION AUTHORIZATION 'bar'`, `originalUser` is "foo", while `user` is "bar".
+
+- `authenticatedUser` (optional): Java regex to match against the _authenticated_ user name,
+  which will always refer to the user that authenticated with the system, regardless of any
+  changes made to the session user.
+
 - `userGroup` (optional): Java regex to match against every user group the user belongs to.
 
 - `source` (optional): Java regex to match against source string.
@@ -234,18 +242,23 @@ In the example configuration below, there are several resource groups, some of w
 Templates allow administrators to construct resource group trees dynamically. For example, in
 the `pipeline_${USER}` group, `${USER}` is expanded to the name of the user that submitted
 the query. `${SOURCE}` is also supported, which is expanded to the source that submitted the
-query. You may also use custom named variables in the `source` and `user` regular expressions.
+query. You may also use custom named variables in the regular expressions for `user`, `source`,
+`originalUser`, and `authenticatedUser`.
 
-There are four selectors, that define which queries run in which resource group:
+There are six selectors, that define which queries run in which resource group:
 
 - The first selector matches queries from `bob` and places them in the admin group.
-- The second selector matches queries from `admin` user group and places them in the admin group.
-- The third selector matches all data definition (DDL) queries from a source name that includes `pipeline`
+- The next selector matches queries with an _original_ user of `bob`
+  and places them in the admin group.
+- The next selector matches queries with an _authenticated_ user of `bob`
+  and places them in the admin group.
+- The next selector matches queries from `admin` user group and places them in the admin group.
+- The next selector matches all data definition (DDL) queries from a source name that includes `pipeline`
   and places them in the `global.data_definition` group. This could help reduce queue times for this
   class of queries, since they are expected to be fast.
-- The fourth selector matches queries from a source name that includes `pipeline`, and places them in a
+- The next selector matches queries from a source name that includes `pipeline`, and places them in a
   dynamically-created per-user pipeline group under the `global.pipeline` group.
-- The fifth selector matches queries that come from BI tools which have a source matching the regular
+- The next selector matches queries that come from BI tools which have a source matching the regular
   expression `jdbc#(?<toolname>.*)` and have client provided tags that are a superset of `hipri`.
   These are placed in a dynamically-created sub-group under the `global.adhoc` group.
   The dynamic sub-groups are created based on the values of named variables `toolname` and `user`.
@@ -257,9 +270,10 @@ There are four selectors, that define which queries run in which resource group:
 
 Together, these selectors implement the following policy:
 
-- The user `bob` and any user belonging to user group `admin`
-  is an admin and can run up to 50 concurrent queries.
-  Queries will be run based on user-provided priority.
+- The user `bob` and any user belonging to user group `admin` is an admin and can run up to
+  50 concurrent queries. `bob` will be treated as an admin even if they have changed their session
+  user to a different user (i.e. via a `SET SESSION AUTHORIZATION` statement or the
+  `X-Trino-User` request header). Queries will be run based on user-provided priority.
 
 For the remaining users:
 
