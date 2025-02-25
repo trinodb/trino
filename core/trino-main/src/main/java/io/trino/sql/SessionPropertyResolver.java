@@ -78,7 +78,7 @@ public class SessionPropertyResolver
             List<String> nameParts = sessionProperty.getName().getParts();
 
             if (!seenPropertyNames.add(sessionProperty.getName())) {
-                throw semanticException(INVALID_SESSION_PROPERTY, sessionProperty, "Session property %s already set", sessionProperty.getName());
+                throw semanticException(INVALID_SESSION_PROPERTY, sessionProperty, "Session property '%s' already set", sessionProperty.getName());
             }
 
             if (nameParts.size() == 1) {
