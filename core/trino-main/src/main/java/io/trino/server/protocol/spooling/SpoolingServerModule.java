@@ -24,6 +24,7 @@ import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.server.ServerConfig;
+import io.trino.server.protocol.QueryDataProducerFactory;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 import io.trino.spi.spool.SpoolingManager;
 
@@ -43,6 +44,7 @@ public class SpoolingServerModule
         install(new QueryDataEncodingModule());
 
         binder.bind(SpoolingManagerRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(QueryDataProducerFactory.class).in(Scopes.SINGLETON);
         OptionalBinder<SpoolingManager> spoolingManagerBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
         newOptionalBinder(binder, SpoolingConfig.class);
         SpoolingEnabledConfig spoolingEnabledConfig = buildConfigObject(SpoolingEnabledConfig.class);
