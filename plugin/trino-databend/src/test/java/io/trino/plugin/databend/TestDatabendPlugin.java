@@ -19,29 +19,54 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestDatabendPlugin
 {
-    @Test
-    void testCreateConnector()
+    private ConnectorFactory getConnectorFactory()
     {
         Plugin plugin = new DatabendPlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
+        return getOnlyElement(plugin.getConnectorFactories());
+    }
 
+    private Map<String, String> getBaseConfig(String connectionUrl)
+    {
+        return ImmutableMap.of(
+                "connection-url", connectionUrl,
+                "bootstrap.quiet", "true");
+    }
+
+    @Test
+    void testCreateConnectorWithValidUrl()
+    {
+        // Arrange
+        ConnectorFactory factory = getConnectorFactory();
+        Map<String, String> config = getBaseConfig("jdbc:databend://test");
+
+        // Act & Assert
         factory.create(
-                "test", ImmutableMap.of(
-                        "connection-url", "jdbc:databend://test",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext()).shutdown();
+                        "test",
+                        config,
+                        new TestingConnectorContext())
+                .shutdown();
+    }
 
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                ImmutableMap.of(
-                        "connection-url", "test",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext()))
+    @Test
+    void testCreateConnectorWithInvalidUrl()
+    {
+        // Arrange
+        ConnectorFactory factory = getConnectorFactory();
+        Map<String, String> config = getBaseConfig("test");
+
+        // Act & Assert
+        assertThatThrownBy(() ->
+                factory.create(
+                        "test",
+                        config,
+                        new TestingConnectorContext()))
                 .hasMessageContaining("Invalid JDBC URL for Databend connector");
     }
 }
