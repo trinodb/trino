@@ -146,6 +146,7 @@ final class TestMysqlEventListener
     private static final QueryContext FULL_QUERY_CONTEXT = new QueryContext(
             "user",
             "originalUser",
+            Set.of("role1"),
             Optional.of("principal"),
             Set.of("role1", "role2"),
             Set.of("group1", "group2"),
@@ -309,6 +310,7 @@ final class TestMysqlEventListener
     private static final QueryContext MINIMAL_QUERY_CONTEXT = new QueryContext(
             "user",
             "originalUser",
+            Set.of(),
             Optional.empty(),
             Set.of(),
             Set.of(),

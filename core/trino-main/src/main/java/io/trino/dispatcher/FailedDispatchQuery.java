@@ -234,6 +234,7 @@ public class FailedDispatchQuery
                 Optional.empty(),
                 Optional.empty(),
                 false,
+                ImmutableSet.of(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),
