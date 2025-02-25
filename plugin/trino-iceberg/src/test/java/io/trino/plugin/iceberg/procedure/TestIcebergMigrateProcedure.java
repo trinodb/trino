@@ -294,22 +294,47 @@ public class TestIcebergMigrateProcedure
         String hiveTableName = "hive.tpch." + tableName;
         String icebergTableName = "iceberg.tpch." + tableName;
 
-        assertUpdate("CREATE TABLE " + hiveTableName + " " +
-                "WITH (partitioned_by = ARRAY['part_col', 'special@col']) " +
-                "AS SELECT 1 id, 'part1' part_col, 'special1' \"special@col\"", 1);
+        assertUpdate("CREATE TABLE " + hiveTableName + " WITH (partitioned_by = ARRAY['part_col']) AS SELECT 1 id, 'part1' part_col", 1);
         assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
 
         assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
 
-        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'part1', 'special1')");
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'part1')");
 
         // Make sure partition column is preserved
         assertThat(query("SELECT partition FROM iceberg.tpch.\"" + tableName + "$partitions\""))
                 .skippingTypesCheck()
-                .matches("SELECT CAST(row('part1', 'special1') AS row(part_col varchar, \"special@col\" varchar))");
+                .matches("SELECT CAST(row('part1') AS row(part_col varchar))");
 
-        assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2, 'part2', 'special2')", 1);
-        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'part1', 'special1'), (2, 'part2', 'special2')");
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2, 'part2')", 1);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'part1'), (2, 'part2')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMigratePartitionedTableWithSpecialChar()
+    {
+        String tableName = "test_migrate_partitioned_" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " " +
+                "WITH (partitioned_by = ARRAY['special@col']) " +
+                "AS SELECT 1 id, 'special1' \"special@col\"", 1);
+        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'special1')");
+
+        // Make sure partition column is preserved
+        assertThat(query("SELECT partition FROM iceberg.tpch.\"" + tableName + "$partitions\""))
+                .skippingTypesCheck()
+                .matches("SELECT CAST(row('special1') AS row(\"special@col\" varchar))");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2, 'special2')", 1);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'special1'), (2, 'special2')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
