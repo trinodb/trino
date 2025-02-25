@@ -68,6 +68,7 @@ public final class TestUtils
         queryContext = new QueryContext(
                 "user",
                 "originalUser",
+                Set.of(),
                 Optional.of("principal"),
                 Set.of(),
                 Set.of(), // groups

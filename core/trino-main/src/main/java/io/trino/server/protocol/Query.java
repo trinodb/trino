@@ -161,6 +161,9 @@ class Query
     private Optional<String> setAuthorizationUser = Optional.empty();
 
     @GuardedBy("this")
+    private Set<SelectedRole> setOriginalRoles = ImmutableSet.of();
+
+    @GuardedBy("this")
     private boolean resetAuthorizationUser;
 
     @GuardedBy("this")
@@ -505,6 +508,9 @@ class Query
         setAuthorizationUser = queryInfo.setAuthorizationUser();
         resetAuthorizationUser = queryInfo.resetAuthorizationUser();
 
+        // update setOriginalRoles
+        setOriginalRoles = queryInfo.setOriginalRoles();
+
         // update setSessionProperties
         setSessionProperties = queryInfo.setSessionProperties();
         resetSessionProperties = queryInfo.resetSessionProperties();
@@ -549,6 +555,7 @@ class Query
                 setPath,
                 setAuthorizationUser,
                 resetAuthorizationUser,
+                setOriginalRoles,
                 setSessionProperties,
                 resetSessionProperties,
                 setRoles,
