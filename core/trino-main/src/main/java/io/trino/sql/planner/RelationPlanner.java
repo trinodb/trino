@@ -541,7 +541,7 @@ class RelationPlanner
                         .map(symbol -> new PassThroughColumn(symbol, partitionBy.contains(symbol)))
                         .forEach(passThroughColumns::add);
             }
-            else if (tableArgument.getPartitionBy().isPresent()) {
+            else if (tableArgument.getPartitionBy().isPresent() && !tableArgument.isSkipPartitionColumnsAsPassThrough() ) {
                 tableArgument.getPartitionBy().get().stream()
                         // the original symbols for partitioning columns, not coerced
                         .map(sourcePlanBuilder::translate)
@@ -556,6 +556,7 @@ class RelationPlanner
                     tableArgument.getArgumentName(),
                     tableArgument.isRowSemantics(),
                     tableArgument.isPruneWhenEmpty(),
+                    tableArgument.isPreferStreaming(),
                     new PassThroughSpecification(tableArgument.isPassThroughColumns(), passThroughColumns.build()),
                     requiredColumns,
                     specification));
@@ -1476,6 +1477,7 @@ class RelationPlanner
                 ImmutableList.of(planBuilder.getRoot()),
                 ImmutableList.of(new TableArgumentProperties(
                         "$input",
+                        true,
                         true,
                         true,
                         new PassThroughSpecification(true, passThroughColumns),
