@@ -105,12 +105,23 @@ public final class SessionPropertyManager
         return Optional.ofNullable(systemSessionProperties.get(name));
     }
 
+    public Set<PropertyMetadata<?>> getSystemSessionPropertiesMetadata()
+    {
+        return ImmutableSet.copyOf(systemSessionProperties.values());
+    }
+
     public Optional<PropertyMetadata<?>> getConnectorSessionPropertyMetadata(CatalogHandle catalogHandle, String propertyName)
     {
         requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(propertyName, "propertyName is null");
         Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.getService(catalogHandle);
         return Optional.ofNullable(properties.get(propertyName));
+    }
+
+    public Set<PropertyMetadata<?>> getConnectionSessionPropertiesMetadata(CatalogHandle catalogHandle)
+    {
+        requireNonNull(catalogHandle, "catalogHandle is null");
+        return ImmutableSet.copyOf(connectorSessionProperties.getService(catalogHandle).values());
     }
 
     public List<SessionPropertyValue> getAllSessionProperties(Session session, List<CatalogInfo> catalogInfos)
