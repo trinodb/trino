@@ -1241,7 +1241,7 @@ public abstract class BaseTrinoDriverTest
         return properties;
     }
 
-    private static String getCurrentUser(Connection connection)
+    public static String getCurrentUser(Connection connection)
             throws SQLException
     {
         try (Statement statement = connection.createStatement();
