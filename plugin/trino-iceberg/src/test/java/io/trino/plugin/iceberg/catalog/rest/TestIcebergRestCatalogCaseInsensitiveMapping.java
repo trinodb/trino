@@ -93,7 +93,8 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
                 .containsExactlyInAnyOrder(
                         "information_schema",
                         "tpch",
-                        LOWERCASE_SCHEMA);
+                        LOWERCASE_SCHEMA,
+                        "system");
 
         assertThat(computeActual("SHOW SCHEMAS LIKE 'level%'").getOnlyColumnAsSet())
                 .containsExactlyInAnyOrder(
@@ -103,6 +104,7 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
                         """
                         VALUES
                         ('iceberg', 'information_schema'),
+                        ('iceberg', 'system'),
                         ('iceberg', '%s'),
                         ('iceberg', 'tpch')
                         """.formatted(LOWERCASE_SCHEMA));
@@ -149,7 +151,7 @@ final class TestIcebergRestCatalogCaseInsensitiveMapping
         // Query information_schema and list objects
         assertThat(computeActual("SHOW TABLES IN " + SCHEMA).getOnlyColumnAsSet()).contains(lowercaseTableName1, lowercaseTableName2);
         assertThat(computeActual("SHOW TABLES IN " + SCHEMA + " LIKE 'mixed_case_table%'").getOnlyColumnAsSet()).isEqualTo(Set.of(lowercaseTableName1, lowercaseTableName2));
-        assertQuery("SELECT * FROM information_schema.tables WHERE table_schema != 'information_schema' AND table_type = 'BASE TABLE'",
+        assertQuery("SELECT * FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'system') AND table_type = 'BASE TABLE'",
                         """
                         VALUES
                         ('iceberg', '%1$s', '%2$s', 'BASE TABLE'),
