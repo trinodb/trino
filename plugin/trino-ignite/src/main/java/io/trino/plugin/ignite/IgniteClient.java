@@ -53,6 +53,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
@@ -136,7 +137,6 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
@@ -397,15 +397,24 @@ public class IgniteClient
         ImmutableList.Builder<String> columns = ImmutableList.builderWithExpectedSize(expectedSize);
         ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builderWithExpectedSize(expectedSize);
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builderWithExpectedSize(expectedSize);
+        ImmutableList.Builder<String> primaryKeysBuilder = ImmutableList.builder();
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             columns.add(getColumnDefinitionSql(session, columnMetadata, columnMetadata.getName()));
             columnNamesBuilder.add(columnMetadata.getName());
             columnTypes.add(columnMetadata.getType());
+            if (columnMetadata.isPrimaryKey()) {
+                primaryKeysBuilder.add(columnMetadata.getName());
+            }
         }
 
         List<String> columnNames = columnNamesBuilder.build();
-        List<String> primaryKeys = IgniteTableProperties.getPrimaryKey(tableMetadata.getProperties());
+        List<String> newPrimaryKeys = primaryKeysBuilder.build();
+        List<String> legacyPrimaryKeys = IgniteTableProperties.getPrimaryKey(tableMetadata.getProperties());
+        if (!newPrimaryKeys.isEmpty() && !legacyPrimaryKeys.isEmpty()) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Either PRIMARY KEY column constraint or primary_key table property should exist");
+        }
 
+        List<String> primaryKeys = newPrimaryKeys.isEmpty() ? legacyPrimaryKeys : newPrimaryKeys;
         for (String primaryKey : primaryKeys) {
             if (!columnNames.contains(primaryKey)) {
                 throw new TrinoException(INVALID_TABLE_PROPERTY,
@@ -444,6 +453,31 @@ public class IgniteClient
 
         String remoteTableName = quoted(null, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         return format("CREATE TABLE %s (%s) ", remoteTableName, join(", ", columnDefinitions.build()));
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
+    {
+        if (column.isPrimaryKey()) {
+            throw new TrinoException(NOT_SUPPORTED, "Ignite doesn't support adding a column with primary key constraint");
+        }
+        super.addColumn(session, handle, column, position);
+    }
+
+    @Override
+    protected String getColumnDefinitionSql(ConnectorSession session, ColumnMetadata column, String columnName)
+    {
+        if (column.getComment() != null) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
+        }
+        StringBuilder sb = new StringBuilder()
+                .append(quoted(columnName))
+                .append(" ")
+                .append(toWriteMapping(session, column.getType()).getDataType());
+        if (!column.isNullable()) {
+            sb.append(" NOT NULL");
+        }
+        return sb.toString();
     }
 
     @Override
@@ -522,40 +556,27 @@ public class IgniteClient
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        try (Connection connection = connectionFactory.openConnection(session)) {
-            return getTableProperties(connection, tableHandle);
-        }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
+        return ImmutableMap.of();
     }
 
-    public Map<String, Object> getTableProperties(Connection connection, JdbcTableHandle tableHandle)
+    @Override
+    public List<String> getPrimaryKeys(Connection connection, RemoteTableName tableName)
+            throws SQLException
     {
-        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
-        String schemaName = requireNonNull(schemaTableName.getSchemaName(), "Ignite schema name can not be null").toUpperCase(ENGLISH);
-        String tableName = requireNonNull(schemaTableName.getTableName(), "Ignite table name can not be null").toUpperCase(ENGLISH);
         // Get primary keys from 'sys.indexes' because DatabaseMetaData.getPrimaryKeys doesn't work well while table being concurrent modified
         String sql = "SELECT COLUMNS FROM sys.indexes WHERE SCHEMA_NAME = ? AND TABLE_NAME = ? AND IS_PK LIMIT 1";
-
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            preparedStatement.setString(1, schemaName);
-            preparedStatement.setString(2, tableName);
-
+            preparedStatement.setString(1, tableName.getSchemaName().orElseThrow().toUpperCase(ENGLISH));
+            preparedStatement.setString(2, tableName.getTableName().toUpperCase(ENGLISH));
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (!resultSet.next()) {
-                    return ImmutableMap.of();
+                    return ImmutableList.of();
                 }
                 List<String> primaryKeys = extractColumnNamesFromOrderingScheme(resultSet.getString("COLUMNS"));
                 checkArgument(!primaryKeys.isEmpty(), "Ignite table should has at least one primary key");
-                properties.put(PRIMARY_KEY_PROPERTY, primaryKeys);
+                return primaryKeys;
             }
         }
-        catch (SQLException e) {
-            throw new TrinoException(JDBC_ERROR, e);
-        }
-        return properties.buildOrThrow();
     }
 
     // extract result from format: "ID" ASC, "CITY_ID" ASC
@@ -570,7 +591,7 @@ public class IgniteClient
         for (int i = 0; i < fields.size(); i += 2) {
             String field = fields.get(i);
             checkArgument(!isNullOrEmpty(field), "Ignite column name is empty");
-            builder.add(field.toLowerCase(ENGLISH));
+            builder.add(field);
         }
 
         return builder.build();

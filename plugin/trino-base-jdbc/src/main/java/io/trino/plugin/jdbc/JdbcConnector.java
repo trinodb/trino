@@ -39,6 +39,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.spi.connector.ConnectorCapabilities.PRIMARY_KEY_COLUMN_CONSTRAINT;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcConnector
@@ -165,6 +166,6 @@ public class JdbcConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
+        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT, PRIMARY_KEY_COLUMN_CONSTRAINT);
     }
 }
