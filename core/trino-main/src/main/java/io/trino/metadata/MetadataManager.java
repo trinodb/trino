@@ -88,6 +88,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UnificationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -2155,6 +2156,24 @@ public final class MetadataManager
                 .map(result -> new TableFunctionApplicationResult<>(
                         new TableHandle(catalogHandle, result.getTableHandle(), handle.transactionHandle()),
                         result.getColumnHandles()));
+    }
+
+    @Override
+    public Optional<UnificationResult<TableHandle>> unifyTables(Session session, TableHandle first, TableHandle second)
+    {
+        CatalogHandle catalogHandle = first.catalogHandle();
+        ConnectorTransactionHandle transaction = first.transaction();
+        if (!catalogHandle.equals(second.catalogHandle()) || !transaction.equals(second.transaction())) {
+            return Optional.empty();
+        }
+        ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+
+        return metadata.unifyTables(session.toConnectorSession(catalogHandle), first.connectorHandle(), second.connectorHandle())
+                .map(result -> new UnificationResult<>(
+                        new TableHandle(catalogHandle, result.unifiedHandle(), transaction),
+                        result.firstCompensationFilter(),
+                        result.secondCompensationFilter(),
+                        result.enforcedProperties()));
     }
 
     private void verifyProjection(TableHandle table, List<ConnectorExpression> projections, List<Assignment> assignments, int expectedProjectionSize)

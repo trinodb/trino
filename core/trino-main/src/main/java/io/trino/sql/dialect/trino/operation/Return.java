@@ -15,7 +15,6 @@ package io.trino.sql.dialect.trino.operation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.newir.FormatOptions;
-import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 
@@ -28,7 +27,7 @@ import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static java.util.Objects.requireNonNull;
 
 public final class Return
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "return";
 
@@ -78,6 +77,11 @@ public final class Return
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty return";
+    }
+
+    public Value argument()
+    {
+        return input;
     }
 
     @Override

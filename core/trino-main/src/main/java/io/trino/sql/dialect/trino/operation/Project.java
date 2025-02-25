@@ -23,6 +23,7 @@ import io.trino.sql.newir.Block;
 import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
+import io.trino.sql.newir.SourceNode;
 import io.trino.sql.newir.Value;
 
 import java.util.List;
@@ -38,6 +39,7 @@ import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION;
 import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION_ROW;
 import static io.trino.sql.newir.Region.singleBlockRegion;
+import static io.trino.sql.planner.optimizations.ctereuse.AssignmentsUtils.isPruningAssignments;
 import static java.util.Objects.requireNonNull;
 
 public final class Project
@@ -110,6 +112,16 @@ public final class Project
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty project";
+    }
+
+    public Block assignments()
+    {
+        return assignments.getOnlyBlock();
+    }
+
+    public boolean isPruning()
+    {
+        return isPruningAssignments(assignments());
     }
 
     @Override

@@ -48,7 +48,7 @@ import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
 public class Aggregation
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "aggregation";
 
@@ -152,6 +152,18 @@ public class Aggregation
         this.attributes = attributes.buildOrThrow();
     }
 
+    // TODO checks
+    private Aggregation(Result result, Value input, Region aggregateCalls, Region groupingKeysSelector, Region hashSelector, Map<AttributeKey, Object> attributes)
+    {
+        super(TRINO, NAME);
+        this.result = result;
+        this.input = input;
+        this.aggregateCalls = aggregateCalls;
+        this.groupingKeysSelector = groupingKeysSelector;
+        this.hashSelector = hashSelector;
+        this.attributes = ImmutableMap.copyOf(attributes);
+    }
+
     @Override
     public Result result()
     {
@@ -174,6 +186,14 @@ public class Aggregation
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        // TODO this does not validate the new Regions. Should run the same checks as the constructor.
+        validateArgument(newArgument, index);
+        return new Aggregation(result, newArgument, aggregateCalls, groupingKeysSelector, this.hashSelector, this.attributes);
     }
 
     @Override

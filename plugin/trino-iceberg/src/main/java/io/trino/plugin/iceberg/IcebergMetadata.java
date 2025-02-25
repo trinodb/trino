@@ -106,6 +106,7 @@ import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.UnificationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FunctionName;
@@ -207,6 +208,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
@@ -364,6 +366,7 @@ import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.STALE;
 import static io.trino.spi.connector.MaterializedViewFreshness.Freshness.UNKNOWN;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
+import static io.trino.spi.predicate.TupleDomain.columnWiseUnion;
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -3545,6 +3548,127 @@ public class IcebergMetadata
                 projectedColumnType,
                 true,
                 Optional.empty());
+    }
+
+    @Override
+    public Optional<UnificationResult<ConnectorTableHandle>> unifyTables(ConnectorSession session, ConnectorTableHandle first, ConnectorTableHandle second)
+    {
+        IcebergTableHandle firstTable = (IcebergTableHandle) first;
+        IcebergTableHandle secondTable = (IcebergTableHandle) second;
+
+        if (!similar(firstTable, secondTable)) {
+            return Optional.empty();
+        }
+
+        // create a unified table handle containing all columns from the first and second table handles
+        IcebergTableHandle unified = new IcebergTableHandle(
+                firstTable.getCatalog(),
+                firstTable.getSchemaName(),
+                firstTable.getTableName(),
+                firstTable.getTableType(),
+                firstTable.getSnapshotId(),
+                firstTable.getTableSchemaJson(),
+                firstTable.getPartitionSpecJson(),
+                firstTable.getFormatVersion(),
+                TupleDomain.all(),
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                Sets.union(firstTable.getProjectedColumns(), secondTable.getProjectedColumns()),
+                firstTable.getNameMappingJson(),
+                firstTable.getTableLocation(),
+                firstTable.getStorageProperties(),
+                firstTable.getTablePartitioning(),
+                firstTable.isRecordScannedFiles(),
+                firstTable.getMaxScannedFileSize(),
+                ImmutableSet.of(),
+                firstTable.getForAnalyze());
+
+        // union and push enforced predicates from the first and second table handles
+        // it doesn't matter if the unioned TupleDomain is abundant or if pushdown is incomplete
+        // the original enforced predicates for both tables will be returned to the caller to re-apply
+        // Note: the pushed predicate might use columns that are not present in projectedColumns
+        TupleDomain<ColumnHandle> unionedEnforcedConstraint = columnWiseUnion(
+                firstTable.getEnforcedPredicate()
+                        .transformKeys(ColumnHandle.class::cast),
+                secondTable.getEnforcedPredicate()
+                        .transformKeys(ColumnHandle.class::cast));
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> enforcedResult = applyFilter(
+                session,
+                unified,
+                new Constraint(unionedEnforcedConstraint, unionedEnforcedConstraint.asPredicate(), unionedEnforcedConstraint.getDomains().map(Map::keySet).orElse(ImmutableSet.of())));
+        if (enforcedResult.isPresent()) {
+            unified = (IcebergTableHandle) enforcedResult.get().getHandle();
+        }
+
+        // union and push unenforced predicates from the first and second table handles
+        // it doesn't matter if the unioned TupleDomain is abundant or if pushdown is incomplete
+        // the unenforced predicate is "best effort", and there is no guarantee it is effective
+        // Note: the pushed predicate might use columns that are not present in projectedColumns
+        TupleDomain<ColumnHandle> unionedUnenforcedConstraint = columnWiseUnion(
+                firstTable.getUnenforcedPredicate()
+                        .transformKeys(ColumnHandle.class::cast),
+                secondTable.getUnenforcedPredicate()
+                        .transformKeys(ColumnHandle.class::cast));
+        Optional<ConstraintApplicationResult<ConnectorTableHandle>> unenforcedResult = applyFilter(
+                session,
+                unified,
+                new Constraint(unionedUnenforcedConstraint, unionedUnenforcedConstraint.asPredicate(), unionedUnenforcedConstraint.getDomains().map(Map::keySet).orElse(ImmutableSet.of())));
+        if (unenforcedResult.isPresent()) {
+            unified = (IcebergTableHandle) unenforcedResult.get().getHandle();
+        }
+
+        TupleDomain<IcebergColumnHandle> firstCompensationFilter = firstTable.getEnforcedPredicate().contains(unified.getEnforcedPredicate()) ? TupleDomain.all() : firstTable.getEnforcedPredicate();
+        TupleDomain<IcebergColumnHandle> secondCompensationFilter = secondTable.getEnforcedPredicate().contains(unified.getEnforcedPredicate()) ? TupleDomain.all() : secondTable.getEnforcedPredicate();
+
+        // union and push limits from the first and second table handles
+        // we can do this only if we're not extracting and returning to the engine any compensating filters for the unified table handles
+        // the compensating filters are applied later by the engine, which would mean that we pulled filter above limit
+        if (firstCompensationFilter.isAll() && secondCompensationFilter.isAll() && firstTable.getLimit().isPresent() && secondTable.getLimit().isPresent()) {
+            Optional<LimitApplicationResult<ConnectorTableHandle>> limitResult = applyLimit(session, unified, Long.max(firstTable.getLimit().getAsLong(), secondTable.getLimit().getAsLong()));
+            if (limitResult.isPresent()) {
+                unified = (IcebergTableHandle) limitResult.get().getHandle();
+            }
+        }
+
+        // expose all columns necessary to support the compensation filters
+        Set<IcebergColumnHandle> compensationColumns = Stream.of(firstCompensationFilter, secondCompensationFilter)
+                .map(TupleDomain::getDomains)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(Map::keySet)
+                .flatMap(Set::stream)
+                .collect(toImmutableSet());
+
+        return Optional.of(new UnificationResult<>(
+                unified.withProjectedColumns(Sets.union(unified.getProjectedColumns(), compensationColumns)),
+                firstCompensationFilter.transformKeys(ColumnHandle.class::cast),
+                secondCompensationFilter.transformKeys(ColumnHandle.class::cast),
+                new UnificationResult.Properties(
+                        unified.getEnforcedPredicate().transformKeys(ColumnHandle.class::cast),
+                        // limit is not guaranteed by iceberg connector
+                        OptionalLong.empty())));
+    }
+
+    /**
+     * Check if tables can be unified. For unification, all properties of the compared tables must be equal,
+     * except for: unenforced predicate, enforced predicate, constraint columns, limit, and projected columns.
+     */
+    private boolean similar(IcebergTableHandle first, IcebergTableHandle second)
+    {
+        return Objects.equals(first.getCatalog(), second.getCatalog()) &&
+                Objects.equals(first.getSchemaTableName(), second.getSchemaTableName()) &&
+                first.getTableType() == second.getTableType() &&
+                Objects.equals(first.getSnapshotId(), second.getSnapshotId()) &&
+                Objects.equals(first.getTableSchemaJson(), second.getTableSchemaJson()) &&
+                Objects.equals(first.getPartitionSpecJson(), second.getPartitionSpecJson()) &&
+                first.getFormatVersion() == second.getFormatVersion() &&
+                Objects.equals(first.getTableLocation(), second.getTableLocation()) &&
+                Objects.equals(first.getStorageProperties(), second.getStorageProperties()) &&
+                Objects.equals(first.getNameMappingJson(), second.getNameMappingJson()) &&
+                Objects.equals(first.getTablePartitioning(), second.getTablePartitioning()) &&
+                first.isRecordScannedFiles() == second.isRecordScannedFiles() &&
+                Objects.equals(first.getMaxScannedFileSize(), second.getMaxScannedFileSize()) &&
+                Objects.equals(first.getForAnalyze(), second.getForAnalyze());
     }
 
     @Override

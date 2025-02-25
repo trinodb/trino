@@ -14,6 +14,7 @@
 package io.trino.sql.dialect.trino.operation;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.RowType;
 import io.trino.sql.newir.FormatOptions;
@@ -34,7 +35,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class FieldReference
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "field_reference";
 
@@ -94,6 +95,19 @@ public final class FieldReference
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty field reference";
+    }
+
+    public Value base()
+    {
+        return base;
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        // TODO copy constructor to retain input attributes
+        return new FieldReference(result.name(), newArgument, FIELD_INDEX.getAttribute(attributes), ImmutableMap.of());
     }
 
     @Override

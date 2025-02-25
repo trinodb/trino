@@ -23,7 +23,6 @@ import io.trino.sql.dialect.trino.Attributes.AggregationStep;
 import io.trino.sql.dialect.trino.Attributes.SortOrderList;
 import io.trino.sql.newir.Block;
 import io.trino.sql.newir.FormatOptions;
-import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 import io.trino.type.FunctionType;
@@ -51,7 +50,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class AggregateCall
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "aggregate_call";
 

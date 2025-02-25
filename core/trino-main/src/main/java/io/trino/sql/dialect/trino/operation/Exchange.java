@@ -62,7 +62,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 public class Exchange
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "exchange";
 
@@ -210,6 +210,26 @@ public class Exchange
         this.attributes = attributes.buildOrThrow();
     }
 
+    private Exchange(
+            Result result,
+            List<Value> inputs,
+            List<Region> inputFieldSelectors,
+            Region partitioningBoundArguments,
+            Region partitioningHashSelector,
+            Region orderingSelector,
+            Map<AttributeKey, Object> attributes)
+    {
+        // TODO checks!!!
+        super(TRINO, NAME);
+        this.result = result;
+        this.inputs = inputs;
+        this.inputFieldSelectors = inputFieldSelectors;
+        this.partitioningBoundArguments = partitioningBoundArguments;
+        this.partitioningHashSelector = partitioningHashSelector;
+        this.orderingSelector = orderingSelector;
+        this.attributes = attributes;
+    }
+
     @Override
     public Result result()
     {
@@ -237,6 +257,23 @@ public class Exchange
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        ImmutableList.Builder<Value> newInputs = ImmutableList.builder();
+        for (int i = 0; i < inputs.size(); i++) {
+            if (i == index) {
+                newInputs.add(newArgument);
+            }
+            else {
+                newInputs.add(inputs.get(i));
+            }
+        }
+        // TODO add checks in the copy constructor
+        return new Exchange(result, newInputs.build(), inputFieldSelectors, partitioningBoundArguments, partitioningHashSelector, orderingSelector, attributes);
     }
 
     @Override

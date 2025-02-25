@@ -36,7 +36,7 @@ import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
 public final class Filter
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "filter";
 
@@ -61,6 +61,7 @@ public final class Filter
 
         this.input = input;
 
+        // TODO validate block labels
         if (predicate.parameters().size() != 1 ||
                 !trinoType(predicate.parameters().getFirst().type()).equals(relationRowType(trinoType(input.type()))) ||
                 !trinoType(predicate.getReturnedType()).equals(BOOLEAN)) {
@@ -97,9 +98,22 @@ public final class Filter
     }
 
     @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        // TODO copy constructor to retain input attributes
+        return new Filter(result.name(), newArgument, predicate.getOnlyBlock(), ImmutableMap.of());
+    }
+
+    @Override
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty filter";
+    }
+
+    public Value argument()
+    {
+        return input;
     }
 
     @Override

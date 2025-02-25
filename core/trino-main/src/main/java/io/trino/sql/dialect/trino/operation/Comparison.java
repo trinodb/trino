@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.sql.dialect.trino.Attributes.ComparisonOperator;
 import io.trino.sql.newir.FormatOptions;
-import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 
@@ -35,7 +34,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Comparison
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "comparison";
 
