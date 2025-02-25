@@ -13,7 +13,6 @@
  */
 package io.trino.server.protocol;
 
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
@@ -39,7 +38,6 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.MediaType;
@@ -72,7 +70,6 @@ public class ExecutingStatementResource
 {
     private static final Logger log = Logger.get(ExecutingStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
-    private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private final QueryManager queryManager;
     private final QueryDataProducerFactory queryDataProducerFactory;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
@@ -155,12 +152,11 @@ public class ExecutingStatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("slug") String slug,
             @PathParam("token") long token,
-            @QueryParam("maxWait") Duration maxWait,
             @BeanParam ExternalUriInfo externalUriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
-        asyncQueryResults(query, token, maxWait, externalUriInfo, asyncResponse);
+        asyncQueryResults(query, token, externalUriInfo, asyncResponse);
     }
 
     protected Query getQuery(QueryId queryId, String slug, long token)
@@ -204,12 +200,10 @@ public class ExecutingStatementResource
     private void asyncQueryResults(
             Query query,
             long token,
-            Duration maxWait,
             ExternalUriInfo externalUriInfo,
             AsyncResponse asyncResponse)
     {
-        Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, externalUriInfo, wait);
+        ListenableFuture<QueryResultsResponse> queryResultsFuture = query.waitForResults(token, externalUriInfo, MAX_WAIT_TIME);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, results ->
                 toResponse(results, query.getQueryInfo().getSession().getQueryDataEncoding()), directExecutor());
