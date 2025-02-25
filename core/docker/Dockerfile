@@ -37,6 +37,7 @@ RUN \
     yum update -y && \
     yum install --installroot /tmp/overlay --setopt install_weak_deps=false --nodocs -y \
       less \
+      libstdc++ `# required by snappy and duckdb` \
       curl-minimal grep `# required by health-check` \
       zlib `#required by java` \
       shadow-utils `# required by useradd` \
