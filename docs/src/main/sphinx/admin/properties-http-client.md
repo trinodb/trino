@@ -15,6 +15,7 @@ oauth2-jwk.http-client.connect-timeout=10s
 
 The following prefixes are supported:
 
+- `ai` for [](/functions/ai)
 - `oauth2-jwk` for {doc}`/security/oauth2`
 - `jwk` for {doc}`/security/jwt`
 - `exchange` to configure data transfer between Trino nodes in addition to
