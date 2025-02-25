@@ -44,6 +44,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
+import io.trino.spi.security.Identity;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Flatten;
@@ -229,6 +230,8 @@ public class DispatchManager
                     sessionContext.getIdentity().getPrincipal().isPresent(),
                     sessionContext.getIdentity().getUser(),
                     sessionContext.getIdentity().getGroups(),
+                    sessionContext.getOriginalIdentity().getUser(),
+                    sessionContext.getAuthenticatedIdentity().map(Identity::getUser),
                     sessionContext.getSource(),
                     sessionContext.getClientTags(),
                     sessionContext.getResourceEstimates(),
