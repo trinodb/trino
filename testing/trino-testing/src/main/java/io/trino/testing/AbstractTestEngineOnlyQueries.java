@@ -81,6 +81,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
@@ -5410,6 +5411,12 @@ public abstract class AbstractTestEngineOnlyQueries
         result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
         assertNoRelationalResult(result);
         assertThat(result.getSetSessionProperties()).isEqualTo(ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
+
+        assertThatThrownBy(() -> computeActual(format("SET SESSION %s.connector_l = 1", TESTING_CATALOG)))
+                .hasMessage("line 1:43: Session property 'testing_catalog.connector_l' does not exist. Did you mean to use 'testing_catalog.connector_long', 'testing_catalog.connector_double' or 'testing_catalog.connector_boolean'?");
+
+        assertThatThrownBy(() -> computeActual("SET SESSION task_writer_count = 1"))
+                .hasMessage("line 1:33: Session property 'task_writer_count' does not exist. Did you mean to use 'task_max_writer_count' or 'task_min_writer_count'?");
     }
 
     @Test
