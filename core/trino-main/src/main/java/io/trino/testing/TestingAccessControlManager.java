@@ -144,6 +144,7 @@ public class TestingAccessControlManager
     private Predicate<SchemaTableName> deniedTables = s -> true;
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
     private BiPredicate<Identity, String> denyIdentityFunction = IDENTITY_FUNCTION_TRUE;
+    private Optional<Set<String>> allowImpersonationRoles = Optional.empty();
 
     @Inject
     public TestingAccessControlManager(
@@ -223,6 +224,23 @@ public class TestingAccessControlManager
         this.denyIdentityFunction = requireNonNull(denyIdentityFunction, "denyIdentityFunction is null");
     }
 
+    public void enableImpersonationControl()
+    {
+        allowImpersonationRoles = Optional.of(new HashSet<>());
+    }
+
+    public void allowImpersonation(String role)
+    {
+        if (allowImpersonationRoles.isEmpty()) {
+            Set<String> allowedRoles = new HashSet<>();
+            allowedRoles.add(role);
+            allowImpersonationRoles = Optional.of(allowedRoles);
+        }
+        else {
+            this.allowImpersonationRoles.get().add(role);
+        }
+    }
+
     @Override
     public Set<String> filterCatalogs(SecurityContext securityContext, Set<String> catalogs)
     {
@@ -258,11 +276,22 @@ public class TestingAccessControlManager
     @Override
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
-        if (shouldDenyPrivilege(userName, userName, IMPERSONATE_USER)) {
-            denyImpersonateUser(identity.getUser(), userName);
+        // if allowImpersonationRoles is empty default behaviour is used
+        if (allowImpersonationRoles.isPresent()) {
+            boolean impersonationAllowed = identity.getEnabledRoles()
+                    .stream()
+                    .anyMatch(role -> allowImpersonationRoles.get().contains(role));
+            if (!impersonationAllowed) {
+                denyImpersonateUser(identity.getUser(), userName);
+            }
         }
-        if (denyPrivileges.isEmpty()) {
-            super.checkCanImpersonateUser(identity, userName);
+        else {
+            if (shouldDenyPrivilege(userName, userName, IMPERSONATE_USER)) {
+                denyImpersonateUser(identity.getUser(), userName);
+            }
+            if (denyPrivileges.isEmpty()) {
+                super.checkCanImpersonateUser(identity, userName);
+            }
         }
     }
 
