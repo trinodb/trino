@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.catalog.rest;
 
 import com.google.common.collect.ImmutableMap;
+import org.apache.iceberg.rest.auth.OAuth2Properties;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -33,7 +34,8 @@ public class TestOAuth2SecurityConfig
                 .setCredential(null)
                 .setToken(null)
                 .setScope(null)
-                .setServerUri(null));
+                .setServerUri(null)
+                .setTokenRefreshEnabled(OAuth2Properties.TOKEN_REFRESH_ENABLED_DEFAULT));
     }
 
     @Test
@@ -44,13 +46,15 @@ public class TestOAuth2SecurityConfig
                 .put("iceberg.rest-catalog.oauth2.credential", "credential")
                 .put("iceberg.rest-catalog.oauth2.scope", "scope")
                 .put("iceberg.rest-catalog.oauth2.server-uri", "http://localhost:8080/realms/iceberg/protocol/openid-connect/token")
+                .put("iceberg.rest-catalog.oauth2.token-refresh-enabled", "false")
                 .buildOrThrow();
 
         OAuth2SecurityConfig expected = new OAuth2SecurityConfig()
                 .setCredential("credential")
                 .setToken("token")
                 .setScope("scope")
-                .setServerUri(URI.create("http://localhost:8080/realms/iceberg/protocol/openid-connect/token"));
+                .setServerUri(URI.create("http://localhost:8080/realms/iceberg/protocol/openid-connect/token"))
+                .setTokenRefreshEnabled(false);
         assertThat(expected.credentialOrTokenPresent()).isTrue();
         assertThat(expected.scopePresentOnlyWithCredential()).isFalse();
         assertFullMapping(properties, expected);
