@@ -84,6 +84,7 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.getExchangeCompressionCodec;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
@@ -104,6 +105,8 @@ import static java.util.Objects.requireNonNull;
 class Query
 {
     private static final Logger log = Logger.get(Query.class);
+
+    private static final DataSize TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
 
     private final QueryManager queryManager;
     private final QueryId queryId;
@@ -297,7 +300,7 @@ class Query
         return queryManager.getFullQueryInfo(queryId);
     }
 
-    public ListenableFuture<QueryResultsResponse> waitForResults(long token, ExternalUriInfo externalUriInfo, Duration wait, DataSize targetResultSize)
+    public ListenableFuture<QueryResultsResponse> waitForResults(long token, ExternalUriInfo externalUriInfo, Duration wait)
     {
         ListenableFuture<Void> futureStateChange;
         synchronized (this) {
@@ -315,7 +318,7 @@ class Query
             futureStateChange = addTimeout(futureStateChange, () -> null, wait, timeoutExecutor);
         }
         // when state changes, fetch the next result
-        return Futures.transform(futureStateChange, _ -> getNextResult(token, externalUriInfo, targetResultSize), resultsProcessorExecutor);
+        return Futures.transform(futureStateChange, _ -> getNextResult(token, externalUriInfo), resultsProcessorExecutor);
     }
 
     public void markResultsConsumedIfReady()
@@ -418,7 +421,7 @@ class Query
         return Optional.empty();
     }
 
-    private synchronized QueryResultsResponse getNextResult(long token, ExternalUriInfo externalUriInfo, DataSize targetResultSize)
+    private synchronized QueryResultsResponse getNextResult(long token, ExternalUriInfo externalUriInfo)
     {
         // check if the result for the token have already been created
         Optional<QueryResults> cachedResult = getCachedResult(token);
@@ -439,7 +442,7 @@ class Query
         if (isStarted) {
             closeExchangeIfNecessary(queryInfo);
             // fetch result data from exchange
-            resultRows = removePagesFromExchange(queryInfo, targetResultSize.toBytes());
+            resultRows = removePagesFromExchange(queryInfo);
         }
         else {
             resultRows = empty();
@@ -547,7 +550,7 @@ class Query
                 queryResults);
     }
 
-    private synchronized QueryResultRows removePagesFromExchange(ResultQueryInfo queryInfo, long targetResultBytes)
+    private synchronized QueryResultRows removePagesFromExchange(ResultQueryInfo queryInfo)
     {
         if (!resultsConsumed && queryInfo.outputStage().isEmpty()) {
             return queryResultRowsBuilder()
@@ -562,6 +565,7 @@ class Query
         QueryResultRows.Builder resultBuilder = queryResultRowsBuilder()
                 .withColumnsAndTypes(columns, types);
 
+        long targetResultBytes = TARGET_RESULT_SIZE.toBytes();
         try {
             long bytes = 0;
             while (bytes < targetResultBytes) {
