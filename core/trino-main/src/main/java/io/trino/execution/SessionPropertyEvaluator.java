@@ -63,7 +63,7 @@ public class SessionPropertyEvaluator
         List<String> nameParts = name.getParts();
         if (nameParts.size() == 1) {
             PropertyMetadata<?> systemPropertyMetadata = sessionPropertyManager.getSystemSessionPropertyMetadata(nameParts.getFirst())
-                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, expression, "Session property %s does not exist", name));
+                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, expression, "Session property '%s' does not exist", name));
 
             return evaluate(session, name, expression, parameters, systemPropertyMetadata);
         }
@@ -73,7 +73,7 @@ public class SessionPropertyEvaluator
 
             CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, expression, catalogName);
             PropertyMetadata<?> connectorPropertyMetadata = sessionPropertyManager.getConnectorSessionPropertyMetadata(catalogHandle, propertyName)
-                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, expression, "Session property %s does not exist", name));
+                    .orElseThrow(() -> semanticException(INVALID_SESSION_PROPERTY, expression, "Session property '%s' does not exist", name));
 
             return evaluate(session, name, expression, parameters, connectorPropertyMetadata);
         }
