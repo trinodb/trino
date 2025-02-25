@@ -245,8 +245,7 @@ public final class GroupByHashYieldAssertion
                 Integer.BYTES + // groupId
                 Long.BYTES + // rawHash (optional, but present in this test)
                 Byte.BYTES + // field null
-                Integer.BYTES + // field variable length
-                Long.BYTES + // field first 8 bytes
+                Integer.BYTES + // field variable length (or short length and first 3 field bytes)
                 Integer.BYTES; // field variable offset (or 4 more field bytes)
         return (long) capacity * sizePerEntry;
     }
