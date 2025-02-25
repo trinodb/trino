@@ -16,6 +16,7 @@ package io.trino.execution.buffer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import io.trino.execution.DistributionSnapshot;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.metrics.Metrics;
 
@@ -190,6 +191,23 @@ public final class OutputBufferInfo
                 utilization,
                 Optional.empty(),
                 metrics);
+    }
+
+    public OutputBufferInfo pruneDigests()
+    {
+        return new OutputBufferInfo(
+                type,
+                state,
+                canAddBuffers,
+                canAddPages,
+                totalBufferedBytes,
+                totalBufferedPages,
+                totalRowsSent,
+                totalPagesSent,
+                pipelinedBufferStates,
+                Optional.empty(),
+                spoolingOutputStats,
+                metrics.map(DistributionSnapshot::pruneMetrics));
     }
 
     @Override

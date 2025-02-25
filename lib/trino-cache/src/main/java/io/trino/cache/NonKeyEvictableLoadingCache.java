@@ -14,11 +14,12 @@
 package io.trino.cache;
 
 import com.google.common.cache.LoadingCache;
+import org.jetbrains.annotations.NotNullByDefault;
 
 /**
  * A {@link com.google.common.cache.LoadingCache} that does not support key-based eviction.
  */
-@ElementTypesAreNonnullByDefault
+@NotNullByDefault
 public interface NonKeyEvictableLoadingCache<K, V>
         extends LoadingCache<K, V>
 {
