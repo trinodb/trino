@@ -1048,7 +1048,7 @@ public class TestKuduConnectorTest
 
     @Test
     @Override
-    protected void testUpdateWithSubquery()
+    public void testUpdateWithSubquery()
     {
         withTableName("test_update_with_subquery", tableName -> {
             createTableForWrites("CREATE TABLE %s " + ORDER_COLUMNS, tableName, Optional.empty());

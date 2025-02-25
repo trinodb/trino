@@ -6851,7 +6851,7 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    protected void testUpdateWithSubquery()
+    public void testUpdateWithSubquery()
     {
         skipTestUnless(hasBehavior(SUPPORTS_MERGE));
 
