@@ -17,7 +17,6 @@ import io.trino.Session;
 import io.trino.client.QueryData;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.protocol.JsonEncodingUtils.TypeEncoder;
-import io.trino.server.protocol.spooling.QueryDataProducer;
 import io.trino.spi.TrinoException;
 
 import java.util.List;

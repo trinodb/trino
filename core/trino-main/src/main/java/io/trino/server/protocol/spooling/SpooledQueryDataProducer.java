@@ -20,6 +20,7 @@ import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.server.ExternalUriInfo;
 import io.trino.server.protocol.OutputColumn;
+import io.trino.server.protocol.QueryDataProducer;
 import io.trino.server.protocol.QueryResultRows;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
