@@ -102,6 +102,11 @@ public final class Filter
         return "pretty filter";
     }
 
+    public Value argument()
+    {
+        return input;
+    }
+
     @Override
     public boolean equals(Object obj)
     {

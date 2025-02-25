@@ -80,6 +80,11 @@ public final class Return
         return "pretty return";
     }
 
+    public Value argument()
+    {
+        return input;
+    }
+
     @Override
     public boolean equals(Object obj)
     {

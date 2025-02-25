@@ -57,6 +57,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UnificationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -691,6 +692,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<UnificationResult<TableHandle>> unifyTables(Session session, TableHandle first, TableHandle second)
     {
         return Optional.empty();
     }

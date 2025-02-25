@@ -95,6 +95,11 @@ public final class FieldReference
         return "pretty field reference";
     }
 
+    public Value base()
+    {
+        return base;
+    }
+
     @Override
     public boolean equals(Object obj)
     {

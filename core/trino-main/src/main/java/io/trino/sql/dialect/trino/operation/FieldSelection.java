@@ -110,6 +110,11 @@ public final class FieldSelection
         return "pretty field selection";
     }
 
+    public Value base()
+    {
+        return base;
+    }
+
     @Override
     public boolean equals(Object obj)
     {

@@ -79,6 +79,16 @@ public class ProgramBuilder
     {
         private int label;
 
+        public ValueNameAllocator()
+        {
+            this(0);
+        }
+
+        public ValueNameAllocator(int initialLabel)
+        {
+            this.label = initialLabel;
+        }
+
         public String newName()
         {
             return "%" + label++;

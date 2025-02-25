@@ -23,12 +23,14 @@ import io.trino.sql.newir.Block;
 import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
+import io.trino.sql.newir.SourceNode;
 import io.trino.sql.newir.Value;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
@@ -110,6 +112,28 @@ public final class Project
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty project";
+    }
+
+    public Block assignments()
+    {
+        return assignments.getOnlyBlock();
+    }
+
+    public boolean isPruning(Map<Value, SourceNode> valueMap)
+    {
+        if (relationRowType(trinoType(result.type())).equals(EMPTY_ROW)) {
+            // prunes all fields
+            return true;
+        }
+        Block assignments = assignments();
+        Row rowConstructor = (Row) valueMap.get(((Return) assignments.getTerminalOperation()).argument());
+        for (Value rowElement : rowConstructor.arguments()) {
+            SourceNode assignment = valueMap.get(rowElement);
+            if (!(assignment instanceof FieldSelection fieldSelection) || !valueMap.get(fieldSelection.base()).equals(assignments)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
