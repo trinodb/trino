@@ -13,10 +13,14 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.spi.Page;
+
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.Math.clamp;
+import static java.util.Objects.requireNonNull;
 
 public class OutputSpoolingController
 {
@@ -46,7 +50,12 @@ public class OutputSpoolingController
 
     private Mode currentMode;
 
-    public OutputSpoolingController(boolean inlineInitialRows, long maximumInlinedPositions, long maximumInlinedSize, long initialSpooledSegmentTarget, long maximumSpooledSegmentTarget)
+    public OutputSpoolingController(
+            boolean inlineInitialRows,
+            long maximumInlinedPositions,
+            long maximumInlinedSize,
+            long initialSpooledSegmentTarget,
+            long maximumSpooledSegmentTarget)
     {
         this.currentSpooledSegmentTarget = initialSpooledSegmentTarget;
         this.maximumSpooledSegmentTarget = maximumSpooledSegmentTarget;
@@ -56,29 +65,35 @@ public class OutputSpoolingController
         currentMode = inlineInitialRows ? Mode.INLINE : Mode.SPOOL;
     }
 
-    public Mode getNextMode(Page page)
+    public Mode getNextMode(PipelineContext pipelineContext, Page page)
     {
-        return getNextMode(page.getPositionCount(), page.getSizeInBytes());
+        requireNonNull(pipelineContext, "pipelineContext is null");
+        return getNextMode(
+                pipelineContext.getInlinedPositions(),
+                pipelineContext.getInlinedRawSize(),
+                page.getPositionCount(),
+                page.getSizeInBytes());
     }
 
-    public Mode getNextMode(int positionCount, long sizeInBytes)
+    @VisibleForTesting
+    Mode getNextMode(AtomicLong totalInlinedPositions, AtomicLong totalInlinedBytes, int positionCount, long sizeInBytes)
     {
         return switch (currentMode) {
             case INLINE -> {
                 // If we still didn't inline maximum number of positions
-                if (inlinedPositions + positionCount >= maximumInlinedPositions) {
+                if (!canInlinePositions(totalInlinedPositions.get(), positionCount)) {
                     currentMode = Mode.SPOOL; // switch to spooling mode
-                    yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
+                    yield getNextMode(totalInlinedPositions, totalInlinedBytes, positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
                 }
 
                 // If we still didn't inline maximum number of bytes
-                if (inlinedRawBytes + sizeInBytes >= maximumInlinedSize) {
+                if (!canInlineBytes(totalInlinedBytes.get(), sizeInBytes)) {
                     currentMode = Mode.SPOOL; // switch to spooling mode
-                    yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
+                    yield getNextMode(totalInlinedPositions, totalInlinedBytes, positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
                 }
 
                 verify(bufferedRawSize == 0, "There should be no buffered pages when streaming");
-                recordInlined(positionCount, sizeInBytes);
+                recordInlined(totalInlinedPositions, totalInlinedBytes, positionCount, sizeInBytes);
                 yield Mode.INLINE; // we are ok to stream this page
             }
             case SPOOL -> {
@@ -93,6 +108,24 @@ public class OutputSpoolingController
 
             case BUFFER -> throw new IllegalStateException("Current mode can be either STREAM or SPOOL");
         };
+    }
+
+    private boolean canInlinePositions(long totalInlinedPositions, long positionCount)
+    {
+        if (inlinedPositions + positionCount >= maximumInlinedPositions) {
+            return false;
+        }
+
+        return totalInlinedPositions + positionCount < maximumInlinedPositions;
+    }
+
+    private boolean canInlineBytes(long totalInlinedBytes, long sizeInBytes)
+    {
+        if (inlinedRawBytes + sizeInBytes >= maximumInlinedSize) {
+            return false;
+        }
+
+        return totalInlinedBytes + sizeInBytes < maximumInlinedSize;
     }
 
     public void recordSpooled(long rows, long size)
@@ -113,11 +146,15 @@ public class OutputSpoolingController
         spooledEncodedBytes += encodedSize;
     }
 
-    public void recordInlined(int positionCount, long sizeInBytes)
+    public void recordInlined(AtomicLong totalInlinedPositions, AtomicLong totalInlinedBytes, int positionCount, long sizeInBytes)
     {
         inlinedPositions += positionCount;
         inlinedPages++;
         inlinedRawBytes += sizeInBytes;
+
+        // Increase per-pipeline counters
+        totalInlinedPositions.addAndGet(positionCount);
+        totalInlinedBytes.addAndGet(sizeInBytes);
     }
 
     public void recordBuffered(int positionCount, long sizeInBytes)

@@ -15,6 +15,8 @@ package io.trino.operator;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static io.trino.operator.OutputSpoolingController.Mode.BUFFER;
 import static io.trino.operator.OutputSpoolingController.Mode.INLINE;
 import static io.trino.operator.OutputSpoolingController.Mode.SPOOL;
@@ -26,7 +28,9 @@ class TestOutputSpoolingController
     public void testInlineFirstRowsUntilThresholdThenSpooling()
     {
         var assertion = new OutputSpoolingControllerAssertions(
-                new OutputSpoolingController(true, 100, 1000, 900, 16000));
+                new OutputSpoolingController(true, 100, 1000, 900, 16000),
+                new AtomicLong(),
+                new AtomicLong());
 
         assertion
                 .verifyNextMode(10, 100, INLINE)
@@ -47,10 +51,40 @@ class TestOutputSpoolingController
     }
 
     @Test
+    public void testInlineFirstRowsUntilTotalThresholdThenSpooling()
+    {
+        var assertion = new OutputSpoolingControllerAssertions(
+                new OutputSpoolingController(true, 100, 1000, 900, 16000),
+                // Inlined in other operator
+                new AtomicLong(50),
+                new AtomicLong(500));
+
+        assertion
+                .verifyNextMode(10, 100, INLINE)
+                .verifyInlined(1, 10, 100)
+                .verifyNextMode(10, 100, INLINE)
+                .verifyInlined(2, 20, 200)
+                .verifyNextMode(50, 400, BUFFER)
+                .verifyInlined(2, 20, 200)
+                .verifyNextMode(50, 400, BUFFER)
+                .verifyBuffered(100, 800)
+                .verifyNextMode(50, 400, SPOOL)
+                .verifyBuffered(0, 0)
+                .verifyNextMode(0, 400, BUFFER)
+                .verifySpooled(1, 150, 1200)
+                .verifyNextMode(39, 399, BUFFER)
+                .verifyBuffered(39, 799)
+                .verifyNextMode(1, 1001, SPOOL) // 900 * 2
+                .verifyEmptyBuffer();
+    }
+
+    @Test
     public void testSpoolingTargetSize()
     {
         var assertion = new OutputSpoolingControllerAssertions(
-                new OutputSpoolingController(false, 0, 0, 512, 2048));
+                new OutputSpoolingController(false, 0, 0, 512, 2048),
+                new AtomicLong(),
+                new AtomicLong());
 
         assertion
                 .verifyNextMode(100, 511, BUFFER) // still under the initial segment target
@@ -78,7 +112,9 @@ class TestOutputSpoolingController
     public void testSpoolingEncoderEfficiency()
     {
         var assertion = new OutputSpoolingControllerAssertions(
-                new OutputSpoolingController(false, 0, 0, 32, 100));
+                new OutputSpoolingController(false, 0, 0, 32, 100),
+                new AtomicLong(),
+                new AtomicLong());
 
         assertion
                 .verifyNextMode(1000, 31, BUFFER)
@@ -104,11 +140,11 @@ class TestOutputSpoolingController
                 .verifySpooled(4, 2655, 395);
     }
 
-    private record OutputSpoolingControllerAssertions(OutputSpoolingController controller)
+    private record OutputSpoolingControllerAssertions(OutputSpoolingController controller, AtomicLong totalInlinedPositions, AtomicLong totalInlinedSize)
     {
         public OutputSpoolingControllerAssertions verifyNextMode(int positionCount, int rawSizeInBytes, OutputSpoolingController.Mode expected)
         {
-            assertThat(controller.getNextMode(positionCount, rawSizeInBytes))
+            assertThat(controller.getNextMode(totalInlinedPositions, totalInlinedSize, positionCount, rawSizeInBytes))
                     .isEqualTo(expected);
 
             return this;

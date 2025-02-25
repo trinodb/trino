@@ -103,6 +103,10 @@ public class PipelineContext
 
     private final AtomicLong physicalWrittenDataSize = new AtomicLong();
 
+    // Spooling
+    private final AtomicLong inlinedPositions = new AtomicLong();
+    private final AtomicLong inlinedRawSize = new AtomicLong();
+
     private final ConcurrentMap<Integer, OperatorStats> operatorSummaries = new ConcurrentHashMap<>();
     // pre-merged metrics which are shared among instances of given operator within pipeline
     private final ConcurrentMap<Integer, Metrics> pipelineOperatorMetrics = new ConcurrentHashMap<>();
@@ -147,6 +151,16 @@ public class PipelineContext
     public boolean isOutputPipeline()
     {
         return outputPipeline;
+    }
+
+    public AtomicLong getInlinedPositions()
+    {
+        return inlinedPositions;
+    }
+
+    public AtomicLong getInlinedRawSize()
+    {
+        return inlinedRawSize;
     }
 
     public DriverContext addDriverContext()
