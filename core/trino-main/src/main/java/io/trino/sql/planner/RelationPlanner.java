@@ -422,7 +422,7 @@ class RelationPlanner
 
     private RelationPlan addColumnMasks(Table table, RelationPlan plan)
     {
-        Map<String, io.trino.sql.tree.Expression> columnMasks = analysis.getColumnMasks(table);
+        Map<Field, io.trino.sql.tree.Expression> columnMasks = analysis.getColumnMasks(table);
 
         // A Table can represent a WITH query, which can have anonymous fields. On the other hand,
         // it can't have masks. The loop below expects fields to have proper names, so bail out
@@ -441,7 +441,7 @@ class RelationPlanner
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
-            io.trino.sql.tree.Expression mask = columnMasks.get(field.getName().orElseThrow());
+            io.trino.sql.tree.Expression mask = columnMasks.get(field);
             Symbol symbol = plan.getFieldMappings().get(i);
             Expression projection = symbol.toSymbolReference();
             if (mask != null) {
