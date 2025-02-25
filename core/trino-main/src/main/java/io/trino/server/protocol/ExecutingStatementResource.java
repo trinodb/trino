@@ -31,7 +31,7 @@ import io.trino.server.ForStatementResource;
 import io.trino.server.ServerConfig;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
-import io.trino.server.protocol.spooling.SpooledQueryDataProducer;
+import io.trino.server.protocol.spooling.SpoolingQueryDataProducer;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -205,7 +205,7 @@ public class ExecutingStatementResource
                 querySlug,
                 queryManager,
                 encoderFactory
-                        .map(SpooledQueryDataProducer::createSpooledQueryDataProducer)
+                        .map(SpoolingQueryDataProducer::createSpooledQueryDataProducer)
                         .orElseGet(JsonBytesQueryDataProducer::new),
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
                 directExchangeClientSupplier,
