@@ -459,6 +459,8 @@ following properties:
 * - `iceberg.rest-catalog.session`
   - Session information included when communicating with the REST Catalog.
     Options are `NONE` or `USER` (default: `NONE`).
+* - `iceberg.rest-catalog.session-timeout`
+  - [Duration](prop-type-duration) to keep authentication session in cache. Defaults to `1h`.
 * - `iceberg.rest-catalog.oauth2.token`
   - The bearer token used for interactions with the server. A `token` or
     `credential` is required for `OAUTH2` security. Example: `AbCdEf123456`
@@ -471,6 +473,9 @@ following properties:
     when using `credential`.
 * - `iceberg.rest-catalog.oauth2.server-uri`
   - The endpoint to retrieve access token from OAuth2 Server.
+* - `iceberg.rest-catalog.oauth2.token-refresh-enabled`
+  - Controls whether a token should be refreshed if information about its expiration time is available.
+    Defaults to `true`
 * - `iceberg.rest-catalog.vended-credentials-enabled`
   - Use credentials provided by the REST backend for file system access.
     Defaults to `false`.
