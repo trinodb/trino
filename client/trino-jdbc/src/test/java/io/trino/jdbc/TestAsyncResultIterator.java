@@ -216,6 +216,12 @@ class TestAsyncResultIterator
         }
 
         @Override
+        public Set<ClientSelectedRole> getSetOriginalRoles()
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public Map<String, String> getSetSessionProperties()
         {
             throw new UnsupportedOperationException();

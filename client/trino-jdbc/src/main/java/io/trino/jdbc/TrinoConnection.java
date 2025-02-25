@@ -19,6 +19,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
@@ -107,6 +108,7 @@ public class TrinoConnection
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<List<String>> path = new AtomicReference<>(ImmutableList.of());
     private final AtomicReference<String> authorizationUser = new AtomicReference<>();
+    private final Set<ClientSelectedRole> originalRoles = Sets.newConcurrentHashSet();
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
@@ -855,6 +857,7 @@ public class TrinoConnection
                 .user(user)
                 .sessionUser(sessionUser.get())
                 .authorizationUser(Optional.ofNullable(authorizationUser.get()))
+                .originalRoles(ImmutableSet.copyOf(originalRoles))
                 .source(source)
                 .traceToken(Optional.ofNullable(clientInfo.get(TRACE_TOKEN)))
                 .clientTags(ImmutableSet.copyOf(clientTags))
@@ -891,10 +894,12 @@ public class TrinoConnection
 
         if (client.getSetAuthorizationUser().isPresent()) {
             authorizationUser.set(client.getSetAuthorizationUser().get());
+            originalRoles.addAll(client.getSetOriginalRoles());
             roles.clear();
         }
         if (client.isResetAuthorizationUser()) {
             authorizationUser.set(null);
+            originalRoles.clear();
             roles.clear();
         }
 

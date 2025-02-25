@@ -144,6 +144,7 @@ public class TestingAccessControlManager
     private Predicate<SchemaTableName> deniedTables = s -> true;
     private BiPredicate<Identity, String> denyIdentityTable = IDENTITY_TABLE_TRUE;
     private BiPredicate<Identity, String> denyIdentityFunction = IDENTITY_FUNCTION_TRUE;
+    private BiPredicate<Identity, String> denyImpersonationFunction = IDENTITY_FUNCTION_TRUE;
 
     @Inject
     public TestingAccessControlManager(
@@ -196,6 +197,7 @@ public class TestingAccessControlManager
         denyIdentityTable = IDENTITY_TABLE_TRUE;
         rowFilters.clear();
         columnMasks.clear();
+        denyImpersonationFunction = IDENTITY_FUNCTION_TRUE;
     }
 
     public void denyCatalogs(Predicate<String> deniedCatalogs)
@@ -221,6 +223,11 @@ public class TestingAccessControlManager
     public void denyIdentityFunction(BiPredicate<Identity, String> denyIdentityFunction)
     {
         this.denyIdentityFunction = requireNonNull(denyIdentityFunction, "denyIdentityFunction is null");
+    }
+
+    public void denyImpersonation(BiPredicate<Identity, String> denyImpersonationFunction)
+    {
+        this.denyImpersonationFunction = requireNonNull(denyImpersonationFunction, "denyImpersonationFunction is null");
     }
 
     @Override
@@ -258,6 +265,9 @@ public class TestingAccessControlManager
     @Override
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
+        if (!denyImpersonationFunction.test(identity, userName)) {
+            denyImpersonateUser(identity.getUser(), userName);
+        }
         if (shouldDenyPrivilege(userName, userName, IMPERSONATE_USER)) {
             denyImpersonateUser(identity.getUser(), userName);
         }

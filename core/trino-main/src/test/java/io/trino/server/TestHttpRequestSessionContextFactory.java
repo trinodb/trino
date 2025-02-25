@@ -122,19 +122,31 @@ public class TestHttpRequestSessionContextFactory
                 userHeaders,
                 Optional.of("testRemote"),
                 Optional.empty());
-        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
+        assertThat(context.getIdentity())
+                .isEqualTo(Identity.forUser("testUser")
+                        .withGroups(ImmutableSet.of("testUser"))
+                        .withEnabledRoles(ImmutableSet.of("system-role"))
+                        .build());
 
         context = sessionContextFactory(protocolHeaders).createSessionContext(
                 emptyHeaders,
                 Optional.of("testRemote"),
                 Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()));
-        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
+        assertThat(context.getIdentity())
+                .isEqualTo(Identity.forUser("mappedUser")
+                        .withGroups(ImmutableSet.of("test", "mappedUser"))
+                        .withEnabledRoles(ImmutableSet.of("system-role"))
+                        .build());
 
         context = sessionContextFactory(protocolHeaders).createSessionContext(
                 userHeaders,
                 Optional.of("testRemote"),
                 Optional.of(Identity.ofUser("mappedUser")));
-        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
+        assertThat(context.getIdentity())
+                .isEqualTo(Identity.forUser("testUser")
+                        .withGroups(ImmutableSet.of("testUser"))
+                        .withEnabledRoles(ImmutableSet.of("system-role"))
+                        .build());
 
         assertInvalidSession(protocolHeaders, emptyHeaders)
                 .matches(e -> ((WebApplicationException) e).getResponse().getStatus() == 400);
