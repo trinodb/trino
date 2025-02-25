@@ -629,7 +629,7 @@ class Query
         // does not have an output stage. The latter happens
         // for data definition executions, as those do not have output.
         synchronized (this) {
-            if (queryInfo.state() == FAILED || (!exchangeDataSource.isFinished() && queryInfo.outputStage().isEmpty())) {
+            if (queryInfo.state() == FAILED || !exchangeDataSource.isFinished()) {
                 exchangeDataSource.close();
             }
         }
