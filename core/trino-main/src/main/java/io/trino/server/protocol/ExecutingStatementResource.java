@@ -191,7 +191,7 @@ public class ExecutingStatementResource
                 session,
                 querySlug,
                 queryManager,
-                queryDataProducerFactory.create(session),
+                queryDataProducerFactory,
                 queryInfoUrlFactory.getQueryInfoUrl(queryId),
                 directExchangeClientSupplier,
                 exchangeManagerRegistry,
