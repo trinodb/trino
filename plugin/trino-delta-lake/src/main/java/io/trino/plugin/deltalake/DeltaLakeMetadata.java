@@ -390,7 +390,9 @@ public class DeltaLakeMetadata
             .handleIf(throwable -> Throwables.getCausalChain(throwable).stream().anyMatch(TransactionConflictException.class::isInstance))
             .withDelay(Duration.ofMillis(400))
             .withJitter(Duration.ofMillis(200))
-            .withMaxRetries(5)
+            // Set to a high number to handle high concurrency scenarios, consistent with Delta.io/Spark.
+            // See: https://github.com/delta-io/delta/blob/9c932bf/kernel/kernel-api/src/main/java/io/delta/kernel/internal/TransactionBuilderImpl.java#L65
+            .withMaxRetries(200)
             .onRetry(event -> LOG.debug(event.getLastException(), "Commit failed on attempt %d, will retry.", event.getAttemptCount()))
             .build();
 
