@@ -26,7 +26,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.dialect.trino.Attributes.Statistics;
 import io.trino.sql.newir.FormatOptions;
-import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 
@@ -49,7 +48,7 @@ import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static java.util.Objects.requireNonNull;
 
 public class TableScan
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "table_scan";
 

@@ -23,6 +23,7 @@ import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,7 +36,7 @@ import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static java.util.Objects.requireNonNull;
 
 public final class Case
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "case";
 
@@ -125,6 +126,26 @@ public final class Case
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "case :)";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        List<Value> newWhen = new ArrayList<>(when);
+        if (index < when.size()) {
+            newWhen.set(index, newArgument);
+        }
+        List<Value> newThen = new ArrayList<>(then);
+        if (index >= when.size() && index < when.size() + then.size()) {
+            newThen.set(index - when.size(), newArgument);
+        }
+        return new Case(
+                result.name(),
+                newWhen,
+                newThen,
+                index == when.size() + then.size() ? newArgument : defaultValue,
+                ImmutableList.of());
     }
 
     @Override

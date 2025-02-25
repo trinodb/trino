@@ -23,6 +23,7 @@ import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,7 +35,7 @@ import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static java.util.Objects.requireNonNull;
 
 public final class Switch
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "switch";
 
@@ -130,6 +131,27 @@ public final class Switch
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "switch :)";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        List<Value> newWhen = new ArrayList<>(when);
+        if (index >= 1 && index < 1 + when.size()) {
+            newWhen.set(index - 1, newArgument);
+        }
+        List<Value> newThen = new ArrayList<>(then);
+        if (index >= 1 + when.size() && index < 1 + when.size() + then.size()) {
+            newThen.set(index - when.size() - 1, newArgument);
+        }
+        return new Switch(
+                result.name(),
+                index == 0 ? newArgument : operand,
+                newWhen,
+                newThen,
+                index == 1 + when.size() + then.size() ? newArgument : defaultValue,
+                ImmutableList.of());
     }
 
     @Override

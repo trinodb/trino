@@ -28,7 +28,7 @@ import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static java.util.Objects.requireNonNull;
 
 public final class NullIf
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "null_if";
 
@@ -84,6 +84,17 @@ public final class NullIf
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "null_if :)";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        return new NullIf(
+                result.name(),
+                index == 0 ? newArgument : first,
+                index == 1 ? newArgument : second,
+                ImmutableList.of());
     }
 
     @Override

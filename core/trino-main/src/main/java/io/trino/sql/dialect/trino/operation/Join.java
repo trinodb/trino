@@ -51,7 +51,7 @@ import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
 public final class Join
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "join";
 
@@ -235,6 +235,32 @@ public final class Join
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty join";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        return new Join(
+                result.name(),
+                index == 0 ? newArgument : left,
+                index == 1 ? newArgument : right,
+                leftCriteriaSelector.getOnlyBlock(),
+                rightCriteriaSelector.getOnlyBlock(),
+                filter.getOnlyBlock(),
+                leftHashSelector.getOnlyBlock(),
+                rightHashSelector.getOnlyBlock(),
+                leftOutputSelector.getOnlyBlock(),
+                rightOutputSelector.getOnlyBlock(),
+                dynamicFilterTargetSelector.getOnlyBlock(),
+                JOIN_TYPE.getAttribute(attributes),
+                MAY_SKIP_OUTPUT_DUPLICATES.getAttribute(attributes),
+                Optional.ofNullable(DISTRIBUTION_TYPE.getAttribute(attributes)),
+                Optional.ofNullable(SPILLABLE.getAttribute(attributes)),
+                DYNAMIC_FILTER_IDS.getAttribute(attributes),
+                Optional.ofNullable(STATISTICS_AND_COST_SUMMARY.getAttribute(attributes)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
     }
 
     @Override

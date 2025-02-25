@@ -14,6 +14,7 @@
 package io.trino.sql.dialect.trino.operation;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
@@ -42,7 +43,7 @@ import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
 public final class CorrelatedJoin
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "correlated_join";
 
@@ -147,6 +148,21 @@ public final class CorrelatedJoin
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty correlated join";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        return new CorrelatedJoin(
+                result.name(),
+                newArgument,
+                correlation.getOnlyBlock(),
+                subquery.getOnlyBlock(),
+                filter.getOnlyBlock(),
+                JOIN_TYPE.getAttribute(attributes),
+                ImmutableMap.of(),
+                ImmutableMap.of());
     }
 
     @Override

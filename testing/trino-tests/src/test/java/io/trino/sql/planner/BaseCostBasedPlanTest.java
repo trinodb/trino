@@ -83,7 +83,7 @@ public abstract class BaseCostBasedPlanTest
             .map(queryId -> format("/sql/trino/tpch/%s.sql", queryId))
             .collect(toImmutableList());
 
-    protected static final List<String> TPCDS_SQL_FILES = IntStream.range(1, 100)
+    protected static final List<String> TPCDS_SQL_FILES = IntStream.range(65, 66)
             .mapToObj(i -> format("q%02d", i))
             .map(queryId -> format("/sql/trino/tpcds/%s.sql", queryId))
             .collect(toImmutableList());

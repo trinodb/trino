@@ -83,6 +83,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UnificationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -1044,6 +1045,16 @@ public class TracingMetadata
                 .setAttribute(TrinoAttributes.HANDLE, handle.functionHandle().toString());
         try (var _ = scopedSpan(span)) {
             return delegate.applyTableFunction(session, handle);
+        }
+    }
+
+    @Override
+    public Optional<UnificationResult<TableHandle>> unifyTables(Session session, TableHandle first, TableHandle second)
+    {
+        Span span = startSpan("unifyTables")
+                .setAttribute(TrinoAttributes.CATALOG, first.catalogHandle().getCatalogName().toString());
+        try (var _ = scopedSpan(span)) {
+            return delegate.unifyTables(session, first, second);
         }
     }
 

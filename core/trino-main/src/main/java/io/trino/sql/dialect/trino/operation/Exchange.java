@@ -31,6 +31,7 @@ import io.trino.sql.newir.Value;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -62,7 +63,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
 
 public class Exchange
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "exchange";
 
@@ -243,6 +244,32 @@ public class Exchange
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty exchange";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        List<Value> newInputs = new ArrayList<>(inputs);
+        newInputs.set(index, newArgument);
+        return new Exchange(
+                result.name(),
+                newInputs,
+                inputFieldSelectors.stream()
+                        .map(Region::getOnlyBlock)
+                        .collect(toImmutableList()),
+                partitioningBoundArguments.getOnlyBlock(),
+                partitioningHashSelector.getOnlyBlock(),
+                orderingSelector.getOnlyBlock(),
+                EXCHANGE_TYPE.getAttribute(attributes),
+                EXCHANGE_SCOPE.getAttribute(attributes),
+                PARTITIONING_HANDLE.getAttribute(attributes),
+                NULLABLE_VALUES.getAttribute(attributes),
+                REPLICATE_NULLS_AND_ANY.getAttribute(attributes),
+                Optional.ofNullable(BUCKET_TO_PARTITION.getAttribute(attributes)),
+                Optional.ofNullable(PARTITION_COUNT.getAttribute(attributes)),
+                Optional.ofNullable(SORT_ORDERS.getAttribute(attributes)),
+                ImmutableList.of());
     }
 
     @Override

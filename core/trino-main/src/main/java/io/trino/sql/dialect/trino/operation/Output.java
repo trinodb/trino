@@ -42,7 +42,7 @@ import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
 public final class Output
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "output";
 
@@ -123,6 +123,17 @@ public final class Output
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty output";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        return new Output(
+                result.name(),
+                newArgument,
+                fieldSelector.getOnlyBlock(),
+                OUTPUT_NAMES.getAttribute(attributes));
     }
 
     @Override

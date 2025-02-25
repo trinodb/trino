@@ -23,6 +23,7 @@ import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,7 +36,7 @@ import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static java.util.Objects.requireNonNull;
 
 public final class In
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "in";
 
@@ -101,6 +102,21 @@ public final class In
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "in :)";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        List<Value> newInputList = new ArrayList<>(inputList);
+        if (index >= 1 && index < 1 + inputList.size()) {
+            newInputList.set(index - 1, newArgument);
+        }
+        return new In(
+                result.name(),
+                index == 0 ? newArgument : input,
+                newInputList,
+                ImmutableList.of());
     }
 
     @Override

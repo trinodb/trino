@@ -27,10 +27,11 @@ import java.util.Objects;
 
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
+import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static java.util.Objects.requireNonNull;
 
 public final class Cast
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "cast";
 
@@ -82,6 +83,17 @@ public final class Cast
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "cast :)";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        return new Cast(
+                result.name(),
+                newArgument,
+                trinoType(result.type()),
+                ImmutableMap.of());
     }
 
     @Override

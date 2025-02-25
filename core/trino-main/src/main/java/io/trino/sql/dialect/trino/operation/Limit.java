@@ -43,7 +43,7 @@ import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
 public class Limit
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "limit";
 
@@ -134,15 +134,30 @@ public class Limit
         return attributes;
     }
 
-    public boolean isWithTies()
-    {
-        return SORT_ORDERS.getAttribute(attributes()) != null;
-    }
-
     @Override
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty limit";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        return new Limit(
+                result.name(),
+                newArgument,
+                orderingSelector.getOnlyBlock(),
+                Optional.ofNullable(SORT_ORDERS.getAttribute(attributes)),
+                LIMIT.getAttribute(attributes),
+                PARTIAL.getAttribute(attributes),
+                PRE_SORTED_INDEXES.getAttribute(attributes),
+                ImmutableMap.of());
+    }
+
+    public boolean isWithTies()
+    {
+        return SORT_ORDERS.getAttribute(attributes()) != null;
     }
 
     @Override

@@ -41,7 +41,7 @@ import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
 public class TopN
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "top_n";
 
@@ -114,6 +114,20 @@ public class TopN
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty top n";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        return new TopN(
+                result.name(),
+                newArgument,
+                orderingSelector.getOnlyBlock(),
+                SORT_ORDERS.getAttribute(attributes),
+                LIMIT.getAttribute(attributes),
+                TOP_N_STEP.getAttribute(attributes),
+                ImmutableMap.of());
     }
 
     @Override

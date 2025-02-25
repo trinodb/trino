@@ -61,6 +61,8 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.newir.FormatOptions;
+import io.trino.sql.newir.Program;
 import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.InputExtractor;
 import io.trino.sql.planner.LogicalPlanner;
@@ -74,6 +76,7 @@ import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
+import io.trino.sql.planner.optimizations.ctereuse.CteReuse;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Query;
@@ -148,6 +151,7 @@ public class SqlQueryExecution
     private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
     private final TaskDescriptorStorage taskDescriptorStorage;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
+    private final FormatOptions formatOptions;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
@@ -185,7 +189,8 @@ public class SqlQueryExecution
             SqlTaskManager coordinatorTaskManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
             EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
-            TaskDescriptorStorage taskDescriptorStorage)
+            TaskDescriptorStorage taskDescriptorStorage,
+            FormatOptions formatOptions)
     {
         try (SetThreadName _ = new SetThreadName("Query-" + stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
@@ -240,6 +245,7 @@ public class SqlQueryExecution
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "taskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
             this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
+            this.formatOptions = requireNonNull(formatOptions, "formatOptions is null");
         }
     }
 
@@ -502,6 +508,9 @@ public class SqlQueryExecution
                 tableStatsProvider);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
+
+        Optional<Program> optimizedProgram = CteReuse.reuseCommonSubqueries(plan, plannerContext, getSession(), formatOptions);
+        checkState(optimizedProgram.isEmpty());
 
         // fragment the plan
         SubPlan fragmentedPlan;
@@ -809,6 +818,7 @@ public class SqlQueryExecution
         private final ExchangeManagerRegistry exchangeManagerRegistry;
         private final EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory;
         private final TaskDescriptorStorage taskDescriptorStorage;
+        private final FormatOptions formatOptions;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -841,7 +851,8 @@ public class SqlQueryExecution
                 SqlTaskManager coordinatorTaskManager,
                 ExchangeManagerRegistry exchangeManagerRegistry,
                 EventDrivenTaskSourceFactory eventDrivenTaskSourceFactory,
-                TaskDescriptorStorage taskDescriptorStorage)
+                TaskDescriptorStorage taskDescriptorStorage,
+                FormatOptions formatOptions)
         {
             this.tracer = requireNonNull(tracer, "tracer is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -875,6 +886,7 @@ public class SqlQueryExecution
             this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
             this.eventDrivenTaskSourceFactory = requireNonNull(eventDrivenTaskSourceFactory, "eventDrivenTaskSourceFactory is null");
             this.taskDescriptorStorage = requireNonNull(taskDescriptorStorage, "taskDescriptorStorage is null");
+            this.formatOptions = requireNonNull(formatOptions, "formatOptions is null");
         }
 
         @Override
@@ -925,7 +937,8 @@ public class SqlQueryExecution
                     coordinatorTaskManager,
                     exchangeManagerRegistry,
                     eventDrivenTaskSourceFactory,
-                    taskDescriptorStorage);
+                    taskDescriptorStorage,
+                    formatOptions);
         }
     }
 }

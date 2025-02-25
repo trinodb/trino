@@ -22,6 +22,7 @@ import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -35,7 +36,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Call
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "call";
 
@@ -98,6 +99,19 @@ public final class Call
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "call :)";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        List<Value> newArguments = new ArrayList<>(arguments);
+        newArguments.set(index, newArgument);
+        return new Call(
+                result.name(),
+                newArguments,
+                RESOLVED_FUNCTION.getAttribute(attributes),
+                ImmutableList.of());
     }
 
     @Override

@@ -18,6 +18,7 @@ import io.trino.spi.TrinoException;
 
 import java.util.List;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.sql.newir.FormatOptions.INDENT;
 import static java.util.Objects.requireNonNull;
@@ -45,6 +46,15 @@ public record Region(List<Block> blocks)
     public static Region singleBlockRegion(Block block)
     {
         return new Region(ImmutableList.of(block));
+    }
+
+    public Block getOnlyBlock()
+    {
+        if (blocks().size() != 1) {
+            throw new TrinoException(IR_ERROR, "expected 1 block, actual: " + blocks.size());
+        }
+
+        return getOnlyElement(blocks());
     }
 
     public String print(int version, int indentLevel, FormatOptions formatOptions)

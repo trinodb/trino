@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
@@ -38,7 +40,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Lambda
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "lambda";
 
@@ -93,6 +95,15 @@ public final class Lambda
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "lambda :)";
+    }
+
+    @Override
+    public Operation withRegions(List<Region> newRegions)
+    {
+        checkArgument(newRegions.size() == 1, "regions lists size mismatch");
+        return new Lambda(
+                result.name(),
+                getOnlyElement(newRegions).getOnlyBlock());
     }
 
     @Override

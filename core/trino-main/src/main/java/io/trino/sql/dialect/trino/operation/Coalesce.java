@@ -23,6 +23,7 @@ import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,7 +35,7 @@ import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static java.util.Objects.requireNonNull;
 
 public final class Coalesce
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "coalesce";
 
@@ -97,6 +98,18 @@ public final class Coalesce
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "coalesce :)";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        List<Value> newOperands = new ArrayList<>(operands);
+        newOperands.set(index, newArgument);
+        return new Coalesce(
+                result.name(),
+                newOperands,
+                ImmutableList.of());
     }
 
     @Override

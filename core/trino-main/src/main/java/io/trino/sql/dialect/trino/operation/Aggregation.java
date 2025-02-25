@@ -29,6 +29,7 @@ import io.trino.sql.newir.Value;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
@@ -48,7 +49,7 @@ import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
 public class Aggregation
-        extends Operation
+        extends TrinoOperation
 {
     private static final String NAME = "aggregation";
 
@@ -180,6 +181,25 @@ public class Aggregation
     public String prettyPrint(int indentLevel, FormatOptions formatOptions)
     {
         return "pretty aggregation";
+    }
+
+    @Override
+    public Operation withArgument(Value newArgument, int index)
+    {
+        validateArgument(newArgument, index);
+        return new Aggregation(
+                result.name(),
+                newArgument,
+                aggregateCalls.getOnlyBlock(),
+                groupingKeysSelector.getOnlyBlock(),
+                hashSelector.getOnlyBlock(),
+                GROUPING_SETS_COUNT.getAttribute(attributes),
+                GLOBAL_GROUPING_SETS.getAttribute(attributes),
+                Optional.ofNullable(GROUP_ID_INDEX.getAttribute(attributes)).map(OptionalInt::of).orElse(OptionalInt.empty()),
+                PRE_GROUPED_INDEXES.getAttribute(attributes),
+                AGGREGATION_STEP.getAttribute(attributes),
+                INPUT_REDUCING.getAttribute(attributes),
+                ImmutableMap.of());
     }
 
     @Override

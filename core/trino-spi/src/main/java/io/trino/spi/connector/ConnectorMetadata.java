@@ -814,7 +814,7 @@ public interface ConnectorMetadata
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
      * </pre>
      * unless {@code retryMode} is set to {@code NO_RETRIES}.
-     *
+     * <p>
      * {@code refreshType} is a signal from the engine to the connector whether the MV refresh could be done incrementally or only fully, based on the plan.
      * The connector is not obligated to perform the refresh in the fashion prescribed by {@code refreshType}, this is merely a hint from the engine that the refresh could be append-only.
      */
@@ -1609,6 +1609,29 @@ public interface ConnectorMetadata
      * If the method returns a result, the returned table handle will be used in place of the table function invocation.
      */
     default Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Attempt to unify two ConnectorTableHandles.
+     * <p>
+     * Connectors can indicate whether they don't support table unification or that the action failed
+     * by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * </p>
+     * <b>Warning</b>: this is a temporary API, and it will be removed in the future. It is added only for the purpose
+     * of CTE reuse optimization until the connector-provided dialects and connector-provided optimizer rules are supported.
+     * No other functionality should depend on this API.
+     *
+     * <p>
+     * If the method returns a result, the returned table handle might be used in the unified query plan as a replacement for of both input table handles.
+     * The returned compensation constraints will be applied to the unified branches of the plan in order to restore the original table semantics.
+     * The returned table handle must expose all column handles necessary to support the compensation constraints.
+     * It is required that the returned table handle, combined with the returned compensation, will represent exactly the same semantics
+     * as the respective input table handle.
+     * </p>
+     */
+    default Optional<UnificationResult<ConnectorTableHandle>> unifyTables(ConnectorSession session, ConnectorTableHandle first, ConnectorTableHandle second)
     {
         return Optional.empty();
     }

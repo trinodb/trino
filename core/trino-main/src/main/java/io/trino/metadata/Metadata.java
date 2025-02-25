@@ -54,6 +54,7 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.connector.UnificationResult;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -568,6 +569,8 @@ public interface Metadata
             Map<String, ColumnHandle> assignments);
 
     Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle);
+
+    Optional<UnificationResult<TableHandle>> unifyTables(Session session, TableHandle first, TableHandle second);
 
     default void validateScan(Session session, TableHandle table) {}
 

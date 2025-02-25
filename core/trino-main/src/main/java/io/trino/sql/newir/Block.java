@@ -128,6 +128,11 @@ public record Block(Optional<String> name, List<Parameter> parameters, List<Oper
         return getTerminalOperation().result().type();
     }
 
+    public Block withLabel(String label)
+    {
+        return new Block(Optional.of(label), parameters, operations);
+    }
+
     public static class Builder
     {
         private final Optional<String> name;
