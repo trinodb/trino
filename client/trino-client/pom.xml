@@ -157,7 +157,20 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <executions>
-                    <!-- Order is important - we want to attach JDK 11 to the reactor -->
+                    <execution>
+                        <id>compile-java-11</id>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <phase>compile</phase>
+                        <configuration>
+                            <multiReleaseOutput>true</multiReleaseOutput>
+                            <release>11</release>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java</compileSourceRoot>
+                            </compileSourceRoots>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>compile-java-22</id>
                         <goals>
