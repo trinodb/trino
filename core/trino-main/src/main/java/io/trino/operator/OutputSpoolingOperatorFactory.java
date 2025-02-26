@@ -20,7 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperationTimer.OperationTiming;
-import io.trino.operator.OutputSpoolingController.MetricSnapshot;
+import io.trino.operator.OperatorSpoolingController.MetricSnapshot;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.SpooledBlock;
@@ -53,7 +53,7 @@ import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.client.spooling.DataAttribute.EXPIRES_AT;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.SEGMENT_SIZE;
-import static io.trino.operator.OutputSpoolingController.Mode.SPOOL;
+import static io.trino.operator.OperatorSpoolingController.Mode.SPOOL;
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.FINISHED;
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.HAS_LAST_OUTPUT;
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.HAS_OUTPUT;
@@ -142,7 +142,7 @@ public class OutputSpoolingOperatorFactory
     static class OutputSpoolingOperator
             implements Operator
     {
-        private final OutputSpoolingController controller;
+        private final OperatorSpoolingController controller;
         private final ZoneId clientZoneId;
 
         enum State
@@ -170,7 +170,7 @@ public class OutputSpoolingOperatorFactory
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.clientZoneId = operatorContext.getSession().getTimeZoneKey().getZoneId();
-            this.controller = new OutputSpoolingController(
+            this.controller = new OperatorSpoolingController(
                     isInliningEnabled(operatorContext.getSession()),
                     getInliningMaxRows(operatorContext.getSession()),
                     getInliningMaxSize(operatorContext.getSession()).toBytes(),
@@ -375,7 +375,7 @@ public class OutputSpoolingOperatorFactory
 
     private record OutputSpoolingInfoSupplier(
             OperationTiming spoolingTiming,
-            OutputSpoolingController controller,
+            OperatorSpoolingController controller,
             AtomicLong encodedBytes)
             implements Supplier<OutputSpoolingInfo>
     {

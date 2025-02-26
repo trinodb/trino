@@ -13,21 +13,21 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.OutputSpoolingController.MetricSnapshot;
+import io.trino.operator.OperatorSpoolingController.MetricSnapshot;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.operator.OutputSpoolingController.Mode.BUFFER;
-import static io.trino.operator.OutputSpoolingController.Mode.INLINE;
-import static io.trino.operator.OutputSpoolingController.Mode.SPOOL;
+import static io.trino.operator.OperatorSpoolingController.Mode.BUFFER;
+import static io.trino.operator.OperatorSpoolingController.Mode.INLINE;
+import static io.trino.operator.OperatorSpoolingController.Mode.SPOOL;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-class TestOutputSpoolingController
+class TestOperatorSpoolingController
 {
     @Test
     public void testInlineFirstRowsUntilThresholdThenSpooling()
     {
         var assertion = new OutputSpoolingControllerAssertions(
-                new OutputSpoolingController(true, 100, 1000, 900, 16000));
+                new OperatorSpoolingController(true, 100, 1000, 900, 16000));
 
         assertion
                 .verifyNextMode(10, 100, INLINE)
@@ -51,7 +51,7 @@ class TestOutputSpoolingController
     public void testSpoolingTargetSize()
     {
         var assertion = new OutputSpoolingControllerAssertions(
-                new OutputSpoolingController(false, 0, 0, 512, 2048));
+                new OperatorSpoolingController(false, 0, 0, 512, 2048));
 
         assertion
                 .verifyNextMode(100, 511, BUFFER) // still under the initial segment target
@@ -79,7 +79,7 @@ class TestOutputSpoolingController
     public void testSpoolingEncoderEfficiency()
     {
         var assertion = new OutputSpoolingControllerAssertions(
-                new OutputSpoolingController(false, 0, 0, 32, 100));
+                new OperatorSpoolingController(false, 0, 0, 32, 100));
 
         assertion
                 .verifyNextMode(1000, 31, BUFFER)
@@ -103,9 +103,9 @@ class TestOutputSpoolingController
                 .verifySpooled(4, 2655, 395);
     }
 
-    private record OutputSpoolingControllerAssertions(OutputSpoolingController controller)
+    private record OutputSpoolingControllerAssertions(OperatorSpoolingController controller)
     {
-        public OutputSpoolingControllerAssertions verifyNextMode(int positionCount, int rawSizeInBytes, OutputSpoolingController.Mode expected)
+        public OutputSpoolingControllerAssertions verifyNextMode(int positionCount, int rawSizeInBytes, OperatorSpoolingController.Mode expected)
         {
             assertThat(controller.nextMode(positionCount, rawSizeInBytes))
                     .isEqualTo(expected);
