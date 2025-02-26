@@ -13,7 +13,12 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.testing.sql.TestTable;
+import org.junit.jupiter.api.Test;
+
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static java.util.Map.entry;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergOrcSystemTables
         extends BaseIcebergSystemTables
@@ -21,5 +26,18 @@ public class TestIcebergOrcSystemTables
     public TestIcebergOrcSystemTables()
     {
         super(ORC);
+    }
+
+    @Test
+    public void testPropertiesTable()
+    {
+        try (TestTable table = newTrinoTable("test_properties_table", "AS SELECT 1 x")) {
+            assertThat(getTableProperties(table.getName()))
+                    .contains(
+                            entry("write.format.default", "ORC"),
+                            entry("write.orc.compression-codec", "zstd"),
+                            // this is incorrectly persisted in Iceberg: https://github.com/trinodb/trino/issues/20401
+                            entry("write.parquet.compression-codec", "zstd"));
+        }
     }
 }
