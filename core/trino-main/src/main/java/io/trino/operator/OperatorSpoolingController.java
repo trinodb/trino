@@ -16,12 +16,12 @@ package io.trino.operator;
 import io.trino.spi.Page;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.operator.OutputSpoolingController.Mode.BUFFER;
-import static io.trino.operator.OutputSpoolingController.Mode.INLINE;
-import static io.trino.operator.OutputSpoolingController.Mode.SPOOL;
+import static io.trino.operator.OperatorSpoolingController.Mode.BUFFER;
+import static io.trino.operator.OperatorSpoolingController.Mode.INLINE;
+import static io.trino.operator.OperatorSpoolingController.Mode.SPOOL;
 import static java.lang.Math.clamp;
 
-public class OutputSpoolingController
+public class OperatorSpoolingController
 {
     public enum Mode
     {
@@ -42,7 +42,7 @@ public class OutputSpoolingController
 
     private Mode currentMode;
 
-    public OutputSpoolingController(boolean inlineInitialRows, long maximumInlinedPositions, long maximumInlinedSize, long initialSpooledSegmentTarget, long maximumSpooledSegmentTarget)
+    public OperatorSpoolingController(boolean inlineInitialRows, long maximumInlinedPositions, long maximumInlinedSize, long initialSpooledSegmentTarget, long maximumSpooledSegmentTarget)
     {
         this.currentSpooledSegmentTarget = initialSpooledSegmentTarget;
         this.maximumSpooledSegmentTarget = maximumSpooledSegmentTarget;
