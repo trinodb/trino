@@ -3335,7 +3335,6 @@ public class TestAnalyzer
 
         Field firstField = visibleFields.getFirst();
         Set<Analysis.SourceColumn> firstFieldSources = analysis.getSourceColumns(firstField);
-        ImmutableList<Analysis.SourceColumn> sourceColumns = ImmutableList.copyOf(firstFieldSources);
         assertThat(firstField.getName()).isEqualTo(Optional.of("c"));
         assertThat(firstFieldSources.size()).isEqualTo(3);
         assertThat(firstFieldSources.stream()
