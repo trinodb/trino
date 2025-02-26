@@ -110,19 +110,19 @@ public class OpenAiClient
         catch (RuntimeException e) {
             span.setStatus(ERROR, e.getMessage());
             span.recordException(e);
-            throw new TrinoException(AI_ERROR, "Failed to execute AI request", e);
+            throw new TrinoException(AI_ERROR, "Request from AI provider at " + uri + " for model " + model + " failed", e);
         }
         finally {
             span.end();
         }
 
         if (response.choices().isEmpty()) {
-            throw new TrinoException(AI_ERROR, "No response from AI model");
+            throw new TrinoException(AI_ERROR, "No response from AI provider at " + uri + " for model " + model);
         }
         ChatResponse.Choice message = response.choices().getFirst();
 
         if (message.message().refusal() != null) {
-            throw new TrinoException(AI_ERROR, "AI model refused to generate response: " + message.message().refusal());
+            throw new TrinoException(AI_ERROR, "AI provider at " + uri + " for model + " + model + " refused to generate response: " + message.message().refusal());
         }
 
         return message.message().content();

@@ -104,14 +104,14 @@ public class AnthropicClient
         catch (RuntimeException e) {
             span.setStatus(ERROR, e.getMessage());
             span.recordException(e);
-            throw new TrinoException(AI_ERROR, "Failed to execute AI request", e);
+            throw new TrinoException(AI_ERROR, "Request from AI provider at " + uri + " for model " + model + " failed", e);
         }
         finally {
             span.end();
         }
 
         if (response.content().isEmpty()) {
-            throw new TrinoException(AI_ERROR, "No response from AI model");
+            throw new TrinoException(AI_ERROR, "No response from AI provider at " + uri + " for model " + model);
         }
         return response.content().getFirst().text();
     }
