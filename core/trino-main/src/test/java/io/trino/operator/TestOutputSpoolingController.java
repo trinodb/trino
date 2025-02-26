@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.trino.operator.OutputSpoolingController.MetricSnapshot;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.OutputSpoolingController.Mode.BUFFER;
@@ -85,7 +86,6 @@ class TestOutputSpoolingController
                 .verifyBuffered(1000, 31)
                 .verifyNextMode(1000, 31, SPOOL)
                 .verifySpooled(1, 2000, 62)
-                .recordEncodedSize(31)
                 .verifyEmptyBuffer()
                 .verifySpooledSegmentTarget(64)
                 .verifyNextMode(100, 80, SPOOL)
@@ -93,7 +93,6 @@ class TestOutputSpoolingController
                 .verifySpooled(2, 2100, 142)
                 .verifyBuffered(100, 47)
                 .verifyNextMode(54, 1, BUFFER)
-                .recordEncodedSize(121)
                 .verifySpooledSegmentTarget(100)
                 .verifyNextMode(100, 80, SPOOL)
                 .verifyNextMode(100, 43, BUFFER)
@@ -116,15 +115,16 @@ class TestOutputSpoolingController
 
         private OutputSpoolingControllerAssertions verifyInlined(int inlinedPages, int inlinedPositions, int inlinedRawBytes)
         {
-            assertThat(controller.getInlinedPages())
+            MetricSnapshot inlined = controller.inlinedMetrics();
+            assertThat(inlined.pages())
                     .describedAs("Inlined pages")
                     .isEqualTo(inlinedPages);
 
-            assertThat(controller.getInlinedPositions())
+            assertThat(inlined.positions())
                     .describedAs("Inlined positions")
                     .isEqualTo(inlinedPositions);
 
-            assertThat(controller.getInlinedRawBytes())
+            assertThat(inlined.size())
                     .describedAs("Inlined raw bytes")
                     .isEqualTo(inlinedRawBytes);
 
@@ -133,15 +133,16 @@ class TestOutputSpoolingController
 
         private OutputSpoolingControllerAssertions verifySpooled(int spooledPages, int spooledPositions, int spooledRawBytes)
         {
-            assertThat(controller.getSpooledPages())
+            MetricSnapshot spooled = controller.spooledMetrics();
+            assertThat(spooled.pages())
                     .describedAs("Spooled pages")
                     .isEqualTo(spooledPages);
 
-            assertThat(controller.getSpooledPositions())
+            assertThat(spooled.positions())
                     .describedAs("Spooled spooledPositions")
                     .isEqualTo(spooledPositions);
 
-            assertThat(controller.getSpooledRawBytes())
+            assertThat(spooled.size())
                     .describedAs("Spooled raw bytes")
                     .isEqualTo(spooledRawBytes);
 
@@ -150,10 +151,11 @@ class TestOutputSpoolingController
 
         private OutputSpoolingControllerAssertions verifyBuffered(int bufferedPositions, int bufferSize)
         {
-            assertThat(controller.getBufferedPositions())
+            MetricSnapshot buffered = controller.bufferedMetrics();
+            assertThat(buffered.positions())
                     .describedAs("Buffered positions")
                     .isEqualTo(bufferedPositions);
-            assertThat(controller.getBufferedRawSize())
+            assertThat(buffered.size())
                     .describedAs("Buffered size")
                     .isEqualTo(bufferSize);
 
@@ -166,12 +168,6 @@ class TestOutputSpoolingController
                     .describedAs("Spooled segment target")
                     .isEqualTo(size);
 
-            return this;
-        }
-
-        private OutputSpoolingControllerAssertions recordEncodedSize(long encodedSize)
-        {
-            controller.recordEncoded(encodedSize);
             return this;
         }
 
