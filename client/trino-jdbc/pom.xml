@@ -382,7 +382,17 @@
                         <propertiesEncoding>ISO-8859-1</propertiesEncoding>
                     </configuration>
                 </plugin>
-
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <configuration>
+                        <archive>
+                            <manifestEntries combine.children="append">
+                                <Multi-Release>true</Multi-Release>
+                            </manifestEntries>
+                        </archive>
+                    </configuration>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-enforcer-plugin</artifactId>
@@ -509,7 +519,6 @@
                                         <exclude>META-INF/proguard/**</exclude>
                                         <exclude>LICENSE</exclude>
                                         <exclude>META-INF/**.kotlin_module</exclude>
-                                        <exclude>META-INF/versions/**</exclude>
                                         <exclude>META-INF/NOTICE**</exclude>
                                         <exclude>META-INF/*-NOTICE</exclude>
                                         <exclude>META-INF/*-LICENSE</exclude>

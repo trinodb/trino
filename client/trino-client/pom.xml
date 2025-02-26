@@ -75,6 +75,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>aircompressor-v3</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
             <!-- JDK11 support dropped by version 1.9+ -->
             <version>1.8</version>
@@ -89,12 +94,6 @@
             <groupId>org.gaul</groupId>
             <artifactId>modernizer-maven-annotations</artifactId>
             <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>aircompressor-v3</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -154,6 +153,38 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <!-- Order is important - we want to attach JDK 11 to the reactor -->
+                    <execution>
+                        <id>compile-java-22</id>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <phase>compile</phase>
+                        <configuration>
+                            <multiReleaseOutput>true</multiReleaseOutput>
+                            <release>22</release>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/main/java22</compileSourceRoot>
+                            </compileSourceRoots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries combine.children="append">
+                            <Multi-Release>true</Multi-Release>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>

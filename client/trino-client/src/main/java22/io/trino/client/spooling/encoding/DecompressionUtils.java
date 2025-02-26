@@ -13,8 +13,8 @@
  */
 package io.trino.client.spooling.encoding;
 
-import io.airlift.compress.lz4.Lz4Decompressor;
-import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.compress.v3.lz4.Lz4Decompressor;
+import io.airlift.compress.v3.zstd.ZstdDecompressor;
 
 public class DecompressionUtils
 {
@@ -22,13 +22,13 @@ public class DecompressionUtils
 
     public static int decompressLZ4(byte[] input, byte[] output)
     {
-        Lz4Decompressor decompressor = new Lz4Decompressor();
+        Lz4Decompressor decompressor = Lz4Decompressor.create();
         return decompressor.decompress(input, 0, input.length, output, 0, output.length);
     }
 
     public static int decompressZstd(byte[] input, byte[] output)
     {
-        ZstdDecompressor decompressor = new ZstdDecompressor();
+        ZstdDecompressor decompressor = ZstdDecompressor.create();
         return decompressor.decompress(input, 0, input.length, output, 0, output.length);
     }
 }

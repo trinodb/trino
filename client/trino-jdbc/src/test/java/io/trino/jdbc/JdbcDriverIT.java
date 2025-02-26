@@ -75,6 +75,9 @@ public class JdbcDriverIT
 
     public static boolean isExpectedFile(String filename)
     {
-        return MANIFEST_FILES.contains(filename) || filename.startsWith("io/trino/jdbc") || filename.startsWith("aircompressor/");
+        return MANIFEST_FILES.contains(filename)
+                || filename.startsWith("io/trino/jdbc")
+                || filename.startsWith("aircompressor/")
+                || filename.startsWith("META-INF/versions/"); // Multi-Release JAR classes
     }
 }
