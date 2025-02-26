@@ -358,14 +358,6 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
-    {
-        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
-            delegate.addColumn(session, tableHandle, column);
-        }
-    }
-
-    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
