@@ -823,17 +823,24 @@ public abstract class BaseIcebergSystemTables
     {
         try (TestTable table = newTrinoTable("test_properties", "(x BIGINT,y DOUBLE) WITH (sorted_by = ARRAY['y'])")) {
             Table icebergTable = loadTable(table.getName());
-            assertThat(getTableProperties(table.getName()))
-                    .containsExactly(
-                            entry("format", "iceberg/" + format.name()),
-                            entry("provider", "iceberg"),
-                            entry("current-snapshot-id", Long.toString(icebergTable.currentSnapshot().snapshotId())),
-                            entry("location", icebergTable.location()),
-                            entry("format-version", "2"),
-                            entry("sort-order", "y ASC NULLS FIRST"),
-                            entry("write.format.default", format.name()),
-                            entry("write.parquet.compression-codec", "zstd"),
-                            entry("commit.retry.num-retries", "4"));
+            Map<String, String> actualProperties = getTableProperties(table.getName());
+            if (format == PARQUET) {
+                assertThat(actualProperties).hasSize(9);
+            }
+            else {
+                assertThat(actualProperties).hasSize(10);
+                assertThat(actualProperties).contains(entry("write.%s.compression-codec".formatted(format.name().toLowerCase(ENGLISH)), "zstd"));
+            }
+            assertThat(actualProperties).contains(
+                    entry("format", "iceberg/" + format.name()),
+                    entry("provider", "iceberg"),
+                    entry("current-snapshot-id", Long.toString(icebergTable.currentSnapshot().snapshotId())),
+                    entry("location", icebergTable.location()),
+                    entry("format-version", "2"),
+                    entry("sort-order", "y ASC NULLS FIRST"),
+                    entry("write.format.default", format.name()),
+                    entry("write.parquet.compression-codec", "zstd"),
+                    entry("commit.retry.num-retries", "4"));
         }
     }
 

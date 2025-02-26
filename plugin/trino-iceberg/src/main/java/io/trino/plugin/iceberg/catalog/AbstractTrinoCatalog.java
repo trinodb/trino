@@ -308,7 +308,7 @@ public abstract class AbstractTrinoCatalog
         Schema schema = schemaFromMetadata(columns);
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(materializedViewProperties));
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(materializedViewProperties));
-        Map<String, String> properties = createTableProperties(new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty()), _ -> false);
+        Map<String, String> properties = createTableProperties(session, new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty()), _ -> false);
 
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, tableLocation, properties);
 

@@ -160,6 +160,7 @@ import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -8494,17 +8495,66 @@ public abstract class BaseIcebergConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
         String tableName = "test_table_with_compression_" + compressionCodec;
-        String createTableSql = format("CREATE TABLE %s AS TABLE tpch.tiny.nation", tableName);
-        // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-        if ((format == IcebergFileFormat.PARQUET || format == AVRO) && compressionCodec == HiveCompressionCodec.LZ4) {
+        String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation WITH NO DATA", tableName);
+        if (format == AVRO && compressionCodec == HiveCompressionCodec.LZ4) {
             assertTrinoExceptionThrownBy(() -> computeActual(session, createTableSql))
                     .hasMessage("Compression codec LZ4 not supported for " + format.humanName());
             return;
         }
-        assertUpdate(session, createTableSql, 25);
+        assertUpdate(session, createTableSql, 0);
+        verifyCodecInIcebergTableProperties(tableName, compressionCodec);
+        String insertIntoSql = format("INSERT INTO %s SELECT * FROM tpch.tiny.nation", tableName);
+        // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+        if (format == IcebergFileFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
+            assertTrinoExceptionThrownBy(() -> computeActual(session, insertIntoSql))
+                    .hasMessage("Compression codec LZ4 not supported for " + format.humanName());
+            return;
+        }
+        assertUpdate(session, insertIntoSql, 25);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    protected void verifyCodecInIcebergTableProperties(String tableName, HiveCompressionCodec codec)
+    {
+        assertThat(tableName).isNotNull();
+        Optional<String> codecName = switch (format) {
+            case AVRO -> switch (codec) {
+                case NONE -> Optional.of("uncompressed");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.empty(); // codec unsupported by Iceberg
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("gzip");
+            };
+            case ORC -> switch (codec) {
+                case NONE -> Optional.of("none");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.of("lz4");
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("zlib");
+            };
+            case PARQUET -> switch (codec) {
+                case NONE -> Optional.of("uncompressed");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.of("lz4");
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("gzip");
+            };
+        };
+        Map<String, String> actual = getTableProperties(tableName);
+        assertThat(actual).contains(entry("write.format.default", format.name()));
+        codecName.ifPresent(name -> assertThat(actual).contains(entry("write.%s.compression-codec".formatted(format.name().toLowerCase(ENGLISH)), name)));
+        if (format != PARQUET) {
+            // this is incorrectly persisted in Iceberg: https://github.com/trinodb/trino/issues/20401
+            assertThat(actual).contains(entry("write.parquet.compression-codec", "zstd"));
+        }
+    }
+
+    private Map<String, String> getTableProperties(String tableName)
+    {
+        return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (String) row.getField(0), row -> (String) row.getField(1)));
     }
 
     @Test
