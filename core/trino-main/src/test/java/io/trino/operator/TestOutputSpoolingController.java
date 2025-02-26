@@ -107,7 +107,7 @@ class TestOutputSpoolingController
     {
         public OutputSpoolingControllerAssertions verifyNextMode(int positionCount, int rawSizeInBytes, OutputSpoolingController.Mode expected)
         {
-            assertThat(controller.getNextMode(positionCount, rawSizeInBytes))
+            assertThat(controller.nextMode(positionCount, rawSizeInBytes))
                     .isEqualTo(expected);
 
             return this;

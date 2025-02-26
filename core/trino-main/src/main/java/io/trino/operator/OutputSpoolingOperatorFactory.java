@@ -204,7 +204,7 @@ public class OutputSpoolingOperatorFactory
             checkState(needsInput(), "Operator is already finishing");
             requireNonNull(page, "page is null");
 
-            outputPage = switch (controller.getNextMode(page)) {
+            outputPage = switch (controller.nextMode(page)) {
                 case SPOOL -> {
                     buffer.add(page);
                     yield outputBuffer(false);
