@@ -3266,6 +3266,98 @@ class StatementAnalyzer
         }
 
         @Override
+        protected Scope visitUnion(Union node, Optional<Scope> scope)
+        {
+            List<Scope> scopes = node.getRelations().stream()
+                    .map(relation -> process(relation, scope))
+                    .collect(toImmutableList());
+
+            List<RelationType> childrenTypes = scopes.stream()
+                    .map(Scope::getRelationType)
+                    .map(RelationType::withOnlyVisibleFields)
+                    .collect(toImmutableList());
+
+            Type[] outputFieldTypes = childrenTypes.getFirst().getVisibleFields().stream()
+                    .map(Field::getType)
+                    .toArray(Type[]::new);
+
+            for (RelationType relationType : childrenTypes) {
+                int outputFieldSize = outputFieldTypes.length;
+                int descFieldSize = relationType.getVisibleFields().size();
+                if (outputFieldSize != descFieldSize) {
+                    throw semanticException(
+                            TYPE_MISMATCH,
+                            node,
+                            "UNION query has different number of fields: %d, %d",
+                            outputFieldSize,
+                            descFieldSize);
+                }
+                for (int i = 0; i < descFieldSize; i++) {
+                    Type descFieldType = relationType.getFieldByIndex(i).getType();
+                    Optional<Type> commonSuperType = typeCoercion.getCommonSuperType(outputFieldTypes[i], descFieldType);
+                    if (commonSuperType.isEmpty()) {
+                        throw semanticException(
+                                TYPE_MISMATCH,
+                                node,
+                                "column %d in UNION query has incompatible types: %s, %s",
+                                i + 1,
+                                outputFieldTypes[i].getDisplayName(),
+                                descFieldType.getDisplayName());
+                    }
+                    outputFieldTypes[i] = commonSuperType.get();
+                }
+            }
+
+            if (node.isDistinct()) {
+                for (Type type : outputFieldTypes) {
+                    if (!type.isComparable()) {
+                        throw semanticException(
+                                TYPE_MISMATCH,
+                                node,
+                                "Type %s is not comparable and therefore cannot be used in UNION DISTINCT",
+                                type);
+                    }
+                }
+            }
+
+            Field[] outputDescriptorFields = new Field[outputFieldTypes.length];
+            RelationType firstDescriptor = childrenTypes.getFirst();
+            for (int i = 0; i < outputFieldTypes.length; i++) {
+                Field oldField = firstDescriptor.getFieldByIndex(i);
+                outputDescriptorFields[i] = new Field(
+                        oldField.getRelationAlias(),
+                        oldField.getName(),
+                        outputFieldTypes[i],
+                        oldField.isHidden(),
+                        oldField.getOriginTable(),
+                        oldField.getOriginColumnName(),
+                        oldField.isAliased());
+
+                int index = i;
+                Set<SourceColumn> sourceColumns = scopes.stream()
+                        .map(subqueryScope -> subqueryScope.getRelationType().getFieldByIndex(index))
+                        .flatMap(field -> analysis.getSourceColumns(field).stream())
+                        .collect(toImmutableSet());
+                analysis.addSourceColumns(outputDescriptorFields[index], sourceColumns);
+            }
+
+            for (int i = 0; i < node.getRelations().size(); i++) {
+                Relation relation = node.getRelations().get(i);
+                RelationType relationType = childrenTypes.get(i);
+                for (int j = 0; j < relationType.getVisibleFields().size(); j++) {
+                    Type outputFieldType = outputFieldTypes[j];
+                    Type descFieldType = relationType.getFieldByIndex(j).getType();
+                    if (!outputFieldType.equals(descFieldType)) {
+                        analysis.addRelationCoercion(relation, outputFieldTypes);
+                        break;
+                    }
+                }
+            }
+
+            return createAndAssignScope(node, scope, outputDescriptorFields);
+        }
+
+        @Override
         protected Scope visitJoin(Join node, Optional<Scope> scope)
         {
             JoinCriteria criteria = node.getCriteria().orElse(null);
