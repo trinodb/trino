@@ -992,12 +992,11 @@ public class LocalExecutionPlanner
                     .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
 
             Map<Symbol, Integer> spooledLayout = layoutUnionWithSpooledMetadata(operation.layout);
-            QueryDataEncoder queryDataEncoder = encoderFactory.create(session, spooledOutputLayout(node, operation.layout));
             OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     spooledLayout,
-                    queryDataEncoder,
+                    () -> encoderFactory.create(session, spooledOutputLayout(node, operation.layout)),
                     spoolingManager.orElseThrow());
 
             return new PhysicalOperation(outputSpoolingOperatorFactory, spooledLayout, operation);

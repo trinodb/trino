@@ -23,4 +23,6 @@ import java.util.function.Consumer;
 public interface QueryDataProducer
 {
     QueryData produce(ExternalUriInfo uriInfo, Session session, QueryResultRows rows, Consumer<TrinoException> throwableConsumer);
+
+    void close();
 }

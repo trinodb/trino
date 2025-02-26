@@ -32,6 +32,7 @@ import java.net.URI;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
 import static io.trino.client.spooling.DataAttribute.ROW_OFFSET;
 import static io.trino.client.spooling.Segment.inlined;
@@ -43,6 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class SpoolingQueryDataProducer
         implements QueryDataProducer
 {
+    private boolean closed;
     private final QueryDataEncoder.Factory encoderFactory;
     private QueryDataEncoder encoder;
 
@@ -60,6 +62,7 @@ public class SpoolingQueryDataProducer
             return null;
         }
 
+        verify(!closed, "SpoolingQueryDataProducer is already closed");
         EncodedQueryData.Builder builder = EncodedQueryData.builder(encoderFactory.encoding());
         UriBuilder uriBuilder = spooledSegmentUriBuilder(uriInfo);
         if (encoder == null) {
@@ -104,6 +107,21 @@ public class SpoolingQueryDataProducer
         }
 
         return builder.build();
+    }
+
+    @Override
+    public synchronized void close()
+    {
+        if (closed) {
+            return;
+        }
+
+        // For empty results encoder will never be created
+        if (encoder != null) {
+            encoder.close();
+        }
+        encoder = null;
+        closed = true;
     }
 
     private URI buildSegmentDownloadURI(UriBuilder builder, Slice identifier)

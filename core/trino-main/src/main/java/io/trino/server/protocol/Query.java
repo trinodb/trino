@@ -29,6 +29,7 @@ import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.Column;
 import io.trino.client.FailureInfo;
+import io.trino.client.QueryData;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.exchange.ExchangeDataSource;
@@ -282,6 +283,7 @@ class Query
     public synchronized void dispose()
     {
         exchangeDataSource.close();
+        queryDataProducer.close();
         lastResult = null;
     }
 
@@ -329,6 +331,7 @@ class Query
         synchronized (this) {
             if (!resultsConsumed && exchangeDataSource.isFinished()) {
                 queryManager.resultsConsumed(queryId);
+                queryDataProducer.close();
             }
         }
     }
@@ -448,6 +451,11 @@ class Query
             resultRows = empty();
         }
 
+        QueryData queryData = queryDataProducer.produce(externalUriInfo, session, resultRows, this::handleSerializationException);
+        if (deserializer == null) {
+            queryDataProducer.close(); // Close when there are no more pages
+        }
+
         if ((queryInfo.updateType() != null) && updateCount.isEmpty()) {
             // grab the update count for non-queries
             updateCount = resultRows.getUpdateCount();
@@ -456,6 +464,7 @@ class Query
         if (isStarted && (queryInfo.outputStage().isEmpty() || exchangeDataSource.isFinished())) {
             queryManager.resultsConsumed(queryId);
             resultsConsumed = true;
+            queryDataProducer.close();
             // update query since the query might have been transitioned to the FINISHED state
             queryInfo = queryManager.getResultQueryInfo(queryId);
         }
@@ -474,6 +483,7 @@ class Query
             nextToken = OptionalLong.empty();
             // the client is not coming back, make sure the exchange is closed
             exchangeDataSource.close();
+            queryDataProducer.close();
         }
 
         URI nextResultsUri = null;
@@ -517,7 +527,7 @@ class Query
                 partialCancelUri,
                 nextResultsUri,
                 resultRows.getOptionalColumns(),
-                queryDataProducer.produce(externalUriInfo, session, resultRows, this::handleSerializationException),
+                queryData,
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
                 mappedCopy(queryInfo.warnings(), ProtocolUtil::toClientWarning),
@@ -635,6 +645,7 @@ class Query
         synchronized (this) {
             if (queryInfo.state() == FAILED || !exchangeDataSource.isFinished()) {
                 exchangeDataSource.close();
+                queryDataProducer.close();
             }
         }
     }
