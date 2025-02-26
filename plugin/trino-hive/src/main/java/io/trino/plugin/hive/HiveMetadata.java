@@ -76,6 +76,7 @@ import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -1500,8 +1501,16 @@ public class HiveMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
+        if (position instanceof ColumnPosition.First) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+        }
+        if (position instanceof ColumnPosition.After) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+        }
+        verify(position instanceof ColumnPosition.Last, "ColumnPosition must be instance of Last");
+
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         failIfAvroSchemaIsSet(handle);
 
