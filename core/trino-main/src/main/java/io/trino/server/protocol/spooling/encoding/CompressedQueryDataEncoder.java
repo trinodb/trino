@@ -59,6 +59,12 @@ public abstract class CompressedQueryDataEncoder
                 .build();
     }
 
+    @Override
+    public void close()
+    {
+        delegate.close();
+    }
+
     protected abstract int compress(byte[] buffer, int uncompressedSize, OutputStream output)
             throws IOException;
 
