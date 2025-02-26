@@ -23,7 +23,6 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
@@ -113,18 +112,24 @@ public final class JsonResponse<T>
         try (Response response = client.newCall(request).execute()) {
             ResponseBody responseBody = requireNonNull(response.body());
             if (isJson(responseBody.contentType())) {
-                T value = null;
-                IllegalArgumentException exception = null;
                 MaterializingInputStream stream = new MaterializingInputStream(responseBody.byteStream(), 8 * 1024);
-                try (InputStream ignored = stream) {
+                try {
                     // Parse from input stream, response is either of unknown size or too large to materialize.
                     // 8K of the response body will be available if parsing fails.
-                    value = codec.fromJson(stream);
+                    T value = codec.fromJson(stream);
+                    return new JsonResponse<>(response.code(), response.headers(), stream.getHeadString(), value, null);
                 }
                 catch (JsonProcessingException e) {
-                    exception = new IllegalArgumentException(format("Unable to create %s from JSON response:\n[%s]", codec.getType(), stream.getHeadString()), e);
+                    return new JsonResponse<>(
+                            response.code(),
+                            response.headers(),
+                            stream.getHeadString(),
+                            null,
+                            new IllegalArgumentException(format("Unable to create %s from JSON response:\n[%s]", codec.getType(), stream.getHeadString()), e));
                 }
-                return new JsonResponse<>(response.code(), response.headers(), stream.getHeadString(), value, exception);
+                finally {
+                    stream.close();
+                }
             }
             return new JsonResponse<>(response.code(), response.headers(), responseBody.string());
         }

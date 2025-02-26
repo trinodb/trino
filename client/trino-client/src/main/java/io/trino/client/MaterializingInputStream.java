@@ -24,7 +24,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 class MaterializingInputStream
         extends FilterInputStream
 {
-    private final byte[] head;
+    private byte[] head;
     private int remaining;
     private int currentOffset;
 
@@ -78,6 +78,9 @@ class MaterializingInputStream
 
     public String getHeadString()
     {
+        if (head == null) {
+            return "<empty>";
+        }
         return new String(head, 0, currentOffset, UTF_8) + (remaining > 0 ? format("... [" + bytesOmitted(remaining) + "]", remaining) : "");
     }
 
@@ -87,5 +90,13 @@ class MaterializingInputStream
             return "1 more byte";
         }
         return format("%d more bytes", bytes);
+    }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        super.close();
+        head = null;
     }
 }
