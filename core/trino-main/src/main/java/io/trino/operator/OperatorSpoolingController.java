@@ -17,7 +17,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.operator.SpoolingController.Mode.BUFFER;
 import static io.trino.operator.SpoolingController.Mode.INLINE;
 import static io.trino.operator.SpoolingController.Mode.SPOOL;
-import static java.lang.Math.clamp;
+import static java.lang.Math.min;
 
 public class OperatorSpoolingController
         implements SpoolingController
@@ -86,7 +86,7 @@ public class OperatorSpoolingController
                 MetricSnapshot snapshot = buffered.snapshot();
                 buffered.reset();
                 spooled.recordPage(positions + snapshot.positions(), size + snapshot.size());
-                currentSpooledSegmentTarget = clamp(currentSpooledSegmentTarget * 2, currentSpooledSegmentTarget, maximumSpooledSegmentTarget);
+                currentSpooledSegmentTarget = min(currentSpooledSegmentTarget * 2, maximumSpooledSegmentTarget);
             }
         }
         return currentMode;
