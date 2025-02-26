@@ -27,6 +27,8 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.hive.formats.avro.AvroCompressionKind;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
@@ -121,6 +123,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergTableProperties.DATA_LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROPERTY;
@@ -174,6 +177,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
@@ -182,7 +186,9 @@ import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED;
 import static org.apache.iceberg.TableProperties.OBJECT_STORE_ENABLED_DEFAULT;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_FPP;
+import static org.apache.iceberg.TableProperties.ORC_COMPRESSION;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
+import static org.apache.iceberg.TableProperties.PARQUET_COMPRESSION;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.Type.TypeID.BINARY;
@@ -859,18 +865,25 @@ public final class IcebergUtil
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
 
         if (replace) {
-            return catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(tableMetadata, allowedExtraProperties));
+            return catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, tableLocation, createTableProperties(session, tableMetadata, allowedExtraProperties));
         }
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, Optional.ofNullable(tableLocation), createTableProperties(tableMetadata, allowedExtraProperties));
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, Optional.ofNullable(tableLocation), createTableProperties(session, tableMetadata, allowedExtraProperties));
     }
 
-    public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties)
+    public static Map<String, String> createTableProperties(ConnectorSession session, ConnectorTableMetadata tableMetadata, Predicate<String> allowedExtraProperties)
     {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
         propertiesBuilder.put(FORMAT_VERSION, Integer.toString(IcebergTableProperties.getFormatVersion(tableMetadata.getProperties())));
         propertiesBuilder.put(COMMIT_NUM_RETRIES, Integer.toString(IcebergTableProperties.getMaxCommitRetry(tableMetadata.getProperties())));
+
+        HiveCompressionCodec compressionCodec = getCompressionCodec(session);
+        switch (fileFormat) {
+            case PARQUET -> compressionCodec.getParquetCompressionCodec().ifPresent(codec -> propertiesBuilder.put(PARQUET_COMPRESSION, codec.name().toLowerCase(Locale.ENGLISH)));
+            case ORC -> propertiesBuilder.put(ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name().toLowerCase(Locale.ENGLISH));
+            case AVRO -> compressionCodec.getAvroCompressionKind().ifPresent(codec -> propertiesBuilder.put(AVRO_COMPRESSION, toAvroCompressionCodecTableProperty(codec)));
+        }
 
         boolean objectStoreLayoutEnabled = IcebergTableProperties.getObjectStoreLayoutEnabled(tableMetadata.getProperties());
         if (objectStoreLayoutEnabled) {
@@ -916,6 +929,16 @@ public final class IcebergUtil
                 .putAll(baseProperties)
                 .putAll(extraProperties)
                 .buildOrThrow();
+    }
+
+    static String toAvroCompressionCodecTableProperty(AvroCompressionKind compressionCodec)
+    {
+        return switch (compressionCodec) {
+            case NULL -> "uncompressed";
+            case DEFLATE -> "gzip";
+            case SNAPPY -> "snappy";
+            case ZSTANDARD -> "zstd";
+        };
     }
 
     public static void verifyExtraProperties(Set<String> basePropertyKeys, Map<String, String> extraProperties, Predicate<String> allowedExtraProperties)

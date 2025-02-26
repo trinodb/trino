@@ -20,9 +20,15 @@ import io.trino.metastore.TableInfo;
 import io.trino.metastore.TableInfo.ExtendedRelationType;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergMetadata;
+import io.trino.plugin.iceberg.IcebergSessionProperties;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
@@ -34,6 +40,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.VarcharType;
+import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.NullOrder;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -66,7 +73,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,6 +80,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseTrinoCatalogTest
 {
     private static final Logger LOG = Logger.get(BaseTrinoCatalogTest.class);
+    protected static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new IcebergSessionProperties(
+                    new IcebergConfig(),
+                    new OrcReaderConfig(),
+                    new OrcWriterConfig(),
+                    new ParquetReaderConfig(),
+                    new ParquetWriterConfig())
+                    .getSessionProperties())
+            .build();
 
     protected abstract TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
             throws IOException;

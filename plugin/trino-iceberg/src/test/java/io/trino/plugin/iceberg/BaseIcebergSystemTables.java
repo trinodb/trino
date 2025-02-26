@@ -817,6 +817,12 @@ public abstract class BaseIcebergSystemTables
         }
     }
 
+    protected Map<String, String> getTableProperties(String tableName)
+    {
+        return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (String) row.getField(0), row -> (String) row.getField(1)));
+    }
+
     private Long nanCount(long value)
     {
         // Parquet does not have nan count metrics
