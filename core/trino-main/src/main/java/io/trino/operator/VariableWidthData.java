@@ -15,11 +15,11 @@ package io.trino.operator;
 
 import com.google.common.primitives.Ints;
 import io.airlift.slice.SizeOf;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -28,7 +28,6 @@ import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.operator.FlatHash.sumExact;
 import static java.lang.Math.addExact;
 import static java.lang.Math.clamp;
@@ -48,7 +47,7 @@ public final class VariableWidthData
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
     public static final byte[] EMPTY_CHUNK = new byte[0];
 
-    private final List<byte[]> chunks = new ArrayList<>();
+    private final ObjectArrayList<byte[]> chunks = new ObjectArrayList<>();
     private int openChunkOffset;
 
     private long chunksRetainedSizeInBytes;
@@ -85,7 +84,7 @@ public final class VariableWidthData
         return sumExact(
                 INSTANCE_SIZE,
                 chunksRetainedSizeInBytes,
-                sizeOfObjectArray(chunks.size()));
+                sizeOf(chunks.elements()));
     }
 
     public List<byte[]> getAllChunks()
