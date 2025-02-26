@@ -16,26 +16,25 @@ package io.trino.client;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.StringWriter;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class TestMaterializingReader
+class TestMaterializingInputStream
 {
     @Test
     void testHeadBufferOverflow()
             throws IOException
     {
         InputStream stream = new ByteArrayInputStream("abcd".repeat(1337).getBytes(UTF_8));
-        MaterializingReader reader = new MaterializingReader(new InputStreamReader(stream, UTF_8), 4);
+        MaterializingInputStream reader = new MaterializingInputStream(stream, 4);
 
         int remainingBytes = 4 * 1337 - 4;
 
-        reader.transferTo(new StringWriter()); // Trigger reading
+        reader.transferTo(new ByteArrayOutputStream()); // Trigger reading
         assertThat(reader.getHeadString())
                 .isEqualTo("abcd... [" + remainingBytes + " more bytes]");
     }
@@ -45,9 +44,9 @@ class TestMaterializingReader
             throws IOException
     {
         InputStream stream = new ByteArrayInputStream("abcdabc".getBytes(UTF_8));
-        MaterializingReader reader = new MaterializingReader(new InputStreamReader(stream, UTF_8), 8);
+        MaterializingInputStream reader = new MaterializingInputStream(stream, 8);
 
-        reader.transferTo(new StringWriter()); // Trigger reading
+        reader.transferTo(new ByteArrayOutputStream()); // Trigger reading
         assertThat(reader.getHeadString()).isEqualTo("abcdabc");
     }
 
@@ -56,9 +55,9 @@ class TestMaterializingReader
             throws IOException
     {
         InputStream stream = new ByteArrayInputStream("a".repeat(8).getBytes(UTF_8));
-        MaterializingReader reader = new MaterializingReader(new InputStreamReader(stream, UTF_8), 8);
+        MaterializingInputStream reader = new MaterializingInputStream(stream, 8);
 
-        reader.transferTo(new StringWriter()); // Trigger reading
+        reader.transferTo(new ByteArrayOutputStream()); // Trigger reading
         assertThat(reader.getHeadString()).isEqualTo("a".repeat(8));
     }
 }
