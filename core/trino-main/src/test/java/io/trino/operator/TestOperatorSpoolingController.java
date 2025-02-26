@@ -16,9 +16,9 @@ package io.trino.operator;
 import io.trino.operator.OperatorSpoolingController.MetricSnapshot;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.operator.OperatorSpoolingController.Mode.BUFFER;
-import static io.trino.operator.OperatorSpoolingController.Mode.INLINE;
-import static io.trino.operator.OperatorSpoolingController.Mode.SPOOL;
+import static io.trino.operator.SpoolingController.Mode.BUFFER;
+import static io.trino.operator.SpoolingController.Mode.INLINE;
+import static io.trino.operator.SpoolingController.Mode.SPOOL;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 class TestOperatorSpoolingController

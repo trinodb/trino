@@ -13,23 +13,15 @@
  */
 package io.trino.operator;
 
-import io.trino.spi.Page;
-
 import static com.google.common.base.Verify.verify;
-import static io.trino.operator.OperatorSpoolingController.Mode.BUFFER;
-import static io.trino.operator.OperatorSpoolingController.Mode.INLINE;
-import static io.trino.operator.OperatorSpoolingController.Mode.SPOOL;
+import static io.trino.operator.SpoolingController.Mode.BUFFER;
+import static io.trino.operator.SpoolingController.Mode.INLINE;
+import static io.trino.operator.SpoolingController.Mode.SPOOL;
 import static java.lang.Math.clamp;
 
 public class OperatorSpoolingController
+        implements SpoolingController
 {
-    public enum Mode
-    {
-        INLINE,
-        BUFFER,
-        SPOOL
-    }
-
     private long currentSpooledSegmentTarget;
     private final long maximumSpooledSegmentTarget;
 
@@ -49,14 +41,10 @@ public class OperatorSpoolingController
         this.maximumInlinedPositions = maximumInlinedPositions;
         this.maximumInlinedSize = maximumInlinedSize;
 
-        currentMode = inlineInitialRows ? Mode.INLINE : SPOOL;
+        currentMode = inlineInitialRows ? INLINE : SPOOL;
     }
 
-    public Mode nextMode(Page page)
-    {
-        return nextMode(page.getPositionCount(), page.getSizeInBytes());
-    }
-
+    @Override
     public Mode nextMode(int positions, long size)
     {
         return switch (currentMode) {
@@ -87,6 +75,7 @@ public class OperatorSpoolingController
         };
     }
 
+    @Override
     public Mode execute(Mode mode, long positions, long size)
     {
         currentMode = mode;
