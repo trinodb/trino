@@ -67,7 +67,7 @@ public final class AvroHiveFileUtils
 {
     private final AtomicInteger recordNameSuffix = new AtomicInteger(0);
 
-    private AvroHiveFileUtils() {}
+    public AvroHiveFileUtils() {}
 
     // Lifted and shifted from org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils.determineSchemaOrThrowException
     public static Schema determineSchemaOrThrowException(TrinoFileSystem fileSystem, Map<String, String> properties)
@@ -146,7 +146,7 @@ public final class AvroHiveFileUtils
         return fieldBuilder.endRecord();
     }
 
-    private Schema avroSchemaForHiveType(HiveType hiveType)
+    public Schema avroSchemaForHiveType(HiveType hiveType)
     {
         Schema schema = switch (hiveType.getCategory()) {
             case PRIMITIVE -> createAvroPrimitive(hiveType);

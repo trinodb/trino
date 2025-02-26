@@ -41,14 +41,15 @@ import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Objects.requireNonNull;
 
-public class HudiPageSource
+public class HudiReadOptimizedPageSource
         implements ConnectorPageSource
 {
     private final Block[] prefilledBlocks;
     private final int[] delegateIndexes;
     private final ConnectorPageSource dataPageSource;
+    private final List<HiveColumnHandle> columnHandles;
 
-    public HudiPageSource(
+    public HudiReadOptimizedPageSource(
             String partitionName,
             List<HiveColumnHandle> columnHandles,
             Map<String, Block> partitionBlocks,
@@ -58,6 +59,7 @@ public class HudiPageSource
             long fileModifiedTime)
     {
         requireNonNull(columnHandles, "columnHandles is null");
+        this.columnHandles = columnHandles;
         this.dataPageSource = requireNonNull(dataPageSource, "dataPageSource is null");
 
         int size = columnHandles.size();

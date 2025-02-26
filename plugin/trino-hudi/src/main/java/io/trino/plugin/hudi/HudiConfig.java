@@ -31,12 +31,12 @@ import static java.util.Locale.ENGLISH;
 
 @DefunctConfig({
         "hudi.min-partition-batch-size",
-        "hudi.max-partition-batch-size",
-        "hudi.metadata-enabled",
+        "hudi.max-partition-batch-size"
 })
 public class HudiConfig
 {
     private List<String> columnsToHide = ImmutableList.of();
+    private boolean metadataEnabled = false;
     private boolean shouldUseParquetColumnNames = true;
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = DataSize.of(128, MEGABYTE);
@@ -62,6 +62,19 @@ public class HudiConfig
                 .map(s -> s.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
         return this;
+    }
+
+    @Config("hudi.metadata-enabled")
+    @ConfigDescription("If enabled, Hudi's metadata table is used for file listing and data skipping.")
+    public HudiConfig setMetadataEnabled(boolean metadataEnabled)
+    {
+        this.metadataEnabled = metadataEnabled;
+        return this;
+    }
+
+    public boolean isMetadataEnabled()
+    {
+        return this.metadataEnabled;
     }
 
     @Config("hudi.parquet.use-column-names")
