@@ -17,11 +17,11 @@ import com.google.common.primitives.Ints;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -29,7 +29,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.addExact;
@@ -497,7 +496,7 @@ public final class MinimalFlatHash
         private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
         public static final byte[] EMPTY_CHUNK = new byte[0];
 
-        private final List<byte[]> chunks = new ArrayList<>();
+        private final ObjectArrayList<byte[]> chunks = new ObjectArrayList<>();
         private int openChunkOffset;
 
         private long chunksRetainedSizeInBytes;
@@ -525,7 +524,7 @@ public final class MinimalFlatHash
             return sumExact(
                     INSTANCE_SIZE,
                     chunksRetainedSizeInBytes,
-                    sizeOfObjectArray(chunks.size()));
+                    sizeOf(chunks.elements()));
         }
 
         public List<byte[]> getAllChunks()
