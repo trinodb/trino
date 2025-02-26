@@ -38,6 +38,7 @@ import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
@@ -56,6 +57,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
+import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
@@ -74,6 +76,7 @@ import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FrameBound;
@@ -184,6 +187,7 @@ import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTimeZone;
+import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowFunctions;
@@ -1598,6 +1602,46 @@ public class TestSqlParser
         assertStatement("SELECT substring('%s', 2, 3)".formatted(givenString),
                 simpleQuery(selectList(
                         new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3"))))));
+    }
+
+    @Test
+    void testCreateBranch()
+    {
+        assertThat(statement("CREATE BRANCH b IN TABLE t"))
+                .isEqualTo(new CreateBranch(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 26), "t", false))),
+                        new Identifier(location(1, 15), "b", false)));
+    }
+
+    @Test
+    void testDropBranch()
+    {
+        assertThat(statement("DROP BRANCH b IN TABLE t"))
+                .isEqualTo(new DropBranch(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "t", false))),
+                        new Identifier(location(1, 13), "b", false)));
+    }
+
+    @Test
+    void testFastForwardBranch()
+    {
+        assertThat(statement("ALTER BRANCH from_branch IN TABLE t FAST FORWARD TO to_branch"))
+                .isEqualTo(new FastForwardBranch(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false))),
+                        new Identifier(location(1, 14), "from_branch", false),
+                        new Identifier(location(1, 53), "to_branch", false)));
+    }
+
+    @Test
+    void testShowBranches()
+    {
+        assertThat(statement("SHOW BRANCHES IN TABLE t"))
+                .isEqualTo(new ShowBranches(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "t", false)))));
     }
 
     @Test

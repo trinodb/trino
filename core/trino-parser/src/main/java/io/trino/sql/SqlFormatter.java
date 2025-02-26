@@ -32,6 +32,7 @@ import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
+import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -46,6 +47,7 @@ import io.trino.sql.tree.Deny;
 import io.trino.sql.tree.DescribeInput;
 import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.DeterministicCharacteristic;
+import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropFunction;
@@ -66,6 +68,7 @@ import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainOption;
 import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Grant;
@@ -148,6 +151,7 @@ import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTimeZone;
+import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowCreate;
@@ -2302,6 +2306,46 @@ public final class SqlFormatter
                 append(indent, "AS ");
                 builder.append("$$\n").append(definition).append("$$");
             });
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateBranch(CreateBranch node, Integer context)
+        {
+            builder.append("CREATE BRANCH ");
+            builder.append(formatName(node.branchName()));
+            builder.append(" IN TABLE ");
+            builder.append(formatName(node.tableName()));
+            return null;
+        }
+
+        @Override
+        protected Void visitDropBranch(DropBranch node, Integer context)
+        {
+            builder.append("DROP BRANCH ");
+            builder.append(formatName(node.branchName()));
+            builder.append(" IN TABLE ");
+            builder.append(formatName(node.tableName()));
+            return null;
+        }
+
+        @Override
+        protected Void visitFastForwardBranch(FastForwardBranch node, Integer context)
+        {
+            builder.append("ALTER BRANCH ");
+            builder.append(formatName(node.from()));
+            builder.append(" IN TABLE ");
+            builder.append(formatName(node.tableName()));
+            builder.append(" FAST FORWARD TO ");
+            builder.append(formatName(node.to()));
+            return null;
+        }
+
+        @Override
+        protected Void visitShowBranches(ShowBranches node, Integer context)
+        {
+            builder.append("SHOW BRANCHES IN TABLE ")
+                    .append(formatName(node.table()));
             return null;
         }
 
