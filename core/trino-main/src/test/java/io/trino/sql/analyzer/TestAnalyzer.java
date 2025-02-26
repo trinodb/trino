@@ -110,6 +110,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -3318,6 +3319,42 @@ public class TestAnalyzer
         assertFails("TABLE t2 UNION ALL SELECT c, d FROM t1 ORDER BY c")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessage("line 1:49: Column 'c' cannot be resolved");
+    }
+
+    @Test
+    public void testUnionAllColumnLineage()
+    {
+        Analysis analysis = analyze("SELECT c, d FROM t1 " +
+                "UNION ALL " +
+                "SELECT a, b FROM t2 " +
+                "UNION ALL " +
+                "SELECT a, b FROM t3");
+
+        List<Field> visibleFields = ImmutableList.copyOf(analysis.getOutputDescriptor().getVisibleFields());
+        assertThat(visibleFields.size()).isEqualTo(2);
+
+        Field firstField = visibleFields.getFirst();
+        Set<Analysis.SourceColumn> firstFieldSources = analysis.getSourceColumns(firstField);
+        ImmutableList<Analysis.SourceColumn> sourceColumns = ImmutableList.copyOf(firstFieldSources);
+        assertThat(firstField.getName()).isEqualTo(Optional.of("c"));
+        assertThat(firstFieldSources.size()).isEqualTo(3);
+        assertThat(firstFieldSources.stream()
+                .anyMatch(source -> source.getTableName().objectName().equals("t1") && source.getColumnName().equals("c"))).isEqualTo(true);
+        assertThat(firstFieldSources.stream()
+                .anyMatch(source -> source.getTableName().objectName().equals("t2") && source.getColumnName().equals("a"))).isEqualTo(true);
+        assertThat(firstFieldSources.stream()
+                .anyMatch(source -> source.getTableName().objectName().equals("t3") && source.getColumnName().equals("a"))).isEqualTo(true);
+
+        Field secondField = visibleFields.get(1);
+        Set<Analysis.SourceColumn> secondFieldSources = analysis.getSourceColumns(secondField);
+        assertThat(secondField.getName()).isEqualTo(Optional.of("d"));
+        assertThat(secondFieldSources.size()).isEqualTo(3);
+        assertThat(secondFieldSources.stream()
+                .anyMatch(source -> source.getTableName().objectName().equals("t1") && source.getColumnName().equals("d"))).isEqualTo(true);
+        assertThat(secondFieldSources.stream()
+                .anyMatch(source -> source.getTableName().objectName().equals("t2") && source.getColumnName().equals("b"))).isEqualTo(true);
+        assertThat(secondFieldSources.stream()
+                .anyMatch(source -> source.getTableName().objectName().equals("t3") && source.getColumnName().equals("b"))).isEqualTo(true);
     }
 
     @Test
