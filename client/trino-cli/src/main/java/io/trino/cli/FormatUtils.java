@@ -22,6 +22,7 @@ import io.trino.client.Row;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.List;
 import java.util.Map;
 
@@ -32,12 +33,14 @@ import static com.google.common.io.BaseEncoding.base16;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
 public final class FormatUtils
 {
+    private static final DecimalFormatSymbols DECIMAL_FORMAT_SYMBOLS = DecimalFormatSymbols.getInstance(ENGLISH);
     private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
     private static final Joiner HEX_BYTE_JOINER = Joiner.on(' ');
     private static final Joiner HEX_LINE_JOINER = Joiner.on('\n');
@@ -164,6 +167,7 @@ public final class FormatUtils
         }
 
         format.setRoundingMode(RoundingMode.HALF_UP);
+        format.setDecimalFormatSymbols(DECIMAL_FORMAT_SYMBOLS);
         return format;
     }
 
@@ -192,7 +196,7 @@ public final class FormatUtils
             return formatTime(duration);
         }
 
-        return format("%.2f", (totalMillis / 1000.0));
+        return format(ENGLISH, "%.2f", (totalMillis / 1000.0));
     }
 
     /**
