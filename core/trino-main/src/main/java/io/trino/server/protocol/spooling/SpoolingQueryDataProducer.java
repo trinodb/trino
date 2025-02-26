@@ -120,9 +120,4 @@ public class SpoolingQueryDataProducer
     {
         return page.getChannelCount() == outputColumnsSize + 1 && page.getPositionCount() == 1 && !page.getBlock(outputColumnsSize).isNull(0);
     }
-
-    public static QueryDataProducer createSpooledQueryDataProducer(QueryDataEncoder.Factory encoder)
-    {
-        return new SpoolingQueryDataProducer(encoder);
-    }
 }
