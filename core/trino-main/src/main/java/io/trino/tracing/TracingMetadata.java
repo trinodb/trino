@@ -1375,6 +1375,51 @@ public class TracingMetadata
     }
 
     @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        Span span = startSpan("createBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.createBranch(session, tableHandle, branch);
+        }
+    }
+
+    @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        Span span = startSpan("dropBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropBranch(session, tableHandle, branch);
+        }
+    }
+
+    @Override
+    public void fastForwardBranch(Session session, TableHandle tableHandle, String from, String to)
+    {
+        Span span = startSpan("fastForwardBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.fastForwardBranch(session, tableHandle, from, to);
+        }
+    }
+
+    @Override
+    public Collection<String> listBranches(Session session, TableHandle tableHandle)
+    {
+        Span span = startSpan("listBranches", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.listBranches(session, tableHandle);
+        }
+    }
+
+    @Override
+    public boolean branchExists(Session session, TableHandle tableHandle, String branch)
+    {
+        Span span = startSpan("branchExists", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            return delegate.branchExists(session, tableHandle, branch);
+        }
+    }
+
+    @Override
     public void createMaterializedView(
             Session session,
             QualifiedObjectName viewName,
