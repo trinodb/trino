@@ -26,7 +26,7 @@ public class TestingLokiServer
         implements Closeable
 {
     private static final int LOKI_PORT = 3100;
-    private static final String DEFAULT_VERSION = "3.1.0";
+    private static final String DEFAULT_VERSION = "3.2.0";
 
     private final GenericContainer<?> loki;
 

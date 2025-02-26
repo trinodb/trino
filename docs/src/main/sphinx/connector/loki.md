@@ -12,7 +12,7 @@ catalog with the Loki connector to run SQL queries against Loki.
 
 To connect to Loki, you need:
 
-- Loki 3.1.0 or higher.
+- Loki 3.2.0 or higher.
 - Network access from the Trino coordinator and workers to Loki. Port 3100 is
   the default port.
 

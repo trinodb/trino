@@ -51,7 +51,7 @@
         <dependency>
             <groupId>io.github.jeschkies</groupId>
             <artifactId>loki-client</artifactId>
-            <version>0.0.3</version>
+            <version>0.0.4</version>
         </dependency>
 
         <dependency>
