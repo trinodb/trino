@@ -2747,6 +2747,56 @@ public final class MetadataManager
                 boundSignature);
     }
 
+    @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.createBranch(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), branch);
+    }
+
+    @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.dropBranch(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), branch);
+    }
+
+    @Override
+    public void fastForwardBranch(Session session, TableHandle tableHandle, String from, String to)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        metadata.fastForwardBranch(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), from, to);
+    }
+
+    @Override
+    public Collection<String> listBranches(Session session, TableHandle tableHandle)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        return metadata.listBranches(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle());
+    }
+
+    @Override
+    public boolean branchExists(Session session, TableHandle tableHandle, String branch)
+    {
+        CatalogHandle catalogHandle = tableHandle.catalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle);
+        ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+
+        return metadata.branchExists(session.toConnectorSession(catalogHandle), tableHandle.connectorHandle(), branch);
+    }
+
     //
     // Helpers
     //
