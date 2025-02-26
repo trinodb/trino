@@ -115,10 +115,10 @@ public final class JsonResponse<T>
             if (isJson(responseBody.contentType())) {
                 T value = null;
                 IllegalArgumentException exception = null;
-                MaterializingInputStream stream = new MaterializingInputStream(responseBody.byteStream(), 128 * 1024);
+                MaterializingInputStream stream = new MaterializingInputStream(responseBody.byteStream(), 8 * 1024);
                 try (InputStream ignored = stream) {
-                    // Parse from input stream, response is either of unknown size or too large to materialize. Raw response body
-                    // will not be available if parsing fails
+                    // Parse from input stream, response is either of unknown size or too large to materialize.
+                    // 8K of the response body will be available if parsing fails.
                     value = codec.fromJson(stream);
                 }
                 catch (JsonProcessingException e) {

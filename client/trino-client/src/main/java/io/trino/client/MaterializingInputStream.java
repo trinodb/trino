@@ -31,7 +31,7 @@ class MaterializingInputStream
     protected MaterializingInputStream(InputStream stream, int maxBytes)
     {
         super(stream);
-        verify(maxBytes > 0 && maxBytes <= 128 * 1024, "maxBytes must be between 1 and 128 KB");
+        verify(maxBytes > 0 && maxBytes <= 8 * 1024, "maxBytes must be between 1B and 8 KB");
         this.head = new byte[maxBytes];
     }
 
