@@ -56,7 +56,6 @@ import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.stream.LongStream;
 
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.asList;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
@@ -422,7 +421,7 @@ public class TestJdbcPreparedStatement
         try (Connection connection = createConnection(explicitPrepare)) {
             for (int i = 0; i < 200; i++) {
                 try {
-                    connection.prepareStatement("SELECT '" + repeat("a", 300) + "'").close();
+                    connection.prepareStatement("SELECT '" + "a".repeat(300) + "'").close();
                 }
                 catch (Exception e) {
                     throw new RuntimeException("Failed at " + i, e);
@@ -462,7 +461,7 @@ public class TestJdbcPreparedStatement
     {
         int elements = HEADER_SIZE_LIMIT + 1;
         try (Connection connection = createConnection(explicitPrepare);
-                PreparedStatement statement = connection.prepareStatement("VALUES ?" + repeat(", ?", elements - 1))) {
+                PreparedStatement statement = connection.prepareStatement("VALUES ?" + ", ?".repeat(elements - 1))) {
             for (int i = 0; i < elements; i++) {
                 statement.setLong(i + 1, i);
             }
@@ -657,7 +656,7 @@ public class TestJdbcPreparedStatement
     private void testPrepareLarge(boolean explicitPrepare)
             throws Exception
     {
-        String sql = format("SELECT '%s' = '%s'", repeat("x", 100_000), repeat("y", 100_000));
+        String sql = format("SELECT '%s' = '%s'", "x".repeat(100_000), "y".repeat(100_000));
         try (Connection connection = createConnection(explicitPrepare);
                 PreparedStatement statement = connection.prepareStatement(sql);
                 ResultSet rs = statement.executeQuery()) {
