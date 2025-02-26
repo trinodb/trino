@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.io.BaseEncoding.base16;
@@ -210,9 +209,9 @@ public final class FormatUtils
             lower = range - lower;
         }
 
-        return repeat(" ", lower) +
-                "<" + repeat("=", markerWidth - 2) + ">" +
-                repeat(" ", width - (lower + markerWidth));
+        return " ".repeat(lower) +
+                "<" + "=".repeat(markerWidth - 2) + ">" +
+                " ".repeat(width - (lower + markerWidth));
     }
 
     public static String formatProgressBar(int width, int progressPercentage, int runningPercentage)
@@ -247,7 +246,7 @@ public final class FormatUtils
                 "Expected completeLength (%s) + runningLength (%s) + pendingLength (%s) == width (%s), was %s for progressPercentage = %s, runningPercentage = %s, totalPercentage = %s",
                 completeLength, runningLength, pendingLength, width, completeLength + runningLength + pendingLength, progressPercentage, runningPercentage, totalPercentage);
 
-        return repeat("=", completeLength) + repeat(">", runningLength) + repeat(" ", pendingLength);
+        return "=".repeat(completeLength) + ">".repeat(runningLength) + " ".repeat(pendingLength);
     }
 
     /**

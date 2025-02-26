@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.List;
 
-import static com.google.common.base.Strings.repeat;
 import static io.trino.cli.AlignedTablePrinter.consoleWidth;
 import static io.trino.cli.AlignedTablePrinter.maxLineLength;
 import static io.trino.cli.FormatUtils.formatValue;
@@ -71,9 +70,9 @@ public class VerticalRecordPrinter
 
             String header = "-[ RECORD " + rowCount + " ]";
             if ((namesWidth + 1) >= header.length()) {
-                header += repeat("-", (namesWidth + 1) - header.length()) + "+";
+                header += "-".repeat((namesWidth + 1) - header.length()) + "+";
             }
-            header += repeat("-", max(0, (namesWidth + valuesWidth + 3) - header.length()));
+            header += "-".repeat(max(0, (namesWidth + valuesWidth + 3) - header.length()));
             writer.append(header).append('\n');
 
             for (int i = 0; i < row.size(); i++) {
@@ -81,11 +80,11 @@ public class VerticalRecordPrinter
                 String column = formatValue(row.get(i));
                 for (String line : LINE_SPLITTER.split(column)) {
                     writer.append(name)
-                            .append(repeat(" ", namesWidth - consoleWidth(name)))
+                            .append(" ".repeat(namesWidth - consoleWidth(name)))
                             .append(" | ")
                             .append(formatValue(line))
                             .append("\n");
-                    name = repeat(" ", consoleWidth(name));
+                    name = " ".repeat(consoleWidth(name));
                 }
             }
         }

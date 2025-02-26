@@ -14,7 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSelectedRole;
@@ -424,7 +423,7 @@ public class Query
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());
-            String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
+            String padding = " ".repeat(prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
         }
