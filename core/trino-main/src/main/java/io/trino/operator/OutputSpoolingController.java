@@ -52,12 +52,12 @@ public class OutputSpoolingController
         currentMode = inlineInitialRows ? Mode.INLINE : SPOOL;
     }
 
-    public Mode getNextMode(Page page)
+    public Mode nextMode(Page page)
     {
-        return getNextMode(page.getPositionCount(), page.getSizeInBytes());
+        return nextMode(page.getPositionCount(), page.getSizeInBytes());
     }
 
-    public Mode getNextMode(int positions, long size)
+    public Mode nextMode(int positions, long size)
     {
         return switch (currentMode) {
             case INLINE -> {
@@ -65,13 +65,13 @@ public class OutputSpoolingController
                 // If we still didn't inline maximum number of positions
                 if (snapshot.positions() + positions >= maximumInlinedPositions) {
                     currentMode = SPOOL; // switch to spooling mode
-                    yield getNextMode(positions, size); // and now decide whether to buffer or spool this page
+                    yield nextMode(positions, size); // and now decide whether to buffer or spool this page
                 }
 
                 // If we still didn't inline maximum number of bytes
                 if (snapshot.size() + size >= maximumInlinedSize) {
                     currentMode = SPOOL; // switch to spooling mode
-                    yield getNextMode(positions, size); // and now decide whether to buffer or spool this page
+                    yield nextMode(positions, size); // and now decide whether to buffer or spool this page
                 }
 
                 verify(buffered.isEmpty(), "There should be no buffered pages when streaming");
