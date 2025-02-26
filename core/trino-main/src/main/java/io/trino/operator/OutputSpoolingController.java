@@ -16,6 +16,9 @@ package io.trino.operator;
 import io.trino.spi.Page;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.operator.OutputSpoolingController.Mode.BUFFER;
+import static io.trino.operator.OutputSpoolingController.Mode.INLINE;
+import static io.trino.operator.OutputSpoolingController.Mode.SPOOL;
 import static java.lang.Math.clamp;
 
 public class OutputSpoolingController
@@ -33,16 +36,9 @@ public class OutputSpoolingController
     private final long maximumInlinedPositions;
     private final long maximumInlinedSize;
 
-    private long spooledPositions;
-    private long spooledPages;
-    private long spooledRawBytes;
-    private long spooledEncodedBytes;
-
-    private long inlinedPositions;
-    private long inlinedPages;
-    private long inlinedRawBytes;
-    private long bufferedRawSize;
-    private long bufferedPositions;
+    private final ActionMetrics spooled = new ActionMetrics();
+    private final ActionMetrics inlined = new ActionMetrics();
+    private final ActionMetrics buffered = new ActionMetrics();
 
     private Mode currentMode;
 
@@ -53,7 +49,7 @@ public class OutputSpoolingController
         this.maximumInlinedPositions = maximumInlinedPositions;
         this.maximumInlinedSize = maximumInlinedSize;
 
-        currentMode = inlineInitialRows ? Mode.INLINE : Mode.SPOOL;
+        currentMode = inlineInitialRows ? Mode.INLINE : SPOOL;
     }
 
     public Mode getNextMode(Page page)
@@ -61,118 +57,112 @@ public class OutputSpoolingController
         return getNextMode(page.getPositionCount(), page.getSizeInBytes());
     }
 
-    public Mode getNextMode(int positionCount, long sizeInBytes)
+    public Mode getNextMode(int positions, long size)
     {
         return switch (currentMode) {
             case INLINE -> {
+                MetricSnapshot snapshot = inlined.snapshot();
                 // If we still didn't inline maximum number of positions
-                if (inlinedPositions + positionCount >= maximumInlinedPositions) {
-                    currentMode = Mode.SPOOL; // switch to spooling mode
-                    yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
+                if (snapshot.positions() + positions >= maximumInlinedPositions) {
+                    currentMode = SPOOL; // switch to spooling mode
+                    yield getNextMode(positions, size); // and now decide whether to buffer or spool this page
                 }
 
                 // If we still didn't inline maximum number of bytes
-                if (inlinedRawBytes + sizeInBytes >= maximumInlinedSize) {
-                    currentMode = Mode.SPOOL; // switch to spooling mode
-                    yield getNextMode(positionCount, sizeInBytes); // and now decide whether to buffer or spool this page
+                if (snapshot.size() + size >= maximumInlinedSize) {
+                    currentMode = SPOOL; // switch to spooling mode
+                    yield getNextMode(positions, size); // and now decide whether to buffer or spool this page
                 }
 
-                verify(bufferedRawSize == 0, "There should be no buffered pages when streaming");
-                recordInlined(positionCount, sizeInBytes);
-                yield Mode.INLINE; // we are ok to stream this page
+                verify(buffered.isEmpty(), "There should be no buffered pages when streaming");
+                yield execute(INLINE, positions, size); // we are ok to stream this page
             }
-            case SPOOL -> {
-                if (bufferedRawSize + sizeInBytes >= currentSpooledSegmentTarget) {
-                    recordSpooled(bufferedPositions + positionCount, bufferedRawSize + sizeInBytes);
-                    yield Mode.SPOOL;
+            case SPOOL, BUFFER -> {
+                MetricSnapshot snapshot = buffered.snapshot();
+                if (snapshot.size() + size >= currentSpooledSegmentTarget) {
+                    yield execute(SPOOL, positions, size);
                 }
-
-                recordBuffered(positionCount, sizeInBytes);
-                yield Mode.BUFFER;
+                yield execute(BUFFER, positions, size);
             }
-
-            case BUFFER -> throw new IllegalStateException("Current mode can be either STREAM or SPOOL");
         };
     }
 
-    public void recordSpooled(long rows, long size)
+    public Mode execute(Mode mode, long positions, long size)
     {
-        bufferedRawSize = 0;
-        bufferedPositions = 0; // Buffer cleared when spooled
-
-        spooledPositions += rows;
-        spooledRawBytes += size;
-        spooledPages++;
-
-        // Double spool target size until we reach maximum
-        currentSpooledSegmentTarget = clamp(currentSpooledSegmentTarget * 2, currentSpooledSegmentTarget, maximumSpooledSegmentTarget);
+        currentMode = mode;
+        switch (mode) {
+            case BUFFER -> buffered.recordPage(positions, size);
+            case INLINE -> inlined.recordPage(positions, size);
+            case SPOOL -> {
+                MetricSnapshot snapshot = buffered.snapshot();
+                buffered.reset();
+                spooled.recordPage(positions + snapshot.positions(), size + snapshot.size());
+                currentSpooledSegmentTarget = clamp(currentSpooledSegmentTarget * 2, currentSpooledSegmentTarget, maximumSpooledSegmentTarget);
+            }
+        }
+        return currentMode;
     }
 
-    public void recordEncoded(long encodedSize)
+    public MetricSnapshot spooledMetrics()
     {
-        spooledEncodedBytes += encodedSize;
+        return spooled.snapshot();
     }
 
-    public void recordInlined(int positionCount, long sizeInBytes)
+    public MetricSnapshot inlinedMetrics()
     {
-        inlinedPositions += positionCount;
-        inlinedPages++;
-        inlinedRawBytes += sizeInBytes;
+        return inlined.snapshot();
     }
 
-    public void recordBuffered(int positionCount, long sizeInBytes)
+    public MetricSnapshot bufferedMetrics()
     {
-        bufferedPositions += positionCount;
-        bufferedRawSize += sizeInBytes;
-    }
-
-    public long getSpooledPositions()
-    {
-        return spooledPositions;
-    }
-
-    public long getSpooledPages()
-    {
-        return spooledPages;
-    }
-
-    public long getSpooledRawBytes()
-    {
-        return spooledRawBytes;
-    }
-
-    public long getSpooledEncodedBytes()
-    {
-        return spooledEncodedBytes;
-    }
-
-    public long getInlinedPositions()
-    {
-        return inlinedPositions;
-    }
-
-    public long getInlinedPages()
-    {
-        return inlinedPages;
-    }
-
-    public long getInlinedRawBytes()
-    {
-        return inlinedRawBytes;
-    }
-
-    public long getBufferedRawSize()
-    {
-        return bufferedRawSize;
-    }
-
-    public long getBufferedPositions()
-    {
-        return bufferedPositions;
+        return buffered.snapshot();
     }
 
     public long getCurrentSpooledSegmentTarget()
     {
         return currentSpooledSegmentTarget;
+    }
+
+    private static class ActionMetrics
+    {
+        private long pages;
+        private long size;
+        private long positions;
+
+        public void recordPage(long positions, long size)
+        {
+            verify(positions > 0, "Expected positions to be non-negative");
+            verify(size > 0, "Expected size to be non-negative");
+            this.pages++;
+            this.positions += positions;
+            this.size += size;
+        }
+
+        public void reset()
+        {
+            this.pages = 0;
+            this.size = 0;
+            this.positions = 0;
+        }
+
+        public boolean isEmpty()
+        {
+            return pages == 0 && size == 0 && positions == 0;
+        }
+
+        public MetricSnapshot snapshot()
+        {
+            return new MetricSnapshot(positions, size, pages);
+        }
+    }
+
+    public record MetricSnapshot(long positions, long size, long pages)
+    {
+        public MetricSnapshot
+        {
+            verify(positions >= 0, "Positions are expected to be non-negative");
+            verify(size >= 0, "Size is expected to be non-negative");
+            verify(pages >= 0, "Pages are expected to be non-negative");
+        }
     }
 }
