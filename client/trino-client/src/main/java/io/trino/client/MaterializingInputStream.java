@@ -13,25 +13,26 @@
  */
 package io.trino.client;
 
-import java.io.FilterReader;
+import java.io.FilterInputStream;
 import java.io.IOException;
-import java.io.Reader;
+import java.io.InputStream;
 
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-class MaterializingReader
-        extends FilterReader
+class MaterializingInputStream
+        extends FilterInputStream
 {
-    private final char[] headChars;
+    private final byte[] head;
     private int remaining;
     private int currentOffset;
 
-    protected MaterializingReader(Reader reader, int maxHeadChars)
+    protected MaterializingInputStream(InputStream stream, int maxBytes)
     {
-        super(reader);
-        verify(maxHeadChars > 0 && maxHeadChars <= 128 * 1024, "maxHeadChars must be between 1 and 128 KB");
-        this.headChars = new char[maxHeadChars];
+        super(stream);
+        verify(maxBytes > 0 && maxBytes <= 128 * 1024, "maxBytes must be between 1 and 128 KB");
+        this.head = new byte[maxBytes];
     }
 
     @Override
@@ -40,8 +41,8 @@ class MaterializingReader
     {
         int value = super.read();
         if (value != -1) {
-            if (currentOffset < headChars.length) {
-                headChars[currentOffset++] = (char) value;
+            if (currentOffset < head.length) {
+                head[currentOffset++] = (byte) value;
             }
             else {
                 remaining++;
@@ -51,26 +52,33 @@ class MaterializingReader
     }
 
     @Override
-    public int read(char[] cbuf, int off, int len)
+    public int read(byte[] buffer, int off, int len)
             throws IOException
     {
-        int read = super.read(cbuf, off, len);
+        int read = super.read(buffer, off, len);
         if (read > 0) {
-            int copyLength = Math.min(read, headChars.length - currentOffset);
+            int copyLength = Math.min(read, head.length - currentOffset);
             if (read > copyLength) {
                 remaining += read - copyLength;
             }
             if (copyLength > 0) {
-                System.arraycopy(cbuf, off, headChars, currentOffset, copyLength);
+                System.arraycopy(buffer, off, head, currentOffset, copyLength);
                 currentOffset += copyLength;
             }
         }
         return read;
     }
 
+    @Override
+    public int read(byte[] buffer)
+            throws IOException
+    {
+        return read(buffer, 0, buffer.length);
+    }
+
     public String getHeadString()
     {
-        return String.valueOf(headChars, 0, currentOffset) + (remaining > 0 ? format("... [" + bytesOmitted(remaining) + "]", remaining) : "");
+        return new String(head, 0, currentOffset, UTF_8) + (remaining > 0 ? format("... [" + bytesOmitted(remaining) + "]", remaining) : "");
     }
 
     private String bytesOmitted(long bytes)

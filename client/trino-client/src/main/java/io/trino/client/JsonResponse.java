@@ -23,7 +23,7 @@ import okhttp3.Response;
 import okhttp3.ResponseBody;
 
 import java.io.IOException;
-import java.io.Reader;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Optional;
 
@@ -115,16 +115,16 @@ public final class JsonResponse<T>
             if (isJson(responseBody.contentType())) {
                 T value = null;
                 IllegalArgumentException exception = null;
-                MaterializingReader reader = new MaterializingReader(responseBody.charStream(), 128 * 1024);
-                try (Reader ignored = reader) {
+                MaterializingInputStream stream = new MaterializingInputStream(responseBody.byteStream(), 128 * 1024);
+                try (InputStream ignored = stream) {
                     // Parse from input stream, response is either of unknown size or too large to materialize. Raw response body
                     // will not be available if parsing fails
-                    value = codec.fromJson(reader);
+                    value = codec.fromJson(stream);
                 }
                 catch (JsonProcessingException e) {
-                    exception = new IllegalArgumentException(format("Unable to create %s from JSON response:\n[%s]", codec.getType(), reader.getHeadString()), e);
+                    exception = new IllegalArgumentException(format("Unable to create %s from JSON response:\n[%s]", codec.getType(), stream.getHeadString()), e);
                 }
-                return new JsonResponse<>(response.code(), response.headers(), reader.getHeadString(), value, exception);
+                return new JsonResponse<>(response.code(), response.headers(), stream.getHeadString(), value, exception);
             }
             return new JsonResponse<>(response.code(), response.headers(), responseBody.string());
         }
