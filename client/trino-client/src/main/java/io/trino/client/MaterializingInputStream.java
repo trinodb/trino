@@ -23,6 +23,7 @@ import java.nio.charset.CharsetDecoder;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.nio.charset.CodingErrorAction.IGNORE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -63,7 +64,7 @@ class MaterializingInputStream
     {
         int read = super.read(buffer, off, len);
         if (read > 0) {
-            int copyLength = Math.min(read, head.length - currentOffset);
+            int copyLength = min(read, head.length - currentOffset);
             if (read > copyLength) {
                 remaining += read - copyLength;
             }
