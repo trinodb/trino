@@ -541,18 +541,22 @@ public final class MinimalFlatHashStrategyCompiler
                 .ifTrue(constantFalse().ret()));
 
         if (keyField.type().isFlatVariableWidth()) {
-            Variable endingOffset = scope.declareVariable("leftVariableChunkEndOffset", body, invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, leftFixedChunk, add(leftFixedOffset, constantInt(keyField.fieldFixedOffset()))));
+            BytecodeExpression variableEndOffset = invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, leftFixedChunk, add(leftFixedOffset, constantInt(keyField.fieldFixedOffset())));
+            BytecodeExpression variableStartOffset;
+            // read the previous variable width ending offset as starting offset, except for the first variable width field which takes
+            // the starting offset directly from the parameter value
             if (keyField.previousVariableFieldFixedOffset() >= 0) {
-                // read the previous variable width ending offset as starting offset, except for the first variable width field which takes
-                // the starting offset directly from the parameter value
-                body.append(leftVariableChunkOffset.set(invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, leftFixedChunk, add(leftFixedOffset, constantInt(keyField.previousVariableFieldFixedOffset())))));
+                variableStartOffset = scope.declareVariable("leftVariableStartOffset", body, invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, leftFixedChunk, add(leftFixedOffset, constantInt(keyField.previousVariableFieldFixedOffset()))));
+            }
+            else {
+                variableStartOffset = leftVariableChunkOffset;
             }
             body.append(constantType(callSiteBinder, keyField.type()).invoke(
                     "minimalFlatVariableWidthIdentical",
                     boolean.class,
                     leftVariableChunk,
-                    leftVariableChunkOffset,
-                    subtract(endingOffset, leftVariableChunkOffset),
+                    variableStartOffset,
+                    subtract(variableEndOffset, variableStartOffset),
                     rightBlock,
                     rightPosition).ret());
         }
@@ -832,24 +836,33 @@ public final class MinimalFlatHashStrategyCompiler
         Scope scope = methodDefinition.getScope();
         Variable result = scope.declareVariable("result", body, seed);
         Variable hash = scope.declareVariable(long.class, "hash");
+        // variable is only declared if a variable width type is encountered
+        Variable variableEndOffset = null;
 
         for (KeyField keyField : keyFields) {
             BytecodeExpression hashNonNull;
             if (keyField.type().isFlatVariableWidth()) {
-                BytecodeExpression variableStartOffset;
-                if (keyField.previousVariableFieldFixedOffset() >= 0) {
-                    variableStartOffset = invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, fixedChunk, add(fixedOffset, constantInt(keyField.previousVariableFieldFixedOffset())));
+                // On the first variableWidth element encountered in each chunk, we need to initialize the starting variableWidthOffset from the previous ending offset
+                // since variableWidthOffset is not updated between chunk calls. However, on the _first_ chunk- the variableWidthOffset value is taken directly from the
+                // caller since this is the first variable width part altogether
+                if (variableEndOffset == null) {
+                    // declaring the variable indicates that at least one variable width field has been encountered already in the chunk and that
+                    // we can use variableChunkOffset
+                    variableEndOffset = scope.declareVariable(int.class, "variableEndOffset");
+                    if (keyField.previousVariableFieldFixedOffset() >= 0) {
+                        // variableChunkOffset = previousVariableWidthEndOffset
+                        body.append(variableChunkOffset.set(invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, fixedChunk, add(fixedOffset, constantInt(keyField.previousVariableFieldFixedOffset())))));
+                    }
                 }
-                else {
-                    variableStartOffset = variableChunkOffset;
-                }
-                BytecodeExpression variableEndOffset = invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, fixedChunk, add(fixedOffset, constantInt(keyField.fieldFixedOffset())));
+                // variableEndOffset = MinimalFlatHashStrategyCompiler.readVariableEndingOffset(fixedChunk, fixedOffset)
+                body.append(variableEndOffset.set(invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, fixedChunk, add(fixedOffset, constantInt(keyField.fieldFixedOffset())))));
+
                 hashNonNull = constantType(callSiteBinder, keyField.type()).invoke(
                         "hashMinimalFlatVariableWidth",
                         long.class,
                         variableChunk,
-                        variableStartOffset,
-                        subtract(variableEndOffset, variableStartOffset));
+                        variableChunkOffset,
+                        subtract(variableEndOffset, variableChunkOffset));
             }
             else {
                 hashNonNull = invokeDynamic(
@@ -867,6 +880,12 @@ public final class MinimalFlatHashStrategyCompiler
                     .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
                     .ifFalse(hash.set(hashNonNull)));
             body.append(result.set(invokeStatic(CombineHashFunction.class, "getHash", long.class, result, hash)));
+
+            // Advance the variable start offset
+            if (keyField.type().isFlatVariableWidth()) {
+                // variableChunkOffset = variableEndOffset
+                body.append(variableChunkOffset.set(variableEndOffset));
+            }
         }
         body.append(result.ret());
         return methodDefinition;
