@@ -339,7 +339,7 @@ public class CheckpointEntryIterator
      * not null for effectively pushing down the predicate to the Parquet reader.
      * <p>
      * The particular field we select for each action is a required fields per the Delta Log specification, please see
-     * https://github.com/delta-io/delta/blob/master/PROTOCOL.md#Actions This is also enforced when we read entries.
+     * <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#Actions">Delta Lake protocol</a>. This is also enforced when we read entries.
      */
     private TupleDomain<HiveColumnHandle> buildTupleDomainColumnHandle(EntryType entryType, HiveColumnHandle column)
     {
