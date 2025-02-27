@@ -267,6 +267,11 @@ public interface Type
         throw new UnsupportedOperationException("Operation not supported");
     }
 
+    default long hashMinimalFlatVariableWidth(byte[] variableSizeSlice, int variableSizeOffset, int length)
+    {
+        throw new UnsupportedOperationException("Operation not supported");
+    }
+
     /**
      * Update the variable width offsets recorded in the value.
      * This method is called after the value has been moved to a new location, and therefore the offsets

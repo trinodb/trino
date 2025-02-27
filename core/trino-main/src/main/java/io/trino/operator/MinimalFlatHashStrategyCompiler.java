@@ -136,6 +136,7 @@ public final class MinimalFlatHashStrategyCompiler
                     typeOperators.getReadValueOperator(type, simpleConvention(BLOCK_BUILDER, FLAT)),
                     typeOperators.getReadValueOperator(type, simpleConvention(FLAT_RETURN, BLOCK_POSITION_NOT_NULL)),
                     typeOperators.getIdenticalOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, BLOCK_POSITION_NOT_NULL)),
+                    typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, FLAT)),
                     typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL))));
             if (type.isFlatVariableWidth()) {
                 // Each variable width field stores the ending variableChunkOffset in the fixed size region
@@ -186,6 +187,7 @@ public final class MinimalFlatHashStrategyCompiler
         generateReadFlat(definition, chunkClasses);
         generateWriteFlat(definition, chunkClasses);
         generateIdenticalMethod(definition, chunkClasses);
+        generateHashFlat(definition, chunkClasses);
         generateHashBlock(definition, chunkClasses);
         generateHashBlocksBatched(definition, chunkClasses);
 
@@ -217,6 +219,7 @@ public final class MinimalFlatHashStrategyCompiler
         MethodDefinition readFlatChunk = generateReadFlatChunk(definition, keyFields, callSiteBinder);
         MethodDefinition writeFlatChunk = generateWriteFlatChunk(definition, keyFields, callSiteBinder);
         MethodDefinition identicalChunkMethod = generateIdenticalChunkMethod(definition, keyFields, callSiteBinder);
+        MethodDefinition hashFlatChunkMethod = generateHashFlatChunk(definition, keyFields, callSiteBinder);
         MethodDefinition hashBlockChunk = generateHashBlockChunk(definition, keyFields, callSiteBinder);
         MethodDefinition hashBlocksBatchedChunk = generateHashBlocksBatchedChunk(definition, keyFields, callSiteBinder);
 
@@ -226,6 +229,7 @@ public final class MinimalFlatHashStrategyCompiler
                 readFlatChunk,
                 writeFlatChunk,
                 identicalChunkMethod,
+                hashFlatChunkMethod,
                 hashBlockChunk,
                 hashBlocksBatchedChunk);
     }
@@ -783,6 +787,91 @@ public final class MinimalFlatHashStrategyCompiler
         return methodDefinition;
     }
 
+    private static void generateHashFlat(ClassDefinition definition, List<ChunkClass> chunkClasses)
+    {
+        Parameter fixedChunk = arg("fixedChunk", type(byte[].class));
+        Parameter fixedOffset = arg("fixedOffset", type(int.class));
+        Parameter variableChunk = arg("variableChunk", type(byte[].class));
+        Parameter variableChunkOffset = arg("variableChunkOffset", type(int.class));
+        MethodDefinition methodDefinition = definition.declareMethod(
+                a(PUBLIC),
+                "hash",
+                type(long.class),
+                fixedChunk,
+                fixedOffset,
+                variableChunk,
+                variableChunkOffset);
+        BytecodeBlock body = methodDefinition.getBody();
+
+        Scope scope = methodDefinition.getScope();
+        Variable result = scope.declareVariable("result", body, constantLong(INITIAL_HASH_VALUE));
+        for (ChunkClass chunkClass : chunkClasses) {
+            body.append(result.set(invokeStatic(chunkClass.hashFlatChunk(), fixedChunk, fixedOffset, variableChunk, variableChunkOffset, result)));
+        }
+        body.append(result.ret());
+    }
+
+    private static MethodDefinition generateHashFlatChunk(ClassDefinition definition, List<KeyField> keyFields, CallSiteBinder callSiteBinder)
+    {
+        Parameter fixedChunk = arg("fixedChunk", type(byte[].class));
+        Parameter fixedOffset = arg("fixedOffset", type(int.class));
+        Parameter variableChunk = arg("variableChunk", type(byte[].class));
+        Parameter variableChunkOffset = arg("variableChunkOffset", type(int.class));
+        Parameter seed = arg("seed", type(long.class));
+        MethodDefinition methodDefinition = definition.declareMethod(
+                a(PUBLIC, STATIC),
+                "hashFlat",
+                type(long.class),
+                fixedChunk,
+                fixedOffset,
+                variableChunk,
+                variableChunkOffset,
+                seed);
+        BytecodeBlock body = methodDefinition.getBody();
+
+        Scope scope = methodDefinition.getScope();
+        Variable result = scope.declareVariable("result", body, seed);
+        Variable hash = scope.declareVariable(long.class, "hash");
+
+        for (KeyField keyField : keyFields) {
+            BytecodeExpression hashNonNull;
+            if (keyField.type().isFlatVariableWidth()) {
+                BytecodeExpression variableStartOffset;
+                if (keyField.previousVariableFieldFixedOffset() >= 0) {
+                    variableStartOffset = invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, fixedChunk, add(fixedOffset, constantInt(keyField.previousVariableFieldFixedOffset())));
+                }
+                else {
+                    variableStartOffset = variableChunkOffset;
+                }
+                BytecodeExpression variableEndOffset = invokeStatic(MinimalFlatHashStrategyCompiler.class, "readVariableWidthEndingOffset", int.class, fixedChunk, add(fixedOffset, constantInt(keyField.fieldFixedOffset())));
+                hashNonNull = constantType(callSiteBinder, keyField.type()).invoke(
+                        "hashMinimalFlatVariableWidth",
+                        long.class,
+                        variableChunk,
+                        variableStartOffset,
+                        subtract(variableEndOffset, variableStartOffset));
+            }
+            else {
+                hashNonNull = invokeDynamic(
+                        BOOTSTRAP_METHOD,
+                        ImmutableList.of(callSiteBinder.bind(keyField.hashFlatMethod()).getBindingId()),
+                        "hash",
+                        long.class,
+                        fixedChunk,
+                        add(fixedOffset, constantInt(keyField.fieldFixedOffset())),
+                        variableChunk);
+            }
+
+            body.append(new IfStatement()
+                    .condition(notEqual(fixedChunk.getElement(add(fixedOffset, constantInt(keyField.fieldIsNullOffset()))).cast(int.class), constantInt(0)))
+                    .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
+                    .ifFalse(hash.set(hashNonNull)));
+            body.append(result.set(invokeStatic(CombineHashFunction.class, "getHash", long.class, result, hash)));
+        }
+        body.append(result.ret());
+        return methodDefinition;
+    }
+
     @UsedByGeneratedCode
     public static int readVariableWidthEndingOffset(byte[] fixedBytes, int fixedBytesOffset)
     {
@@ -804,6 +893,7 @@ public final class MinimalFlatHashStrategyCompiler
             MethodHandle readFlatMethod,
             MethodHandle writeFlatMethod,
             MethodHandle identicalFlatBlockMethod,
+            MethodHandle hashFlatMethod,
             MethodHandle hashBlockMethod) {}
 
     private record ChunkClass(
@@ -812,6 +902,7 @@ public final class MinimalFlatHashStrategyCompiler
             MethodDefinition readFlatChunk,
             MethodDefinition writeFlatChunk,
             MethodDefinition identicalMethodChunk,
+            MethodDefinition hashFlatChunk,
             MethodDefinition hashBlockChunk,
             MethodDefinition hashBlocksBatchedChunk) {}
 }
