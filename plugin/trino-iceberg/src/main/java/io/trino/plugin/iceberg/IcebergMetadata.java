@@ -1613,6 +1613,7 @@ public class IcebergMetadata
             case OPTIMIZE_MANIFESTS -> getTableHandleForOptimizeManifests(session, tableHandle);
             case DROP_EXTENDED_STATS -> getTableHandleForDropExtendedStats(session, tableHandle);
             case ROLLBACK_TO_SNAPSHOT -> getTableHandleForRollbackToSnapshot(session, tableHandle, executeProperties);
+            case ROLLBACK_TO_TIMESTAMP -> getTableHandleForRollbackToTimestamp(session, tableHandle, executeProperties);
             case EXPIRE_SNAPSHOTS -> getTableHandleForExpireSnapshots(session, tableHandle, executeProperties);
             case REMOVE_ORPHAN_FILES -> getTableHandleForRemoveOrphanFiles(session, tableHandle, executeProperties);
             case ADD_FILES -> getTableHandleForAddFiles(session, accessControl, tableHandle, executeProperties);
@@ -1808,6 +1809,22 @@ public class IcebergMetadata
                 icebergTable.io().properties()));
     }
 
+    private Optional<ConnectorTableExecuteHandle> getTableHandleForRollbackToTimestamp(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
+    {
+        Instant instant = (Instant) executeProperties.get("snapshot_timestamp");
+        Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
+
+        long snapshotId = getSnapshotIdAsOfTime(icebergTable, instant.toEpochMilli());
+
+        // reuse rollback_to_snapshot
+        return Optional.of(new IcebergTableExecuteHandle(
+                tableHandle.getSchemaTableName(),
+                ROLLBACK_TO_SNAPSHOT,
+                new IcebergRollbackToSnapshotHandle(snapshotId),
+                icebergTable.location(),
+                icebergTable.io().properties()));
+    }
+
     private static Object requireProcedureArgument(Map<String, Object> properties, String name)
     {
         Object value = properties.get(name);
@@ -1825,6 +1842,7 @@ public class IcebergMetadata
             case OPTIMIZE_MANIFESTS:
             case DROP_EXTENDED_STATS:
             case ROLLBACK_TO_SNAPSHOT:
+            case ROLLBACK_TO_TIMESTAMP:
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:
             case ADD_FILES:
@@ -1856,6 +1874,7 @@ public class IcebergMetadata
             case OPTIMIZE_MANIFESTS:
             case DROP_EXTENDED_STATS:
             case ROLLBACK_TO_SNAPSHOT:
+            case ROLLBACK_TO_TIMESTAMP:
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:
             case ADD_FILES:
@@ -1903,6 +1922,7 @@ public class IcebergMetadata
             case OPTIMIZE_MANIFESTS:
             case DROP_EXTENDED_STATS:
             case ROLLBACK_TO_SNAPSHOT:
+            case ROLLBACK_TO_TIMESTAMP:
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:
             case ADD_FILES:
