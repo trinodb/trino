@@ -4781,7 +4781,10 @@ public abstract class BaseConnectorTest
             assertQuery("SELECT * from " + tableName, "SELECT orderstatus FROM orders UNION ALL SELECT clerk FROM orders");
             // check DELETE works with EXPLAIN ANALYZE
             assertExplainAnalyze("EXPLAIN ANALYZE DELETE FROM " + tableName + " WHERE TRUE");
+            // NOTE: FTE catches a case where no input is provided the count functions which triggers the special zero on no rows case
             assertQuery("SELECT COUNT(*) from " + tableName, "SELECT 0");
+            assertQuery("SELECT COUNT(orderstatus) from " + tableName, "SELECT 0");
+            assertQuery("SELECT COUNT_IF(orderstatus = 'F') from " + tableName, "SELECT 0");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
