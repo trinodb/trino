@@ -17,5 +17,3 @@
 -XX:+UnlockDiagnosticVMOptions
 # https://bugs.openjdk.org/browse/JDK-8329528
 -XX:G1NumCollectionsKeepPinned=10000000
-# https://bugs.openjdk.org/browse/JDK-8327134
--Djava.security.manager=allow
