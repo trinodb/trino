@@ -16,9 +16,15 @@ package io.trino.client;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Verify.verify;
 import static java.lang.String.format;
+import static java.nio.charset.CodingErrorAction.IGNORE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 class MaterializingInputStream
@@ -78,10 +84,24 @@ class MaterializingInputStream
 
     public String getHeadString()
     {
+        return getHeadString(UTF_8);
+    }
+
+    public String getHeadString(Charset charset)
+    {
         if (head == null) {
             return "<empty>";
         }
-        return new String(head, 0, currentOffset, UTF_8) + (remaining > 0 ? format("... [" + bytesOmitted(remaining) + "]", remaining) : "");
+
+        CharsetDecoder charsetDecoder = firstNonNull(charset, UTF_8).newDecoder()
+                .onMalformedInput(IGNORE)
+                .onUnmappableCharacter(IGNORE);
+        try {
+            return charsetDecoder.decode(ByteBuffer.wrap(head, 0, currentOffset)) + (remaining > 0 ? format("... [" + bytesOmitted(remaining) + "]", remaining) : "");
+        }
+        catch (CharacterCodingException e) {
+            return format("<error:%s>", e.getMessage());
+        }
     }
 
     private String bytesOmitted(long bytes)

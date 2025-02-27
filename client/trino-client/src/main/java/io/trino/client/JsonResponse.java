@@ -117,7 +117,7 @@ public final class JsonResponse<T>
                     // Parse from input stream, response is either of unknown size or too large to materialize.
                     // 8K of the response body will be available if parsing fails.
                     T value = codec.fromJson(stream);
-                    return new JsonResponse<>(response.code(), response.headers(), stream.getHeadString(), value, null);
+                    return new JsonResponse<>(response.code(), response.headers(), stream.getHeadString(responseBody.contentType().charset()), value, null);
                 }
                 catch (JsonProcessingException e) {
                     return new JsonResponse<>(
