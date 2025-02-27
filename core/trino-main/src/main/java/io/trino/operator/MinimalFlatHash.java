@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
@@ -92,10 +93,10 @@ public final class MinimalFlatHash
         this.hasPrecomputedHash = hasPrecomputedHash;
 
         // the record is laid out as follows:
-        // 1. raw hash (long)
+        // 1. optional raw hash (long)
         // 2. optional variable width pointer (int chunkIndex, int chunkOffset)
         // 3. fixed data for each type
-        this.variableWidthOffset = Long.BYTES;
+        this.variableWidthOffset = hasPrecomputedHash ? Long.BYTES : 0;
         this.fixedValueOffset = variableWidthOffset + (hasVariableData ? MinimalVariableWidthData.POINTER_SIZE : 0);
         this.fixedRecordSize = fixedValueOffset + flatHashStrategy.getTotalFlatFixedLength();
 
@@ -155,10 +156,27 @@ public final class MinimalFlatHash
 
     public long hashPosition(int groupId)
     {
-        checkArgument(groupId < nextGroupId, "groupId out of range");
-        int recordOffset = getFixedRecordOffset(groupId);
-        byte[] records = getFixedSizeRecords(groupId);
-        return (long) LONG_HANDLE.get(records, recordOffset);
+        if (groupId < 0) {
+            throw new IllegalArgumentException("groupId is negative");
+        }
+        byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
+        int fixedRecordOffset = getFixedRecordOffset(groupId);
+        if (hasPrecomputedHash) {
+            return (long) LONG_HANDLE.get(fixedSizeRecords, fixedRecordOffset);
+        }
+        byte[] variableWidthChunk = null;
+        int variableChunkOffset = 0;
+        if (variableWidthData != null) {
+            variableWidthChunk = variableWidthData.getChunk(fixedSizeRecords, fixedRecordOffset + variableWidthOffset);
+            variableChunkOffset = MinimalVariableWidthData.getChunkOffset(fixedSizeRecords, fixedRecordOffset + variableWidthOffset);
+        }
+        try {
+            return flatHashStrategy.hash(fixedSizeRecords, fixedRecordOffset + fixedValueOffset, variableWidthChunk, variableChunkOffset);
+        }
+        catch (Throwable throwable) {
+            throwIfUnchecked(throwable);
+            throw new RuntimeException(throwable);
+        }
     }
 
     public void appendTo(int groupId, BlockBuilder[] blockBuilders)
@@ -292,7 +310,10 @@ public final class MinimalFlatHash
             this.fixedSizeRecords[recordGroupIndex] = fixedSizeRecords;
             fixedRecordGroupsRetainedSize = addExact(fixedRecordGroupsRetainedSize, sizeOf(fixedSizeRecords));
         }
-        LONG_HANDLE.set(fixedSizeRecords, fixedRecordOffset, hash);
+
+        if (hasPrecomputedHash) {
+            LONG_HANDLE.set(fixedSizeRecords, fixedRecordOffset, hash);
+        }
 
         byte[] variableWidthChunk = null;
         int variableWidthChunkOffset = 0;
@@ -358,9 +379,7 @@ public final class MinimalFlatHash
         Arrays.fill(groupIdsByHash, -1);
 
         for (int groupId = 0; groupId < nextGroupId; groupId++) {
-            byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
-            int fixedRecordOffset = getFixedRecordOffset(groupId);
-            long hash = (long) LONG_HANDLE.get(fixedSizeRecords, fixedRecordOffset);
+            long hash = hashPosition(groupId);
 
             byte hashPrefix = (byte) (hash & 0x7F | 0x80);
             int bucket = bucket((int) (hash >> 7));
@@ -415,8 +434,10 @@ public final class MinimalFlatHash
         byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
         int fixedRecordsOffset = getFixedRecordOffset(groupId);
 
-        if (rightHash != (long) LONG_HANDLE.get(fixedSizeRecords, fixedRecordsOffset)) {
-            return false;
+        if (hasPrecomputedHash) {
+            if (rightHash != (long) LONG_HANDLE.get(fixedSizeRecords, fixedRecordsOffset)) {
+                return false;
+            }
         }
 
         byte[] variableWidthChunk = null;

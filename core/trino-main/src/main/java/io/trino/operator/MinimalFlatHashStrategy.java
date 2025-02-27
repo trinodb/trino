@@ -49,5 +49,11 @@ public interface MinimalFlatHashStrategy
 
     long hash(Block[] blocks, int position);
 
+    long hash(
+            byte[] fixedChunk,
+            int fixedOffset,
+            byte[] variableChunk,
+            int variableChunkOffset);
+
     void hashBlocksBatched(Block[] blocks, long[] hashes, int offset, int length);
 }

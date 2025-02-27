@@ -168,6 +168,12 @@ public abstract class AbstractVariableWidthType
     }
 
     @Override
+    public long hashMinimalFlatVariableWidth(byte[] variableSizeSlice, int variableSizeOffset, int length)
+    {
+        return XxHash64.hash(wrappedBuffer(variableSizeSlice, variableSizeOffset, length));
+    }
+
+    @Override
     public int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset)
     {
         int length = (int) INT_HANDLE.get(fixedSizeSlice, fixedSizeOffset);
