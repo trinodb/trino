@@ -24,7 +24,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -35,7 +34,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Disabled("https://github.com/trinodb/trino/issues/25129")
 @TestInstance(PER_CLASS)
 final class TestIcebergS3TablesConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest

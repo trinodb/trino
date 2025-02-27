@@ -42,6 +42,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.iceberg.rest.RESTSessionCatalog.REST_PAGE_SIZE;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
@@ -121,6 +122,7 @@ public class TrinoIcebergRestCatalogFactory
             properties.put("trino-version", trinoVersion);
             properties.putAll(securityProperties.get());
             properties.putAll(awsProperties.get());
+            properties.put(REST_PAGE_SIZE, "100");
 
             if (vendedCredentialsEnabled) {
                 properties.put("header.X-Iceberg-Access-Delegation", "vended-credentials");
