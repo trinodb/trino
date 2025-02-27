@@ -13,6 +13,8 @@
  */
 package io.trino.client;
 
+import io.airlift.units.DataSize;
+
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,8 +24,8 @@ import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Verify.verify;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.CodingErrorAction.IGNORE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -35,11 +37,10 @@ class MaterializingInputStream
     private int remaining;
     private int currentOffset;
 
-    protected MaterializingInputStream(InputStream stream, int maxBytes)
+    protected MaterializingInputStream(InputStream stream, DataSize maxBytes)
     {
         super(stream);
-        verify(maxBytes > 1024 && maxBytes <= 8 * 1024, "maxBytes must be between 1 KB and 8 KB");
-        this.head = new byte[maxBytes];
+        this.head = new byte[toIntExact(maxBytes.toBytes())]; // caller is responsible for reasonable sizing
     }
 
     @Override

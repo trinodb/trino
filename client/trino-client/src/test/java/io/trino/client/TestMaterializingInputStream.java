@@ -13,6 +13,7 @@
  */
 package io.trino.client;
 
+import io.airlift.units.DataSize;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -30,7 +31,7 @@ class TestMaterializingInputStream
             throws IOException
     {
         InputStream stream = new ByteArrayInputStream("abcd".repeat(1337).getBytes(UTF_8));
-        MaterializingInputStream reader = new MaterializingInputStream(stream, 4);
+        MaterializingInputStream reader = new MaterializingInputStream(stream, DataSize.ofBytes(4));
 
         int remainingBytes = 4 * 1337 - 4;
 
@@ -44,7 +45,7 @@ class TestMaterializingInputStream
             throws IOException
     {
         InputStream stream = new ByteArrayInputStream("abcdabc".getBytes(UTF_8));
-        MaterializingInputStream reader = new MaterializingInputStream(stream, 8);
+        MaterializingInputStream reader = new MaterializingInputStream(stream, DataSize.ofBytes(8));
 
         reader.transferTo(new ByteArrayOutputStream()); // Trigger reading
         assertThat(reader.getHeadString()).isEqualTo("abcdabc");
@@ -55,7 +56,7 @@ class TestMaterializingInputStream
             throws IOException
     {
         InputStream stream = new ByteArrayInputStream("a".repeat(8).getBytes(UTF_8));
-        MaterializingInputStream reader = new MaterializingInputStream(stream, 8);
+        MaterializingInputStream reader = new MaterializingInputStream(stream, DataSize.ofBytes(8));
 
         reader.transferTo(new ByteArrayOutputStream()); // Trigger reading
         assertThat(reader.getHeadString()).isEqualTo("a".repeat(8));
