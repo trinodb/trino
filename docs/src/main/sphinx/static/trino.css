@@ -77,11 +77,11 @@ pre.literal-block {
 
 @media only screen and (min-width: 88.25em) {
     .md-grid {
-        max-width: 61rem;
+        max-width: 75rem;
     }
 
     .md-sidebar--secondary {
-        margin-left: 61rem;
+        margin-left: 75rem;
     }
 }
 
