@@ -20,12 +20,8 @@ div.highlight {
     background-color: #0B1367;
 }
 
-.md-typeset a {
-    color: var(--trino-pink);
-}
-
 .md-typeset a:active, .md-typeset a:hover {
-    color: var(--trino-orange);;
+    color: var(--trino-orange);
 }
 
 /* Fix vertical alignment for links to header from other documents */
