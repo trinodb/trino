@@ -137,6 +137,7 @@ public class DistinctLimitOperator
                 operatorContext.getSession(),
                 distinctTypes,
                 hashChannel.isPresent(),
+                false,
                 toIntExact(min(limit, 10_000)),
                 hashStrategyCompiler,
                 this::updateMemoryReservation);
