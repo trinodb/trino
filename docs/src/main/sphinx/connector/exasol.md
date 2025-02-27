@@ -206,3 +206,12 @@ FROM
 
 ```{include} query-table-function-ordering.fragment
 ```
+
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+(exasol-table-statistics)=
+```{include} jdbc-table-statistics.fragment
+```

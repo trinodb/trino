@@ -322,3 +322,12 @@ features:
 
 ```{include} procedures-execute.fragment
 ```
+
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+(phoenix-table-statistics)=
+```{include} jdbc-table-statistics.fragment
+```

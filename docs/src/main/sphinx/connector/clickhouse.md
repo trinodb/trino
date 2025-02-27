@@ -384,6 +384,10 @@ FROM
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(clickhouse-table-statistics)=
+```{include} jdbc-table-statistics.fragment
+```
+
 (clickhouse-pushdown)=
 ### Pushdown
 
