@@ -123,13 +123,7 @@ public abstract class BaseIcebergSystemTables
     @AfterAll
     public void tearDown()
     {
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_drop_column");
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_nan");
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_with_dml");
-        assertUpdate("DROP TABLE IF EXISTS test_schema.test_metadata_log_entries");
-        assertUpdate("DROP SCHEMA IF EXISTS test_schema");
+        assertUpdate("DROP SCHEMA IF EXISTS test_schema CASCADE");
     }
 
     @Test
@@ -372,13 +366,21 @@ public abstract class BaseIcebergSystemTables
                         "VALUES " +
                                 "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar)))) , " +
                                 "    (2, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '2019-09-09', '2019-09-10')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+    }
 
+    @Test
+    public void testMultilevelPartitionsManifestsTable()
+    {
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_multilevel_partitions$manifests\"");
         assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_multilevel_partitions$manifests\""))
                 .matches(
                         "VALUES " +
                                 "(3, BIGINT '0', BIGINT '3', 0, BIGINT '0', CAST(ARRAY[ROW(false, false, '0', '1'), ROW(false, false, '2019-09-08', '2019-09-09')] AS array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))))");
+    }
 
+    @Test
+    public void testDMLManifestsTable()
+    {
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_with_dml$manifests\"");
         assertThat(query("SELECT added_data_files_count, existing_rows_count, added_rows_count, deleted_data_files_count, deleted_rows_count, partition_summaries FROM test_schema.\"test_table_with_dml$manifests\""))
                 .matches(
@@ -428,7 +430,11 @@ public abstract class BaseIcebergSystemTables
                         "('sort_order_id', 'integer', '', '')," +
                         "('readable_metrics', 'json', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+    }
 
+    @Test
+    public void testSplitOffsetsFilesTable()
+    {
         long offset = format == PARQUET ? 4L : 3L;
         assertThat(computeActual("SELECT split_offsets FROM test_schema.\"test_table$files\""))
                 .isEqualTo(resultBuilder(getSession(), ImmutableList.of(new ArrayType(BIGINT)))
