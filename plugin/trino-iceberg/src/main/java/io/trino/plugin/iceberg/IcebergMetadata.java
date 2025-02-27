@@ -330,6 +330,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.validateParquetBloomFilterColu
 import static io.trino.plugin.iceberg.IcebergUtil.verifyExtraProperties;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
+import static io.trino.plugin.iceberg.StructLikeWrapperWithFieldIdToIndex.createStructLikeWrapper;
 import static io.trino.plugin.iceberg.TableStatisticsReader.readNdvs;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.INCREMENTAL_UPDATE;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPLACE;
@@ -805,40 +806,45 @@ public class IcebergMetadata
             Map<Integer, IcebergColumnHandle> columns = getProjectedColumns(icebergTable.schema(), typeManager, partitionSourceIds).stream()
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
-            Supplier<List<FileScanTask>> lazyFiles = Suppliers.memoize(() -> {
+            Supplier<Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec>> lazyUniquePartitions = Suppliers.memoize(() -> {
                 TableScan tableScan = icebergTable.newScan()
                         .useSnapshot(table.getSnapshotId().get())
                         .filter(toIcebergExpression(enforcedPredicate));
 
-                try (CloseableIterable<FileScanTask> iterator = tableScan.planFiles()) {
-                    return ImmutableList.copyOf(iterator);
+                try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {
+                    Map<StructLikeWrapperWithFieldIdToIndex, PartitionSpec> partitions = new HashMap<>();
+                    for (FileScanTask fileScanTask : fileScanTasks) {
+                        StructLikeWrapperWithFieldIdToIndex structLikeWrapperWithFieldIdToIndex = createStructLikeWrapper(fileScanTask);
+                        partitions.putIfAbsent(structLikeWrapperWithFieldIdToIndex, fileScanTask.spec());
+                    }
+                    return partitions;
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
             });
 
-            Iterable<FileScanTask> files = () -> lazyFiles.get().iterator();
+            Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = Iterables.transform(
+                    () -> lazyUniquePartitions.get().entrySet().iterator(),
+                    entry -> {
+                        // Extract partition values
+                        Map<Integer, Optional<String>> partitionColumnValueStrings = getPartitionKeys(entry.getKey().getStructLikeWrapper().get(), entry.getValue());
+                        Map<ColumnHandle, NullableValue> partitionValues = partitionSourceIds.stream()
+                                .filter(partitionColumnValueStrings::containsKey)
+                                .collect(toImmutableMap(
+                                        columns::get,
+                                        columnId -> {
+                                            IcebergColumnHandle column = columns.get(columnId);
+                                            Object prestoValue = deserializePartitionValue(
+                                                    column.getType(),
+                                                    partitionColumnValueStrings.get(columnId).orElse(null),
+                                                    column.getName());
 
-            Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = Iterables.transform(files, fileScan -> {
-                // Extract partition values in the data file
-                Map<Integer, Optional<String>> partitionColumnValueStrings = getPartitionKeys(fileScan);
-                Map<ColumnHandle, NullableValue> partitionValues = partitionSourceIds.stream()
-                        .filter(partitionColumnValueStrings::containsKey)
-                        .collect(toImmutableMap(
-                                columns::get,
-                                columnId -> {
-                                    IcebergColumnHandle column = columns.get(columnId);
-                                    Object prestoValue = deserializePartitionValue(
-                                            column.getType(),
-                                            partitionColumnValueStrings.get(columnId).orElse(null),
-                                            column.getName());
+                                            return new NullableValue(column.getType(), prestoValue);
+                                        }));
 
-                                    return new NullableValue(column.getType(), prestoValue);
-                                }));
-
-                return TupleDomain.fromFixedValues(partitionValues);
-            });
+                        return TupleDomain.fromFixedValues(partitionValues);
+                    });
 
             discretePredicates = new DiscretePredicates(
                     columns.values().stream()
