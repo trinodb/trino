@@ -74,6 +74,7 @@ public class TestS3FileSystemConfig
                 .setHttpProxyPassword(null)
                 .setHttpProxyPreemptiveBasicProxyAuth(false)
                 .setSupportsExclusiveCreate(true)
+                .setCrossRegionAccessEnabled(false)
                 .setApplicationId("Trino"));
     }
 

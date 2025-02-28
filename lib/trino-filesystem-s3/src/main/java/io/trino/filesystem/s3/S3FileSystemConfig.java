@@ -136,6 +136,7 @@ public class S3FileSystemConfig
     private RetryMode retryMode = RetryMode.LEGACY;
     private int maxErrorRetries = 10;
     private boolean supportsExclusiveCreate = true;
+    private boolean crossRegionAccessEnabled;
     private String applicationId = "Trino";
 
     public String getAwsAccessKey()
@@ -567,6 +568,19 @@ public class S3FileSystemConfig
     public S3FileSystemConfig setSupportsExclusiveCreate(boolean supportsExclusiveCreate)
     {
         this.supportsExclusiveCreate = supportsExclusiveCreate;
+        return this;
+    }
+
+    public boolean getCrossRegionAccessEnabled()
+    {
+        return crossRegionAccessEnabled;
+    }
+
+    @Config("s3.cross-region-access-enabled")
+    @ConfigDescription("Whether S3 cross region access enabled")
+    public S3FileSystemConfig setCrossRegionAccessEnabled(boolean crossRegionAccessEnabled)
+    {
+        this.crossRegionAccessEnabled = crossRegionAccessEnabled;
         return this;
     }
 
