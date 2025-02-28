@@ -23,6 +23,7 @@ public class TestHudiPageSource
     @Test
     public void testEverythingImplemented()
     {
-        assertAllMethodsOverridden(ConnectorPageSource.class, HudiPageSource.class);
+        assertAllMethodsOverridden(ConnectorPageSource.class, HudiReadOptimizedPageSource.class);
+        assertAllMethodsOverridden(ConnectorPageSource.class, HudiSnapshotPageSource.class);
     }
 }
