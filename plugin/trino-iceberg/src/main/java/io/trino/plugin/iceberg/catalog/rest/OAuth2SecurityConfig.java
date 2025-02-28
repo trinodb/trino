@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import jakarta.validation.constraints.AssertTrue;
+import org.apache.iceberg.rest.auth.OAuth2Properties;
 
 import java.net.URI;
 import java.util.Optional;
@@ -27,6 +28,7 @@ public class OAuth2SecurityConfig
     private String scope;
     private String token;
     private URI serverUri;
+    private boolean tokenRefreshEnabled = OAuth2Properties.TOKEN_REFRESH_ENABLED_DEFAULT;
 
     public Optional<String> getCredential()
     {
@@ -79,6 +81,19 @@ public class OAuth2SecurityConfig
     public OAuth2SecurityConfig setServerUri(URI serverUri)
     {
         this.serverUri = serverUri;
+        return this;
+    }
+
+    public boolean isTokenRefreshEnabled()
+    {
+        return tokenRefreshEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.oauth2.token-refresh-enabled")
+    @ConfigDescription("Controls whether a token should be refreshed if information about its expiration time is available")
+    public OAuth2SecurityConfig setTokenRefreshEnabled(boolean tokenRefreshEnabled)
+    {
+        this.tokenRefreshEnabled = tokenRefreshEnabled;
         return this;
     }
 
