@@ -628,7 +628,7 @@ destination.
 It is only recommended to use a local filesystem for exchange in standalone,
 non-production clusters. A local directory can only be used for exchange in
 a distributed cluster if the exchange directory is shared and accessible
-from all worker nodes.
+from all nodes.
 :::
 
 ```properties
