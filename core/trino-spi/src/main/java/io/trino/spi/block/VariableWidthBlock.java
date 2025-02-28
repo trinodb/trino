@@ -192,6 +192,20 @@ public final class VariableWidthBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + arrayOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);

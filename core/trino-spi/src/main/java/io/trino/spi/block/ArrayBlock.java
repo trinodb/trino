@@ -199,6 +199,20 @@ public final class ArrayBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + arrayOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public String toString()
     {
         return "ArrayBlock{positionCount=" + getPositionCount() + '}';
