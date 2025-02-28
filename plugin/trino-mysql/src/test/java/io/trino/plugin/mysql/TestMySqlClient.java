@@ -44,14 +44,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestMySqlClient
 {
     private static final JdbcColumnHandle BIGINT_COLUMN =
-            JdbcColumnHandle.builder()
+            MySqlJdbcColumnHandle.builder()
                     .setColumnName("c_bigint")
                     .setColumnType(BIGINT)
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.BIGINT, Optional.of("int8"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                     .build();
 
     private static final JdbcColumnHandle DOUBLE_COLUMN =
-            JdbcColumnHandle.builder()
+            MySqlJdbcColumnHandle.builder()
                     .setColumnName("c_double")
                     .setColumnType(DOUBLE)
                     .setJdbcTypeHandle(new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
