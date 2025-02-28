@@ -511,6 +511,7 @@ public final class MinimalFlatHash
 
         public static final int MIN_CHUNK_SIZE = 1024;
         public static final int MAX_CHUNK_SIZE = 8 * 1024 * 1024;
+        private static final int DOUBLING_CHUNK_THRESHOLD = 512 * 1024;
 
         public static final int POINTER_SIZE = Integer.BYTES + Integer.BYTES;
 
@@ -575,8 +576,8 @@ public final class MinimalFlatHash
                 // record unused space as free bytes
                 freeBytes += (openChunk.length - openChunkOffset);
 
-                // allocate enough space for 32 values of the current size, or double the current chunk size, whichever is larger
-                int newSize = Ints.saturatedCast(max(size * 32L, openChunk.length * 2L));
+                // allocate enough space for 32 values of the current size, or 1.5x the current chunk size, whichever is larger
+                int newSize = Ints.saturatedCast(max(size * 32L, nextChunkSize(openChunk.length)));
                 // constrain to be between min and max chunk size
                 newSize = clamp(newSize, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
                 // jumbo rows get a separate allocation
@@ -606,6 +607,15 @@ public final class MinimalFlatHash
             }
             checkIndex(chunkIndex, chunks.size());
             return chunks.get(chunkIndex);
+        }
+
+        // growth factor for each chunk doubles up to 512KB, then increases by 1.5x for each chunk after that
+        private static long nextChunkSize(long previousChunkSize)
+        {
+            if (previousChunkSize < DOUBLING_CHUNK_THRESHOLD) {
+                return previousChunkSize * 2;
+            }
+            return previousChunkSize + (previousChunkSize >> 1);
         }
 
         private static int getChunkIndex(byte[] pointer, int pointerOffset)
