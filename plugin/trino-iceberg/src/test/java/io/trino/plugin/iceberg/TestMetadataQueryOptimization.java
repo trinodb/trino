@@ -119,6 +119,33 @@ public class TestMetadataQueryOptimization
     }
 
     @Test
+    public void testOptimizationOnPartitionWithMultipleFiles()
+    {
+        String testTable = "test_metadata_optimization_on_partition_with_multiple_files";
+
+        getPlanTester().executeStatement(format(
+                "CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c']) AS VALUES (1, 8, 9), (2, 8, 9)",
+                testTable));
+
+        Session session = Session.builder(getPlanTester().getDefaultSession())
+                .setSystemProperty("optimize_metadata_queries", "true")
+                .build();
+
+        // Insert again to generate another file in same partition
+        getPlanTester().executeStatement(format(
+                "INSERT INTO %s VALUES (3, 8, 9)",
+                testTable));
+
+        assertPlan(
+                format("SELECT DISTINCT b, c FROM %s ORDER BY b", testTable),
+                session,
+                anyTree(values(
+                        ImmutableList.of("b", "c"),
+                        ImmutableList.of(
+                                ImmutableList.of(new Constant(INTEGER, 8L), new Constant(INTEGER, 9L))))));
+    }
+
+    @Test
     public void testOptimizationWithNullPartitions()
     {
         String testTable = "test_metadata_optimization_with_null_partitions";
