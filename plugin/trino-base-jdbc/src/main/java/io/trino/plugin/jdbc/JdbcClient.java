@@ -27,6 +27,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -39,6 +40,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +50,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 
 public interface JdbcClient
 {
@@ -208,9 +211,46 @@ public interface JdbcClient
 
     void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds);
 
+    /**
+     * Begins inserting into the table.
+     *
+     * @deprecated use {@link BaseJdbcClient#beginInsertTable(ConnectorSession, JdbcTableHandle, List, List)} instead.
+     */
+    @Deprecated
     JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns);
 
+    /**
+     * Begins inserting into the table, allow to create the temporary table with additional customized columns {@code additionalColumns}.
+     *
+     * For connectors that support and enable transactional inserts or merges,
+     * the temporary table will be created with both `columns` and `additionalColumns`.
+     * The schema of `columns` is copied from `tableHandle`, while `additionalColumns`
+     * are appended after `columns` using the `ADD COLUMN` statement, typically for transactional updates.
+     *
+     * For connectors that do not support or do not enable transactional inserts or merges,
+     * no temporary table will be created, and `additionalColumns` will be ignored.
+     */
+    default JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns, List<JdbcColumnHandle> additionalColumns)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
+    }
+
     void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds);
+
+    default JdbcMergeTableHandle beginMerge(
+            ConnectorSession session,
+            JdbcTableHandle handle,
+            Map<Integer, Collection<ColumnHandle>> updateColumnHandles,
+            MergeRollbackAction rollbackAction,
+            RetryMode retryMode)
+    {
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
+    default void finishMerge(ConnectorSession session, JdbcMergeTableHandle handle, Set<Long> pageSinkIds)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
+    }
 
     void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle);
 
