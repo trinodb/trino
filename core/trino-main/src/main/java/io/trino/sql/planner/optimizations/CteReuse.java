@@ -15,6 +15,7 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -28,14 +29,19 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.UnificationResult;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.EmptyRowType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.Field;
+import io.trino.sql.dialect.trino.Attributes;
 import io.trino.sql.dialect.trino.Context;
 import io.trino.sql.dialect.trino.ProgramBuilder;
 import io.trino.sql.dialect.trino.ScalarProgramBuilder;
+import io.trino.sql.dialect.trino.operation.Constant;
+import io.trino.sql.dialect.trino.operation.Exchange;
 import io.trino.sql.dialect.trino.operation.FieldReference;
 import io.trino.sql.dialect.trino.operation.FieldSelection;
 import io.trino.sql.dialect.trino.operation.Filter;
@@ -43,9 +49,12 @@ import io.trino.sql.dialect.trino.operation.Project;
 import io.trino.sql.dialect.trino.operation.Query;
 import io.trino.sql.dialect.trino.operation.Return;
 import io.trino.sql.dialect.trino.operation.Row;
+import io.trino.sql.dialect.trino.operation.SqlOperation;
+import io.trino.sql.dialect.trino.operation.SqlRelationalOperation;
 import io.trino.sql.dialect.trino.operation.TableScan;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.newir.Block;
+import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Program;
 import io.trino.sql.newir.Region;
@@ -66,6 +75,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -77,7 +87,9 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
+import static io.trino.sql.dialect.trino.Attributes.AGGREGATION_STEP;
 import static io.trino.sql.dialect.trino.Attributes.COLUMN_HANDLES;
+import static io.trino.sql.dialect.trino.Attributes.EXCHANGE_SCOPE;
 import static io.trino.sql.dialect.trino.Attributes.FIELD_INDEX;
 import static io.trino.sql.dialect.trino.Attributes.FIELD_NAME;
 import static io.trino.sql.dialect.trino.Attributes.TABLE_HANDLE;
@@ -86,16 +98,21 @@ import static io.trino.sql.dialect.trino.Attributes.USE_CONNECTOR_NODE_PARTITION
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
+import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION;
+import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION_ROW;
+import static io.trino.sql.newir.Region.singleBlockRegion;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.PredicateUtils.conjunction;
 import static io.trino.sql.planner.optimizations.PredicateUtils.disjunction;
 import static io.trino.sql.planner.optimizations.PredicateUtils.isTrue;
 import static io.trino.sql.planner.optimizations.PredicateUtils.removeConjuncts;
+import static io.trino.sql.planner.optimizations.PredicateUtils.truePredicate;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 public class CteReuse
 {
-    public static Optional<Program> reuseCommonSubqueries(Plan plan, PlannerContext plannerContext, Session session)
+    public static Optional<Program> reuseCommonSubqueries(Plan plan, PlannerContext plannerContext, Session session, FormatOptions formatOptions)
     {
         // rewrite to new IR
         Program program;
@@ -136,13 +153,18 @@ public class CteReuse
 
         // unify each group
         for (UnifiedGroup unifiedGroup : unifiedGroups) {
+            // record the old operations to remove and the new operations to add
+            ImmutableList.Builder<Operation> operationsToRemove = ImmutableList.builder();
+            ImmutableList.Builder<Operation> operationsToAdd = ImmutableList.builder();
+
             // initialize a list of unified operations
             ImmutableList.Builder<Operation> unifiedOperations = ImmutableList.builder();
 
             // unified TableScan is the first unified operation
             TableScan unifiedTableScan = getUnifiedTableScan(unifiedGroup, nameAllocator);
             unifiedOperations.add(unifiedTableScan);
-            Operation recentUnifiedOperation = unifiedTableScan;
+            operationsToAdd.add(unifiedTableScan);
+            operationsToRemove.addAll(unifiedGroup.tableScans());
 
             // checkpoint records the recent safe place to backtrack if unifying fails. initially null.
             Checkpoint checkpoint = null;
@@ -153,11 +175,31 @@ public class CteReuse
             // initialize traversal state for each branch by combining the TraversalContext with the next downstream operation
             ImmutableList.Builder<TraversalState> traversalStates = ImmutableList.builder();
             for (int i = 0; i < unifiedGroup.tableScans().size(); i++) {
-                Operation nextOperation = getNextOperation(unifiedGroup.tableScans().get(i), usesMap).orElseThrow();
-                traversalStates.add(new TraversalState(traversalContexts.get(i), nextOperation));
+                traversalStates.add(new TraversalState(traversalContexts.get(i), getNextOperation(unifiedGroup.tableScans().get(i), usesMap).orElseThrow()));
             }
 
-            List<TraversalState> debug = traversalStates.build();
+            mergeGroup(
+                    traversalStates.build(),
+                    unifiedTableScan,
+                    checkpoint,
+                    USE_CONNECTOR_NODE_PARTITIONING.getAttribute(unifiedTableScan.attributes()),
+                    program.getValueMap(),
+                    usesMap,
+                    nameAllocator,
+                    operationsToRemove,
+                    operationsToAdd);
+
+            Block oldMainBlock = getOnlyElement(((Query) program.getRoot()).regions()).getOnlyBlock();
+            Block.Builder newMainBlock = new Block.Builder(oldMainBlock.name(), oldMainBlock.parameters());
+            operationsToAdd.build().stream()
+                    .forEach(newMainBlock::addOperation);
+            Set<Operation> toRemove = ImmutableSet.copyOf(operationsToRemove.build());
+            oldMainBlock.operations().stream()
+                    .filter(operation -> !toRemove.contains(operation))
+                    .forEach(newMainBlock::addOperation);
+            Program newProgram = new Program(((SqlOperation) program.getRoot()).withRegions(ImmutableList.of(singleBlockRegion(newMainBlock.build()))), ImmutableMap.of());
+
+            System.out.println(newProgram.print(1, formatOptions));
 
             // for each branch: ingest operations until blocked
             // compute common part of contexts and residual contexts
@@ -478,7 +520,7 @@ public class CteReuse
         for (int i = unifiedGroup.tableScans().size() - 1; i >= 1; i--) {
             TableScan tableScan = unifiedGroup.tableScans().get(i);
             UnificationResult<TableHandle> unificationResult = unifiedGroup.unificationResults().get(i - 1);
-            TraversalContext.Mapping mapping = computeMapping(tableScan, unifiedIndexes, unifiedNames);
+            Mapping mapping = computeMapping(tableScan, unifiedIndexes, unifiedNames);
             Set<Integer> fieldsToPrune = computeFieldsToPrune(tableScan, unifiedIndexes);
             Block compensationPredicate = translateToBlock(unifiedTableScan, currentCompensationPredicate.intersect(unificationResult.secondCompensation().filter()), metadata, nameAllocator);
             OptionalLong compensationLimit = combineLimit(currentCompensationLimit, unificationResult.secondCompensation().limit());
@@ -491,7 +533,7 @@ public class CteReuse
 
         // process the first component table
         TableScan tableScan = unifiedGroup.tableScans().get(0);
-        TraversalContext.Mapping mapping = computeMapping(tableScan, unifiedIndexes, unifiedNames);
+        Mapping mapping = computeMapping(tableScan, unifiedIndexes, unifiedNames);
         Set<Integer> fieldsToPrune = computeFieldsToPrune(tableScan, unifiedIndexes);
         Block compensationPredicate = translateToBlock(unifiedTableScan, currentCompensationPredicate, metadata, nameAllocator);
         OptionalLong compensationLimit = currentCompensationLimit;
@@ -550,11 +592,11 @@ public class CteReuse
     /**
      * Compute mapping to rewrite references to the output fields of componentTableScan in terms of the output fields of unifiedTableScan.
      */
-    private static TraversalContext.Mapping computeMapping(TableScan componentTableScan, Map<ColumnHandle, Integer> unifiedIndexes, Map<ColumnHandle, String> unifiedNames)
+    private static Mapping computeMapping(TableScan componentTableScan, Map<ColumnHandle, Integer> unifiedIndexes, Map<ColumnHandle, String> unifiedNames)
     {
         List<ColumnHandle> componentHandles = COLUMN_HANDLES.getAttribute(componentTableScan.attributes());
         if (componentHandles.isEmpty()) {
-            return new TraversalContext.Mapping(ImmutableMap.of(), ImmutableMap.of());
+            return new Mapping(ImmutableMap.of(), ImmutableMap.of());
         }
 
         RowType componentRowType = (RowType) relationRowType(trinoType(componentTableScan.result().type()));
@@ -565,7 +607,7 @@ public class CteReuse
             nameMapping.put(componentRowType.getFields().get(i).getName().orElseThrow(), unifiedNames.get(componentHandles.get(i)));
         }
 
-        return new TraversalContext.Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
+        return new Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
     }
 
     /**
@@ -601,31 +643,130 @@ public class CteReuse
      * Later, we might consider handling it.
      * <p>
      * For now, we assume that neither of the cases is achievable. We will not call this method on terminal operations.
+     * // TODO comment that the index is the index of `operation` in the arguments list of the next operation.
      */
-    private static Optional<Operation> getNextOperation(Operation operation, Multimap<Operation, Operation> usesMap)
+    private static Optional<OperationAndIndex> getNextOperation(Operation operation, Multimap<Operation, Operation> usesMap)
     {
         Collection<Operation> uses = usesMap.get(operation);
         if (uses.size() != 1) {
             return Optional.empty();
         }
-        return Optional.of(getOnlyElement(uses));
+        Operation nextOperation = getOnlyElement(uses);
+        return Optional.of(new OperationAndIndex(nextOperation, nextOperation.arguments().indexOf(operation.result())));
+    }
+
+    /**
+     * The next downstream operation and the index of the previous operation as the downstream operation's source.
+     * @param operation
+     * @param index
+     */
+    private record OperationAndIndex(Operation operation, int index)
+    {
+        private OperationAndIndex
+        {
+            requireNonNull(operation, "operation is null");
+        }
     }
 
     // TODO javadoc when method finished
-    private static void mergeGroup(List<TraversalState> branches, Operation unifiedOperation, Map<Value, SourceNode> valueMap, Multimap<Operation, Operation> usesMap, ProgramBuilder.ValueNameAllocator nameAllocator)
+    private static void mergeGroup(
+            List<TraversalState> branches,
+            Operation unifiedOperation,
+            Checkpoint checkpoint,
+            boolean sourcePartitioned,
+            Map<Value, SourceNode> valueMap,
+            Multimap<Operation, Operation> usesMap,
+            ProgramBuilder.ValueNameAllocator nameAllocator,
+            ImmutableList.Builder<Operation> operationsToRemove,
+            ImmutableList.Builder<Operation> operationsToAdd)
     {
         // for each branch, ingest operations into context as long as possible
         List<TraversalState> ingestedStates = branches.stream()
-                .map(branch -> ingestOperationsIntoContext(branch, unifiedOperation, valueMap, usesMap, nameAllocator))
+                .map(branch -> ingestOperationsIntoContext(branch, unifiedOperation, valueMap, usesMap, nameAllocator, operationsToRemove))
                 .collect(toImmutableList());
 
         // each branch is fully ingested. extract the common part of all branches, and add operations for it
-        UnifiedStates unifiedStates = unifyAndOutput(ingestedStates, unifiedOperation, valueMap, nameAllocator);
+        UnifiedStates unifiedStates = unifyAndOutput(ingestedStates, unifiedOperation, valueMap, nameAllocator, operationsToAdd);
+
+        // TODO for now, end merging: insert a split point, apply compensations, and wire to plan
+        //  later: rebase the next operations. If all can be merged further and all contexts can be pulled through, no split point.
+        //    Just output the next operation, pull contexts through, and enter ingestion phase
+        //    NOTE: check that the next operation is single source. Watch out for exchanges!
+        //  otherwise, insert a split point. Find subgroups so that the next operation can be merged and contexts can be pulled through.
+        //    For each subgroup output the common operation, pull contexts through, and enter ingestion phase
+        //  for branches that don't have a subgroup, apply compensations and wire to plan
+        if (checkpoint == null) {
+            if (sourcePartitioned) {
+                throw new UnsupportedOperationException("sorry, cannot merge this at all. It would require inserting an exchange which would break the physical propetries");
+            }
+            // insert a split point where we are, record it as checkpoint
+            Exchange splittingExchange = roundRobinExchange(unifiedStates.unifiedOperation(), nameAllocator);
+            operationsToAdd.add(splittingExchange);
+            // all TraversalContexts can be pulled through this exchange. We don't need to remap them, as the exchange is pass-through. We only need to base them on the exchange.
+            // for each branch, apply compensations on top of the exchange and wire to the Program
+            for (TraversalState state : unifiedStates.residualStates()) {
+                Operation recentOperation = splittingExchange;
+                // apply filter
+                if (!isTrue(state.traversalContext().predicateToApply(), valueMap)) {
+                    recentOperation = new Filter(
+                            nameAllocator.newName(),
+                            recentOperation.result(),
+                            state.traversalContext().predicateToApply(),
+                            recentOperation.attributes());
+                    operationsToAdd.add(recentOperation);
+                    // we don't bother about mapping. Filter is pass-through and field names are the same on input and on output
+                }
+                // apply limit
+                // TODO
+                // apply pruning
+                Mapping finalMapping = state.traversalContext().mapping();
+                if (!state.traversalContext().fieldsToPrune().isEmpty()) {
+                    recentOperation = new Project(
+                            nameAllocator.newName(),
+                            recentOperation.result(),
+                            pruningAssignments(recentOperation, state.traversalContext().fieldsToPrune(), nameAllocator), // TODO have a method to create pruning projection (not just assignments)
+                            recentOperation.attributes());
+                    Mapping mappingForPruning = ((Project) recentOperation).passthroughMapping();
+                    finalMapping = composeMappings(ImmutableList.of(finalMapping, mappingForPruning)).orElseThrow();
+                    operationsToAdd.add(recentOperation);
+                }
+                // okay... now we must reorder fields to match the next operations input. We will use the final mapping.
+                // TODO do this as part of the above projection
+                if (!finalMapping.isIdentity()) {
+                    recentOperation = new Project(
+                            nameAllocator.newName(),
+                            recentOperation.result(),
+                            reorderingAssignments(recentOperation, finalMapping, nameAllocator), // TODO have a method to create pruning projection (not just assignments)
+                            recentOperation.attributes());
+                    operationsToAdd.add(recentOperation);
+                }
+                // compensations are fully applied. Now we can wire recentOperation to the nextOperation
+                // TODO we can just replace the argument instead of doing the rebase.
+                Operation nextOperationRebased = ((SqlRelationalOperation) state.nextOperation().operation()).rebase(recentOperation, state.nextOperation().index(), Mapping.identity(relationRowType(trinoType(recentOperation.result().type()))), nameAllocator).orElseThrow();
+                // if we return the same result as before, the next downstream operation will use it, and we don't have to remap anything downstream, thanks to the indirection
+                nextOperationRebased = ((SqlRelationalOperation) nextOperationRebased).withResult(state.nextOperation().operation().result());
+                operationsToAdd.add(nextOperationRebased);
+                operationsToRemove.add(state.nextOperation().operation());
+            }
+            // TODO put all unified operations, the splitting exchange and the compensations in the Program's Block. Remove the old operations for branches.
+            return;
+        }
+        if (checkpoint.operation() instanceof Exchange exchange) {
+            checkState(EXCHANGE_SCOPE.getAttribute(exchange.attributes()).equals(Attributes.ExchangeScope.REMOTE));
+            // use this as split point
+        }
+        // checkpoint is the last operation before the first local exchange
+        // check that the next unified operation is a local exchange. Need to be able to navigate to next operation in the newly created part of the program.
+        if (sourcePartitioned) {
+            throw new UnsupportedOperationException("sorry, cannot merge this at all. It would require inserting an exchange which would break the physical propetries");
+        }
+        // insert a split point after this operation and before the local exchange. Record it as checkpoint
+
     }
 
-    private static TraversalState ingestOperationsIntoContext(TraversalState branchState, Operation unifiedOperation, Map<Value, SourceNode> valueMap, Multimap<Operation, Operation> usesMap, ProgramBuilder.ValueNameAllocator nameAllocator)
+    private static TraversalState ingestOperationsIntoContext(TraversalState branchState, Operation unifiedOperation, Map<Value, SourceNode> valueMap, Multimap<Operation, Operation> usesMap, ProgramBuilder.ValueNameAllocator nameAllocator, ImmutableList.Builder<Operation> operationsToRemove)
     {
-        Operation nextOperation = branchState.nextOperation();
+        Operation nextOperation = branchState.nextOperation().operation();
         if (nextOperation instanceof Project project && project.isPruning(valueMap)) {
             Project rebased = rebase(project, unifiedOperation, branchState.traversalContext().mapping(), nameAllocator);
             TraversalContext newContext = new TraversalContext(
@@ -635,7 +776,8 @@ public class CteReuse
                     branchState.traversalContext().limitToApply(),
                     branchState.traversalContext().enforcedPredicate(),
                     branchState.traversalContext().enforcedLimit());
-            return ingestOperationsIntoContext(new TraversalState(newContext, getNextOperation(project, usesMap).orElseThrow()), unifiedOperation, valueMap, usesMap, nameAllocator);
+            operationsToRemove.add(project);
+            return ingestOperationsIntoContext(new TraversalState(newContext, getNextOperation(project, usesMap).orElseThrow()), unifiedOperation, valueMap, usesMap, nameAllocator, operationsToRemove);
         }
         /*else if (nextOperation instanceof Filter) { // TODO check if deterministic
 
@@ -651,7 +793,7 @@ public class CteReuse
      * This method assumes that there is no dead code in project.assignments(). That is, all operations contained in this block
      * are: FieldSelections, Row constructor using all the FieldSelections, and the Return operation.
      */
-    private static Project rebase(Project project, Operation unifiedOperation, TraversalContext.Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    private static Project rebase(Project project, Operation unifiedOperation, Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
     {
         Block oldAssignments = project.assignments();
         Block.Parameter newAssignmentsParameter = new Block.Parameter(nameAllocator.newName(), irType(relationRowType(trinoType(unifiedOperation.result().type()))));
@@ -682,12 +824,12 @@ public class CteReuse
      * newProject will not be incorporated in the unified plan. Instead, it will be ingested into the traversal context.
      * The subsequent downstream operation will be rebased onto the unified operation using the mapping.
      */
-    private static TraversalContext.Mapping computeMapping(Project oldProject, Project newProject, Map<Value, SourceNode> valueMap)
+    private static Mapping computeMapping(Project oldProject, Project newProject, Map<Value, SourceNode> valueMap)
     {
         Type oldOutputRowType = relationRowType(trinoType(oldProject.result().type()));
 
         if (oldOutputRowType.equals(EMPTY_ROW)) {
-            return new TraversalContext.Mapping(ImmutableMap.of(), ImmutableMap.of());
+            return new Mapping(ImmutableMap.of(), ImmutableMap.of());
         }
 
         List<String> oldOutputFields = ((RowType) oldOutputRowType).getFields().stream()
@@ -713,7 +855,7 @@ public class CteReuse
             nameMapping.put(oldName, newName);
         }
 
-        return new TraversalContext.Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
+        return new Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
     }
 
     /**
@@ -749,7 +891,7 @@ public class CteReuse
      * This method assumes that all provided states are based on baseUnifiedOperation, so they can be safely combined.
      * There must be at least two states provided.
      */
-    private static UnifiedStates unifyAndOutput(List<TraversalState> states, Operation baseUnifiedOperation, Map<Value, SourceNode> valueMap, ProgramBuilder.ValueNameAllocator nameAllocator)
+    private static UnifiedStates unifyAndOutput(List<TraversalState> states, Operation baseUnifiedOperation, Map<Value, SourceNode> valueMap, ProgramBuilder.ValueNameAllocator nameAllocator, ImmutableList.Builder<Operation> operationsToAdd)
     {
         checkArgument(states.size() > 1, "at least two branches must be provided for unification");
 
@@ -820,7 +962,7 @@ public class CteReuse
 
         // build unified operations
         Operation unifiedOperation = baseUnifiedOperation;
-        ImmutableList.Builder<TraversalContext.Mapping> unifiedMappings = ImmutableList.builder();
+        ImmutableList.Builder<Mapping> unifiedMappings = ImmutableList.builder();
 
         // add unified Filter operation
         if (!isTrue(unifiedPredicateToApply, valueMap)) {
@@ -832,14 +974,16 @@ public class CteReuse
             unifiedMappings.add(computePassthroughMapping(
                     relationRowType(trinoType(((Filter) unifiedOperation).argument().type())),
                     relationRowType(trinoType(unifiedOperation.result().type()))));
+            operationsToAdd.add(unifiedOperation);
         }
 
         // add unified Limit operation
         if (unifiedLimitToApply.isPresent()) {
             // TODO Must implement Limit operation. Add Limit operation and mapping
-            unifiedMappings.add(computePassthroughMapping(
-                    relationRowType(trinoType(((Limit) unifiedOperation).argument().type())),
-                    relationRowType(trinoType(unifiedOperation.result().type()))));
+            // TODO skipping the mapping for Limit. It is identity mapping anyway
+//            unifiedMappings.add(computePassthroughMapping(
+//                    relationRowType(trinoType(((Limit) unifiedOperation).argument().type())),
+//                    relationRowType(trinoType(unifiedOperation.result().type()))));
         }
 
         // add unified Project operation
@@ -847,17 +991,20 @@ public class CteReuse
             unifiedOperation = new Project(
                     nameAllocator.newName(),
                     unifiedOperation.result(),
-                    pruningAssignments(unifiedOperation, unifiedFieldsToPrune),
+                    pruningAssignments(unifiedOperation, unifiedFieldsToPrune, nameAllocator), // TODO have a method to create pruning projection (not just assignments)
                     unifiedOperation.attributes());
-            unifiedMappings.add(computeMappingForPruning((Project) unifiedOperation));
+            unifiedMappings.add(((Project) unifiedOperation).passthroughMapping());
+            operationsToAdd.add(unifiedOperation);
         }
 
-        Optional<TraversalContext.Mapping> unifiedMapping = composeMappings(unifiedMappings.build());
+        Optional<Mapping> unifiedMapping = composeMappings(unifiedMappings.build());
 
         // compute the new enforced predicate and rebase it onto the last unified operation.
         // Note: some conjuncts might no longer be supported after pruning and must be removed.
         Block newEnforcedPredicate = conjunction(ImmutableList.of(enforcedPredicate, unifiedPredicateToApply), nameAllocator);
-        newEnforcedPredicate = remapPredicateAndPruneUnsupportedConjuncts(newEnforcedPredicate, unifiedMapping);
+        if (unifiedMapping.isPresent()) {
+            newEnforcedPredicate = rebasePredicateAndPruneUnsupportedConjuncts(newEnforcedPredicate, unifiedOperation, unifiedMapping.get(), nameAllocator);
+        }
 
         OptionalLong newEnforcedLimit = combineLimit(enforcedLimit, unifiedLimitToApply);
 
@@ -868,17 +1015,23 @@ public class CteReuse
             TraversalContext oldContext = oldState.traversalContext();
 
             // rebase the old mapping onto the last unified operation
-            TraversalContext.Mapping newMapping = composeMappings(ImmutableList.builder() // TODO return Optional.empty() when list empty
+            Mapping newMapping = composeMappings(ImmutableList.<Mapping>builder()
                     .add(oldContext.mapping())
                     .addAll(unifiedMappings.build())
                     .build())
                     .orElseThrow();
 
             // find the remaining fields to prune and rebase them onto the last unified operation
-            Set<Integer> newFieldsToPrune = remapIndexes(Sets.difference(oldContext.fieldsToPrune, unifiedFieldsToPrune), unifiedMapping);
+            Set<Integer> newFieldsToPrune = Sets.difference(oldContext.fieldsToPrune, unifiedFieldsToPrune);
+            if (unifiedMapping.isPresent()) {
+                newFieldsToPrune = remapIndexes(newFieldsToPrune, unifiedMapping.get());
+            }
 
-            // rebase the residual predicate onto the last unified operation. Note: residual predicates sre fully supported. All fields used by them were retained.
-            Block newPredicateToApply = remapBlock(residualPredicates.get(i), unifiedMapping);
+            // rebase the residual predicate onto the last unified operation. Note: residual predicates are fully supported. All fields used by them were retained.
+            Block newPredicateToApply = residualPredicates.get(i);
+            if (unifiedMapping.isPresent()) {
+                newPredicateToApply = rebaseBlock(newPredicateToApply, unifiedOperation, unifiedMapping.get(), nameAllocator).orElseThrow();
+            }
 
             // compute the residual limit
             OptionalLong newLimitToApply;
@@ -926,13 +1079,16 @@ public class CteReuse
             if (fieldSelection.base().equals(parameter)) {
                 builder.add(fieldNames.indexOf(FIELD_NAME.getAttribute(fieldSelection.attributes())));
             }
-
         }
-        if (operation instanceof FieldReference fieldReference) {
+        else if (operation instanceof FieldReference fieldReference) {
             // TODO ignores outer correlated references
             if (fieldReference.base().equals(parameter)) {
                 builder.add(FIELD_INDEX.getAttribute(fieldReference.attributes()));
             }
+        }
+        else if (operation.arguments().stream()
+                .anyMatch(value -> value.equals(parameter))) {
+            throw new UnsupportedOperationException();
         }
         for (Region region : operation.regions()) {
             for (Block block : region.blocks()) {
@@ -941,6 +1097,294 @@ public class CteReuse
                 }
             }
         }
+    }
+
+    private static Mapping computePassthroughMapping(Type from, Type to) // TODO each operation should compute its own passthrough mapping
+    {
+        checkArgument(IS_RELATION_ROW.test(from) && IS_RELATION_ROW.test(to), "expected relation row type");
+        checkArgument(from.getTypeParameters().equals(to.getTypeParameters()), "relation row types are incompatible");
+
+        ImmutableMap.Builder<Integer, Integer> indexMapping = ImmutableMap.builder();
+        ImmutableMap.Builder<String, String> nameMapping = ImmutableMap.builder();
+        if (from instanceof RowType fromRowType && to instanceof RowType toRowType) {
+            for (int i = 0; i < fromRowType.getFields().size(); i++) {
+                indexMapping.put(i, i);
+                nameMapping.put(fromRowType.getFields().get(i).getName().orElseThrow(), toRowType.getFields().get(i).getName().orElseThrow());
+            }
+        }
+
+        return new Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
+    }
+
+    private static Block pruningAssignments(Operation operation, Set<Integer> fieldsToPrune, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        Type inputRowType = relationRowType(trinoType(operation.result().type()));
+        Set<Integer> inputIndexes = IntStream.range(0, inputRowType.getTypeParameters().size()).boxed().collect(toImmutableSet());
+        checkState(inputIndexes.containsAll(fieldsToPrune), "specified fields to prune not in the input");
+
+        Block.Parameter parameter = new Block.Parameter(nameAllocator.newName(), irType(inputRowType));
+        Block.Builder assignments = new Block.Builder(Optional.of("^assignments"), ImmutableList.of(parameter));
+
+        if (fieldsToPrune.containsAll(inputIndexes)) {
+            String constantNullName = nameAllocator.newName();
+            Constant constantNull = new Constant(constantNullName, EMPTY_ROW, null);
+            assignments.addOperation(constantNull);
+        }
+        else {
+            RowType rowType = (RowType) inputRowType;
+            ImmutableList.Builder<Operation> fieldSelectionsBuilder = ImmutableList.builder();
+            for (int i = 0; i < rowType.getFields().size(); i++) {
+                if (!fieldsToPrune.contains(i)) {
+                    FieldSelection fieldSelection = new FieldSelection(
+                            nameAllocator.newName(),
+                            parameter,
+                            rowType.getFields().get(i).getName().orElseThrow(),
+                            ImmutableMap.of());
+                    assignments.addOperation(fieldSelection);
+                    fieldSelectionsBuilder.add(fieldSelection);
+                }
+            }
+            List<Operation> fieldSelections = fieldSelectionsBuilder.build();
+            Row rowConstructor = new Row(
+                    nameAllocator.newName(),
+                    fieldSelections.stream()
+                            .map(Operation::result)
+                            .collect(toImmutableList()),
+                    fieldSelections.stream()
+                            .map(Operation::attributes)
+                            .collect(toImmutableList()));
+            assignments.addOperation(rowConstructor);
+        }
+        Return returnOperation = new Return(
+                nameAllocator.newName(),
+                assignments.recentOperation().result(),
+                assignments.recentOperation().attributes());
+        assignments.addOperation(returnOperation);
+
+        return assignments.build();
+    }
+
+    private static Block reorderingAssignments(Operation operation, Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        // TODO check if mapping covers all fields of operation. See pruningAssignments()
+        checkArgument(!mapping.isIdentity(), "attempt to create reordering projection for identity mapping");
+
+        // mapping is not identity, so there must be input fields --> safe cast to RowType
+        RowType inputRowType = (RowType) relationRowType(trinoType(operation.result().type()));
+        Block.Parameter parameter = new Block.Parameter(nameAllocator.newName(), irType(inputRowType));
+        Block.Builder assignments = new Block.Builder(Optional.of("^assignments"), ImmutableList.of(parameter));
+        ImmutableList.Builder<Operation> fieldSelectionsBuilder = ImmutableList.builder();
+        for (int i = 0; i < inputRowType.getFields().size(); i++) {
+            FieldSelection fieldSelection = new FieldSelection(
+                    nameAllocator.newName(),
+                    parameter,
+                    inputRowType.getFields().get(mapping.fieldIndexMapping().get(i)).getName().orElseThrow(),
+                    ImmutableMap.of());
+            assignments.addOperation(fieldSelection);
+            fieldSelectionsBuilder.add(fieldSelection);
+        }
+        List<Operation> fieldSelections = fieldSelectionsBuilder.build();
+        Row rowConstructor = new Row(
+                nameAllocator.newName(),
+                fieldSelections.stream()
+                        .map(Operation::result)
+                        .collect(toImmutableList()),
+                fieldSelections.stream()
+                        .map(Operation::attributes)
+                        .collect(toImmutableList()));
+        assignments.addOperation(rowConstructor);
+
+        Return returnOperation = new Return(
+                nameAllocator.newName(),
+                assignments.recentOperation().result(),
+                assignments.recentOperation().attributes());
+        assignments.addOperation(returnOperation);
+
+        return assignments.build();
+    }
+
+    // TODO should be done by method for passthrough mapping
+    //  project must be pruning
+    //  TODO this does not work. The projection or its components are not registered on the ValueMap. Use Projection.passthroughMapping()
+    private static Mapping computeMappingForPruning(Project project, Map<Value, SourceNode> valueMap)
+    {
+        if (relationRowType(trinoType(project.result().type())).equals(EMPTY_ROW)) {
+            return new Mapping(ImmutableMap.of(), ImmutableMap.of());
+        }
+        ImmutableMap.Builder<Integer, Integer> indexMapping = ImmutableMap.builder();
+        ImmutableMap.Builder<String, String> nameMapping = ImmutableMap.builder();
+        List<String> inputFields = ((RowType) relationRowType(trinoType(getOnlyElement(project.arguments()).type()))).getFields().stream()
+                .map(RowType.Field::getName)
+                .map(Optional::orElseThrow)
+                .collect(toImmutableList());
+        List<String> outputFields = ((RowType) relationRowType(trinoType(project.result().type()))).getFields().stream()
+                .map(RowType.Field::getName)
+                .map(Optional::orElseThrow)
+                .collect(toImmutableList());
+        Row rowConstructor = (Row) valueMap.get(((Return) project.assignments().getTerminalOperation()).argument());
+        for (int i = 0; i < rowConstructor.arguments().size(); i++) {
+            FieldSelection fieldSelection = (FieldSelection) valueMap.get(rowConstructor.arguments().get(i));
+            String inputFieldName = FIELD_NAME.getAttribute(fieldSelection.attributes());
+            indexMapping.put(inputFields.indexOf(inputFieldName), i);
+            nameMapping.put(inputFieldName, outputFields.get(i));
+        }
+
+        return new Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
+    }
+
+    private static Optional<Mapping> composeMappings(List<Mapping> mappings)
+    {
+        if (mappings.isEmpty()) {
+            return Optional.empty();
+        }
+        Mapping current = mappings.getFirst();
+        for (int i = 1; i < mappings.size(); i++) {
+            Mapping next = mappings.get(i);
+            ImmutableMap.Builder<Integer, Integer> indexMapping = ImmutableMap.builder();
+            ImmutableMap.Builder<String, String> nameMapping = ImmutableMap.builder();
+            current.fieldIndexMapping().entrySet().stream()
+                    .filter(entry -> next.fieldIndexMapping().containsKey(entry.getValue()))
+                    .forEach(entry -> indexMapping.put(entry.getKey(), next.fieldIndexMapping().get(entry.getValue())));
+            current.fieldNameMapping().entrySet().stream()
+                    .filter(entry -> next.fieldNameMapping().containsKey(entry.getValue()))
+                    .forEach(entry -> nameMapping.put(entry.getKey(), next.fieldNameMapping().get(entry.getValue())));
+            current = new Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
+        }
+        return Optional.of(current);
+    }
+
+    private static Set<Integer> remapIndexes(Set<Integer> indexes, Mapping mapping)
+    {
+        return indexes.stream()
+                .map(mapping.fieldIndexMapping()::get)
+                .collect(toImmutableSet());
+    }
+
+    // TODO move to Exchange operation
+    private static Exchange roundRobinExchange(Operation input, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        // input selector block: select all fields from input
+        Type inputRowType = relationRowType(trinoType(input.result().type()));
+        Block.Parameter inputSelectorParameter = new Block.Parameter(nameAllocator.newName(), irType(inputRowType));
+        // TODO try to use `fieldSelectorBlock()` from RelationalProgramBuilder
+        Block inputSelector;
+        if (inputRowType.equals(EMPTY_ROW)) {
+            inputSelector = emptyFieldSelector("^inputSelector", inputRowType, nameAllocator);
+        }
+        else {
+            Block.Builder inputSelectorBuilder = new Block.Builder(Optional.of("^inputSelector"), ImmutableList.of(inputSelectorParameter));
+            ImmutableList.Builder<FieldSelection> fieldSelectionBuilder = ImmutableList.builder();
+            for (RowType.Field field : ((RowType) inputRowType).getFields()) {
+                FieldSelection fieldSelection = new FieldSelection(nameAllocator.newName(), inputSelectorParameter, field.getName().orElseThrow(), ImmutableMap.of());
+                inputSelectorBuilder.addOperation(fieldSelection);
+                fieldSelectionBuilder.add(fieldSelection);
+            }
+            Row rowConstructor = new Row(
+                    nameAllocator.newName(),
+                    fieldSelectionBuilder.build().stream()
+                            .map(Operation::result)
+                            .collect(toImmutableList()),
+                    fieldSelectionBuilder.build().stream()
+                            .map(Operation::attributes)
+                            .collect(toImmutableList()));
+            inputSelectorBuilder.addOperation(rowConstructor);
+            Return returnOperation = new Return(nameAllocator.newName(), rowConstructor.result(), rowConstructor.attributes());
+            inputSelectorBuilder.addOperation(returnOperation);
+            inputSelector = inputSelectorBuilder.build();
+        }
+
+        return new Exchange(
+                nameAllocator.newName(),
+                ImmutableList.of(input.result()),
+                ImmutableList.of(inputSelector),
+                emptyFieldSelector("^boundArguments", inputRowType, nameAllocator),
+                emptyFieldSelector("^hashSelector", inputRowType, nameAllocator),
+                emptyFieldSelector("^orderingSelector", inputRowType, nameAllocator),
+                Attributes.ExchangeType.REPARTITION,
+                Attributes.ExchangeScope.REMOTE,
+                FIXED_ARBITRARY_DISTRIBUTION,
+                new Attributes.NullableValues(new NullableValue[] {}),
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(input.attributes()));
+    }
+
+    private static Block emptyFieldSelector(String blockName, Type inputRowType, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        Block.Parameter inputSelectorParameter = new Block.Parameter(nameAllocator.newName(), irType(inputRowType));
+        Block.Builder inputSelector = new Block.Builder(Optional.of(blockName), ImmutableList.of(inputSelectorParameter));
+        Constant constantNull = new Constant(nameAllocator.newName(), EMPTY_ROW, null);
+        Return returnOperation = new Return(nameAllocator.newName(), constantNull.result(), constantNull.attributes());
+        inputSelector.addOperation(constantNull);
+        inputSelector.addOperation(returnOperation);
+        return inputSelector.build();
+    }
+
+    /**
+     * Rebase block onto baseOperation, using mapping to adjust field references. Adjust block parameter to be compatible with the operations output.
+     * TODO assumes that block has 1 parameter. Otherwise we need separate mapping for each parameter.
+     */
+    private static Optional<Block> rebaseBlock(Block block, Operation baseOperation, Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        Block.Parameter oldParameter = getOnlyElement(block.parameters()); // TODO support rebase when Op has multiple sources
+        Type inputRowType = relationRowType(trinoType(baseOperation.result().type()));
+        Block.Parameter newParameter = new Block.Parameter(nameAllocator.newName(), irType(inputRowType));
+        // TODO check that old and new field types are compatible
+        Block.Builder newBlockBuilder = new Block.Builder(block.name(), ImmutableList.of(newParameter));
+        for (Operation operation : block.operations()) {
+            Optional<Operation> remapped = remapOperation(operation, oldParameter, newParameter, mapping);
+            if (remapped.isEmpty()) {
+                return Optional.empty();
+            }
+            newBlockBuilder.addOperation(remapped.get());
+        }
+        return Optional.of(newBlockBuilder.build());
+    }
+
+    // TODO support multiple sources
+    private static Block rebasePredicateAndPruneUnsupportedConjuncts(Block block, Operation baseOperation, Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        // TODO: extract conjuncts, try to rebase each one, retain the ones that succeed, build conjunction
+
+        Optional<Block> rebased = rebaseBlock(block, baseOperation, mapping, nameAllocator);
+        if (rebased.isEmpty()) {
+            // TODO for now returning trivial predicate. We should only remove unsupported conjuncts, not all of them
+            Type inputRowType = relationRowType(trinoType(baseOperation.result().type()));
+            Block.Parameter newParameter = new Block.Parameter(nameAllocator.newName(), irType(inputRowType));
+            return truePredicate(block.name(), newParameter, nameAllocator);
+        }
+        return rebased.get();
+    }
+
+    // TODO support remap with multiple parameters and multiple mappings. For now, only one parameter
+    private static Optional<Operation> remapOperation(Operation operation, Block.Parameter oldParameter, Block.Parameter newParameter, Mapping mapping)
+    {
+        if (operation instanceof FieldSelection fieldSelection && fieldSelection.base().equals(oldParameter)) {
+            String newFieldName = mapping.fieldNameMapping().get(FIELD_NAME.getAttribute(fieldSelection.attributes()));
+            if (newFieldName == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new FieldSelection(fieldSelection.result().name(), newParameter, newFieldName, ImmutableMap.of()));
+        }
+        if (operation instanceof FieldReference fieldReference && fieldReference.base().equals(oldParameter)) {
+            Integer newFieldIndex = mapping.fieldIndexMapping().get(FIELD_INDEX.getAttribute(fieldReference.attributes()));
+            if (newFieldIndex == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new FieldReference(fieldReference.result().name(), newParameter, newFieldIndex, ImmutableMap.of()));
+        }
+        checkState(
+                operation.arguments().stream()
+                        .noneMatch(argument -> argument.equals(oldParameter)),
+                "illegal reference to relational parameter. Only field access operations are allowed");
+
+        // TODO rewrite operation's blocks recursively --> return Optional<Block>. Need simple constructor for each operation with new regions
+        if (!operation.regions().isEmpty()) {
+            throw new UnsupportedOperationException();
+        }
+        return Optional.of(operation);
     }
 
     /**
@@ -983,23 +1427,49 @@ public class CteReuse
             requireNonNull(enforcedLimit, "enforcedLimit is null");
             fieldsToPrune = ImmutableSet.copyOf(fieldsToPrune);
         }
+    }
 
-        private record Mapping(Map<Integer, Integer> fieldIndexMapping, Map<String, String> fieldNameMapping)
+    public record Mapping(Map<Integer, Integer> fieldIndexMapping, Map<String, String> fieldNameMapping) // TODO move to RelationalOperation interface
+    {
+        public Mapping
         {
-            private Mapping
-            {
-                requireNonNull(fieldIndexMapping, "fieldIndexMapping is null");
-                requireNonNull(fieldNameMapping, "fieldNameMapping is null");
-                fieldIndexMapping = ImmutableMap.copyOf(fieldIndexMapping);
-                fieldNameMapping = ImmutableMap.copyOf(fieldNameMapping);
+            requireNonNull(fieldIndexMapping, "fieldIndexMapping is null");
+            requireNonNull(fieldNameMapping, "fieldNameMapping is null");
+            fieldIndexMapping = ImmutableMap.copyOf(fieldIndexMapping);
+            fieldNameMapping = ImmutableMap.copyOf(fieldNameMapping);
+        }
+
+        public static Mapping identity(Type type)
+        {
+            checkArgument(IS_RELATION_ROW.test(type), "expected relation row type");
+            if (type.equals(EMPTY_ROW)) {
+                return new Mapping(ImmutableMap.of(), ImmutableMap.of());
             }
+            List<String> fields = ((RowType) type).getFields().stream()
+                    .map(RowType.Field::getName)
+                    .map(Optional::orElseThrow)
+                    .collect(toImmutableList());
+            ImmutableMap.Builder<Integer, Integer> indexMapping = ImmutableMap.builder();
+            ImmutableMap.Builder<String, String> nameMapping = ImmutableMap.builder();
+            for (int i = 0; i < fields.size(); i++) {
+                indexMapping.put(i, i);
+                nameMapping.put(fields.get(i), fields.get(i));
+            }
+            return new Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
+        }
+
+        public boolean isIdentity()
+        {
+            return fieldIndexMapping().entrySet().stream()
+                    .allMatch(entry -> entry.getKey().equals(entry.getValue()));
         }
     }
 
     /**
      * Traversal state for the branch. Consists of Traversal context and the next operation in the branch.
+     * TODO the index in OperationAndIndex tells which source of the next operation the current operation is
      */
-    private record TraversalState(TraversalContext traversalContext, Operation nextOperation)
+    private record TraversalState(TraversalContext traversalContext, OperationAndIndex nextOperation)
     {
         private TraversalState
         {
@@ -1014,7 +1484,7 @@ public class CteReuse
      * @param operation -- the unified operation
      * @param traversalStates -- TraversalState for each branch on top of the unified operation
      */
-    private record Checkpoint(Operation operation, List<TraversalState> traversalStates)
+    private record Checkpoint(Operation operation, List<TraversalState> traversalStates) // TODO use UnifiedStates instead
     {
         private Checkpoint
         {

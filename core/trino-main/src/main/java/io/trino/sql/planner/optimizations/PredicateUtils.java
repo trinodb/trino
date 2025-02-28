@@ -15,7 +15,6 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.sql.dialect.trino.Attributes;
 import io.trino.sql.dialect.trino.ProgramBuilder;
@@ -29,7 +28,6 @@ import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.SourceNode;
 import io.trino.sql.newir.Type;
 import io.trino.sql.newir.Value;
-import org.weakref.jmx.$internal.guava.collect.Sets;
 
 import java.util.HashMap;
 import java.util.List;
@@ -127,6 +125,14 @@ public class PredicateUtils
         return result.build();
     }
 
+    // TODO add method to remap a Block to use parameters of another Block.
+    //  first, it should check if parameter lists are compatible regarding the types
+    //  then, create parameter mapping
+    //  last, remap all operations in the block
+    //  each operation should implement `remapValues(Map)`
+    //
+     //
+    // TODO Note: we should also remap field names. For now, we skip it because field names are always the same. Soon we will shift to referring by index.
     public static Operation remapValues(Operation operation, Map<Value, Value> map)
     {
         if (operation instanceof FieldSelection fieldSelection) {
@@ -147,7 +153,8 @@ public class PredicateUtils
         if (!operation.regions().isEmpty()) {
             throw new UnsupportedOperationException();
         }
-        if (!Sets.intersection(ImmutableSet.copyOf(operation.arguments()), map.keySet()).isEmpty()) {
+        if (operation.arguments().stream()
+                .anyMatch(map.keySet()::contains)) {
             throw new UnsupportedOperationException();
         }
         return operation;
@@ -162,6 +169,9 @@ public class PredicateUtils
                         .equals(toRemove.parameters().stream().map(Block.Parameter::type).collect(toImmutableList())),
                 "incompatible blocks: parameters mismatch");
         // TODO
+        //  - remap Block `toRemove` so that it uses parameyters of `predicate`
+        //  - extract conjuncts of `predicate` and of `toRemove`
+        //  - compare them by equality with and remove if equal
         return predicate;
     }
 
@@ -171,5 +181,16 @@ public class PredicateUtils
 
         return valueMap.get(((Return) block.getTerminalOperation()).argument()) instanceof Constant constant &&
                 CONSTANT_RESULT.getAttribute(constant.attributes()).equals(NullableValue.of(BOOLEAN, true));
+    }
+
+    // TODO support with multiple Block parameters
+    public static Block truePredicate(Optional<String> blockName, Block.Parameter parameter, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        Block.Builder builder = new Block.Builder(blockName, ImmutableList.of(parameter));
+        Constant constantTrue = new Constant(nameAllocator.newName(), BOOLEAN, true);
+        Return returnOperation = new Return(nameAllocator.newName(), constantTrue.result(), constantTrue.attributes());
+        builder.addOperation(constantTrue);
+        builder.addOperation(returnOperation);
+        return builder.build();
     }
 }

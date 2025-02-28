@@ -31,9 +31,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.util.Preconditions.checkArgument;
 
 public final class Row
         extends Operation
+    implements SqlOperation
 {
     private static final String NAME = "row";
 
@@ -85,6 +87,20 @@ public final class Row
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    public Operation withResult(Result newResult)
+    {
+        checkArgument(this.result.type().equals(newResult.type()), "result type mismatch");
+        return new Row(newResult.name(), fields, ImmutableList.of()); // TODO copy constructor so that we don't lose attributes
+    }
+
+    @Override
+    public Operation withRegions(List<Region> newRegions)
+    {
+        checkArgument(newRegions.isEmpty(), "regions lists size mismatch");
+        return this;
     }
 
     @Override

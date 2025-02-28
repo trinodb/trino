@@ -14,6 +14,7 @@
 package io.trino.sql.dialect.trino.operation;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
@@ -24,11 +25,15 @@ import java.util.Map;
 import java.util.Objects;
 
 import static io.trino.sql.dialect.ir.IrDialect.terminalOperation;
+import static io.trino.sql.dialect.trino.Attributes.CONSTANT_RESULT;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
+import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.util.Preconditions.checkArgument;
 
 public final class Return
         extends Operation
+    implements SqlOperation
 {
     private static final String NAME = "return";
 
@@ -72,6 +77,20 @@ public final class Return
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    public Operation withResult(Result newResult)
+    {
+        checkArgument(this.result.type().equals(newResult.type()), "result type mismatch");
+        return new Return(newResult.name(), input, ImmutableMap.of()); // TODO copy constructor so that we don't lose attributes
+    }
+
+    @Override
+    public Operation withRegions(List<Region> newRegions)
+    {
+        checkArgument(newRegions.isEmpty(), "regions lists size mismatch");
+        return this;
     }
 
     @Override

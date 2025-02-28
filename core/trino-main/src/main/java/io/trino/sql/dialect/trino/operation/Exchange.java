@@ -23,6 +23,7 @@ import io.trino.sql.dialect.trino.Attributes.ExchangeScope;
 import io.trino.sql.dialect.trino.Attributes.ExchangeType;
 import io.trino.sql.dialect.trino.Attributes.NullableValues;
 import io.trino.sql.dialect.trino.Attributes.SortOrderList;
+import io.trino.sql.dialect.trino.ProgramBuilder;
 import io.trino.sql.newir.Block;
 import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.newir.Operation;
@@ -30,6 +31,7 @@ import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.SystemPartitioningHandle;
+import io.trino.sql.planner.optimizations.CteReuse;
 
 import java.util.List;
 import java.util.Map;
@@ -40,30 +42,40 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
 import static io.trino.sql.dialect.trino.Attributes.BUCKET_TO_PARTITION;
+import static io.trino.sql.dialect.trino.Attributes.DISTRIBUTION_TYPE;
+import static io.trino.sql.dialect.trino.Attributes.DYNAMIC_FILTER_IDS;
 import static io.trino.sql.dialect.trino.Attributes.EXCHANGE_SCOPE;
 import static io.trino.sql.dialect.trino.Attributes.EXCHANGE_TYPE;
 import static io.trino.sql.dialect.trino.Attributes.ExchangeScope.LOCAL;
 import static io.trino.sql.dialect.trino.Attributes.ExchangeScope.REMOTE;
 import static io.trino.sql.dialect.trino.Attributes.ExchangeType.GATHER;
 import static io.trino.sql.dialect.trino.Attributes.ExchangeType.REPARTITION;
+import static io.trino.sql.dialect.trino.Attributes.JOIN_TYPE;
+import static io.trino.sql.dialect.trino.Attributes.MAY_SKIP_OUTPUT_DUPLICATES;
 import static io.trino.sql.dialect.trino.Attributes.NULLABLE_VALUES;
 import static io.trino.sql.dialect.trino.Attributes.PARTITIONING_HANDLE;
 import static io.trino.sql.dialect.trino.Attributes.PARTITION_COUNT;
 import static io.trino.sql.dialect.trino.Attributes.REPLICATE_NULLS_AND_ANY;
 import static io.trino.sql.dialect.trino.Attributes.SORT_ORDERS;
+import static io.trino.sql.dialect.trino.Attributes.SPILLABLE;
+import static io.trino.sql.dialect.trino.Attributes.STATISTICS_AND_COST_SUMMARY;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION;
+import static io.trino.sql.dialect.trino.operation.SqlOperationsUtil.rebaseBlock;
+import static io.trino.sql.dialect.trino.operation.SqlOperationsUtil.validateMappedTypes;
 import static io.trino.sql.newir.Region.singleBlockRegion;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.util.Preconditions.checkArgument;
 
 public class Exchange
         extends Operation
+        implements SqlRelationalOperation
 {
     private static final String NAME = "exchange";
 
@@ -211,6 +223,26 @@ public class Exchange
         this.attributes = attributes.buildOrThrow();
     }
 
+    private Exchange(
+            Result result,
+            List<Value> inputs,
+            List<Region> inputFieldSelectors,
+            Region partitioningBoundArguments,
+            Region partitioningHashSelector,
+            Region orderingSelector,
+            Map<AttributeKey, Object> attributes)
+    {
+        // TODO checks!!!
+        super(TRINO, NAME);
+        this.result = result;
+        this.inputs = inputs;
+        this.inputFieldSelectors = inputFieldSelectors;
+        this.partitioningBoundArguments = partitioningBoundArguments;
+        this.partitioningHashSelector = partitioningHashSelector;
+        this.orderingSelector = orderingSelector;
+        this.attributes = attributes;
+    }
+
     @Override
     public Result result()
     {
@@ -238,6 +270,122 @@ public class Exchange
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    // TODO support rebase on multiple sources at a time so that we can extend the source types and pass-through more fields from all of them
+    //  for now, only supporting one source which is pass-through
+    public Optional<Operation> rebase(Operation baseOperation, int sourceIndex, CteReuse.Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        if (inputs.size() != 1) {
+            return Optional.empty();
+        }
+        checkArgument(sourceIndex == 0, "expected first and only source");
+
+
+
+        Type baseRowType = relationRowType(trinoType(baseOperation.result().type()));
+
+        validateMappedTypes(relationRowType(trinoType(this.arguments().get(sourceIndex).type())), baseRowType, mapping);
+
+        // rebase all single-parameter blocks
+        List<Region> regionsToRebase;
+        if (sourceIndex == 0) {
+            regionsToRebase = ImmutableList.of(leftCriteriaSelector, leftHashSelector, leftOutputSelector);
+        }
+        else {
+            regionsToRebase = ImmutableList.of(rightCriteriaSelector, rightHashSelector, rightOutputSelector, dynamicFilterTargetSelector);
+        }
+        ImmutableList.Builder<Block> rebasedBlocksBuilder = ImmutableList.builder();
+        for (Region region : regionsToRebase) {
+            Optional<Block> rebasedBlock = rebaseBlock(region.getOnlyBlock(), baseRowType, mapping, nameAllocator);
+            if (rebasedBlock.isEmpty()) {
+                return Optional.empty();
+            }
+            rebasedBlocksBuilder.add(rebasedBlock.get());
+        }
+        List<Block> rebasedSingleParameterBlocks = rebasedBlocksBuilder.build();
+
+        // rebase filter
+        Optional<Block> rebasedFilter = rebaseBlock(filter.getOnlyBlock(), sourceIndex, baseRowType, mapping, nameAllocator);
+        if (rebasedFilter.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<Block> rebasedBlocks;
+        if (sourceIndex == 0) {
+            rebasedBlocks = ImmutableList.of(
+                    rebasedSingleParameterBlocks.get(0),
+                    rightCriteriaSelector.getOnlyBlock(),
+                    rebasedFilter.get(),
+                    rebasedSingleParameterBlocks.get(1),
+                    rightHashSelector.getOnlyBlock(),
+                    rebasedSingleParameterBlocks.get(2),
+                    rightOutputSelector.getOnlyBlock(),
+                    dynamicFilterTargetSelector.getOnlyBlock());
+        }
+        else {
+            rebasedBlocks = ImmutableList.of(
+                    leftCriteriaSelector.getOnlyBlock(),
+                    rebasedSingleParameterBlocks.get(0),
+                    rebasedFilter.get(),
+                    leftHashSelector.getOnlyBlock(),
+                    rebasedSingleParameterBlocks.get(1),
+                    leftOutputSelector.getOnlyBlock(),
+                    rebasedSingleParameterBlocks.get(2),
+                    rebasedSingleParameterBlocks.get(3));
+        }
+
+        return Optional.of(new Join(
+                nameAllocator.newName(),
+                sourceIndex == 0 ? baseOperation.result() : left,
+                sourceIndex == 1 ? baseOperation.result() : right,
+                rebasedBlocks.get(0),
+                rebasedBlocks.get(1),
+                rebasedBlocks.get(2),
+                rebasedBlocks.get(3),
+                rebasedBlocks.get(4),
+                rebasedBlocks.get(5),
+                rebasedBlocks.get(6),
+                rebasedBlocks.get(7),
+                JOIN_TYPE.getAttribute(attributes()),
+                MAY_SKIP_OUTPUT_DUPLICATES.getAttribute(attributes()),
+                Optional.ofNullable(DISTRIBUTION_TYPE.getAttribute(attributes())),
+                Optional.ofNullable(SPILLABLE.getAttribute(attributes())),
+                DYNAMIC_FILTER_IDS.getAttribute(attributes()),
+                Optional.ofNullable(STATISTICS_AND_COST_SUMMARY.getAttribute(attributes())),
+                sourceIndex == 0 ? baseOperation.attributes() : ImmutableMap.of(), // TODO with partial rebase we miss the source attributes. Shall we do a copying constructor? That would assume that source attrs are the same for the new sourc which is not correct. Probably pass the other source.
+                sourceIndex == 1 ? baseOperation.attributes() : ImmutableMap.of()));
+    }
+
+    @Override
+    public Operation withResult(Result newResult)
+    {
+        checkArgument(this.result.type().equals(newResult.type()), "result type mismatch");
+
+        return new Exchange(
+                new Result(newResult.name(), result.type()),
+                this.inputs,
+                this.inputFieldSelectors,
+                this.partitioningBoundArguments,
+                this.partitioningHashSelector,
+                this.orderingSelector,
+                this.attributes);
+    }
+
+    @Override
+    public Operation withRegions(List<Region> newRegions)
+    {
+        checkArgument(newRegions.size() == this.regions().size(), "regions lists size mismatch");
+
+        return new Exchange(
+                this.result,
+                this.inputs,
+                newRegions.subList(0, newRegions.size() - 3),
+                newRegions.get(newRegions.size() - 3),
+                newRegions.get(newRegions.size() - 2),
+                newRegions.get(newRegions.size() - 1),
+                this.attributes);
     }
 
     @Override

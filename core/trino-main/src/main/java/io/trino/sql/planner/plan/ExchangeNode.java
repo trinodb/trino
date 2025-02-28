@@ -201,6 +201,21 @@ public class ExchangeNode
                 new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), child.getOutputSymbols()));
     }
 
+    public static ExchangeNode XXXpartitionedExchange(PlanNodeId id, Scope scope, PlanNode child, PartitioningScheme partitioningScheme)
+    {
+//        if (partitioningScheme.getPartitioning().getHandle().isSingleNode()) {
+//            return gatheringExchange(id, scope, child);
+//        }
+        return new ExchangeNode(
+                id,
+                ExchangeNode.Type.REPARTITION,
+                scope,
+                partitioningScheme,
+                ImmutableList.of(child),
+                ImmutableList.of(partitioningScheme.getOutputLayout()),
+                Optional.empty());
+    }
+
     public static ExchangeNode roundRobinExchange(PlanNodeId id, Scope scope, List<PlanNode> sources, List<Symbol> outputSymbols)
     {
         List<List<Symbol>> sourceInputs = sources.stream()

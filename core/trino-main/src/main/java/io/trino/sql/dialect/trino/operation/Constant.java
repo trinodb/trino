@@ -25,13 +25,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.dialect.trino.Attributes.CONSTANT_RESULT;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
+import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.util.Preconditions.checkArgument;
 
 public final class Constant
         extends Operation
+        implements SqlOperation
 {
     private static final String NAME = "constant";
 
@@ -70,6 +74,20 @@ public final class Constant
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    public Operation withResult(Result newResult)
+    {
+        checkArgument(this.result.type().equals(newResult.type()), "result type mismatch");
+        return new Constant(newResult.name(), trinoType(this.result().type()), CONSTANT_RESULT.getAttribute(this.attributes()));
+    }
+
+    @Override
+    public Operation withRegions(List<Region> newRegions)
+    {
+        checkArgument(newRegions.isEmpty(), "regions lists size mismatch");
+        return this;
     }
 
     @Override

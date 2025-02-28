@@ -20,17 +20,22 @@ import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.dialect.trino.Attributes.AggregationStep;
+import io.trino.sql.dialect.trino.ProgramBuilder;
 import io.trino.sql.newir.Block;
 import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
+import io.trino.sql.planner.optimizations.CteReuse;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.clearspring.analytics.util.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
 import static io.trino.sql.dialect.trino.Attributes.AGGREGATION_STEP;
@@ -45,11 +50,15 @@ import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION;
+import static io.trino.sql.dialect.trino.operation.SqlOperationsUtil.rebaseBlock;
+import static io.trino.sql.dialect.trino.operation.SqlOperationsUtil.validateMappedTypes;
 import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.util.Preconditions.checkArgument;
 
 public class Aggregation
         extends Operation
+        implements SqlRelationalOperation
 {
     private static final String NAME = "aggregation";
 
@@ -153,6 +162,17 @@ public class Aggregation
         this.attributes = attributes.buildOrThrow();
     }
 
+    private Aggregation(Result result, Value input, Region aggregateCalls, Region groupingKeysSelector, Region hashSelector, Map<AttributeKey, Object> attributes)
+    {
+        super(TRINO, NAME);
+        this.result = result;
+        this.input = input;
+        this.aggregateCalls = aggregateCalls;
+        this.groupingKeysSelector = groupingKeysSelector;
+        this.hashSelector = hashSelector;
+        this.attributes = ImmutableMap.copyOf(attributes);
+    }
+
     @Override
     public Result result()
     {
@@ -175,6 +195,101 @@ public class Aggregation
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    public Optional<Operation> rebase(Operation baseOperation, int sourceIndex, CteReuse.Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        checkArgument(sourceIndex == 0, "aggregation has one source");
+
+        Type baseType = trinoType(baseOperation.result().type());
+        Type baseRowType = relationRowType(baseType);
+
+        validateMappedTypes(relationRowType(trinoType(this.input.type())), baseRowType, mapping);
+
+        // the ^aggregates block cannot be rebased with the rebaseBlock() method because it is based on the relation type, not the row type.
+        Block oldAggregatesBlock = aggregateCalls.getOnlyBlock();
+
+        // validate the ^aggregates block structure
+        checkState(oldAggregatesBlock.operations().getLast() instanceof Return);
+        Operation rowConstructor = oldAggregatesBlock.operations().get(oldAggregatesBlock.operations().size() - 2);
+        checkState(rowConstructor instanceof Row || rowConstructor instanceof Constant);
+        checkState(rowConstructor instanceof Row || oldAggregatesBlock.operations().size() == 2);
+        checkState(oldAggregatesBlock.operations().subList(0, oldAggregatesBlock.operations().size() - 2).stream()
+                .allMatch(AggregateCall.class::isInstance));
+
+        Block.Parameter newAggregatesParameter = new Block.Parameter(nameAllocator.newName(), irType(baseType));
+        Block.Builder newAggregatesBlockBuilder = new Block.Builder(oldAggregatesBlock.name(), ImmutableList.of(newAggregatesParameter));
+        ImmutableMap.Builder<Value, Operation> rebasedAggregateCallsBuilder = ImmutableMap.builder();
+        for (Operation operation : oldAggregatesBlock.operations()) {
+            if (operation instanceof AggregateCall aggregateCall) {
+                Optional<Operation> rebasedAggregateCall = aggregateCall.rebase(newAggregatesParameter, mapping, nameAllocator);
+                if (rebasedAggregateCall.isEmpty()) {
+                    return Optional.empty();
+                }
+                rebasedAggregateCallsBuilder.put(aggregateCall.result(), rebasedAggregateCall.get());
+                newAggregatesBlockBuilder.addOperation(rebasedAggregateCall.get());
+            }
+            else if (operation instanceof Row row) {
+                Map<Value, Operation> rebasedAggregateCalls = rebasedAggregateCallsBuilder.buildOrThrow();
+                Row newRow = new Row(
+                        row.result().name(),
+                        row.arguments().stream()
+                                .map(rebasedAggregateCalls::get)
+                                .map(Operation::result)
+                                .collect(toImmutableList()),
+                        row.arguments().stream()
+                                .map(rebasedAggregateCalls::get)
+                                .map(Operation::attributes)
+                                .collect(toImmutableList()));
+                newAggregatesBlockBuilder.addOperation(newRow);
+            }
+            else {
+                newAggregatesBlockBuilder.addOperation(operation);
+            }
+        }
+
+        ImmutableList.Builder<Block> rebasedBlocksBuilder = ImmutableList.builder();
+        rebasedBlocksBuilder.add(newAggregatesBlockBuilder.build());
+
+        // the remaining blocks can be rebased with the rebaseBlock() method.
+        for (Region region : this.regions().subList(1, this.regions().size())) {
+            Optional<Block> rebasedBlock = rebaseBlock(region.getOnlyBlock(), baseRowType, mapping, nameAllocator);
+            if (rebasedBlock.isEmpty()) {
+                return Optional.empty();
+            }
+            rebasedBlocksBuilder.add(rebasedBlock.get());
+        }
+        List<Block> rebasedBlocks = rebasedBlocksBuilder.build();
+
+        return Optional.of(new Aggregation(
+                nameAllocator.newName(),
+                baseOperation.result(),
+                rebasedBlocks.get(0),
+                rebasedBlocks.get(1),
+                rebasedBlocks.get(2),
+                GROUPING_SETS_COUNT.getAttribute(this.attributes),
+                GLOBAL_GROUPING_SETS.getAttribute(this.attributes),
+                Optional.ofNullable(GROUP_ID_INDEX.getAttribute(this.attributes)).map(OptionalInt::of).orElse(OptionalInt.empty()),
+                PRE_GROUPED_INDEXES.getAttribute(this.attributes),
+                AGGREGATION_STEP.getAttribute(this.attributes),
+                INPUT_REDUCING.getAttribute(this.attributes),
+                baseOperation.attributes()));
+    }
+
+    @Override
+    public Operation withResult(Result newResult)
+    {
+        checkArgument(this.result.type().equals(newResult.type()), "result type mismatch");
+        return new Aggregation(newResult, this.input, this.aggregateCalls, this.groupingKeysSelector, this.hashSelector, this.attributes);
+    }
+
+    @Override
+    public Operation withRegions(List<Region> newRegions)
+    {
+        // TODO this does not validate the new Regions. Should run the same checks as the constructor.
+        checkArgument(newRegions.size() == this.regions().size(), "regions lists size mismatch");
+        return new Aggregation(this.result, this.input, newRegions.get(0), newRegions.get(1), newRegions.get(2), this.attributes);
     }
 
     @Override

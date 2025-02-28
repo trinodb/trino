@@ -509,7 +509,7 @@ public class SqlQueryExecution
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
-        Optional<Program> optimizedProgram = CteReuse.reuseCommonSubqueries(plan, plannerContext, getSession());
+        Optional<Program> optimizedProgram = CteReuse.reuseCommonSubqueries(plan, plannerContext, getSession(), formatOptions);
 
         // fragment the plan
         SubPlan fragmentedPlan;

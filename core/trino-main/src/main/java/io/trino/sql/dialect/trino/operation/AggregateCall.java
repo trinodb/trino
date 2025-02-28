@@ -21,11 +21,13 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.dialect.trino.Attributes.AggregationStep;
 import io.trino.sql.dialect.trino.Attributes.SortOrderList;
+import io.trino.sql.dialect.trino.ProgramBuilder;
 import io.trino.sql.newir.Block;
 import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
+import io.trino.sql.planner.optimizations.CteReuse;
 import io.trino.type.FunctionType;
 
 import java.util.List;
@@ -35,6 +37,7 @@ import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
+import static io.trino.sql.dialect.trino.Attributes.AGGREGATION_STEP;
 import static io.trino.sql.dialect.trino.Attributes.AggregationStep.FINAL;
 import static io.trino.sql.dialect.trino.Attributes.AggregationStep.PARTIAL;
 import static io.trino.sql.dialect.trino.Attributes.AggregationStep.SINGLE;
@@ -46,12 +49,16 @@ import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION;
+import static io.trino.sql.dialect.trino.operation.SqlOperationsUtil.rebaseBlock;
+import static io.trino.sql.dialect.trino.operation.SqlOperationsUtil.validateMappedTypes;
 import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.util.Preconditions.checkArgument;
 
 public class AggregateCall
         extends Operation
+        implements SqlRelationalOperation
 {
     private static final String NAME = "aggregate_call";
 
@@ -213,6 +220,82 @@ public class AggregateCall
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    public Optional<Operation> rebase(Operation baseOperation, int sourceIndex, CteReuse.Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        checkArgument(sourceIndex == 0, "aggregate call has one source");
+
+        return rebase(baseOperation.result(), mapping, nameAllocator);
+    }
+
+    public Optional<Operation> rebase(Value baseValue, CteReuse.Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        Type baseRowType = relationRowType(trinoType(baseValue.type()));
+
+        validateMappedTypes(relationRowType(trinoType(this.group.type())), baseRowType, mapping);
+
+        ImmutableList.Builder<Block> rebasedBlocksBuilder = ImmutableList.builder();
+        for (Region region : this.regions()) {
+            Optional<Block> rebasedBlock = rebaseBlock(region.getOnlyBlock(), baseRowType, mapping, nameAllocator);
+            if (rebasedBlock.isEmpty()) {
+                return Optional.empty();
+            }
+            rebasedBlocksBuilder.add(rebasedBlock.get());
+        }
+        List<Block> rebasedBlocks = rebasedBlocksBuilder.build();
+
+        return Optional.of(new AggregateCall(
+                nameAllocator.newName(),
+                baseValue,
+                trinoType(this.result.type()),
+                rebasedBlocks.get(0),
+                rebasedBlocks.get(1),
+                rebasedBlocks.get(2),
+                rebasedBlocks.get(3),
+                Optional.ofNullable(SORT_ORDERS.getAttribute(this.attributes)),
+                RESOLVED_FUNCTION.getAttribute(this.attributes),
+                DISTINCT.getAttribute(this.attributes),
+                AGGREGATION_STEP.getAttribute(this.attributes)));
+    }
+
+    @Override
+    public Operation withResult(Result newResult)
+    {
+        checkArgument(this.result.type().equals(newResult.type()), "result type mismatch");
+
+        return new AggregateCall(
+                newResult.name(),
+                this.group,
+                trinoType(this.result.type()),
+                this.regions().get(0).getOnlyBlock(),
+                this.regions().get(1).getOnlyBlock(),
+                this.regions().get(2).getOnlyBlock(),
+                this.regions().get(3).getOnlyBlock(),
+                Optional.ofNullable(SORT_ORDERS.getAttribute(this.attributes)),
+                RESOLVED_FUNCTION.getAttribute(this.attributes),
+                DISTINCT.getAttribute(this.attributes),
+                AGGREGATION_STEP.getAttribute(this.attributes));
+    }
+
+    @Override
+    public Operation withRegions(List<Region> newRegions)
+    {
+        checkArgument(newRegions.size() == this.regions().size(), "regions lists size mismatch");
+
+        return new AggregateCall(
+                this.result.name(),
+                this.group,
+                trinoType(this.result.type()),
+                newRegions.get(0).getOnlyBlock(),
+                newRegions.get(1).getOnlyBlock(),
+                newRegions.get(2).getOnlyBlock(),
+                newRegions.get(3).getOnlyBlock(),
+                Optional.ofNullable(SORT_ORDERS.getAttribute(this.attributes)),
+                RESOLVED_FUNCTION.getAttribute(this.attributes),
+                DISTINCT.getAttribute(this.attributes),
+                AGGREGATION_STEP.getAttribute(this.attributes));
     }
 
     @Override

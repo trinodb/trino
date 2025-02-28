@@ -25,14 +25,18 @@ import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.SourceNode;
 import io.trino.sql.newir.Value;
+import io.trino.sql.planner.optimizations.CteReuse;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
+import static io.trino.sql.dialect.trino.Attributes.FIELD_NAME;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
@@ -134,6 +138,40 @@ public final class Project
             }
         }
         return true;
+    }
+
+    // TODO this should take the Program and do scoped resolution of values within the Project's asignments
+    public CteReuse.Mapping passthroughMapping()
+    {
+        if (relationRowType(trinoType(input.type())).equals(EMPTY_ROW) || relationRowType(trinoType(result.type())).equals(EMPTY_ROW)) {
+            return new CteReuse.Mapping(ImmutableMap.of(), ImmutableMap.of()); // TODO Mapping.identity(EMPTY_ROW) or ad static constant EMPTY_MAPPING, which is identity
+        }
+
+        List<String> inputFields = ((RowType) relationRowType(trinoType(input.type()))).getFields().stream()
+                .map(RowType.Field::getName)
+                .map(Optional::orElseThrow)
+                .collect(toImmutableList());
+        List<String> outputFields = ((RowType) relationRowType(trinoType(result.type()))).getFields().stream()
+                .map(RowType.Field::getName)
+                .map(Optional::orElseThrow)
+                .collect(toImmutableList());
+
+        ImmutableMap.Builder<Integer, Integer> indexMapping = ImmutableMap.builder();
+        ImmutableMap.Builder<String, String> nameMapping = ImmutableMap.builder();
+        List<Operation> assignmentBlockOperations = assignments().operations();
+        Row rowConstructor = (Row) assignmentBlockOperations.get(assignmentBlockOperations.size() - 2);
+        for (Operation assignment : assignmentBlockOperations.subList(0, assignmentBlockOperations.size() - 2)) {
+            if (assignment instanceof FieldSelection fieldSelection &&
+                    getOnlyElement(fieldSelection.arguments()).equals(getOnlyElement(assignments().parameters()))) {
+                String inputName = FIELD_NAME.getAttribute(fieldSelection.attributes());
+                int inputIndex = inputFields.indexOf(inputName);
+                int outputIndex = rowConstructor.arguments().indexOf(fieldSelection.result());
+                String outputName = outputFields.get(outputIndex);
+                indexMapping.put(inputIndex, outputIndex);
+                nameMapping.put(inputName, outputName);
+            }
+        }
+        return new CteReuse.Mapping(indexMapping.buildOrThrow(), nameMapping.buildOrThrow());
     }
 
     @Override

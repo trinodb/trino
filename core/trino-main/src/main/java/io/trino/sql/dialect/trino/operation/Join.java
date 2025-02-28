@@ -22,11 +22,13 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.dialect.trino.Attributes.DistributionType;
 import io.trino.sql.dialect.trino.Attributes.JoinType;
+import io.trino.sql.dialect.trino.ProgramBuilder;
 import io.trino.sql.newir.Block;
 import io.trino.sql.newir.FormatOptions;
 import io.trino.sql.newir.Operation;
 import io.trino.sql.newir.Region;
 import io.trino.sql.newir.Value;
+import io.trino.sql.planner.optimizations.CteReuse;
 
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,7 @@ import static io.trino.sql.dialect.trino.Attributes.DISTRIBUTION_TYPE;
 import static io.trino.sql.dialect.trino.Attributes.DYNAMIC_FILTER_IDS;
 import static io.trino.sql.dialect.trino.Attributes.JOIN_TYPE;
 import static io.trino.sql.dialect.trino.Attributes.MAY_SKIP_OUTPUT_DUPLICATES;
+import static io.trino.sql.dialect.trino.Attributes.SORT_ORDERS;
 import static io.trino.sql.dialect.trino.Attributes.SPILLABLE;
 import static io.trino.sql.dialect.trino.Attributes.STATISTICS_AND_COST_SUMMARY;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
@@ -48,11 +51,15 @@ import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION;
+import static io.trino.sql.dialect.trino.operation.SqlOperationsUtil.rebaseBlock;
+import static io.trino.sql.dialect.trino.operation.SqlOperationsUtil.validateMappedTypes;
 import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.util.Preconditions.checkArgument;
 
 public final class Join
         extends Operation
+        implements SqlRelationalOperation
 {
     private static final String NAME = "join";
 
@@ -230,6 +237,118 @@ public final class Join
     public Map<AttributeKey, Object> attributes()
     {
         return attributes;
+    }
+
+    @Override
+    public Optional<Operation> rebase(Operation baseOperation, int sourceIndex, CteReuse.Mapping mapping, ProgramBuilder.ValueNameAllocator nameAllocator)
+    {
+        // TODO the output selectors should be extended to pass additional fields, not just remapped!!
+        checkArgument(sourceIndex == 0 || sourceIndex == 1, "join has two sources");
+        Type baseRowType = relationRowType(trinoType(baseOperation.result().type()));
+
+        validateMappedTypes(relationRowType(trinoType(this.arguments().get(sourceIndex).type())), baseRowType, mapping);
+
+        // rebase all single-parameter blocks
+        List<Region> regionsToRebase;
+        if (sourceIndex == 0) {
+            regionsToRebase = ImmutableList.of(leftCriteriaSelector, leftHashSelector, leftOutputSelector);
+        }
+        else {
+            regionsToRebase = ImmutableList.of(rightCriteriaSelector, rightHashSelector, rightOutputSelector, dynamicFilterTargetSelector);
+        }
+        ImmutableList.Builder<Block> rebasedBlocksBuilder = ImmutableList.builder();
+        for (Region region : regionsToRebase) {
+            Optional<Block> rebasedBlock = rebaseBlock(region.getOnlyBlock(), baseRowType, mapping, nameAllocator);
+            if (rebasedBlock.isEmpty()) {
+                return Optional.empty();
+            }
+            rebasedBlocksBuilder.add(rebasedBlock.get());
+        }
+        List<Block> rebasedSingleParameterBlocks = rebasedBlocksBuilder.build();
+
+        // rebase filter
+        Optional<Block> rebasedFilter = rebaseBlock(filter.getOnlyBlock(), sourceIndex, baseRowType, mapping, nameAllocator);
+        if (rebasedFilter.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<Block> rebasedBlocks;
+        if (sourceIndex == 0) {
+            rebasedBlocks = ImmutableList.of(
+                    rebasedSingleParameterBlocks.get(0),
+                    rightCriteriaSelector.getOnlyBlock(),
+                    rebasedFilter.get(),
+                    rebasedSingleParameterBlocks.get(1),
+                    rightHashSelector.getOnlyBlock(),
+                    rebasedSingleParameterBlocks.get(2),
+                    rightOutputSelector.getOnlyBlock(),
+                    dynamicFilterTargetSelector.getOnlyBlock());
+        }
+        else {
+            rebasedBlocks = ImmutableList.of(
+                    leftCriteriaSelector.getOnlyBlock(),
+                    rebasedSingleParameterBlocks.get(0),
+                    rebasedFilter.get(),
+                    leftHashSelector.getOnlyBlock(),
+                    rebasedSingleParameterBlocks.get(1),
+                    leftOutputSelector.getOnlyBlock(),
+                    rebasedSingleParameterBlocks.get(2),
+                    rebasedSingleParameterBlocks.get(3));
+        }
+
+        return Optional.of(new Join(
+                nameAllocator.newName(),
+                sourceIndex == 0 ? baseOperation.result() : left,
+                sourceIndex == 1 ? baseOperation.result() : right,
+                rebasedBlocks.get(0),
+                rebasedBlocks.get(1),
+                rebasedBlocks.get(2),
+                rebasedBlocks.get(3),
+                rebasedBlocks.get(4),
+                rebasedBlocks.get(5),
+                rebasedBlocks.get(6),
+                rebasedBlocks.get(7),
+                JOIN_TYPE.getAttribute(attributes()),
+                MAY_SKIP_OUTPUT_DUPLICATES.getAttribute(attributes()),
+                Optional.ofNullable(DISTRIBUTION_TYPE.getAttribute(attributes())),
+                Optional.ofNullable(SPILLABLE.getAttribute(attributes())),
+                DYNAMIC_FILTER_IDS.getAttribute(attributes()),
+                Optional.ofNullable(STATISTICS_AND_COST_SUMMARY.getAttribute(attributes())),
+                sourceIndex == 0 ? baseOperation.attributes() : ImmutableMap.of(), // TODO with partial rebase we miss the source attributes. Shall we do a copying constructor? That would assume that source attrs are the same for the new sourc which is not correct. Probably pass the other source.
+                sourceIndex == 1 ? baseOperation.attributes() : ImmutableMap.of()));
+    }
+
+    @Override
+    public Operation withResult(Result newResult)
+    {
+        checkArgument(this.result.type().equals(newResult.type()), "result type mismatch");
+
+        return new Join(
+                newResult.name(),
+                left,
+                right,
+                regions().get(0).getOnlyBlock(),
+                regions().get(1).getOnlyBlock(),
+                regions().get(2).getOnlyBlock(),
+                regions().get(3).getOnlyBlock(),
+                regions().get(4).getOnlyBlock(),
+                regions().get(5).getOnlyBlock(),
+                regions().get(6).getOnlyBlock(),
+                regions().get(7).getOnlyBlock(),
+                JOIN_TYPE.getAttribute(attributes()),
+                MAY_SKIP_OUTPUT_DUPLICATES.getAttribute(attributes()),
+                Optional.ofNullable(DISTRIBUTION_TYPE.getAttribute(attributes())),
+                Optional.ofNullable(SPILLABLE.getAttribute(attributes())),
+                DYNAMIC_FILTER_IDS.getAttribute(attributes()),
+                Optional.ofNullable(STATISTICS_AND_COST_SUMMARY.getAttribute(attributes())),
+                ImmutableMap.of(), // TODO copy constructor so that we don't lose source attributes
+                ImmutableMap.of());
+    }
+
+    @Override
+    public Operation withRegions(List<Region> newRegions)
+    {
+        throw new UnsupportedOperationException();
     }
 
     @Override
