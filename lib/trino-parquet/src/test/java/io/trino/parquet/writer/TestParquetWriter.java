@@ -402,6 +402,7 @@ public class TestParquetWriter
         List<BlockMetadata> blocks = parquetMetadata.getBlocks();
         assertThat(blocks.size()).isGreaterThan(1);
 
+        long fileRowCountOffset = 0;
         List<RowGroup> rowGroups = parquetMetadata.getParquetMetadata().getRow_groups();
         assertThat(rowGroups.size()).isEqualTo(blocks.size());
         for (int rowGroupIndex = 0; rowGroupIndex < rowGroups.size(); rowGroupIndex++) {
@@ -409,6 +410,8 @@ public class TestParquetWriter
             assertThat(rowGroup.isSetFile_offset()).isTrue();
             BlockMetadata blockMetadata = blocks.get(rowGroupIndex);
             assertThat(blockMetadata.getStartingPos()).isEqualTo(rowGroup.getFile_offset());
+            assertThat(blockMetadata.fileRowCountOffset()).isEqualTo(fileRowCountOffset);
+            fileRowCountOffset += rowGroup.getNum_rows();
         }
     }
 

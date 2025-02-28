@@ -193,7 +193,6 @@ public final class PredicateUtils
             ParquetReaderOptions options)
             throws IOException
     {
-        long fileRowCount = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetadata block : parquetMetadata.getBlocks(splitStart, splitLength)) {
             long blockStart = block.getStartingPos();
@@ -215,12 +214,11 @@ public final class PredicateUtils
                             bloomFilterStore,
                             timeZone,
                             domainCompactionThreshold)) {
-                        rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, fileRowCount, columnIndex));
+                        rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, block.fileRowCountOffset(), columnIndex));
                         break;
                     }
                 }
             }
-            fileRowCount += block.rowCount();
         }
         return rowGroupInfoBuilder.build();
     }
