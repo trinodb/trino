@@ -3074,6 +3074,7 @@ public class DeltaLakeMetadata
     {
         return new CommitInfoEntry(
                 commitVersion,
+                OptionalLong.empty(), // TODO: support write inCommitTimestamp
                 createdTime,
                 session.getUser(),
                 session.getUser(),
