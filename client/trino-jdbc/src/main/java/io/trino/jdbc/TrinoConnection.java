@@ -885,8 +885,6 @@ public class TrinoConnection
         preparedStatements.putAll(client.getAddedPreparedStatements());
         client.getDeallocatedPreparedStatements().forEach(preparedStatements::remove);
 
-        roles.putAll(client.getSetRoles());
-
         client.getSetCatalog().ifPresent(catalog::set);
         client.getSetSchema().ifPresent(schema::set);
         client.getSetPath().ifPresent(path::set);
@@ -899,6 +897,8 @@ public class TrinoConnection
             authorizationUser.set(null);
             roles.clear();
         }
+
+        roles.putAll(client.getSetRoles());
 
         if (client.getStartedTransactionId() != null) {
             transactionId.set(client.getStartedTransactionId());

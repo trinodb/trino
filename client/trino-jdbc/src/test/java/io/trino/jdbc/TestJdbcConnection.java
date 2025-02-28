@@ -21,6 +21,11 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
+import io.trino.client.QueryData;
+import io.trino.client.QueryStatusInfo;
+import io.trino.client.ResultRows;
+import io.trino.client.StatementClient;
+import io.trino.client.StatementStats;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.hive.HivePlugin;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -35,6 +40,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -56,6 +62,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -72,6 +79,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
+import static io.trino.client.ClientSelectedRole.Type.ROLE;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.spi.connector.SystemTable.Distribution.ALL_NODES;
@@ -407,6 +415,19 @@ public class TestJdbcConnection
     }
 
     @Test
+    public void testRoleIsPropagatedEvenWhenAuthorizationIsReset()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("source=testing")) {
+            TrinoConnection trinoConnection = (TrinoConnection) connection;
+            assertThat(trinoConnection.getRoles()).isEmpty();
+            StatementClient statementClient = new ResettingAuthorizationStatementClientWithRoles();
+            trinoConnection.updateSession(statementClient);
+            assertThat(trinoConnection.getRoles()).hasSize(1);
+        }
+    }
+
+    @Test
     public void testExtraCredentials()
             throws SQLException
     {
@@ -453,7 +474,7 @@ public class TestJdbcConnection
     public void testRole()
             throws SQLException
     {
-        testRole("admin", new ClientSelectedRole(ClientSelectedRole.Type.ROLE, Optional.of("admin")), ImmutableSet.of("public", "admin"));
+        testRole("admin", new ClientSelectedRole(ROLE, Optional.of("admin")), ImmutableSet.of("public", "admin"));
     }
 
     @Test
@@ -883,5 +904,159 @@ public class TestJdbcConnection
             throw new RuntimeException(e);
         }
         fail("Expecting future to be blocked");
+    }
+
+    private static class ResettingAuthorizationStatementClientWithRoles
+            implements StatementClient
+    {
+        @Override
+        public String getQuery()
+        {
+            return "";
+        }
+
+        @Override
+        public ZoneId getTimeZone()
+        {
+            return null;
+        }
+
+        @Override
+        public boolean isRunning()
+        {
+            return false;
+        }
+
+        @Override
+        public boolean isClientAborted()
+        {
+            return false;
+        }
+
+        @Override
+        public boolean isClientError()
+        {
+            return false;
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return false;
+        }
+
+        @Override
+        public StatementStats getStats()
+        {
+            return null;
+        }
+
+        @Override
+        public QueryStatusInfo currentStatusInfo()
+        {
+            return null;
+        }
+
+        @Override
+        public QueryData currentData()
+        {
+            return null;
+        }
+
+        @Override
+        public ResultRows currentRows()
+        {
+            return null;
+        }
+
+        @Override
+        public QueryStatusInfo finalStatusInfo()
+        {
+            return null;
+        }
+
+        @Override
+        public Optional<String> getSetCatalog()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<String> getSetSchema()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<List<String>> getSetPath()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<String> getSetAuthorizationUser()
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean isResetAuthorizationUser()
+        {
+            return true;
+        }
+
+        @Override
+        public Map<String, String> getSetSessionProperties()
+        {
+            return Map.of();
+        }
+
+        @Override
+        public Set<String> getResetSessionProperties()
+        {
+            return Set.of();
+        }
+
+        @Override
+        public Map<String, ClientSelectedRole> getSetRoles()
+        {
+            return Map.of("unimportant", new ClientSelectedRole(ROLE, Optional.of("test_role")));
+        }
+
+        @Override
+        public Map<String, String> getAddedPreparedStatements()
+        {
+            return Map.of();
+        }
+
+        @Override
+        public Set<String> getDeallocatedPreparedStatements()
+        {
+            return Set.of();
+        }
+
+        @Override
+        public @Nullable String getStartedTransactionId()
+        {
+            return null;
+        }
+
+        @Override
+        public boolean isClearTransactionId()
+        {
+            return false;
+        }
+
+        @Override
+        public boolean advance()
+        {
+            return false;
+        }
+
+        @Override
+        public void cancelLeafStage() {}
+
+        @Override
+        public void close() {}
     }
 }
