@@ -149,4 +149,22 @@ public class TestIcebergS3AndGlueMetastoreTest
             assertQuery("SHOW STATS FOR " + tableName, expectedStatistics);
         }
     }
+
+    @Test
+    void testCreateDropDynamicCatalog()
+    {
+        String catalog = "new_catalog_" + randomNameSuffix();
+        String createCatalogSql = "CREATE CATALOG %s USING iceberg".formatted(catalog);
+        assertUpdate(createCatalogSql);
+        assertCatalogs("system", "iceberg", "tpch", catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs("system", "iceberg", "tpch");
+        // re-add the same catalog
+        assertUpdate(createCatalogSql);
+        assertCatalogs("system", "iceberg", "tpch", catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertCatalogs("system", "iceberg", "tpch");
+    }
 }
