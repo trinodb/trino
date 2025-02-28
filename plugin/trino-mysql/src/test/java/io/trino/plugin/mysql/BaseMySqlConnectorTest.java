@@ -42,6 +42,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -194,6 +195,66 @@ public abstract class BaseMySqlConnectorTest
                         "   shippriority integer,\n" +
                         "   comment varchar(255)\n" +
                         ")");
+    }
+
+    @Test
+    public void testCreateTableWithPrimaryKey()
+    {
+        String catalogName = getSession().getCatalog().orElseThrow();
+        String schemaName = getSession().getSchema().orElseThrow();
+        String tableName = "test_create_with_primary_key_" + randomNameSuffix();
+        // create table with a primary key
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint NOT NULL, b bigint, c bigint) with (primary_key = ARRAY['a'])");
+        assertThat(computeScalar(format("SHOW CREATE TABLE %s", tableName)))
+                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE %s.%s.%s (
+                           a bigint NOT NULL,
+                           b bigint,
+                           c bigint
+                        )
+                        WITH (
+                           primary_key = ARRAY['a']
+                        )\
+                        """,
+                        catalogName,
+                        schemaName,
+                        tableName));
+        assertUpdate("DROP TABLE " + tableName);
+        // create table with multiple primary keys
+        assertUpdate("CREATE TABLE " + tableName + " (a bigint NOT NULL, b bigint NOT NULL, c bigint) with (primary_key = ARRAY['a', 'b'])");
+        assertThat(computeScalar(format("SHOW CREATE TABLE %s", tableName)))
+                // If the connector reports additional column properties, the expected value needs to be adjusted in the test subclass
+                .isEqualTo(format(
+                        """
+                        CREATE TABLE %s.%s.%s (
+                           a bigint NOT NULL,
+                           b bigint NOT NULL,
+                           c bigint
+                        )
+                        WITH (
+                           primary_key = ARRAY['a','b']
+                        )\
+                        """,
+                        catalogName,
+                        schemaName,
+                        tableName));
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testCreateTableWithInvalidPrimaryKey()
+    {
+        String tableName = "test_create_with_invalid_primary_key_" + randomNameSuffix();
+        // check primary key must be not null
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['a'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Primary key must be NOT NULL in MySQL");
+        // check primary key must in column list
+        assertThatThrownBy(() -> assertUpdate("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['d'])"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching("Column 'd' specified in property 'primary_key' doesn't exist in table");
     }
 
     @Test
