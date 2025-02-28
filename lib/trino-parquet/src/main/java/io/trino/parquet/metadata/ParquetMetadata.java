@@ -103,8 +103,14 @@ public class ParquetMetadata
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetadata> blocks = new ArrayList<>();
         List<RowGroup> rowGroups = parquetMetadata.getRow_groups();
+
+        long fileRowCount = 0;
+
         if (rowGroups != null) {
             for (RowGroup rowGroup : rowGroups) {
+                long fileRowCountOffset = fileRowCount;
+                fileRowCount += rowGroup.getNum_rows(); // Update fileRowCount for all row groups
+
                 if (rowGroup.isSetFile_offset()) {
                     long rowGroupStart = rowGroup.getFile_offset();
                     boolean splitContainsRowGroup = splitStart <= rowGroupStart && rowGroupStart < splitStart + splitLength;
@@ -146,7 +152,7 @@ public class ParquetMetadata
                     column.setBloomFilterOffset(metaData.bloom_filter_offset);
                     columnMetadataBuilder.add(column);
                 }
-                blocks.add(new BlockMetadata(rowGroup.getNum_rows(), columnMetadataBuilder.build()));
+                blocks.add(new BlockMetadata(fileRowCountOffset, rowGroup.getNum_rows(), columnMetadataBuilder.build()));
             }
         }
 
