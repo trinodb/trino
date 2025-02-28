@@ -307,8 +307,8 @@ public class TrinoGlueCatalog
             if (database.getLocationUri() != null) {
                 metadata.put(LOCATION_PROPERTY, database.getLocationUri());
             }
-            if (database.getParameters() != null) {
-                metadata.putAll(database.getParameters());
+            else if (database.getParameters().containsKey(LOCATION_PROPERTY)) {
+                metadata.put(LOCATION_PROPERTY, database.getParameters().get(LOCATION_PROPERTY));
             }
             return metadata.buildOrThrow();
         }
