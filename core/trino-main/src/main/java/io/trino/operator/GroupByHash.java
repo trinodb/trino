@@ -23,6 +23,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.trino.SystemSessionProperties.isMinimalGroupByHashEnabled;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 @NotThreadSafe
@@ -37,7 +38,8 @@ public interface GroupByHash
             UpdateMemory updateMemory)
     {
         boolean dictionaryAggregationEnabled = isDictionaryAggregationEnabled(session);
-        return createGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
+        boolean minimalGroupByHashEnabled = isMinimalGroupByHashEnabled(session);
+        return createGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, minimalGroupByHashEnabled, hashStrategyCompiler, updateMemory);
     }
 
     static GroupByHash createGroupByHash(
@@ -48,8 +50,30 @@ public interface GroupByHash
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory updateMemory)
     {
+        return createGroupByHash(
+                types,
+                hasPrecomputedHash,
+                expectedSize,
+                dictionaryAggregationEnabled,
+                false, // minimalGroupByHashEnabled
+                hashStrategyCompiler,
+                updateMemory);
+    }
+
+    static GroupByHash createGroupByHash(
+            List<Type> types,
+            boolean hasPrecomputedHash,
+            int expectedSize,
+            boolean dictionaryAggregationEnabled,
+            boolean minimalGroupByHashEnabled,
+            FlatHashStrategyCompiler hashStrategyCompiler,
+            UpdateMemory updateMemory)
+    {
         if (types.size() == 1 && types.get(0).equals(BIGINT)) {
             return new BigintGroupByHash(hasPrecomputedHash, expectedSize, updateMemory);
+        }
+        if (minimalGroupByHashEnabled) {
+            return new MinimalFlatGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
         }
         return new FlatGroupByHash(types, hasPrecomputedHash, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
     }
