@@ -775,6 +775,10 @@ The output of the query has the following history columns:
 * - `timestamp`
   - `TIMESTAMP(3) WITH TIME ZONE`
   - The time when the table version became active
+    For tables with in-Commit timestamps enabled, this field returns value of 
+    [inCommitTimestamp](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#in-commit-timestamps),
+    Otherwise returns value of `timestamp` field that in the 
+    [commitInfo](https://github.com/delta-io/delta/blob/master/PROTOCOL.md#commit-provenance-information)
 * - `user_id`
   - `VARCHAR`
   - The identifier for the user which performed the operation
