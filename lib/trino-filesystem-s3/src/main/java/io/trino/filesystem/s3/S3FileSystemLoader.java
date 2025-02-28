@@ -178,6 +178,7 @@ final class S3FileSystemLoader
 
             S3ClientBuilder s3 = S3Client.builder();
             s3.overrideConfiguration(overrideConfiguration);
+            s3.crossRegionAccessEnabled(config.isCrossRegionAccessEnabled());
             s3.httpClient(httpClient);
             s3.responseChecksumValidation(WHEN_REQUIRED);
             s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
