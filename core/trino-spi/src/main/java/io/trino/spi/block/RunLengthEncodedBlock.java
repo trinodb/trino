@@ -197,6 +197,12 @@ public final class RunLengthEncodedBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        return mayHaveNull();
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);
