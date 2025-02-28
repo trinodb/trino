@@ -163,6 +163,12 @@ public final class LazyBlock
         return getBlock().mayHaveNull();
     }
 
+    @Override
+    public boolean hasNull()
+    {
+        return getBlock().hasNull();
+    }
+
     public Block getBlock()
     {
         return lazyData.getTopLevelBlock();
