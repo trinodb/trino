@@ -69,6 +69,9 @@ specify a model that is suitable for textual analysis.
     `openai`. Required and ignored with Ollama use.
 :::
 
+The AI functions connect to the providers over HTTP. Configure the connection
+using the `ai` prefix with the [](/admin/properties-http-client).
+
 The following sections show minimal configurations for Anthropic, OpenAI, and
 Ollama use.
 
