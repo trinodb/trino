@@ -90,12 +90,6 @@ public class TestJsonCassandraHandles
 
     private static final ObjectMapper OBJECT_MAPPER;
 
-    static {
-        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new CassandraClientModule.TypeDeserializer(TESTING_TYPE_MANAGER)));
-        OBJECT_MAPPER = objectMapperProvider.get();
-    }
-
     @Test
     public void testTableHandleSerialize()
             throws Exception
@@ -203,5 +197,11 @@ public class TestJsonCassandraHandles
     {
         Map<String, Object> jsonMap = OBJECT_MAPPER.readValue(json, new TypeReference<>() {});
         assertEqualsIgnoreOrder(jsonMap.entrySet(), expectedMap.entrySet());
+    }
+
+    static {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new CassandraClientModule.TypeDeserializer(TESTING_TYPE_MANAGER)));
+        OBJECT_MAPPER = objectMapperProvider.get();
     }
 }

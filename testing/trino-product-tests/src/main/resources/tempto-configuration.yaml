@@ -4,7 +4,7 @@ hdfs:
     uri: http://${databases.hive.host}:9870
 
 databases:
-  hive:
+- hive:
     host: hadoop-master
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
     jdbc_url: jdbc:hive2://${databases.hive.host}:10000
@@ -137,6 +137,11 @@ databases:
     basic:
       request:
         timeout_seconds: 30
+
+  scylladb:
+    host: scylladb
+    port: 9042
+    local_datacenter: datacenter1
 
   sqlserver:
     jdbc_driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
