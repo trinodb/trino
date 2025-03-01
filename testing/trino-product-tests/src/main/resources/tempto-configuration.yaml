@@ -4,7 +4,7 @@ hdfs:
     uri: http://${databases.hive.host}:9870
 
 databases:
-    hive:
+- hive:
     host: hadoop-master
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
     jdbc_url: jdbc:hive2://${databases.hive.host}:10000
