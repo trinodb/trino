@@ -36,6 +36,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -197,6 +198,13 @@ public abstract class AbstractTestBlock
         assertThat(block.getPositionCount()).isEqualTo(expectedValues.length);
         for (int position = 0; position < block.getPositionCount(); position++) {
             assertBlockPosition(block, position, expectedValues[position]);
+        }
+        if (Arrays.stream(expectedValues).anyMatch(Objects::isNull)) {
+            assertThat(block.hasNull()).isTrue();
+            assertThat(block.mayHaveNull()).isTrue();
+        }
+        else {
+            assertThat(block.hasNull()).isFalse();
         }
     }
 

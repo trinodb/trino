@@ -152,6 +152,20 @@ public final class RowBlock
         return rowIsNull != null;
     }
 
+    @Override
+    public boolean hasNull()
+    {
+        if (rowIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (rowIsNull[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     boolean[] getRawRowIsNull()
     {
         return rowIsNull;
