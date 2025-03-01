@@ -225,10 +225,8 @@ public class ArrayBlockBuilder
     @Override
     public void resetTo(int position)
     {
-        if (currentEntryOpened) {
-            throw new IllegalStateException("Expected current entry to be closed but was opened");
-        }
         checkIndex(position, positionCount + 1);
+        currentEntryOpened = false;
         positionCount = position;
         values.resetTo(offsets[positionCount]);
     }
