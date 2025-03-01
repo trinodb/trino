@@ -17,6 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.SortingFileWriterConfig;
+import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.procedure.IcebergOptimizeHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.PageIndexerFactory;
@@ -49,6 +50,7 @@ public class IcebergPageSinkProvider
 {
     private final IcebergFileSystemFactory fileSystemFactory;
     private final JsonCodec<CommitTaskData> jsonCodec;
+    private final TrinoCatalogFactory catalogFactory;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final PageIndexerFactory pageIndexerFactory;
     private final int maxOpenPartitions;
@@ -61,6 +63,7 @@ public class IcebergPageSinkProvider
     public IcebergPageSinkProvider(
             IcebergFileSystemFactory fileSystemFactory,
             JsonCodec<CommitTaskData> jsonCodec,
+            TrinoCatalogFactory catalogFactory,
             IcebergFileWriterFactory fileWriterFactory,
             PageIndexerFactory pageIndexerFactory,
             IcebergConfig config,
@@ -70,6 +73,7 @@ public class IcebergPageSinkProvider
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
+        this.catalogFactory = requireNonNull(catalogFactory, "catalogFactory is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
@@ -172,8 +176,12 @@ public class IcebergPageSinkProvider
                 locationProvider,
                 fileWriterFactory,
                 fileSystemFactory.create(session.getIdentity(), tableHandle.fileIoProperties()),
+                catalogFactory.create(session.getIdentity()),
+                tableHandle.name(),
+                merge.getTableHandle().getSnapshotId(),
                 jsonCodec,
                 session,
+                tableHandle.formatVersion(),
                 tableHandle.fileFormat(),
                 tableHandle.storageProperties(),
                 schema,

@@ -21,6 +21,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -207,11 +208,11 @@ class TestFileBasedConflictDetection
                 """
                 {"partitionValues":[40]}
                 """;
-        CommitTaskData commitTaskData1 = new CommitTaskData("test_location/data/new.parquet", IcebergFileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(currentPartitionSpec),
-                Optional.of(partitionDataJson), DATA, Optional.empty(), Optional.empty());
+        CommitTaskData commitTaskData1 = new CommitTaskData("test_location/data/new.parquet", FileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(currentPartitionSpec),
+                Optional.of(partitionDataJson), DATA, Optional.empty(), List.of(), Optional.empty(), OptionalLong.empty(), OptionalLong.empty());
         // Remove file from version with previous partition specification
-        CommitTaskData commitTaskData2 = new CommitTaskData("test_location/data/old.parquet", IcebergFileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(previousPartitionSpec),
-                Optional.of(partitionDataJson), POSITION_DELETES, Optional.empty(), Optional.empty());
+        CommitTaskData commitTaskData2 = new CommitTaskData("test_location/data/old.parquet", FileFormat.PARQUET, 0, new MetricsWrapper(new Metrics()), PartitionSpecParser.toJson(previousPartitionSpec),
+                Optional.of(partitionDataJson), POSITION_DELETES, Optional.empty(), List.of(), Optional.empty(), OptionalLong.empty(), OptionalLong.empty());
         TupleDomain<IcebergColumnHandle> icebergColumnHandleTupleDomain = extractTupleDomainsFromCommitTasks(getIcebergTableHandle(currentPartitionSpec), icebergTable, List.of(commitTaskData1, commitTaskData2), null);
         assertThat(icebergColumnHandleTupleDomain.getDomains().orElseThrow()).isEmpty();
 
@@ -223,24 +224,30 @@ class TestFileBasedConflictDetection
         // Update operation contains two commit tasks
         CommitTaskData commitTaskData1 = new CommitTaskData(
                 "test_location/data/new.parquet",
-                IcebergFileFormat.PARQUET,
+                FileFormat.PARQUET,
                 0,
                 new MetricsWrapper(new Metrics()),
                 PartitionSpecParser.toJson(partitionSpec),
                 partitionDataJson,
                 DATA,
                 Optional.empty(),
-                Optional.empty());
+                List.of(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                OptionalLong.empty());
         CommitTaskData commitTaskData2 = new CommitTaskData(
                 "test_location/data/old.parquet",
-                IcebergFileFormat.PARQUET,
+                FileFormat.PARQUET,
                 0,
                 new MetricsWrapper(new Metrics()),
                 PartitionSpecParser.toJson(partitionSpec),
                 partitionDataJson,
                 POSITION_DELETES,
                 Optional.empty(),
-                Optional.empty());
+                List.of(),
+                Optional.empty(),
+                OptionalLong.empty(),
+                OptionalLong.empty());
 
         return List.of(commitTaskData1, commitTaskData2);
     }
