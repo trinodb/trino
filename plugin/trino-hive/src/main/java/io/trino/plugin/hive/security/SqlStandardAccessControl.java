@@ -60,10 +60,12 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listAppl
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyAlterBranch;
 import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateBranch;
 import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
@@ -72,6 +74,7 @@ import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyCreateView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.trino.spi.security.AccessDeniedException.denyDropBranch;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
 import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
@@ -644,6 +647,30 @@ public class SqlStandardAccessControl
     public Map<ColumnSchema, ViewExpression> getColumnMasks(ConnectorSecurityContext context, SchemaTableName tableName, List<ColumnSchema> columns)
     {
         return ImmutableMap.of();
+    }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        if (!isTableOwner(context, tableName)) {
+            denyCreateBranch(tableName.toString(), name);
+        }
+    }
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        if (!isTableOwner(context, tableName)) {
+            denyDropBranch(tableName.toString(), name);
+        }
+    }
+
+    @Override
+    public void checkCanAlterBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        if (!isTableOwner(context, tableName)) {
+            denyAlterBranch(tableName.toString(), name);
+        }
     }
 
     private boolean isAdmin(ConnectorSecurityContext context)
