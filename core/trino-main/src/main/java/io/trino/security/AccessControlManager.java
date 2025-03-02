@@ -82,6 +82,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -426,19 +427,6 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetSchemaAuthorization(SecurityContext securityContext, CatalogSchemaName schemaName, TrinoPrincipal principal)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(schemaName, "schemaName is null");
-
-        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
-
-        systemAuthorizationCheck(control -> control.checkCanSetSchemaAuthorization(securityContext.toSystemSecurityContext(), schemaName, principal));
-
-        catalogAuthorizationCheck(schemaName.getCatalogName(), securityContext, (control, context) -> control.checkCanSetSchemaAuthorization(context, schemaName.getSchemaName(), principal));
-    }
-
-    @Override
     public void checkCanShowSchemas(SecurityContext securityContext, String catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -731,23 +719,6 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetTableAuthorization(SecurityContext securityContext, QualifiedObjectName tableName, TrinoPrincipal principal)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(tableName, "tableName is null");
-        requireNonNull(principal, "principal is null");
-
-        checkCanAccessCatalog(securityContext, tableName.catalogName());
-
-        systemAuthorizationCheck(control -> control.checkCanSetTableAuthorization(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), principal));
-
-        catalogAuthorizationCheck(
-                tableName.catalogName(),
-                securityContext,
-                (control, context) -> control.checkCanSetTableAuthorization(context, tableName.asSchemaTableName(), principal));
-    }
-
-    @Override
     public void checkCanInsertIntoTable(SecurityContext securityContext, QualifiedObjectName tableName)
     {
         requireNonNull(securityContext, "securityContext is null");
@@ -824,23 +795,6 @@ public class AccessControlManager
         systemAuthorizationCheck(control -> control.checkCanRenameView(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(), newViewName.asCatalogSchemaTableName()));
 
         catalogAuthorizationCheck(viewName.catalogName(), securityContext, (control, context) -> control.checkCanRenameView(context, viewName.asSchemaTableName(), newViewName.asSchemaTableName()));
-    }
-
-    @Override
-    public void checkCanSetViewAuthorization(SecurityContext securityContext, QualifiedObjectName viewName, TrinoPrincipal principal)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(viewName, "viewName is null");
-        requireNonNull(principal, "principal is null");
-
-        checkCanAccessCatalog(securityContext, viewName.catalogName());
-
-        systemAuthorizationCheck(control -> control.checkCanSetViewAuthorization(securityContext.toSystemSecurityContext(), viewName.asCatalogSchemaTableName(), principal));
-
-        catalogAuthorizationCheck(
-                viewName.catalogName(),
-                securityContext,
-                (control, context) -> control.checkCanSetViewAuthorization(context, viewName.asSchemaTableName(), principal));
     }
 
     @Override
@@ -1440,6 +1394,17 @@ public class AccessControlManager
         catch (IllegalArgumentException exception) {
             throw new TrinoException(INVALID_COLUMN_MASK, "Multiple masks for the same column found", exception);
         }
+    }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SecurityContext securityContext, String ownedKind, List<String> name, TrinoPrincipal principal)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(ownedKind, "ownedKind is null");
+        requireNonNull(name, "name is null");
+        checkArgument(!name.isEmpty(), "name is empty");
+        requireNonNull(principal, "principal is null");
+        systemAuthorizationCheck(control -> control.checkCanSetEntityAuthorization(securityContext.toSystemSecurityContext(), ownedKind, name, principal));
     }
 
     private ConnectorAccessControl getConnectorAccessControl(TransactionId transactionId, String catalogName)

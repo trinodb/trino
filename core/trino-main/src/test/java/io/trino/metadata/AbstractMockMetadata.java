@@ -280,12 +280,6 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void setSchemaAuthorization(Session session, CatalogSchemaName source, TrinoPrincipal principal)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         throw new UnsupportedOperationException();
@@ -377,12 +371,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -624,12 +612,6 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void renameView(Session session, QualifiedObjectName source, QualifiedObjectName target)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void setViewAuthorization(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -1035,6 +1017,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setEntityAuthorization(Session session, String ownedKind, List<String> name, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
