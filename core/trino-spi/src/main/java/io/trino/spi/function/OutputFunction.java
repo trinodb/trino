@@ -27,4 +27,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface OutputFunction
 {
     String value();
+
+    Decomposition decomposition() default @Decomposition(partial = "", output = "");
 }

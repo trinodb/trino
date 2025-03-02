@@ -48,7 +48,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.Collections.emptyIterator;
@@ -99,7 +98,7 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.of(1))));
+                ImmutableList.of(COUNT.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.of(1))));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -115,7 +114,7 @@ public class TestAggregationOperator
     @Test
     public void testDistinctMaskWithNulls()
     {
-        AggregatorFactory distinctFactory = LONG_SUM.createDistinctAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.of(1));
+        AggregatorFactory distinctFactory = LONG_SUM.createSingleDistinctAggregatorFactory(ImmutableList.of(0), OptionalInt.of(1));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -157,15 +156,15 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
-                        LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(1), OptionalInt.empty()),
-                        LONG_AVERAGE.createAggregatorFactory(SINGLE, ImmutableList.of(1), OptionalInt.empty()),
-                        maxVarcharColumn.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty()),
-                        countVarcharColumn.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
-                        LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(3), OptionalInt.empty()),
-                        REAL_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(4), OptionalInt.empty()),
-                        DOUBLE_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(5), OptionalInt.empty()),
-                        maxVarcharColumn.createAggregatorFactory(SINGLE, ImmutableList.of(6), OptionalInt.empty())));
+                ImmutableList.of(COUNT.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty()),
+                        LONG_SUM.createSingleAggregatorFactory(ImmutableList.of(1), OptionalInt.empty()),
+                        LONG_AVERAGE.createSingleAggregatorFactory(ImmutableList.of(1), OptionalInt.empty()),
+                        maxVarcharColumn.createSingleAggregatorFactory(ImmutableList.of(2), OptionalInt.empty()),
+                        countVarcharColumn.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty()),
+                        LONG_SUM.createSingleAggregatorFactory(ImmutableList.of(3), OptionalInt.empty()),
+                        REAL_SUM.createSingleAggregatorFactory(ImmutableList.of(4), OptionalInt.empty()),
+                        DOUBLE_SUM.createSingleAggregatorFactory(ImmutableList.of(5), OptionalInt.empty()),
+                        maxVarcharColumn.createSingleAggregatorFactory(ImmutableList.of(6), OptionalInt.empty())));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
@@ -188,7 +187,7 @@ public class TestAggregationOperator
         OperatorFactory operatorFactory = new AggregationOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                ImmutableList.of(LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())));
+                ImmutableList.of(LONG_SUM.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty())));
 
         DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)

@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
-import io.trino.operator.aggregation.state.NullableLongState;
+import io.trino.operator.aggregation.state.LongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -21,29 +21,28 @@ import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
-import io.trino.spi.type.BigintType;
 import io.trino.spi.type.StandardTypes;
 
-@AggregationFunction("bitwise_and_agg")
-public final class BitwiseAndAggregation
+import static io.trino.spi.type.BigintType.BIGINT;
+
+/**
+ * Sum aggregation that returns zero if there is no input.
+ * This is used for the aggregating the partial output from the count function which also must return zero if there is no input.
+ */
+@AggregationFunction(value = "$sum0", hidden = true)
+public final class Sum0Aggregation
 {
-    private BitwiseAndAggregation() {}
+    private Sum0Aggregation() {}
 
     @InputFunction
-    public static void bitAnd(@AggregationState NullableLongState state, @SqlType(StandardTypes.BIGINT) long value)
+    public static void partialInput(@AggregationState LongState state, @SqlType(StandardTypes.BIGINT) long value)
     {
-        if (state.isNull()) {
-            state.setValue(value);
-        }
-        else {
-            state.setValue(state.getValue() & value);
-        }
-        state.setNull(false);
+        state.setValue(state.getValue() + value);
     }
 
-    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "bitwise_and_agg", output = "bitwise_and_agg"))
-    public static void output(@AggregationState NullableLongState state, BlockBuilder out)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "$sum0", output = "$sum0"))
+    public static void intermediateOutput(@AggregationState LongState state, BlockBuilder out)
     {
-        NullableLongState.write(BigintType.BIGINT, state, out);
+        BIGINT.writeLong(out, state.getValue());
     }
 }
