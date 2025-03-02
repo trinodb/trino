@@ -29,15 +29,15 @@ public class TestScyllaDB
     @Test(groups = {SCYLLADB, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        onTrino().executeQuery("CALL system.execute('CREATE KEYSPACE test WITH REPLICATION = {''class'':''SimpleStrategy'', ''replication_factor'': 1}')");
-        QueryResult result = onTrino().executeQuery("CREATE TABLE test.nation AS SELECT * FROM tpch.tiny.nation");
+        onTrino().executeQuery("CALL scylla.system.execute('CREATE KEYSPACE test WITH REPLICATION = {''class'':''SimpleStrategy'', ''replication_factor'': 1}')");
+        QueryResult result = onTrino().executeQuery("CREATE TABLE scylla.test.nation AS SELECT * FROM tpch.tiny.nation");
         try {
             assertThat(result).updatedRowsCountIsEqualTo(25);
-            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM test.nation"))
+            assertThat(onTrino().executeQuery("SELECT COUNT(*) FROM scylla.test.nation"))
                     .containsOnly(row(25));
         }
         finally {
-            onTrino().executeQuery("DROP TABLE test.nation");
+            onTrino().executeQuery("DROP TABLE scylla.test.nation");
         }
     }
 }
