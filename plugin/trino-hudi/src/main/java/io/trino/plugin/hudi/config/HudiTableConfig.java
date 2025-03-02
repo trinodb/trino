@@ -18,10 +18,10 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
-import io.trino.plugin.hudi.model.HudiFileFormat;
-import io.trino.plugin.hudi.model.HudiTableType;
-import io.trino.plugin.hudi.timeline.TimelineLayoutVersion;
 import io.trino.spi.TrinoException;
+import org.apache.hudi.common.model.HoodieFileFormat;
+import org.apache.hudi.common.model.HoodieTableType;
+import org.apache.hudi.common.table.timeline.versioning.TimelineLayoutVersion;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -83,17 +83,17 @@ public class HudiTableConfig
         return false;
     }
 
-    public HudiTableType getTableType()
+    public HoodieTableType getTableType()
     {
-        return HudiTableType.valueOf(properties.getProperty(HOODIE_TABLE_TYPE_KEY));
+        return HoodieTableType.valueOf(properties.getProperty(HOODIE_TABLE_TYPE_KEY));
     }
 
-    public HudiFileFormat getBaseFileFormat()
+    public HoodieFileFormat getBaseFileFormat()
     {
         if (properties.containsKey(HOODIE_TABLE_BASE_FILE_FORMAT)) {
-            return HudiFileFormat.valueOf(properties.getProperty(HOODIE_TABLE_BASE_FILE_FORMAT));
+            return HoodieFileFormat.valueOf(properties.getProperty(HOODIE_TABLE_BASE_FILE_FORMAT));
         }
-        return HudiFileFormat.PARQUET;
+        return HoodieFileFormat.PARQUET;
     }
 
     public Optional<TimelineLayoutVersion> getTimelineLayoutVersion()
