@@ -16,6 +16,7 @@ package io.trino.operator.scalar;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
@@ -59,9 +60,14 @@ public final class ArrayVectorFunctions
     @Description("Calculates the cosine similarity between two vectors")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double cosineSimilarity(@SqlType("array(double)") Block first, @SqlType("array(double)") Block second)
+    @SqlNullable
+    public static Double cosineSimilarity(@SqlType("array(double)") Block first, @SqlType("array(double)") Block second)
     {
         checkCondition(first.getPositionCount() == second.getPositionCount(), INVALID_FUNCTION_ARGUMENT, "The arguments must have the same length");
+
+        if (first.hasNull() || second.hasNull()) {
+            return null;
+        }
 
         double firstMagnitude = 0.0;
         double secondMagnitude = 0.0;
@@ -81,8 +87,13 @@ public final class ArrayVectorFunctions
     @Description("Calculates the cosine distance between two vectors")
     @ScalarFunction
     @SqlType(StandardTypes.DOUBLE)
-    public static double cosineDistance(@SqlType("array(double)") Block first, @SqlType("array(double)") Block second)
+    @SqlNullable
+    public static Double cosineDistance(@SqlType("array(double)") Block first, @SqlType("array(double)") Block second)
     {
-        return 1.0 - cosineSimilarity(first, second);
+        Double cosineSimilarity = cosineSimilarity(first, second);
+        if (cosineSimilarity == null) {
+            return null;
+        }
+        return 1.0 - cosineSimilarity;
     }
 }
