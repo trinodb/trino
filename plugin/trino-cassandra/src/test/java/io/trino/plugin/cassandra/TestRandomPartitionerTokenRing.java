@@ -27,6 +27,16 @@ public class TestRandomPartitionerTokenRing
 {
     private static final RandomPartitionerTokenRing tokenRing = RandomPartitionerTokenRing.INSTANCE;
 
+    private static RandomToken randomToken(long value)
+    {
+        return randomToken(BigInteger.valueOf(value));
+    }
+
+    private static RandomToken randomToken(BigInteger value)
+    {
+        return new RandomToken(value);
+    }
+
     @Test
     public void testGetRingFraction()
     {
@@ -49,15 +59,5 @@ public class TestRandomPartitionerTokenRing
         assertThat(tokenRing.getRingFraction(randomToken(BigInteger.valueOf(2).pow(126)), randomToken(BigInteger.valueOf(2).pow(127)))).isCloseTo(0.5, offset(0.001));
         assertThat(tokenRing.getRingFraction(randomToken(0), randomToken(BigInteger.valueOf(2).pow(126)))).isCloseTo(0.5, offset(0.001));
         assertThat(tokenRing.getRingFraction(randomToken(0), randomToken(BigInteger.valueOf(2).pow(127)))).isCloseTo(1.0, offset(0.001));
-    }
-
-    private static RandomToken randomToken(long value)
-    {
-        return randomToken(BigInteger.valueOf(value));
-    }
-
-    private static RandomToken randomToken(BigInteger value)
-    {
-        return new RandomToken(value);
     }
 }
