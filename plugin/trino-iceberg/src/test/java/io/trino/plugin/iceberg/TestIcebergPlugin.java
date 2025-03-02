@@ -24,8 +24,10 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.Map;
+import java.util.Set;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
@@ -378,6 +380,50 @@ public class TestIcebergPlugin
                                 "iceberg.snowflake-catalog.database", "database"),
                         new TestingConnectorContext())
                 .shutdown();
+    }
+
+    @Test
+    void testGetSecuritySensitivePropertyNames()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        Map<String, String> config = ImmutableMap.of(
+                "non-existent-property", "value",
+                "fs.hadoop.enabled", "true",
+                "hive.azure.abfs.oauth.client-id", "test-client-id", // security-sensitive property from trino-hdfs
+                "hive.azure.adl-proxy-host", "proxy-host:9800", // non-sensitive property from trino-hdfs
+                "hive.dfs-timeout", "invalidValue", // property from trino-hdfs with invalid value
+                "iceberg.catalog.type", "rest",
+                "iceberg.rest-catalog.uri", "http://foo:1234",
+                "iceberg.rest-catalog.security", "oauth2",
+                "iceberg.rest-catalog.oauth2.credential", "user:password", // conditionally bound security-sensitive property
+                "iceberg.rest-catalog.oauth2.scope", "scope");
+
+        Set<String> sensitiveProperties = factory.getSecuritySensitivePropertyNames("catalog", config, new TestingConnectorContext());
+
+        assertThat(sensitiveProperties)
+                .containsOnly(
+                        "non-existent-property",
+                        "hive.azure.abfs.oauth.client-id",
+                        "iceberg.rest-catalog.oauth2.credential");
+    }
+
+    @Test
+    void testGetSecuritySensitivePropertyNamesWithUnusedConditionalConfig()
+    {
+        ConnectorFactory factory = getConnectorFactory();
+        Map<String, String> config = ImmutableMap.of(
+                "iceberg.catalog.type", "rest",
+                "iceberg.rest-catalog.uri", "http://foo:1234",
+                "iceberg.file-format", "invalidValue",
+                "iceberg.max-partitions-per-writer", "10");
+
+        Set<String> sensitiveProperties = factory.getSecuritySensitivePropertyNames("catalog", config, new TestingConnectorContext());
+
+        // The 'iceberg.file-format' property has an invalid value, which prevents the conditional
+        // binding of 'iceberg.rest-catalog.uri'. As a result, 'iceberg.rest-catalog.uri' is treated
+        // as an unused property.
+        assertThat(sensitiveProperties)
+                .containsExactly("iceberg.rest-catalog.uri");
     }
 
     private static ConnectorFactory getConnectorFactory()
