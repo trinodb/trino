@@ -29,7 +29,7 @@ public class TestScyllaDB
     @Test(groups = {SCYLLADB, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        onTrino().executeQuery("CALL scylladb.system.execute('CREATE KEYSPACE test WITH REPLICATION = {''class'':''SimpleStrategy'', ''replication_factor'': 1}')");
+        onTrino().executeQuery("CALL cassandra.system.execute('CREATE KEYSPACE test WITH REPLICATION = {''class'':''SimpleStrategy'', ''replication_factor'': 1}')");
         QueryResult result = onTrino().executeQuery("CREATE TABLE cassandra.test.nation AS SELECT * FROM tpch.tiny.nation");
         try {
             assertThat(result).updatedRowsCountIsEqualTo(25);
@@ -37,7 +37,7 @@ public class TestScyllaDB
                     .containsOnly(row(25));
         }
         finally {
-            onTrino().executeQuery("DROP TABLE scylladb.test.nation");
+            onTrino().executeQuery("DROP TABLE cassandra.test.nation");
         }
     }
 }

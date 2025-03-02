@@ -122,21 +122,25 @@ public class TestingCassandraServer
         return yamlFile.getAbsolutePath();
     }
 
+    @Override
     public CassandraSession getSession()
     {
         return session;
     }
 
+    @Override
     public String getHost()
     {
         return dockerContainer.getHost();
     }
 
+    @Override
     public int getPort()
     {
         return dockerContainer.getContactPoint().getPort();
     }
 
+    @Override
     public void refreshSizeEstimates(String keyspace, String table)
             throws Exception
     {
