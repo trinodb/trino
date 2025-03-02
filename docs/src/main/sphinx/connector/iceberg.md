@@ -1486,6 +1486,42 @@ FROM example.web.page_views
 WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS TIMESTAMP WITH TIME ZONE)
 ```
 
+(iceberg-system-tables)=
+#### System tables
+
+The connector exposes metadata tables in the system schema.
+
+##### `iceberg_tables` table
+
+The `iceberg_tables` table allows listing only iceberg tables from a given catalog.
+The `SHOW TABLES` statement, `information_schema.tables`, and `jdbc.tables` will all
+return all tables that exist in the underlying metastore, even if the table cannot
+be handled in any way by the iceberg connector. This can happen if other connectors
+like hive or delta, use the same metastore, catalog, and schema to store its tables.
+
+The table returns following columns:
+
+- `table_schema`
+  : The name of the schema the table is in.
+
+- `table_name`
+  : The name of the table.
+
+The following query lists iceberg tables in the `default` schema in the current catalog.
+
+```sql
+SELECT * FROM system.iceberg_tables;
+```
+
+```text
+ table_schema | table_name  |
+--------------+-------------+
+ tpcds        | store_sales |
+ tpch         | nation      |
+ tpch         | region      |
+ tpch         | orders      |       
+```
+
 #### DROP TABLE
 
 The Iceberg connector supports dropping a table by using the
