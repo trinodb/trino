@@ -123,7 +123,7 @@ public class TestDeltaLakeSystemTables
                     privilege(table.getName(), SELECT_COLUMN));
             assertAccessDenied(
                     "SELECT * FROM \"" + table.getName() + "$transactions\"",
-                    "Cannot select from columns .*",
+                    "Cannot select from table or view .*.\"" + table.getName() + "\\$transactions\"",
                     privilege(table.getName() + "$transactions", SELECT_COLUMN));
         }
     }
