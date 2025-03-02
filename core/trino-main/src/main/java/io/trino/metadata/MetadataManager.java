@@ -191,6 +191,7 @@ public final class MetadataManager
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
     private final LanguageFunctionManager languageFunctionManager;
+    private final ScalarFunctionRegistry scalarFunctionRegistry;
     private final TableFunctionRegistry tableFunctionRegistry;
     private final TypeManager typeManager;
     private final TypeCoercion typeCoercion;
@@ -205,6 +206,7 @@ public final class MetadataManager
             TransactionManager transactionManager,
             GlobalFunctionCatalog globalFunctionCatalog,
             LanguageFunctionManager languageFunctionManager,
+            ScalarFunctionRegistry scalarFunctionRegistry,
             TableFunctionRegistry tableFunctionRegistry,
             TypeManager typeManager,
             QueryManager queryManager)
@@ -219,6 +221,7 @@ public final class MetadataManager
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.languageFunctionManager = requireNonNull(languageFunctionManager, "languageFunctionManager is null");
+        this.scalarFunctionRegistry = requireNonNull(scalarFunctionRegistry, "scalarFunctionRegistry is null");
         this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
     }
 
@@ -2555,10 +2558,20 @@ public final class MetadataManager
             CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
             ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
+            functions.addAll(listScalarFunctions(session));
             functions.addAll(metadata.listFunctions(connectorSession, schema.getSchemaName()));
             functions.addAll(languageFunctionManager.listFunctions(session, metadata.listLanguageFunctions(connectorSession, schema.getSchemaName())));
             functions.addAll(tableFunctionRegistry.listTableFunctions(catalogHandle, schema.getSchemaName()));
         });
+        return functions.build();
+    }
+
+    private Collection<FunctionMetadata> listScalarFunctions(Session session)
+    {
+        ImmutableList.Builder<FunctionMetadata> functions = ImmutableList.builder();
+        for (CatalogInfo catalog : listCatalogs(session)) {
+            functions.addAll(scalarFunctionRegistry.listFunctions(catalog.catalogHandle()));
+        }
         return functions.build();
     }
 
@@ -2601,6 +2614,10 @@ public final class MetadataManager
         if (catalogHandle.equals(GlobalSystemConnector.CATALOG_HANDLE)) {
             return functions.getFunctionDependencies(functionId, boundSignature);
         }
+        Optional<SqlScalarFunction> function = scalarFunctionRegistry.resolve(catalogHandle, boundSignature.getName().getSchemaFunctionName(), functionId);
+        if (function.isPresent()) {
+            return function.get().getFunctionDependencies();
+        }
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         return getMetadata(session, catalogHandle)
                 .getFunctionDependencies(connectorSession, functionId, boundSignature);
@@ -2631,6 +2648,10 @@ public final class MetadataManager
         ImmutableList.Builder<CatalogFunctionMetadata> functions = ImmutableList.builder();
 
         metadata.getFunctions(connectorSession, name).stream()
+                .map(function -> new CatalogFunctionMetadata(catalogHandle, name.getSchemaName(), function))
+                .forEach(functions::add);
+
+        scalarFunctionRegistry.listFunctions(catalogHandle, name.getSchemaName()).stream()
                 .map(function -> new CatalogFunctionMetadata(catalogHandle, name.getSchemaName(), function))
                 .forEach(functions::add);
 
