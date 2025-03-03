@@ -297,7 +297,7 @@ querySpecification
     ;
 
 groupBy
-    : setQuantifier? groupingElement (',' groupingElement)*
+    : ASTERISK | (setQuantifier? groupingElement (',' groupingElement)*)
     ;
 
 groupingElement
