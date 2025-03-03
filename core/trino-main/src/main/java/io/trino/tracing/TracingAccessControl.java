@@ -782,6 +782,33 @@ public class TracingAccessControl
         }
     }
 
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        Span span = startSpan("checkCanCreateBranch");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanCreateBranch(context, tableName, name);
+        }
+    }
+
+    @Override
+    public void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        Span span = startSpan("canCanDropBranch");
+        try (var _ = scopedSpan(span)) {
+            delegate.canCanDropBranch(context, tableName, name);
+        }
+    }
+
+    @Override
+    public void canCanAlterBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        Span span = startSpan("canCanAlterBranch");
+        try (var _ = scopedSpan(span)) {
+            delegate.canCanAlterBranch(context, tableName, name);
+        }
+    }
+
     private Span startSpan(String methodName)
     {
         return tracer.spanBuilder("AccessControl." + methodName)
