@@ -571,13 +571,13 @@ public class S3FileSystemConfig
         return this;
     }
 
-    public boolean getCrossRegionAccessEnabled()
+    public boolean isCrossRegionAccessEnabled()
     {
         return crossRegionAccessEnabled;
     }
 
-    @Config("s3.cross-region-access-enabled")
-    @ConfigDescription("Whether S3 cross region access enabled")
+    @Config("s3.cross-region-access")
+    @ConfigDescription("Enable S3 cross region access")
     public S3FileSystemConfig setCrossRegionAccessEnabled(boolean crossRegionAccessEnabled)
     {
         this.crossRegionAccessEnabled = crossRegionAccessEnabled;
