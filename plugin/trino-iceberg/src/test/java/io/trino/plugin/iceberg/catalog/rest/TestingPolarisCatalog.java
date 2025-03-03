@@ -13,23 +13,25 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.airlift.json.ObjectMapperProvider;
 import org.intellij.lang.annotations.Language;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.trino.testing.TestingProperties.getDockerImagesVersion;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -39,13 +41,13 @@ public final class TestingPolarisCatalog
 {
     public static final String WAREHOUSE = "polaris";
     private static final int POLARIS_PORT = 8181;
-    private static final Pattern PATTERN = Pattern.compile("realm: default-realm root principal credentials: (?<id>[a-f0-9]+):(?<secret>[a-f0-9]+)");
+    public static final String CREDENTIAL = "root:s3cr3t";
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
     private static final HttpClient HTTP_CLIENT = new JettyHttpClient();
 
     private final GenericContainer<?> polarisCatalog;
-    private final String clientId;
-    private final String clientSecret;
+    private final String token;
     private final String warehouseLocation;
 
     public TestingPolarisCatalog(String warehouseLocation)
@@ -56,31 +58,33 @@ public final class TestingPolarisCatalog
         polarisCatalog = new GenericContainer<>("ghcr.io/trinodb/testing/polaris-catalog:" + getDockerImagesVersion());
         polarisCatalog.addExposedPort(POLARIS_PORT);
         polarisCatalog.withFileSystemBind(warehouseLocation, warehouseLocation, BindMode.READ_WRITE);
-        polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*o.eclipse.jetty.server.Server: Started.*"));
+        polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
+        polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", "default-realm,root,s3cr3t");
+        polarisCatalog.withEnv("polaris.realm-context.realms", "default-realm");
+        polarisCatalog.withCommand("java", "-jar", "polaris-quarkus-server-1.0.0-incubating-SNAPSHOT/quarkus-run.jar");
         polarisCatalog.start();
 
-        clientId = findClientId();
-        clientSecret = findClientSecret();
+        token = getToken();
         createCatalog();
         grantPrivilege();
     }
 
-    private String findClientId()
+    private String getToken()
     {
-        return Stream.of(polarisCatalog.getLogs().split("\n"))
-                .map(PATTERN::matcher)
-                .filter(Matcher::find)
-                .map(matcher -> matcher.group("id"))
-                .collect(onlyElement());
-    }
-
-    private String findClientSecret()
-    {
-        return Stream.of(polarisCatalog.getLogs().split("\n"))
-                .map(PATTERN::matcher)
-                .filter(Matcher::find)
-                .map(matcher -> matcher.group("secret"))
-                .collect(onlyElement());
+        String body = "grant_type=client_credentials&client_id=root&client_secret=s3cr3t&scope=PRINCIPAL_ROLE:ALL";
+        Request request = Request.Builder.preparePost()
+                .setUri(URI.create(restUri() + "/api/catalog/v1/oauth/tokens"))
+                .setHeader("Polaris-Realm", "default-realm")
+                .setHeader("Content-Type", "application/x-www-form-urlencoded")
+                .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
+                .build();
+        StringResponse response = HTTP_CLIENT.execute(request, createStringResponseHandler());
+        try {
+            return OBJECT_MAPPER.readTree(response.getBody()).get("access_token").asText();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private void createCatalog()
@@ -95,7 +99,7 @@ public final class TestingPolarisCatalog
                 "}";
         Request request = Request.Builder.preparePost()
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs"))
-                .setHeader("Authorization", "Bearer " + oauth2Token())
+                .setHeader("Authorization", "Bearer " + token)
                 .setHeader("Content-Type", "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
@@ -108,7 +112,7 @@ public final class TestingPolarisCatalog
         String body = "{\"grant\": {\"type\": \"catalog\", \"privilege\": \"TABLE_WRITE_DATA\"}}";
         Request request = Request.Builder.preparePut()
                 .setUri(URI.create(restUri() + "/api/management/v1/catalogs/polaris/catalog-roles/catalog_admin/grants"))
-                .setHeader("Authorization", "Bearer " + oauth2Token())
+                .setHeader("Authorization", "Bearer " + token)
                 .setHeader("Content-Type", "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
@@ -119,7 +123,7 @@ public final class TestingPolarisCatalog
     {
         Request request = Request.Builder.prepareDelete()
                 .setUri(URI.create(restUri() + "/api/catalog/v1/polaris/namespaces/" + schema + "/tables/" + table))
-                .setHeader("Authorization", "Bearer " + oauth2Token())
+                .setHeader("Authorization", "Bearer " + token)
                 .setHeader("Content-Type", "application/json")
                 .build();
         HTTP_CLIENT.execute(request, createStatusResponseHandler());
@@ -128,16 +132,6 @@ public final class TestingPolarisCatalog
     public String restUri()
     {
         return "http://%s:%s".formatted(polarisCatalog.getHost(), polarisCatalog.getMappedPort(POLARIS_PORT));
-    }
-
-    public String oauth2Token()
-    {
-        return "principal:root;password:%s;realm:default-realm;role:ALL".formatted(clientSecret);
-    }
-
-    public String oauth2Credentials()
-    {
-        return "%s:%s".formatted(clientId, clientSecret);
     }
 
     @Override
