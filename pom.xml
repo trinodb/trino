@@ -196,7 +196,7 @@
         <dep.frontend-node.version>v22.13.1</dep.frontend-node.version>
         <dep.frontend-npm.version>11.1.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
-        <dep.google.http.client.version>1.46.1</dep.google.http.client.version>
+        <dep.google.http.client.version>1.46.3</dep.google.http.client.version>
         <dep.httpcore5.version>5.3.3</dep.httpcore5.version>
         <dep.iceberg.version>1.8.1</dep.iceberg.version>
         <dep.jna.version>5.16.0</dep.jna.version>
@@ -237,7 +237,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.55.0</version>
+                <version>26.56.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
