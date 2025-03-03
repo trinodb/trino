@@ -35,6 +35,7 @@
         <module>core/trino-main</module>
         <module>core/trino-parser</module>
         <module>core/trino-server</module>
+        <module>core/trino-server-core</module>
         <module>core/trino-server-main</module>
         <module>core/trino-spi</module>
         <module>core/trino-web-ui</module>
@@ -1400,6 +1401,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-server</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-server-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
