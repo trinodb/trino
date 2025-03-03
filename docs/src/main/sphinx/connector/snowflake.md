@@ -326,6 +326,10 @@ FROM
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(snowflake-table-statistics)=
+```{include} jdbc-table-statistics.fragment
+```
+
 (snowflake-pushdown)=
 ### Pushdown
 

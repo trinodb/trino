@@ -518,6 +518,20 @@ FROM
 The connector includes a number of performance improvements, detailed in the
 following sections.
 
+(oracle-table-statistics)=
+```{include} jdbc-table-statistics.fragment
+```
+
+To collect statistics for a table, add the following statement to your Oracle
+database:
+
+```sql
+EXECUTE DBMS_STATS.GATHER_TABLE_STATS('USER_NAME', 'TABLE_NAME');
+```
+
+See Oracle’s documentation for additional options and instructions on invoking a
+procedure when you’re not using SQL*Plus.
+
 ### Synonyms
 
 Based on performance reasons, Trino disables support for Oracle `SYNONYM`. To
