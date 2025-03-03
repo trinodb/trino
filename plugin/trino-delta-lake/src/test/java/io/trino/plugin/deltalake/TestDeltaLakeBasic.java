@@ -137,7 +137,8 @@ public class TestDeltaLakeBasic
             new ResourceTable("variant_types", "databricks153/variant_types"),
             new ResourceTable("type_widening", "databricks153/type_widening"),
             new ResourceTable("type_widening_partition", "databricks153/type_widening_partition"),
-            new ResourceTable("type_widening_nested", "databricks153/type_widening_nested"));
+            new ResourceTable("type_widening_nested", "databricks153/type_widening_nested"),
+            new ResourceTable("in_commit_timestamp_history_read", "deltalake/in_commit_timestamp_history_read"));
 
     // The col-{uuid} pattern for delta.columnMapping.physicalName
     private static final Pattern PHYSICAL_COLUMN_NAME_PATTERN = Pattern.compile("^col-[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
@@ -2353,6 +2354,25 @@ public class TestDeltaLakeBasic
         assertQueryFails(
                 "CALL delta.system.vacuum('tpch', 'unsupported_writer_version', '7d')",
                 "Cannot execute vacuum procedure with 8 writer version");
+    }
+
+    /**
+     * @see deltalake.in_commit_timestamp_history_read
+     */
+    @Test
+    public void testReadInCommitTimestampInHistoryTable()
+            throws Exception
+    {
+        String tableName = "in_commit_timestamp_history_read_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/in_commit_timestamp_history_read").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 1), (5, 5)");
+
+        // The first two versions commitInfo doesn't contain `inCommitTimestamp`, the value is read from `timestamp` in commitInfo
+        // The last two versions commitInfo contain `inCommitTimestamp`, the value is read from it.
+        assertQuery("SELECT date_diff('millisecond', TIMESTAMP '1970-01-01 00:00:00 UTC', timestamp) FROM \"%s$history\"".formatted(tableName), "VALUES 1739859668531L, 1739859684775L, 1739859743394L, 1739859755480L");
     }
 
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)

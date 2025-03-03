@@ -17,6 +17,7 @@ import io.airlift.slice.SizeOf;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
@@ -26,6 +27,7 @@ import static java.util.Objects.requireNonNull;
 
 public record CommitInfoEntry(
         long version,
+        OptionalLong inCommitTimestamp,
         long timestamp,
         String userId,
         String userName,
@@ -48,13 +50,14 @@ public record CommitInfoEntry(
 
     public CommitInfoEntry withVersion(long version)
     {
-        return new CommitInfoEntry(version, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend, operationMetrics);
+        return new CommitInfoEntry(version, inCommitTimestamp, timestamp, userId, userName, operation, operationParameters, job, notebook, clusterId, readVersion, isolationLevel, isBlindAppend, operationMetrics);
     }
 
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE
                 + SIZE_OF_LONG
+                + sizeOf(inCommitTimestamp)
                 + SIZE_OF_LONG
                 + estimatedSizeOf(userId)
                 + estimatedSizeOf(userName)

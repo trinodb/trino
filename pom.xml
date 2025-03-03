@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>226</version>
+        <version>227</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -309,7 +309,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.30.30</version>
+                <version>2.30.31</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

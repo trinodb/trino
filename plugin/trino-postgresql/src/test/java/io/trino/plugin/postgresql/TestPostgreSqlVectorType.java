@@ -354,8 +354,8 @@ final class TestPostgreSqlVectorType
                     .isNotFullyPushedDown(ProjectNode.class);
             assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[REAL 'NaN']) LIMIT 1"))
                     .isNotFullyPushedDown(ProjectNode.class);
-            assertQueryFails("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[CAST(NULL AS REAL)]) LIMIT 1",
-                    "Vector magnitude cannot be zero");
+            assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, ARRAY[CAST(NULL AS REAL)]) LIMIT 1"))
+                    .isNotFullyPushedDown(ProjectNode.class);
             assertThat(query("SELECT id FROM " + table.getName() + " ORDER BY cosine_distance(v, NULL) LIMIT 1"))
                     .isNotFullyPushedDown(ProjectNode.class);
         }

@@ -22,6 +22,7 @@ import java.util.List;
 
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.String.format;
+import static java.util.Objects.checkIndex;
 
 public class PageBuilder
 {
@@ -82,6 +83,22 @@ public class PageBuilder
 
         for (int i = 0; i < blockBuilders.length; i++) {
             blockBuilders[i] = blockBuilders[i].newBlockBuilderLike(pageBuilderStatus.createBlockBuilderStatus());
+        }
+    }
+
+    /**
+     * Rolls back added data to the specified position.
+     * Resetting may result in a block without nulls with the may-have-nulls flag set.
+     * The PageBuilder status will not be updated to reflect the removed data size.
+     *
+     * @throws IllegalArgumentException if the position is greater than the current position count
+     */
+    public void resetTo(int position)
+    {
+        checkIndex(position, declaredPositions + 1);
+        declaredPositions = position;
+        for (BlockBuilder blockBuilder : blockBuilders) {
+            blockBuilder.resetTo(position);
         }
     }
 
