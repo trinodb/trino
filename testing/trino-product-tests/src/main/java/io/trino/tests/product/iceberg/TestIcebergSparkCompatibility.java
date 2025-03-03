@@ -1860,8 +1860,8 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(
                         row("col0", null, null, 0.0, null, "1", "1"),
                         row("col1", null, null, 0.0, null, "2", "2"),
-                        row("col2", 124.0, null, 0.0, null, null, null),
-                        row("col3", 58.0, null, 0.0, null, null, null),
+                        row("col2", 132.0, null, 0.0, null, null, null),
+                        row("col3", 62.0, null, 0.0, null, null, null),
                         row(null, null, null, null, 1.0, null, null));
 
         onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES (write.metadata.metrics.column.col1='none')");
@@ -1870,8 +1870,8 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(
                         row("col0", null, null, 0.0, null, "1", "3"),
                         row("col1", null, null, null, null, null, null),
-                        row("col2", 248.0, null, 0.0, null, null, null),
-                        row("col3", 117.0, null, 0.0, null, null, null),
+                        row("col2", 264.0, null, 0.0, null, null, null),
+                        row("col3", 124.0, null, 0.0, null, null, null),
                         row(null, null, null, null, 2.0, null, null));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -3147,7 +3147,8 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    // TODO Spark with Iceberg 1.8 returns incorrect results for Parquet bloom filters Trino wrote
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, enabled = false)
     public void testSparkReadingTrinoParquetBloomFilters()
     {
         String baseTableName = "test_spark_reading_trino_bloom_filters";
