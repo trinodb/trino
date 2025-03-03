@@ -101,7 +101,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static java.util.Objects.requireNonNull;
 
-final class GlueConverter
+public final class GlueConverter
 {
     static final String PUBLIC_OWNER = "PUBLIC";
     private static final Storage FAKE_PARQUET_STORAGE = new Storage(

@@ -13,25 +13,27 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.units.Duration;
+import io.trino.metastore.cache.CachingHiveMetastoreConfig;
 import io.trino.plugin.hive.HideDeltaLakeTables;
+import io.trino.plugin.hive.metastore.CachingHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.ForGlueHiveMetastore;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.hive.metastore.glue.v1.ForGlueHiveMetastore;
-import io.trino.plugin.hive.metastore.glue.v1.GlueCredentialsProvider;
-import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.procedure.MigrateProcedure;
 import io.trino.spi.procedure.Procedure;
+import software.amazon.awssdk.services.glue.model.Table;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -45,15 +47,19 @@ public class IcebergGlueCatalogModule
     @Override
     protected void setup(Binder binder)
     {
-        configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
         configBinder(binder).bindConfigDefaults(GlueHiveMetastoreConfig.class, config -> config.setSkipArchive(true));
         configBinder(binder).bindConfig(IcebergGlueCatalogConfig.class);
         binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
-        binder.bind(AWSCredentialsProvider.class).toProvider(GlueCredentialsProvider.class).in(Scopes.SINGLETON);
         binder.bind(IcebergTableOperationsProvider.class).to(GlueIcebergTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoGlueCatalogFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TrinoCatalogFactory.class).withGeneratedName();
+
+        install(new CachingHiveMetastoreModule());
+        configBinder(binder).bindConfigDefaults(CachingHiveMetastoreConfig.class, config -> {
+            // ensure caching metastore wrapper isn't created, as it's not leveraged by Iceberg
+            config.setStatsCacheTtl(new Duration(0, TimeUnit.SECONDS));
+        });
 
         // Required to inject HiveMetastoreFactory for migrate procedure
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);

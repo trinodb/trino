@@ -48,7 +48,6 @@ public class HiveMetastoreModule
                 case THRIFT -> new ThriftMetastoreModule();
                 case FILE -> new FileMetastoreModule();
                 case GLUE -> new GlueMetastoreModule();
-                case GLUE_V1 -> new io.trino.plugin.hive.metastore.glue.v1.GlueMetastoreModule();
             });
         }
 
