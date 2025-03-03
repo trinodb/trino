@@ -82,7 +82,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci
+          $MAVEN clean install verify -B --strict-checksums -V -T 1C -DskipTests -P ci
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
         if: steps.cache.outputs.cache-hit != 'true' && matrix.cache == 'true'
@@ -197,7 +197,7 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
-          $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
+          $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile install -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server'
 
   test-jdbc-compatibility:
@@ -328,7 +328,7 @@ jobs:
       - name: Maven Tests
         id: tests
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl '
+          $MAVEN test install ${MAVEN_TEST} -pl '
             !:trino-base-jdbc,
             !:trino-bigquery,
             !:trino-cassandra,
