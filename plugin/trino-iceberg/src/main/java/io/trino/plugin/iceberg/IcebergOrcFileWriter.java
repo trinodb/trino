@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.log.Logger;
+import io.trino.filesystem.Location;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -28,6 +29,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.Schema;
 
@@ -58,6 +60,7 @@ public final class IcebergOrcFileWriter
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final OrcWriter orcWriter;
+    private final Location outputPath;
     private final Schema icebergSchema;
     private final ColumnMetadata<OrcType> orcColumns;
     private final MetricsConfig metricsConfig;
@@ -68,6 +71,7 @@ public final class IcebergOrcFileWriter
     private long validationCpuNanos;
 
     public IcebergOrcFileWriter(
+            Location outputPath,
             MetricsConfig metricsConfig,
             Schema icebergSchema,
             OrcDataSink orcDataSink,
@@ -84,6 +88,7 @@ public final class IcebergOrcFileWriter
             OrcWriterStats stats)
     {
         requireNonNull(orcDataSink, "orcDataSink is null");
+        this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
         this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
 
@@ -106,6 +111,18 @@ public final class IcebergOrcFileWriter
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
         orcColumns = fileColumnOrcTypes;
+    }
+
+    @Override
+    public FileFormat getFileFormat()
+    {
+        return FileFormat.ORC;
+    }
+
+    @Override
+    public String location()
+    {
+        return outputPath.toString();
     }
 
     @Override
