@@ -279,15 +279,6 @@ public class TestVerticaTableStatistics
 
     @Test
     @Override
-    public void testStatsWithAggregationPushdown()
-    {
-        assertThatThrownBy(super::testStatsWithAggregationPushdown)
-                .hasMessageContaining("Plan does not match");
-        abort("Aggregate pushdown is unsupported in Vertica connector");
-    }
-
-    @Test
-    @Override
     public void testStatsWithTopNPushdown()
     {
         assertThatThrownBy(super::testStatsWithTopNPushdown)
