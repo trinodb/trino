@@ -60,6 +60,7 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertContainsEventually;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.type.IpAddressType.IPADDRESS;
@@ -77,9 +78,9 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestCassandraConnectorTest
         extends BaseConnectorTest
 {
-    private static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
+    protected static final ZonedDateTime TIMESTAMP_VALUE = ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
 
-    private CassandraSession session;
+    protected CassandraSession session;
 
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
@@ -111,7 +112,7 @@ public class TestCassandraConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = closeAfterClass(new CassandraServer());
+        CassandraServer server = closeAfterClass(new TestingCassandraServer());
         session = server.getSession();
         return CassandraQueryRunner.builder(server)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
@@ -1247,6 +1248,10 @@ public class TestCassandraConnectorTest
     @Test
     void testSelectClusteringMaterializedView()
     {
+        if (!hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)){
+            abort("CREATE MATERIALIZED VIEW disabled");
+        }
+
         try (TestCassandraTable table = testTable(
                 "test_clustering_materialized_view_base",
                 ImmutableList.of(generalColumn("id", "int"), generalColumn("data", "int"), partitionColumn("key", "int")),
@@ -1427,44 +1432,44 @@ public class TestCassandraConnectorTest
             // blob, frozen<set<type>>, list<type>, map<type,type>, set<type>, decimal, varint
             // timestamp can be inserted but the expected and actual values are not same
             assertUpdate("INSERT INTO " + testCassandraTable.getTableName() + " (" +
-                    "key," +
-                    "typeuuid," +
-                    "typeinteger," +
-                    "typelong," +
-                    "typebytes," +
-                    "typetimestamp," +
-                    "typeansi," +
-                    "typeboolean," +
-                    "typedecimal," +
-                    "typedouble," +
-                    "typefloat," +
-                    "typeinet," +
-                    "typevarchar," +
-                    "typevarint," +
-                    "typetimeuuid," +
-                    "typelist," +
-                    "typemap," +
-                    "typeset" +
-                    ") VALUES (" +
-                    "'key1', " +
-                    "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
-                    "1, " +
-                    "1000, " +
-                    "null, " +
-                    "timestamp '1970-01-01 08:34:05.0Z', " +
-                    "'ansi1', " +
-                    "true, " +
-                    "null, " +
-                    "0.3, " +
-                    "cast('0.4' as real), " +
-                    "IPADDRESS '10.10.10.1', " +
-                    "'varchar1', " +
-                    "null, " +
-                    "UUID '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
-                    "null, " +
-                    "null, " +
-                    "null " +
-                    ")",
+                            "key," +
+                            "typeuuid," +
+                            "typeinteger," +
+                            "typelong," +
+                            "typebytes," +
+                            "typetimestamp," +
+                            "typeansi," +
+                            "typeboolean," +
+                            "typedecimal," +
+                            "typedouble," +
+                            "typefloat," +
+                            "typeinet," +
+                            "typevarchar," +
+                            "typevarint," +
+                            "typetimeuuid," +
+                            "typelist," +
+                            "typemap," +
+                            "typeset" +
+                            ") VALUES (" +
+                            "'key1', " +
+                            "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59', " +
+                            "1, " +
+                            "1000, " +
+                            "null, " +
+                            "timestamp '1970-01-01 08:34:05.0Z', " +
+                            "'ansi1', " +
+                            "true, " +
+                            "null, " +
+                            "0.3, " +
+                            "cast('0.4' as real), " +
+                            "IPADDRESS '10.10.10.1', " +
+                            "'varchar1', " +
+                            "null, " +
+                            "UUID '50554d6e-29bb-11e5-b345-feff819cdc9f', " +
+                            "null, " +
+                            "null, " +
+                            "null " +
+                            ")",
                     1);
 
             MaterializedResult result = computeActual(sql);
@@ -1492,11 +1497,11 @@ public class TestCassandraConnectorTest
 
             // insert null for all datatypes
             assertUpdate("INSERT INTO " + testCassandraTable.getTableName() + " (" +
-                    "key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal," +
-                    "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
-                    ") VALUES (" +
-                    "'key2', null, null, null, null, null, null, null, null," +
-                    "null, null, null, null, null, null, null, null, null)",
+                            "key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal," +
+                            "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
+                            ") VALUES (" +
+                            "'key2', null, null, null, null, null, null, null, null," +
+                            "null, null, null, null, null, null, null, null, null)",
                     1);
             sql = "SELECT key, typeuuid, typeinteger, typelong, typebytes, typetimestamp, typeansi, typeboolean, typedecimal, " +
                     "typedouble, typefloat, typeinet, typevarchar, typevarint, typetimeuuid, typelist, typemap, typeset" +
