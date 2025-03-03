@@ -23,6 +23,7 @@ import io.trino.spi.PageSorter;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import org.apache.iceberg.FileFormat;
 
 import java.io.Closeable;
 import java.util.List;
@@ -60,6 +61,18 @@ public final class IcebergSortingFileWriter
                 pageSorter,
                 typeOperators,
                 OrcFileWriterFactory::createOrcDataSink);
+    }
+
+    @Override
+    public FileFormat fileFormat()
+    {
+        return outputWriter.fileFormat();
+    }
+
+    @Override
+    public String location()
+    {
+        return outputWriter.location();
     }
 
     @Override

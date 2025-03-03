@@ -13,22 +13,28 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
 public record CommitTaskData(
         String path,
-        IcebergFileFormat fileFormat,
+        FileFormat fileFormat,
         long fileSizeInBytes,
         MetricsWrapper metrics,
         String partitionSpecJson,
         Optional<String> partitionDataJson,
         FileContent content,
         Optional<String> referencedDataFile,
+        List<String> deletionVectorFiles,
+        OptionalLong deletionVectorContentOffset,
+        OptionalLong deletionVectorContentSize,
         Optional<List<Long>> fileSplitOffsets)
 {
     public CommitTaskData
@@ -40,6 +46,9 @@ public record CommitTaskData(
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(content, "content is null");
         requireNonNull(referencedDataFile, "referencedDataFile is null");
+        deletionVectorFiles = ImmutableList.copyOf(deletionVectorFiles);
         requireNonNull(fileSplitOffsets, "fileSplitOffsets is null");
+        requireNonNull(deletionVectorContentOffset, "deletionVectorContentOffset is null");
+        requireNonNull(deletionVectorContentSize, "deletionVectorContentSize is null");
     }
 }

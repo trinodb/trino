@@ -11,29 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.delete;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.FileWriter;
-import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.Metrics;
 
 import java.util.List;
-import java.util.Optional;
 
-public interface IcebergFileWriter
-        extends FileWriter
+import static java.util.Objects.requireNonNull;
+
+public record PositionDeleteFiles(String dataFileLocation, int partitionSpecId, List<String> deletes)
 {
-    FileFormat fileFormat();
-
-    String location();
-
-    default List<String> rewrittenDeleteFiles()
+    public PositionDeleteFiles
     {
-        return ImmutableList.of();
+        requireNonNull(dataFileLocation, "dataFileLocation is null");
+        deletes = ImmutableList.copyOf(deletes);
     }
-
-    FileMetrics getFileMetrics();
-
-    record FileMetrics(Metrics metrics, Optional<List<Long>> splitOffsets) {}
 }

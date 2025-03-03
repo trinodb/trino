@@ -244,7 +244,7 @@ public class IcebergTableProperties
         return (int) tableProperties.get(FORMAT_VERSION_PROPERTY);
     }
 
-    private static void validateFormatVersion(int version)
+    public static void validateFormatVersion(int version)
     {
         if (version < FORMAT_VERSION_SUPPORT_MIN || version > FORMAT_VERSION_SUPPORT_MAX) {
             throw new TrinoException(INVALID_TABLE_PROPERTY,

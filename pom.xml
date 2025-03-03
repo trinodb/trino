@@ -2710,6 +2710,21 @@
                             <exception>
                                 <conflictingDependencies>
                                     <dependency>
+                                        <groupId>org.apache.orc</groupId>
+                                        <artifactId>orc-core</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.orc</groupId>
+                                        <artifactId>orc-format</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <packages>
+                                    <package>org.apache.orc</package>
+                                </packages>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
                                         <groupId>org.apache.parquet</groupId>
                                         <artifactId>parquet-hadoop</artifactId>
                                     </dependency>

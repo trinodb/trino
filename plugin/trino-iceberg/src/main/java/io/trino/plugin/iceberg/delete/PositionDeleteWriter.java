@@ -28,17 +28,23 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
+import org.apache.iceberg.io.DeleteWriteResult;
 import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.util.DeleteFileSet;
 import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -46,6 +52,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static org.apache.iceberg.FileFormat.PUFFIN;
 
 public class PositionDeleteWriter
 {
@@ -53,10 +60,8 @@ public class PositionDeleteWriter
     private final Block dataFilePathBlock;
     private final PartitionSpec partitionSpec;
     private final Optional<PartitionData> partition;
-    private final String outputPath;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final IcebergFileWriter writer;
-    private final IcebergFileFormat fileFormat;
 
     public PositionDeleteWriter(
             String dataFilePath,
@@ -67,23 +72,35 @@ public class PositionDeleteWriter
             TrinoFileSystem fileSystem,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
+            int formatVersion,
             IcebergFileFormat fileFormat,
-            Map<String, String> storageProperties)
+            Map<String, String> storageProperties,
+            Map<String, DeleteFileSet> previousDeleteFiles)
     {
         this.dataFilePath = requireNonNull(dataFilePath, "dataFilePath is null");
         this.dataFilePathBlock = nativeValueToBlock(VARCHAR, utf8Slice(dataFilePath));
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.partition = requireNonNull(partition, "partition is null");
-        this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        requireNonNull(fileFormat, "fileFormat is null");
         // Prepend query ID to the file name, allowing us to determine the files written by a query.
         // This is necessary for opportunistic cleanup of extra files, which may be present for
         // successfully completed queries in the presence of failure recovery mechanisms.
-        String fileName = fileFormat.toIceberg().addExtension(session.getQueryId() + "-" + randomUUID());
-        this.outputPath = partition
+        FileFormat icebergFileFormat = formatVersion >= 3 ? PUFFIN : fileFormat.toIceberg();
+        String fileName = icebergFileFormat.addExtension(session.getQueryId() + "-" + randomUUID());
+        String outputPath = partition
                 .map(partitionData -> locationProvider.newDataLocation(partitionSpec, partitionData, fileName))
                 .orElseGet(() -> locationProvider.newDataLocation(fileName));
-        this.writer = fileWriterFactory.createPositionDeleteWriter(fileSystem, Location.of(outputPath), session, fileFormat, storageProperties);
+        this.writer = fileWriterFactory.createPositionDeleteWriter(
+                fileSystem,
+                Location.of(outputPath),
+                session,
+                dataFilePath,
+                icebergFileFormat,
+                partitionSpec,
+                partition,
+                storageProperties,
+                previousDeleteFiles);
     }
 
     public Collection<Slice> write(ImmutableLongBitmapDataProvider rowsToDelete)
@@ -91,15 +108,28 @@ public class PositionDeleteWriter
         writeDeletes(rowsToDelete);
         writer.commit();
 
+        OptionalLong contentOffset = OptionalLong.empty();
+        OptionalLong contentSize = OptionalLong.empty();
+        if (writer instanceof DeletionVectorWriter deletionVectorWriter) {
+            checkState(writer.fileFormat() == PUFFIN, "File format must be PUFFIN for deletion vector");
+            DeleteWriteResult result = deletionVectorWriter.result();
+            DeleteFile deleteFile = result.deleteFiles().getLast();
+            contentOffset = OptionalLong.of(deleteFile.contentOffset());
+            contentSize = OptionalLong.of(deleteFile.contentSizeInBytes());
+        }
+
         CommitTaskData task = new CommitTaskData(
-                outputPath,
-                fileFormat,
+                writer.location(),
+                writer.fileFormat(),
                 writer.getWrittenBytes(),
                 new MetricsWrapper(writer.getFileMetrics().metrics()),
                 PartitionSpecParser.toJson(partitionSpec),
                 partition.map(PartitionData::toJson),
                 FileContent.POSITION_DELETES,
                 Optional.of(dataFilePath),
+                writer.rewrittenDeleteFiles(),
+                contentOffset,
+                contentSize,
                 writer.getFileMetrics().splitOffsets());
 
         return List.of(wrappedBuffer(jsonCodec.toJsonBytes(task)));

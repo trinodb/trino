@@ -11,29 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package org.apache.iceberg.deletes;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.FileWriter;
-import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.Metrics;
+import java.nio.ByteBuffer;
 
-import java.util.List;
-import java.util.Optional;
-
-public interface IcebergFileWriter
-        extends FileWriter
+public class TrinoRoaringPositionBitmap
+        extends RoaringPositionBitmap
 {
-    FileFormat fileFormat();
-
-    String location();
-
-    default List<String> rewrittenDeleteFiles()
+    public static TrinoRoaringPositionBitmap deserialize(ByteBuffer buffer)
     {
-        return ImmutableList.of();
+        TrinoRoaringPositionBitmap bitmap = new TrinoRoaringPositionBitmap();
+        bitmap.setAll(RoaringPositionBitmap.deserialize(buffer));
+        return bitmap;
     }
-
-    FileMetrics getFileMetrics();
-
-    record FileMetrics(Metrics metrics, Optional<List<Long>> splitOffsets) {}
 }
