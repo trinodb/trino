@@ -18,6 +18,7 @@ import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.data.Record;
@@ -46,6 +47,7 @@ public final class IcebergAvroFileWriter
     // Use static table name instead of the actual name because it becomes outdated once the table is renamed
     public static final String AVRO_TABLE_NAME = "table";
 
+    private final String location;
     private final Schema icebergSchema;
     private final List<Type> types;
     private final FileAppender<Record> avroWriter;
@@ -58,6 +60,7 @@ public final class IcebergAvroFileWriter
             List<Type> types,
             HiveCompressionCodec hiveCompressionCodec)
     {
+        this.location = file.location();
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction null");
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
@@ -71,8 +74,20 @@ public final class IcebergAvroFileWriter
                     .build();
         }
         catch (IOException e) {
-            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + file.location(), e);
+            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Avro file: " + location, e);
         }
+    }
+
+    @Override
+    public FileFormat getFileFormat()
+    {
+        return FileFormat.AVRO;
+    }
+
+    @Override
+    public String location()
+    {
+        return location;
     }
 
     @Override
