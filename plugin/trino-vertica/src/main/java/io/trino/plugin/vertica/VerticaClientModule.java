@@ -31,6 +31,8 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
+import java.util.Properties;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
@@ -62,7 +64,14 @@ public class VerticaClientModule
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
+        // In vertica all the underlying projections data stored according to en_US@collation=binary
+        // So to be safe with pushdowns and guarantee the same results for trino with and without pushdowns
+        // we should set session level collation to en_US@collation=binary,
+        // in this case setting up database level collation (for all incoming sessions) will not break pushdown functionlaity
+        Properties properties = new Properties();
+        properties.setProperty("ConnSettings", "SET LOCALE TO 'en_US@collation=binary'");
         return DriverConnectionFactory.builder(new VerticaDriver(), config.getConnectionUrl(), credentialProvider)
+                .setConnectionProperties(properties)
                 .setOpenTelemetry(openTelemetry)
                 .build();
     }
