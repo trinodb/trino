@@ -189,7 +189,7 @@ implementation is used:
     the new records.
   - `true`
 * - `iceberg.metadata-cache.enabled`
-  - Set to `false` to disable in-memory caching of metadata files on the 
+  - Set to `false` to disable in-memory caching of metadata files on the
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
 * - `iceberg.object-store-layout.enabled`
@@ -1978,3 +1978,35 @@ The connector supports redirection from Iceberg tables to Hive tables with the
 
 The connector supports configuring and using [file system
 caching](/object-storage/file-system-cache).
+
+### Iceberg metadata caching
+
+When file system caching from `fs.cache.enabled` is enabled, Iceberg metadata is
+cached on local disks using the files system caching implementation. The Iceberg
+connector also supports caching metadata in coordinator memory. This metadata
+caching is enabled by default and can be disabled by setting the
+`iceberg.metadata-cache.enabled` configuration property to `false`.
+
+:::{warning} Iceberg metadata is not cached in coordinator memory when
+ `fs.cache.enabled` is set to `true`.
+ :::
+
+Additionally, you can use the following catalog configuration properties:
+
+:::{list-table} Metadata caching configuration properties
+:widths: 25, 75
+:header-rows: 1
+
+* - Property
+  - Description
+* - `fs.memory-cache.ttl`
+  - The maximum [duration](prop-type-duration) to keep files in the cache prior
+    to eviction. The minimum value of `0s` means that caching is effectively
+    turned off. Defaults to `1h`.
+* - `fs.memory-cache.max-size`
+  - The maximum total [data size](prop-type-data-size) of the cache. When
+    raising this value, keep in mind that the coordinator memory is used.
+    Defaults to `200MB`.
+* - `fs.memory-cache.max-content-length`
+  - The maximum file size that can be cached. Defaults to `15MB`.
+:::
