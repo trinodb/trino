@@ -55,9 +55,6 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_1K_GROUPS;
-import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_1M_GROUPS;
-import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.AggregationDefinition.BIGINT_2_GROUPS;
 import static io.trino.operator.BenchmarkGroupByHashOnSimulatedData.WorkType.GET_GROUPS;
 import static io.trino.operator.UpdateMemory.NOOP;
 import static java.util.Objects.requireNonNull;
@@ -90,6 +87,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                 false,
                 EXPECTED_GROUP_COUNT,
                 false,
+                data.useMinimalGroupByHash(),
                 hashStrategyCompiler,
                 NOOP);
         List<int[]> results = addInputPages(groupByHash, data.getPages(), data.getWorkType());
@@ -230,6 +228,9 @@ public class BenchmarkGroupByHashOnSimulatedData
         @Param({"0", ".1", ".5", ".9"})
         private double nullChance;
 
+        @Param({"true", "false"})
+        private boolean minimalGroupByHash = true;
+
         private final int positions;
         private List<Page> pages;
         private List<Type> types;
@@ -294,6 +295,11 @@ public class BenchmarkGroupByHashOnSimulatedData
         {
             return workType;
         }
+
+        public boolean useMinimalGroupByHash()
+        {
+            return minimalGroupByHash;
+        }
     }
 
     public enum WorkType
@@ -307,20 +313,20 @@ public class BenchmarkGroupByHashOnSimulatedData
     public enum AggregationDefinition
     {
         // Single bigint column
-        BIGINT_2_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 2)),
-        BIGINT_10_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10)),
-        BIGINT_1K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 1000)),
-        BIGINT_10K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10_000)),
-        BIGINT_100K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 100_000)),
-        BIGINT_1M_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 1_000_000)),
-        BIGINT_10M_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10_000_000)),
-        // Single bigint dictionary column
-        BIGINT_2_GROUPS_1_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 1, 50)),
-        BIGINT_2_GROUPS_1_BIG_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 1, 10000)),
-        BIGINT_2_GROUPS_MULTIPLE_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 10, 50)),
-        BIGINT_2_GROUPS_MULTIPLE_BIG_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 10, 10000)),
-        BIGINT_10K_GROUPS_1_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 10000, 1, 20000)),
-        BIGINT_10K_GROUPS_MULTIPLE_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 10000, 20, 20000)),
+//        BIGINT_2_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 2)),
+//        BIGINT_10_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10)),
+//        BIGINT_1K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 1000)),
+//        BIGINT_10K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10_000)),
+//        BIGINT_100K_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 100_000)),
+//        BIGINT_1M_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 1_000_000)),
+//        BIGINT_10M_GROUPS(new ChannelDefinition(ColumnType.BIGINT, 10_000_000)),
+//        // Single bigint dictionary column
+//        BIGINT_2_GROUPS_1_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 1, 50)),
+//        BIGINT_2_GROUPS_1_BIG_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 1, 10000)),
+//        BIGINT_2_GROUPS_MULTIPLE_SMALL_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 10, 50)),
+//        BIGINT_2_GROUPS_MULTIPLE_BIG_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 2, 10, 10000)),
+//        BIGINT_10K_GROUPS_1_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 10000, 1, 20000)),
+//        BIGINT_10K_GROUPS_MULTIPLE_DICTIONARY(new ChannelDefinition(ColumnType.BIGINT, 10000, 20, 20000)),
         // Single double column
         DOUBLE_10_GROUPS(new ChannelDefinition(ColumnType.DOUBLE, 10)),
         // Multiple dictionary varchar column
@@ -593,7 +599,7 @@ public class BenchmarkGroupByHashOnSimulatedData
         BenchmarkGroupByHashOnSimulatedData benchmark = new BenchmarkGroupByHashOnSimulatedData();
         for (WorkType workType : WorkType.values()) {
             for (double nullChance : new double[] {0, 0.1, 0.5, 0.9}) {
-                for (AggregationDefinition query : new AggregationDefinition[] {BIGINT_2_GROUPS, BIGINT_1K_GROUPS, BIGINT_1M_GROUPS}) {
+                for (AggregationDefinition query : new AggregationDefinition[] {AggregationDefinition.DOUBLE_10_GROUPS, AggregationDefinition.BIGINT_AND_TWO_INTS_5K, AggregationDefinition.TINY_CHAR_10_GROUPS}) {
                     BenchmarkContext context = new BenchmarkContext(workType, query, nullChance, 8000);
                     context.setup();
                     benchmark.groupBy(context);
