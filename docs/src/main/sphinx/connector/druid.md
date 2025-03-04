@@ -2,6 +2,7 @@
 myst:
   substitutions:
       default_domain_compaction_threshold: '`256`'
+      dbname: 'druid-table-statistics'
 ---
 
 # Druid connector
@@ -170,4 +171,13 @@ FROM
 ```
 
 ```{include} query-table-function-ordering.fragment
+```
+
+## Performance
+
+The connector includes a number of performance improvements, detailed in the
+following sections.
+
+(druid-table-statistics)=
+```{include} jdbc-table-statistics.fragment
 ```
