@@ -50,7 +50,7 @@ final class TestCassandraSplitManager
     void setUp()
             throws Exception
     {
-        server = new CassandraServer();
+        server = new TestingCassandraServer();
         session = server.getSession();
         createKeyspace(session, KEYSPACE);
     }
@@ -73,11 +73,11 @@ final class TestCassandraSplitManager
 
         session.execute(format(
                 """
-                CREATE TABLE %s.%s (
-                      partition_key int,
-                      clustering_key text,
-                      PRIMARY KEY(partition_key, clustering_key))
-                """,
+                        CREATE TABLE %s.%s (
+                              partition_key int,
+                              clustering_key text,
+                              PRIMARY KEY(partition_key, clustering_key))
+                        """,
                 KEYSPACE,
                 tableName));
 

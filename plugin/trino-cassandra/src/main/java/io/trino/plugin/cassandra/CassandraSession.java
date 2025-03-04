@@ -139,8 +139,8 @@ public class CassandraSession
         Row versionRow = result.one();
         if (versionRow == null) {
             throw new TrinoException(CASSANDRA_VERSION_ERROR, "The cluster version is not available. " +
-                                                              "Please make sure that the Cassandra cluster is up and running, " +
-                                                              "and that the contact points are specified correctly.");
+                    "Please make sure that the Cassandra cluster is up and running, " +
+                    "and that the contact points are specified correctly.");
         }
         return Version.parse(versionRow.getString("release_version"));
     }
