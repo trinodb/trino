@@ -1,6 +1,4 @@
 /*
- * Copyright 2014 Anthony Corbacho, and contributors.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -24,6 +22,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Serializable;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -51,6 +50,8 @@ import java.util.regex.Pattern;
  * @since 0.0.1
  * @author anthonycorbacho
  */
+// Note: this code is forked from oi.thekraken.grok.api
+// Copyright 2014 Anthony Corbacho, and contributors.
 public class Grok
         implements Serializable
 {
@@ -244,7 +245,7 @@ public class Grok
     static Reader getFileFromResouces(String filePath)
             throws GrokException
     {
-        Reader reader = new InputStreamReader(Grok.class.getClassLoader().getResourceAsStream(filePath));
+        Reader reader = new InputStreamReader(Grok.class.getClassLoader().getResourceAsStream(filePath), Charset.defaultCharset());
         if (reader == null) {
             throw new GrokException("File <" + filePath + "> not found.");
         }
@@ -481,7 +482,7 @@ public class Grok
 
     // match log with regex and capture results
     /**
-     * Match the given <tt>log</tt> with the named regex.
+     * Match the given <var>log</var> with the named regex.
      * And return the json representation of the matched element
      *
      * @param log : log to match
@@ -496,7 +497,7 @@ public class Grok
     }
 
     /**
-     * Match the given list of <tt>log</tt> with the named regex
+     * Match the given list of <var>log</var> with the named regex
      * and return the list of json representation of the matched elements.
      *
      * @param logs : list of log
@@ -521,7 +522,7 @@ public class Grok
     }
 
     /**
-     * Match the given <tt>text</tt> with the named regex
+     * Match the given <var>text</var> with the named regex
      * {@code Grok} will extract data from the string and get an extence of {@link Match}.
      *
      * @param text : Single line of log
@@ -593,7 +594,7 @@ public class Grok
             // Match %{Foo=regex} -> add new regex definition
             if (m.find()) {
                 continueIteration = true;
-                Map<String, String> group = GrokUtils.namedGroups(m, m.group()); // AMZN - probably don't need this tag since it's going into OSS Trino
+                Map<String, String> group = GrokUtils.namedGroups(m, m.group());
                 if (group.get("definition") != null) {
                     try {
                         addPattern(group.get("pattern"), group.get("definition"));
@@ -692,9 +693,9 @@ public class Grok
         return savedPattern;
     }
 
-    public void setSaved_pattern(String savedpattern)
+    public void setSaved_pattern(String savedPattern)
     {
-        this.savedPattern = savedpattern;
+        this.savedPattern = savedPattern;
     }
 
     public boolean getStrictMode()

@@ -35,7 +35,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
@@ -62,8 +61,6 @@ public class GrokDeserializer
         implements LineDeserializer
 {
     private final List<Column> columns;
-    private final String inputFormat;
-    private final Optional<String> inputGrokCustomPatterns;
     private Grok grokPattern;
     private final List<Type> types;
 
@@ -73,9 +70,6 @@ public class GrokDeserializer
         this.types = columns.stream()
                 .map(Column::type)
                 .collect(toImmutableList());
-
-        this.inputFormat = inputFormat;
-        this.inputGrokCustomPatterns = Optional.ofNullable(inputGrokCustomPatterns);
 
         //assert that columns size and types size are the same
         if (columns.size() != types.size()) {
