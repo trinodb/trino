@@ -1,6 +1,4 @@
 /*
- * Copyright 2014 Anthony Corbacho, and contributors.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -26,6 +24,8 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+// Note: this code is forked from oi.thekraken.grok.api
+// Copyright 2014 Anthony Corbacho, and contributors.
 public class TestApacheDataType
 {
     private final String line = "64.242.88.10 - - [07/Mar/2004:16:45:56 -0800] \"GET /twiki/bin/attach/Main/PostfixCommands HTTP/1.1\" 401 12846";

@@ -1,6 +1,4 @@
 /*
- * Copyright 2014 Anthony Corbacho, and contributors.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -36,6 +34,8 @@ import java.util.regex.Pattern;
  * @author anthonycorbacho
  * @since 0.0.2
  */
+// Note: this code is forked from oi.thekraken.grok.api
+// Copyright 2014 Anthony Corbacho, and contributors.
 public class Discovery
 {
     private Grok grok;
@@ -61,6 +61,7 @@ public class Discovery
         List<Grok> groky = new ArrayList<Grok>(groks.values());
         Map<String, Grok> mGrok = new LinkedHashMap<String, Grok>();
         Collections.sort(groky, new Comparator<Grok>() {
+            @Override
             public int compare(Grok g1, Grok g2)
             {
                 return (this.complexity(g1.getNamedRegex()) < this.complexity(g2.getNamedRegex())) ? 1

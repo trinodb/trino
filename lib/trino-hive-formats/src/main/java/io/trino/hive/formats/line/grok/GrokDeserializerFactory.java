@@ -31,7 +31,7 @@ public class GrokDeserializerFactory
     @Override
     public Set<String> getHiveSerDeClassNames()
     {
-        return ImmutableSet.of("com.amazonaws.glue.serde.GrokSerDe"); //what should this value be (there isn't a hive grok serde)
+        return ImmutableSet.of("com.amazonaws.serde.GrokSerDe");
     }
 
     @Override
