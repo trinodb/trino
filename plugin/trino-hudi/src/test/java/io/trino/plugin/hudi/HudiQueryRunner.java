@@ -59,7 +59,6 @@ public final class HudiQueryRunner
     public static Builder builder(Hive3MinioDataLake hiveMinioDataLake)
     {
         return new Builder("s3://" + hiveMinioDataLake.getBucketName() + "/")
-                .addConnectorProperty("fs.hadoop.enabled", "false")
                 .addConnectorProperty("fs.native-s3.enabled", "true")
                 .addConnectorProperty("s3.aws-access-key", MINIO_ACCESS_KEY)
                 .addConnectorProperty("s3.aws-secret-key", MINIO_SECRET_KEY)

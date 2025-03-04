@@ -49,7 +49,6 @@ public class TestIcebergS3AndGlueMetastoreTest
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "glue")
                         .put("hive.metastore.glue.default-warehouse-dir", schemaPath())
-                        .put("fs.hadoop.enabled", "false")
                         .put("fs.native-s3.enabled", "true")
                         .buildOrThrow())
                 .setSchemaInitializer(SchemaInitializer.builder()
