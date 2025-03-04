@@ -33,7 +33,7 @@ public class MarkDistinctHash
 
     public MarkDistinctHash(Session session, List<Type> types, boolean hasPrecomputedHash, FlatHashStrategyCompiler hashStrategyCompiler, UpdateMemory updateMemory)
     {
-        this.groupByHash = createGroupByHash(session, types, hasPrecomputedHash, 10_000, hashStrategyCompiler, updateMemory);
+        this.groupByHash = createGroupByHash(session, types, hasPrecomputedHash, false, 10_000, hashStrategyCompiler, updateMemory);
     }
 
     private MarkDistinctHash(MarkDistinctHash other)
