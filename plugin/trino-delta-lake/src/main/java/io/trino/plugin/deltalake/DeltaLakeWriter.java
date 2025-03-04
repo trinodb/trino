@@ -170,7 +170,7 @@ public final class DeltaLakeWriter
     @Override
     public long getValidationCpuNanos()
     {
-        return 0;
+        return fileWriter.getValidationCpuNanos();
     }
 
     public long getRowCount()
