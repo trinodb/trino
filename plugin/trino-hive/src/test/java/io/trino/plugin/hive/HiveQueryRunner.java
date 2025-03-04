@@ -222,7 +222,8 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.metastore", "file");
                     hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
                 }
-                if (!hiveProperties.buildOrThrow().containsKey("fs.hadoop.enabled")) {
+                if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
+                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
                     hiveProperties.put("fs.hadoop.enabled", "true");
                 }
 

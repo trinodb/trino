@@ -86,7 +86,6 @@ public class TestIcebergAbfsConnectorSmokeTest
                                 .put("iceberg.catalog.type", "HIVE_METASTORE")
                                 .put("hive.metastore.uri", hiveHadoop.getHiveMetastoreEndpoint().toString())
                                 .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
-                                .put("fs.hadoop.enabled", "false")
                                 .put("fs.native-azure.enabled", "true")
                                 .put("azure.auth-type", "ACCESS_KEY")
                                 .put("azure.access-key", accessKey)

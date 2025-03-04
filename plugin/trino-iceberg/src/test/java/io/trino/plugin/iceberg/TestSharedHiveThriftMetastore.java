@@ -83,7 +83,6 @@ public class TestSharedHiveThriftMetastore
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
                         .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
-                        .put("fs.hadoop.enabled", "false")
                         .put("fs.native-s3.enabled", "true")
                         .put("s3.aws-access-key", MINIO_ACCESS_KEY)
                         .put("s3.aws-secret-key", MINIO_SECRET_KEY)
@@ -102,7 +101,6 @@ public class TestSharedHiveThriftMetastore
                         .put("iceberg.catalog.type", "HIVE_METASTORE")
                         .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
                         .put("hive.metastore.thrift.client.read-timeout", "1m") // read timed out sometimes happens with the default timeout
-                        .put("fs.hadoop.enabled", "false")
                         .put("fs.native-s3.enabled", "true")
                         .put("s3.aws-access-key", MINIO_ACCESS_KEY)
                         .put("s3.aws-secret-key", MINIO_SECRET_KEY)
@@ -120,7 +118,6 @@ public class TestSharedHiveThriftMetastore
         Map<String, String> hiveProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "thrift")
                 .put("hive.metastore.uri", hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint().toString())
-                .put("fs.hadoop.enabled", "false")
                 .put("fs.native-s3.enabled", "true")
                 .put("s3.aws-access-key", MINIO_ACCESS_KEY)
                 .put("s3.aws-secret-key", MINIO_SECRET_KEY)
