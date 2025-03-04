@@ -1,6 +1,4 @@
 /*
- * Copyright 2014 Anthony Corbacho, and contributors.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -25,6 +23,8 @@ import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+// Note: this code is forked from oi.thekraken.grok.api
+// Copyright 2014 Anthony Corbacho, and contributors.
 public class TestMessages
 {
     public static final String LOG_FILE = ResourceManager.MESSAGES;

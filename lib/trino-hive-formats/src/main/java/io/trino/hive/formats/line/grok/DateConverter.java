@@ -1,6 +1,4 @@
 /*
- * Copyright 2014 Anthony Corbacho, and contributors.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,6 +17,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+// Note: this code is forked from oi.thekraken.grok.api
+// Copyright 2014 Anthony Corbacho, and contributors.
 class DateConverter
         extends IConverter<Date>
 {
