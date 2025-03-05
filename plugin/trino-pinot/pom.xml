@@ -289,6 +289,12 @@
             <groupId>org.apache.pinot</groupId>
             <artifactId>pinot-segment-local</artifactId>
             <version>${dep.pinot.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>jakarta.activation</groupId>
+                    <artifactId>jakarta.activation-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
