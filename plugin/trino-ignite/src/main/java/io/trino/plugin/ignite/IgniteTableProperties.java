@@ -30,6 +30,7 @@ public class IgniteTableProperties
 {
     private final List<PropertyMetadata<?>> tableProperties;
 
+    @Deprecated
     public static final String PRIMARY_KEY_PROPERTY = "primary_key";
 
     @Inject
@@ -42,7 +43,7 @@ public class IgniteTableProperties
                         new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
-                        false,
+                        true,
                         value -> (List<?>) value,
                         value -> value));
     }
@@ -54,6 +55,7 @@ public class IgniteTableProperties
     }
 
     @SuppressWarnings("unchecked")
+    @Deprecated
     public static List<String> getPrimaryKey(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties, "tableProperties is null");
