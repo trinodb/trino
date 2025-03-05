@@ -67,10 +67,6 @@ kafka:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-kafka/**'
 
-kudu:
-  - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-kudu/**'
-
 loki:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-loki/**'
