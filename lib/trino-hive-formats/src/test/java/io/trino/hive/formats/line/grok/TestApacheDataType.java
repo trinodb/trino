@@ -16,7 +16,6 @@ package io.trino.hive.formats.line.grok;
 import io.trino.hive.formats.line.grok.exception.GrokException;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
@@ -36,11 +35,10 @@ public class TestApacheDataType
 
     @Test
     public void test002_httpd_access_semi()
-            throws GrokException, IOException, ParseException
+            throws GrokException, ParseException
     {
         Grok g = Grok.create(ResourceManager.PATTERNS, "%{IPORHOST:clientip} %{USER:ident;boolean} %{USER:auth} \\[%{HTTPDATE:timestamp;date;dd/MMM/yyyy:HH:mm:ss Z}\\] \"(?:%{WORD:verb;string} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion;float})?|%{DATA:rawrequest})\" %{NUMBER:response;int} (?:%{NUMBER:bytes;long}|-)");
 
-        System.out.println(line);
         Match gm = g.match(line);
         gm.captures();
 
@@ -57,11 +55,10 @@ public class TestApacheDataType
 
     @Test
     public void test002_httpd_access_colon()
-            throws GrokException, IOException, ParseException
+            throws GrokException, ParseException
     {
         Grok g = Grok.create(ResourceManager.PATTERNS, "%{IPORHOST:clientip} %{USER:ident:boolean} %{USER:auth} \\[%{HTTPDATE:timestamp:date:dd/MMM/yyyy:HH:mm:ss Z}\\] \"(?:%{WORD:verb:string} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion:float})?|%{DATA:rawrequest})\" %{NUMBER:response:int} (?:%{NUMBER:bytes:long}|-)");
 
-        System.out.println(line);
         Match gm = g.match(line);
         gm.captures();
 
