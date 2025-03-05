@@ -9,20 +9,47 @@ The DuckDB connector allows querying and creating tables in an external
 different systems like DuckDB and Hive, or between two different
 DuckDB instances.
 
+## Requirements
+
+* All cluster nodes must include `libstdc++` as required by the [DuckDB JDBC
+  driver](https://duckdb.org/docs/clients/java.html).
+* The path to the persistent DuckDB database must be identical and available on
+  all cluster nodes and point to the same storage location.
+
 ## Configuration
 
-To configure the DuckDB connector, create a catalog properties file
-in `etc/catalog` named, for example, `example.properties`, to
-mount the DuckDB connector as the `duckdb` catalog.
-Create the file with the following contents, replacing the
-connection properties as appropriate for your setup:
+The connector can query a DuckDB database. Create a catalog properties file that
+specifies the DuckDb connector by setting the `connector.name` to `duckdb`.
+
+For example, to access a database as the `example` catalog, create the file
+`etc/catalog/example.properties`. Replace the connection properties as
+appropriate for your setup:
 
 ```none
 connector.name=duckdb
-connection-url=jdbc:duckdb://<path>
-connection-user=root
-connection-password=secret
+connection-url=jdbc:duckdb:<path>
 ```
+
+The `connection-url` defines the connection information and parameters to pass
+to the DuckDB JDBC driver. The parameters for the URL are available in the
+[DuckDB JDBC driver documentation](https://duckdb.org/docs/clients/java.html).
+
+The `<path>` must point to an existing, persistent DuckDB database file. For
+example, use `jdbc:duckdb:/opt/duckdb/trino.duckdb` for a database created with
+the command `duckdb /opt/duckdb/trino.duckdb`. The database automatically
+contains the `main` schema  and the `information_schema` schema. Use the `main`
+schema for your new tables or create a new schema.
+
+When using the connector on a Trino cluster the path must be consistent on all
+nodes and point to a shared storage to ensure that all nodes operate on the same
+database.
+
+Using a in-memory DuckDB database `jdbc:duckdb:` is not supported.
+
+Refer to the DuckDB documentation for tips on [securing DuckDB](
+https://duckdb.org/docs/operations_manual/securing_duckdb/overview). Note that
+Trino connects to the database using the JDBC driver and does not use the DuckDB
+CLI.
 
 ### Multiple DuckDB servers
 

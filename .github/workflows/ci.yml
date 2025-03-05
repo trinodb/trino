@@ -375,6 +375,7 @@ jobs:
             !:trino-redis,
             !:trino-redshift,
             !:trino-resource-group-managers,
+            !:trino-server-core,            
             !:trino-server,
             !:trino-singlestore,
             !:trino-snowflake,
