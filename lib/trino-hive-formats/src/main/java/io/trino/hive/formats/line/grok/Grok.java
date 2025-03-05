@@ -136,7 +136,6 @@ public class Grok
         strictMode = false;
     }
 
-    // grok creators
     /**
      * Create a {@code Grok} instance using the default pattern, datatype and dateformat file.
      *
@@ -576,7 +575,7 @@ public class Grok
         namedRegex = removeUnderscores(pattern);
         originalGrokPattern = pattern;
         int index = 0;
-        /** flag for infinite recurtion */
+        // flag for infinite recursion
         int iterationLeft = 1000;
         Boolean continueIteration = true;
 
@@ -623,7 +622,7 @@ public class Grok
         }
 
         if (namedRegex.isEmpty()) {
-            throw new GrokException("Pattern not fount");
+            throw new GrokException("Pattern not found");
         }
         // Compile the regex
         compiledNamedRegex = Pattern.compile(namedRegex);

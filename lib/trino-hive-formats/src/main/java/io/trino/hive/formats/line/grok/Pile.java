@@ -31,7 +31,6 @@ import java.util.TreeMap;
 @Deprecated
 public class Pile
 {
-    // Private
     private List<Grok> groks;
     private Map<String, String> patterns;
     private List<String> patternFiles;

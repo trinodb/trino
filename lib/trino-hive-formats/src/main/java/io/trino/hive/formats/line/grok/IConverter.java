@@ -17,7 +17,7 @@ package io.trino.hive.formats.line.grok;
 // Copyright 2014 Anthony Corbacho, and contributors.
 abstract class IConverter<T>
 {
-    public T convert(String value, String informat)
+    public T convert(String value, String format)
             throws Exception
     {
         return null;
