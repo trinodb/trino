@@ -139,7 +139,7 @@ public class Match
     }
 
     /**
-     * Retrurn the single line of log.
+     * Return the single line of log.
      *
      * @return the single line of log
      */
@@ -159,9 +159,6 @@ public class Match
             throw new GrokException("Invalid log record!");
         }
         capture.clear();
-
-        // _capture.put("LINE", this.line);
-        // _capture.put("LENGTH", this.line.length() +"");
 
         Map<String, String> mappedw = GrokUtils.namedGroups(this.match, this.subject);
         Iterator<Entry<String, String>> it = mappedw.entrySet().iterator();
@@ -283,7 +280,7 @@ public class Match
     }
 
     /**
-     * Remove and rename the unwanted elelents in the matched map.
+     * Remove and rename the unwanted elements in the matched map.
      */
     private void cleanMap()
     {

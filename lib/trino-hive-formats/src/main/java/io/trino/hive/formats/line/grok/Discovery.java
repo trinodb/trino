@@ -113,7 +113,6 @@ public class Discovery
 
         Map<String, Grok> groks = new TreeMap<String, Grok>();
         Map<String, String> gPatterns = grok.getPatterns();
-        // Boolean done = false;
         String texte = text;
 
         // Compile the pattern
@@ -124,7 +123,6 @@ public class Discovery
             String key = pairs.getKey().toString();
             Grok g = new Grok();
 
-            // g.patterns.putAll(gPatterns);
             try {
                 g.copyPatterns(gPatterns);
                 g.setSaved_pattern(key);
@@ -132,7 +130,7 @@ public class Discovery
                 groks.put(key, g);
             }
             catch (GrokException e) {
-                // Add logger
+                // TODO: Add logger
                 continue;
             }
         }
@@ -140,8 +138,6 @@ public class Discovery
         // Sort patterns by complexity
         Map<String, Grok> patterns = this.sort(groks);
 
-        // while (!done){
-        // done = true;
         Iterator<Entry<String, Grok>> pit = patterns.entrySet().iterator();
         while (pit.hasNext()) {
             @SuppressWarnings("rawtypes")
@@ -178,7 +174,6 @@ public class Discovery
             }
             texte = StringUtils.replace(texte, part, "%{" + key + "}");
         }
-        // }
 
         return texte;
     }
