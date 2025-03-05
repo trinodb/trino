@@ -136,7 +136,8 @@ public class DefaultJdbcMetadata
     private final boolean precalculateStatisticsForPushdown;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
-    private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
+    private final AtomicReference<Runnable> insertRollbackAction = new AtomicReference<>();
+    private final AtomicReference<MergeRollbackAction> mergeRollbackAction = new AtomicReference<>();
 
     public DefaultJdbcMetadata(
             JdbcClient jdbcClient,
@@ -1173,7 +1174,7 @@ public class DefaultJdbcMetadata
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
         }
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
-        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        setInsertRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
@@ -1231,15 +1232,27 @@ public class DefaultJdbcMetadata
         }
     }
 
-    private void setRollback(Runnable action)
+    private void setInsertRollback(Runnable action)
     {
-        checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");
+        checkState(insertRollbackAction.compareAndSet(null, action), "insert rollback action is already set");
+    }
+
+    private MergeRollbackAction setMergeRollback()
+    {
+        MergeRollbackAction action = new MergeRollbackAction();
+        checkState(mergeRollbackAction.compareAndSet(null, action), "merge rollback action is already set");
+        return action;
     }
 
     @Override
     public void rollback()
     {
-        Optional.ofNullable(rollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+        if (insertRollbackAction.get() != null && mergeRollbackAction.get() != null) {
+            throw new IllegalArgumentException("There should exists at most one rollback action at a time, but got two");
+        }
+
+        Optional.ofNullable(insertRollbackAction.getAndSet(null)).ifPresent(Runnable::run);
+        Optional.ofNullable(mergeRollbackAction.getAndSet(null)).ifPresent(MergeRollbackAction::rollback);
     }
 
     @Override
@@ -1251,7 +1264,7 @@ public class DefaultJdbcMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
-        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
+        setInsertRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
@@ -1300,36 +1313,15 @@ public class DefaultJdbcMetadata
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateColumnHandles, RetryMode retryMode)
     {
         if (retryMode != NO_RETRIES) {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support MERGE with fault-tolerant execution");
-        }
-
-        if (!jdbcClient.supportsMerge()) {
-            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
-        }
-
-        if (!isNonTransactionalMerge(session)) {
-            throw new TrinoException(NOT_SUPPORTED, "Non-transactional MERGE is disabled");
+            if (isNonTransactionalMerge(session)) {
+                throw new TrinoException(NOT_SUPPORTED, "Query and task retries are incompatible with non-transactional merge");
+            }
         }
 
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
 
-        List<JdbcColumnHandle> primaryKeys = jdbcClient.getPrimaryKeys(session, handle.getRequiredNamedRelation().getRemoteTableName());
-        if (primaryKeys.isEmpty()) {
-            throw new TrinoException(NOT_SUPPORTED, "The connector can not perform merge on the target table without primary keys");
-        }
-
-        SchemaTableName schemaTableName = handle.getRequiredNamedRelation().getSchemaTableName();
-        RemoteTableName remoteTableName = handle.getRequiredNamedRelation().getRemoteTableName();
-
-        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, schemaTableName, remoteTableName);
-        JdbcOutputTableHandle jdbcOutputTableHandle = (JdbcOutputTableHandle) beginInsert(
-                session,
-                new JdbcTableHandle(schemaTableName, remoteTableName, Optional.empty()),
-                ImmutableList.copyOf(columns),
-                retryMode);
-
-        return new JdbcMergeTableHandle(handle, jdbcOutputTableHandle, primaryKeys, columns, updateColumnHandles);
+        return jdbcClient.beginMerge(session, handle, updateColumnHandles, setMergeRollback(), retryMode);
     }
 
     @Override
@@ -1341,7 +1333,8 @@ public class DefaultJdbcMetadata
             Collection<ComputedStatistics> computedStatistics)
     {
         JdbcMergeTableHandle handle = (JdbcMergeTableHandle) tableHandle;
-        finishInsert(session, handle.getOutputTableHandle(), ImmutableList.of(), fragments, computedStatistics);
+
+        jdbcClient.finishMerge(session, handle, getSuccessfulPageSinkIds(fragments));
     }
 
     @Override
