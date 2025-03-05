@@ -22,7 +22,7 @@ ARTIFACTS = {
     'server': ('trino-server', 'tar.gz', None),
     'cli': ('trino-cli', 'jar', 'executable'),
     'jdbc': ('trino-jdbc', 'jar', None),
-
+    'example-http':  ('trino-example-http', 'zip', None),
 }
 
 
