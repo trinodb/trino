@@ -33,7 +33,7 @@ public class TestCapture
     }
 
     @Test
-    public void test001_captureMathod()
+    public void test001_captureMethod()
             throws GrokException
     {
         grok.addPattern("foo", ".*");
@@ -48,7 +48,7 @@ public class TestCapture
     }
 
     @Test
-    public void test002_captureMathodMulti()
+    public void test002_captureMethodMulti()
             throws GrokException
     {
         grok.addPattern("foo", ".*");
@@ -65,7 +65,7 @@ public class TestCapture
     }
 
     @Test
-    public void test003_captureMathodNasted()
+    public void test003_captureMethodNested()
             throws GrokException
     {
         grok.addPattern("foo", "\\w+ %{bar}");
@@ -82,7 +82,7 @@ public class TestCapture
     }
 
     @Test
-    public void test004_captureNastedRecustion()
+    public void test004_captureNestedRecursion()
             throws GrokException
     {
         grok.addPattern("foo", "%{foo}");

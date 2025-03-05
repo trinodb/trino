@@ -118,18 +118,9 @@ public class TestGrokFormat
         assertError(columns, log, Optional.of("%{NONEXISTENT}"), Optional.empty(), "Grok compilation failure: Pattern NONEXISTENT is not defined.", Optional.of(GrokException.class));
     }
 
-    // TODO: If pattern already exists, it just replaces the pattern, so this works (should we be able to do this though)
-//    @Test
-//    public void testPatternAlreadyExists()
-//    {
-//        String log = "abc123";
-//        List<Column> columns = ImmutableList.of(new Column("abc123", VARCHAR, 0));
-//
-//        assertError(columns, log, Optional.of("%{POSINT}"), Optional.of("YEAR \\S+"), "<some message about pattern already exists>", Optional.of(GrokException.class));
-//    }
+    // TODO: If pattern already exists, it just replaces the pattern, should we allow this to happen?
 
     // TODO: bug input.format = "%WORD}" with a missing opening brace should throw exception, but compiles fine right now
-    // testing against input.format is really testing against regex pattern, not grok, so did not include these type of tests
 
     @Test
     public void testNoMatches()
@@ -145,6 +136,49 @@ public class TestGrokFormat
                 inputFormat,
                 Optional.empty(),
                 Arrays.asList(null, null));
+    }
+
+    @Test
+    public void testUnderscoreInNamedGroups()
+            throws IOException
+    {
+        String log = "abc";
+        List<Column> columns = ImmutableList.of(new Column("abc", VARCHAR, 0));
+        String inputFormat = "(?<name_underscore__>\\S+)";
+
+        assertLine(
+                columns,
+                log,
+                inputFormat,
+                Optional.empty(),
+                Arrays.asList("abc"));
+
+        String complexLog = "192.168.1.1 GET [/api/users] \"Mozilla/5.0 Browser\" 200 \"Success Message\" \"Additional Details\" 1234ms";
+        List<Column> complexColumns = ImmutableList.of(
+                new Column("0", VARCHAR, 0),
+                new Column("1", VARCHAR, 1),
+                new Column("2", VARCHAR, 2),
+                new Column("3", VARCHAR, 3),
+                new Column("4", VARCHAR, 4),
+                new Column("5", VARCHAR, 5),
+                new Column("6", VARCHAR, 6),
+                new Column("7", VARCHAR, 7));
+        String complexInputFormat = "(?<na_me0>\\S+) (?<nam__e1>\\S+) \\[(?<__name2>([^\\]]*))\\] \"?(?<n_am_e3>([^\"]*))\"? (?<name4>\\S+) \"?(?<name5____>([^\"]*))\"? \"?(?<n_a_m_e_6>([^\"]*))\"? (?<__name__7__>\\S+)";
+
+        assertLine(
+                complexColumns,
+                complexLog,
+                complexInputFormat,
+                Optional.empty(),
+                Arrays.asList(
+                        "192.168.1.1",
+                        "GET",
+                        "/api/users",
+                        "Mozilla/5.0 Browser",
+                        "200",
+                        "Success Message",
+                        "Additional Details",
+                        "1234ms"));
     }
 
     @Test

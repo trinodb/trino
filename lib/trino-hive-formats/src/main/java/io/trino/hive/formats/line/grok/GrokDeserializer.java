@@ -48,7 +48,7 @@ public class GrokDeserializer
         implements LineDeserializer
 {
     private final List<Column> columns;
-    private Grok grokPattern;
+    private final Grok grokPattern;
     private final List<Type> types;
 
     public GrokDeserializer(List<Column> columns, String inputFormat, String inputGrokCustomPatterns)
