@@ -65,7 +65,7 @@ public class Converter
     {
         String[] spec = key.split(";|:", 3);
         try {
-            // process situations with fieldid [and datatype]
+            // process situations with field id [and datatype]
             if (spec.length <= 2) {
                 String pattern = grok.getGrokPatternPatterns().get(key); // actual pattern name
                 String defaultDataType = grok.getGrokPatternDefaultDatatype().get(pattern); // default datatype of the pattern
@@ -112,17 +112,17 @@ public class Converter
                         // if in strict mode, never do automatic data type conversion
                         defaultDataType = null;
                     }
-                    // process situations with only fieldid (check default datatype, except date and datetime)
+                    // process situations with only field id (check default datatype, except date and datetime)
                     return new KeyValue(spec[0],
                             defaultDataType == null ? String.valueOf(value) : getConverter(defaultDataType).convert(String.valueOf(value)));
                 }
                 else {
-                    // process situations with fieldid and datatype (except date and datetime)
+                    // process situations with field id and datatype (except date and datetime)
                     return new KeyValue(spec[0], getConverter(spec[1]).convert(String.valueOf(value)));
                 }
             }
             else if (spec.length == 3) {
-                // process situations with fieldid, datatype and datatype arguments
+                // process situations with field id, datatype and datatype arguments
                 return new KeyValue(spec[0], getConverter(spec[1]).convert(String.valueOf(value), spec[2]));
             }
             else {

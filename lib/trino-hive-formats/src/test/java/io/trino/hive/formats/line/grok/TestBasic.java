@@ -45,7 +45,7 @@ public class TestBasic
 
         boolean thrown = false;
 
-        /** This should always throw */
+        // This should always throw
         for (String regx : badRegxp) {
             try {
                 g.compile(regx);
@@ -87,7 +87,7 @@ public class TestBasic
     }
 
     @Test
-    public void test004_sameExpantedPatern()
+    public void test004_sameExpandedPattern()
             throws GrokException
     {
         Grok g = Grok.create();

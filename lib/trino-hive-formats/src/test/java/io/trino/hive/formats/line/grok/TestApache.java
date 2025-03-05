@@ -36,9 +36,7 @@ public class TestApache
 
         BufferedReader br = Files.newBufferedReader(Path.of(ResourceManager.ACCESS_LOG));
         String line;
-        System.out.println("Starting test with httpd log");
         while ((line = br.readLine()) != null) {
-            //System.out.println(line);
             Match gm = g.match(line);
             gm.captures();
             assertThat(gm.toJson()).isNotNull();
@@ -52,14 +50,12 @@ public class TestApache
             throws GrokException, IOException
     {
         Grok g = Grok.create(ResourceManager.PATTERNS, "%{COMMONAPACHELOG}");
-        System.out.println("Starting test with nasa log -- may take a while");
         BufferedReader br;
         String line;
         File dir = new File(ResourceManager.NASA);
         for (File child : dir.listFiles()) {
             br = Files.newBufferedReader(Path.of(ResourceManager.NASA + child.getName()));
             while ((line = br.readLine()) != null) {
-                //System.out.println(child.getName() + " " +line);
                 Match gm = g.match(line);
                 gm.captures();
                 assertThat(gm.toJson()).isNotNull();

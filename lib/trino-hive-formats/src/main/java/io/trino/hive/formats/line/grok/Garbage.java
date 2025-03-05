@@ -40,7 +40,7 @@ public class Garbage
     {
         toRemove = new ArrayList<String>();
         toRename = new TreeMap<String, Object>();
-        /** this is a default value to remove */
+        // this is a default value to remove
         toRemove.add("UNWANTED");
     }
 
@@ -62,7 +62,7 @@ public class Garbage
     }
 
     /**
-     * Set a field to be remove when exporting the final output.
+     * Set a field to be removed when exporting the final output.
      *
      * @param name of the field to remove
      */
@@ -78,7 +78,7 @@ public class Garbage
     }
 
     /**
-     * Set a list of field name to be remove when exporting the final output.
+     * Set a list of field name to be removed when exporting the final output.
      *
      * @param lst list of elem to remove
      */
