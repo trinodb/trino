@@ -16,8 +16,6 @@ package io.trino.plugin.hudi;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Table;
-import io.trino.plugin.hudi.model.HudiInstant;
-import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -28,6 +26,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.timeline.HoodieInstant;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -74,12 +74,13 @@ public class TimelineTable
     @Override
     public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        HudiTableMetaClient metaClient = buildTableMetaClient(fileSystem, location);
-        Iterable<List<Object>> records = () -> metaClient.getCommitsTimeline().getInstants().map(this::getRecord).iterator();
+        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystem, location);
+        Iterable<List<Object>> records = () -> metaClient.getCommitsTimeline().getInstants().stream()
+                .map(this::getRecord).iterator();
         return new InMemoryRecordSet(types, records).cursor();
     }
 
-    private List<Object> getRecord(HudiInstant hudiInstant)
+    private List<Object> getRecord(HoodieInstant hudiInstant)
     {
         List<Object> columns = new ArrayList<>();
         columns.add(hudiInstant.getTimestamp());

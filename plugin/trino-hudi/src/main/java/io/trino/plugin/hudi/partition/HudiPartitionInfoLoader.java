@@ -20,6 +20,7 @@ import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
 import io.trino.plugin.hudi.split.HudiSplitFactory;
 import io.trino.spi.connector.ConnectorSplit;
+import org.apache.hudi.common.model.FileSlice;
 
 import java.util.Deque;
 import java.util.List;
@@ -34,16 +35,19 @@ public class HudiPartitionInfoLoader
     private final HudiSplitFactory hudiSplitFactory;
     private final AsyncQueue<ConnectorSplit> asyncQueue;
     private final Deque<String> partitionQueue;
+    private final String commitTime;
 
     private boolean isRunning;
 
     public HudiPartitionInfoLoader(
             HudiDirectoryLister hudiDirectoryLister,
+            String commitTime,
             HudiSplitFactory hudiSplitFactory,
             AsyncQueue<ConnectorSplit> asyncQueue,
             Deque<String> partitionQueue)
     {
         this.hudiDirectoryLister = hudiDirectoryLister;
+        this.commitTime = commitTime;
         this.hudiSplitFactory = hudiSplitFactory;
         this.asyncQueue = asyncQueue;
         this.partitionQueue = partitionQueue;
@@ -68,9 +72,9 @@ public class HudiPartitionInfoLoader
         partitionInfo.ifPresent(hudiPartitionInfo -> {
             if (hudiPartitionInfo.doesMatchPredicates() || partitionName.equals(NON_PARTITION)) {
                 List<HivePartitionKey> partitionKeys = hudiPartitionInfo.getHivePartitionKeys();
-                List<HudiFileStatus> partitionFiles = hudiDirectoryLister.listStatus(hudiPartitionInfo);
-                partitionFiles.stream()
-                        .flatMap(fileStatus -> hudiSplitFactory.createSplits(partitionKeys, fileStatus).stream())
+                List<FileSlice> partitionFileSlices = hudiDirectoryLister.listStatus(hudiPartitionInfo, commitTime);
+                partitionFileSlices.stream()
+                        .flatMap(slice -> hudiSplitFactory.createSplits(partitionKeys, slice, commitTime).stream())
                         .map(asyncQueue::offer)
                         .forEachOrdered(MoreFutures::getFutureValue);
             }
