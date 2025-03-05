@@ -44,7 +44,8 @@ class TestHdfsFileSystemManager
                 true,
                 "test",
                 new TestingNodeManager(),
-                OpenTelemetry.noop());
+                OpenTelemetry.noop(),
+                false);
 
         assertThat(manager.configure().keySet()).containsExactly("hive.dfs.verify-checksum", "hive.s3.region");
 
