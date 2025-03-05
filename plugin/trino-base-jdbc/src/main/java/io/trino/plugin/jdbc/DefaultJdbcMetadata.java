@@ -901,7 +901,7 @@ public class DefaultJdbcMetadata
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
         if (limit > Integer.MAX_VALUE) {
-            // Some databases, e.g. Phoenix, Redshift, do not support limit exceeding 2147483647.
+            // Some databases, for example Redshift, do not support limit exceeding 2147483647.
             return Optional.empty();
         }
 

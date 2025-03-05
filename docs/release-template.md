@@ -62,8 +62,6 @@
 
 ## Oracle connector
 
-## Phoenix connector
-
 ## Pinot connector
 
 ## PostgreSQL connector
