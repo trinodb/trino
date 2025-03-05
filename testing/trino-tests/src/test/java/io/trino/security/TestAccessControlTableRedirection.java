@@ -125,7 +125,7 @@ public class TestAccessControlTableRedirection
         assertAccessAllowed("SELECT * FROM redirection_source");
         assertAccessDenied(
                 "SELECT * FROM redirection_source",
-                "Cannot select from columns \\[data_column, id_column] in table or view test_catalog.test_schema.redirection_target",
+                "Cannot select from table or view test_catalog.test_schema.redirection_target",
                 privilege("redirection_target.data_column", SELECT_COLUMN));
     }
 
