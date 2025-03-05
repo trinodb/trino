@@ -70,6 +70,7 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRenameCatalog;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -79,6 +80,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
+import static io.trino.spi.security.AccessDeniedException.denySetCatalogProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
@@ -227,6 +229,26 @@ public interface SystemAccessControl
     default void checkCanDropCatalog(SystemSecurityContext context, String catalog)
     {
         denyDropCatalog(catalog);
+    }
+
+    /**
+     * Check if identity is allowed to rename the specified catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanRenameCatalog(SystemSecurityContext context, String catalog, String newCatalog)
+    {
+        denyRenameCatalog(catalog, newCatalog);
+    }
+
+    /**
+     * Check if identity is allowed to alter properties to the specified catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetCatalogProperties(SystemSecurityContext context, String catalog, Map<String, Optional<String>> properties)
+    {
+        denySetCatalogProperties(catalog);
     }
 
     /**
