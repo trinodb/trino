@@ -37,7 +37,6 @@ import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -49,6 +48,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.ir.Reference;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.testing.TestingSession;
@@ -661,7 +661,7 @@ public class TestColumnarFilters
                         ImmutableList.of(field(ROW_NUM_CHANNEL, BIGINT)),
                         Optional.empty(),
                         OptionalInt.empty())
-                .apply(DynamicFilter.EMPTY);
+                .apply(InternalDynamicFilter.EMPTY);
         LocalMemoryContext context = newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName());
         ImmutableList.Builder<Page> outputPagesBuilder = ImmutableList.builder();
         for (Page inputPage : inputPages) {
