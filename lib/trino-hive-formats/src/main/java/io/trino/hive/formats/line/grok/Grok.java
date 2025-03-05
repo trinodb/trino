@@ -573,7 +573,7 @@ public class Grok
             throw new GrokException("{pattern} should not be empty");
         }
         namedRegexCollection.clear(); // when the grok object compiles the second format, named patterns in last format should not influence the current one.
-        namedRegex = pattern;
+        namedRegex = removeUnderscores(pattern);
         originalGrokPattern = pattern;
         int index = 0;
         /** flag for infinite recurtion */
@@ -627,6 +627,22 @@ public class Grok
         }
         // Compile the regex
         compiledNamedRegex = Pattern.compile(namedRegex);
+    }
+
+    public String removeUnderscores(String namedRegex)
+    {
+        // Pattern.compile() does not support underscores in named regex groups so need to remove all of them
+        Pattern groupPattern = Pattern.compile("\\(\\?<([^>]+)>");
+        Matcher groupMatcher = groupPattern.matcher(namedRegex);
+        StringBuilder result = new StringBuilder();
+
+        while (groupMatcher.find()) {
+            String groupName = groupMatcher.group(1);
+            String cleanName = groupName.replaceAll("_", "");
+            groupMatcher.appendReplacement(result, "(?<" + cleanName + ">");
+        }
+        groupMatcher.appendTail(result);
+        return result.toString();
     }
 
     /**
