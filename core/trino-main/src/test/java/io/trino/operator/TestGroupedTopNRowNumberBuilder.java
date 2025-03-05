@@ -238,7 +238,9 @@ public class TestGroupedTopNRowNumberBuilder
         return GroupByHash.createGroupByHash(
                 partitionTypes,
                 false,
+                false,
                 1,
+                false,
                 false,
                 new FlatHashStrategyCompiler(new TypeOperators()),
                 updateMemory);

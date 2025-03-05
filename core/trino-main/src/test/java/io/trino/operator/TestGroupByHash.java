@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -57,7 +58,7 @@ public class TestGroupByHash
 
     private enum GroupByHashType
     {
-        BIGINT, FLAT;
+        BIGINT, FLAT, MINIMAL_FLAT;
 
         public GroupByHash createGroupByHash()
         {
@@ -70,7 +71,14 @@ public class TestGroupByHash
                 case BIGINT -> new BigintGroupByHash(true, expectedSize, updateMemory);
                 case FLAT -> new FlatGroupByHash(
                         ImmutableList.of(BigintType.BIGINT),
+                        FlatGroupByHash.HashMode.PRECOMPUTED,
+                        expectedSize,
                         true,
+                        new FlatHashStrategyCompiler(new TypeOperators()),
+                        updateMemory);
+                case MINIMAL_FLAT -> new MinimalFlatGroupByHash(
+                        ImmutableList.of(BigintType.BIGINT),
+                        FlatGroupByHash.HashMode.PRECOMPUTED,
                         expectedSize,
                         true,
                         new FlatHashStrategyCompiler(new TypeOperators()),
@@ -123,11 +131,10 @@ public class TestGroupByHash
             assertThat(groupByHash.getGroupCount()).isEqualTo(1);
 
             Work<int[]> work = groupByHash.getGroupIds(page);
-            if (groupByHashType == GroupByHashType.FLAT) {
-                assertThat(work).isInstanceOf(FlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
-            }
-            else {
-                assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+            switch (groupByHashType) {
+                case FLAT -> assertThat(work).isInstanceOf(FlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+                case MINIMAL_FLAT -> assertThat(work).isInstanceOf(MinimalFlatGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
+                case BIGINT -> assertThat(work).isInstanceOf(BigintGroupByHash.GetRunLengthEncodedGroupIdsWork.class);
             }
             work.process();
             int[] groupIds = work.getResult();
@@ -301,7 +308,7 @@ public class TestGroupByHash
 
         // Create GroupByHash with tiny size
         AtomicInteger rehashCount = new AtomicInteger();
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, new FlatHashStrategyCompiler(new TypeOperators()), () -> {
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, false, 1, false, false, new FlatHashStrategyCompiler(new TypeOperators()), () -> {
             rehashCount.incrementAndGet();
             return true;
         });
@@ -322,7 +329,7 @@ public class TestGroupByHash
 
         // Create GroupByHash with tiny size
         AtomicInteger rehashCount = new AtomicInteger();
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, new FlatHashStrategyCompiler(new TypeOperators()), () -> {
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, false, 1, false, false, new FlatHashStrategyCompiler(new TypeOperators()), () -> {
             rehashCount.incrementAndGet();
             return true;
         });
@@ -357,7 +364,7 @@ public class TestGroupByHash
         int yields = 0;
 
         // test addPage
-        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, new FlatHashStrategyCompiler(new TypeOperators()), updateMemory);
+        GroupByHash groupByHash = createGroupByHash(ImmutableList.of(type), true, false, 1, false, false, new FlatHashStrategyCompiler(new TypeOperators()), updateMemory);
         boolean finish = false;
         Work<?> addPageWork = groupByHash.addPage(page);
         while (!finish) {
@@ -383,7 +390,7 @@ public class TestGroupByHash
         currentQuota.set(0);
         allowedQuota.set(6);
         yields = 0;
-        groupByHash = createGroupByHash(ImmutableList.of(type), true, 1, false, new FlatHashStrategyCompiler(new TypeOperators()), updateMemory);
+        groupByHash = createGroupByHash(ImmutableList.of(type), true, false, 1, false, false, new FlatHashStrategyCompiler(new TypeOperators()), updateMemory);
 
         finish = false;
         Work<int[]> getGroupIdsWork = groupByHash.getGroupIds(page);
@@ -450,7 +457,7 @@ public class TestGroupByHash
             // assert we yield for every 3 rehashes
             // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
             // the rehash count is 10 = log(1_000 / 0.75)
-            assertThat(currentQuota.get()).isEqualTo(2 * (groupByHashType == GroupByHashType.FLAT ? 4 : 13));
+            assertThat(currentQuota.get()).isEqualTo(2 * (Set.of(GroupByHashType.FLAT, GroupByHashType.MINIMAL_FLAT).contains(groupByHashType) ? 4 : 13));
             assertThat(currentQuota.get() / 3 / 2).isEqualTo(yields);
 
             // test getGroupIds
@@ -479,7 +486,7 @@ public class TestGroupByHash
             // assert we yield for every 3 rehashes
             // currentQuota is essentially the count we have successfully rehashed multiplied by 2 (as updateMemory is called twice per rehash)
             // the rehash count is 10 = log2(1_000 / 0.75)
-            assertThat(currentQuota.get()).isEqualTo(2 * (groupByHashType == GroupByHashType.FLAT ? 4 : 13));
+            assertThat(currentQuota.get()).isEqualTo(2 * (Set.of(GroupByHashType.FLAT, GroupByHashType.MINIMAL_FLAT).contains(groupByHashType) ? 4 : 13));
             assertThat(currentQuota.get() / 3 / 2).isEqualTo(yields);
         }
     }
@@ -491,6 +498,7 @@ public class TestGroupByHash
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT),
                 false,
+                false,
                 100,
                 new FlatHashStrategyCompiler(new TypeOperators()),
                 NOOP);
@@ -499,7 +507,7 @@ public class TestGroupByHash
         Page page = new Page(firstBlock, secondBlock);
 
         Work<?> work = groupByHash.addPage(page);
-        assertThat(work).isInstanceOf(FlatGroupByHash.AddLowCardinalityDictionaryPageWork.class);
+        assertThat(work).isInstanceOf(MinimalFlatGroupByHash.AddLowCardinalityDictionaryPageWork.class);
         work.process();
         assertThat(groupByHash.getGroupCount()).isEqualTo(10); // Blocks are identical so only 10 distinct groups
 
@@ -519,6 +527,7 @@ public class TestGroupByHash
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT, BIGINT),
                 false,
+                false,
                 100,
                 new FlatHashStrategyCompiler(new TypeOperators()),
                 NOOP);
@@ -526,6 +535,7 @@ public class TestGroupByHash
         GroupByHash lowCardinalityGroupByHash = createGroupByHash(
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT, BIGINT, BIGINT),
+                false,
                 false,
                 100,
                 new FlatHashStrategyCompiler(new TypeOperators()),
@@ -541,7 +551,7 @@ public class TestGroupByHash
         Page page = new Page(block1, block2, block3, block4, sameValueBlock); // sameValueBlock will prevent low cardinality optimization to fire
 
         Work<int[]> lowCardinalityWork = lowCardinalityGroupByHash.getGroupIds(lowCardinalityPage);
-        assertThat(lowCardinalityWork).isInstanceOf(FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
+        assertThat(lowCardinalityWork).isInstanceOf(MinimalFlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
         Work<int[]> work = groupByHash.getGroupIds(page);
 
         lowCardinalityWork.process();
@@ -560,6 +570,7 @@ public class TestGroupByHash
                 TEST_SESSION,
                 ImmutableList.of(BIGINT, BIGINT),
                 false,
+                false,
                 100,
                 new FlatHashStrategyCompiler(new TypeOperators()),
                 NOOP);
@@ -575,7 +586,7 @@ public class TestGroupByHash
         Page page = new Page(block1, block2);
 
         Work<int[]> work = groupByHash.getGroupIds(page);
-        assertThat(work).isInstanceOf(FlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
+        assertThat(work).isInstanceOf(MinimalFlatGroupByHash.GetLowCardinalityDictionaryGroupIdsWork.class);
 
         work.process();
         int[] results = work.getResult();
@@ -626,7 +637,7 @@ public class TestGroupByHash
 
     private static void assertGroupByHashWork(Page page, List<Type> types, Class<?> clazz)
     {
-        GroupByHash groupByHash = createGroupByHash(types, false, 100, true, new FlatHashStrategyCompiler(new TypeOperators()), NOOP);
+        GroupByHash groupByHash = createGroupByHash(types, false, false, 100, true, false, new FlatHashStrategyCompiler(new TypeOperators()), NOOP);
         Work<int[]> work = groupByHash.getGroupIds(page);
         // Compare by name since classes are private
         assertThat(work).isInstanceOf(clazz);

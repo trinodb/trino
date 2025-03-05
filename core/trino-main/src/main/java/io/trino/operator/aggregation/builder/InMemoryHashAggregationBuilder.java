@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static io.trino.SystemSessionProperties.isHashValueCachingInAggregationsEnabled;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
@@ -124,6 +125,7 @@ public class InMemoryHashAggregationBuilder
                 operatorContext.getSession(),
                 groupByTypes,
                 hashChannel.isPresent(),
+                hashChannel.isPresent() || isHashValueCachingInAggregationsEnabled(operatorContext.getSession()),
                 expectedGroups,
                 hashStrategyCompiler,
                 updateMemory);

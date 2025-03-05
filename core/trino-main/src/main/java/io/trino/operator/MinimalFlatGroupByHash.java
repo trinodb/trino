@@ -38,38 +38,16 @@ import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
 // This implementation assumes arrays used in the hash are always a power of 2
-public class FlatGroupByHash
+public class MinimalFlatGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = instanceSize(FlatGroupByHash.class);
+    private static final int INSTANCE_SIZE = instanceSize(MinimalFlatGroupByHash.class);
     private static final int BATCH_SIZE = 1024;
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = 0.25;
 
-    public enum HashMode {
-        // Hash values are pre-computed as input, and emitted as output
-        PRECOMPUTED,
-        // Hash values are computed by the FlatGroupByHash instance and stored along with the entry
-        CACHED,
-        // Hash values are re-computed for each access on demand
-        ON_DEMAND;
-
-        public boolean isHashPrecomputed()
-        {
-            return this == PRECOMPUTED;
-        }
-
-        public boolean isHashCached()
-        {
-            return switch (this) {
-                case PRECOMPUTED, CACHED -> true;
-                case ON_DEMAND -> false;
-            };
-        }
-    }
-
-    private final HashMode hashMode;
-    private final FlatHash flatHash;
+    private final FlatGroupByHash.HashMode hashMode;
+    private final MinimalFlatHash flatHash;
     private final int groupByChannelCount;
 
     private final boolean processDictionary;
@@ -84,16 +62,16 @@ public class FlatGroupByHash
     // reusable array for computing hash batches into
     private long[] currentHashes;
 
-    public FlatGroupByHash(
+    public MinimalFlatGroupByHash(
             List<Type> hashTypes,
-            HashMode hashMode,
+            FlatGroupByHash.HashMode hashMode,
             int expectedSize,
             boolean processDictionary,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory checkMemoryReservation)
     {
         this.hashMode = requireNonNull(hashMode, "hashMode is null");
-        this.flatHash = new FlatHash(hashStrategyCompiler.getFlatHashStrategy(hashTypes), hashMode, expectedSize, checkMemoryReservation);
+        this.flatHash = new MinimalFlatHash(hashStrategyCompiler.getMinimalFlatHashStrategy(hashTypes), hashMode, expectedSize, checkMemoryReservation);
         this.groupByChannelCount = hashTypes.size();
 
         checkArgument(expectedSize > 0, "expectedSize must be greater than zero");
@@ -105,11 +83,11 @@ public class FlatGroupByHash
         this.processDictionary = processDictionary && hashTypes.size() == 1;
     }
 
-    public FlatGroupByHash(FlatGroupByHash other)
+    public MinimalFlatGroupByHash(MinimalFlatGroupByHash other)
     {
+        this.hashMode = other.hashMode;
         this.flatHash = other.flatHash.copy();
         groupByChannelCount = other.groupByChannelCount;
-        hashMode = other.hashMode;
         processDictionary = other.processDictionary;
         dictionaryLookBack = other.dictionaryLookBack == null ? null : other.dictionaryLookBack.copy();
         currentPageSizeInBytes = other.currentPageSizeInBytes;
@@ -126,11 +104,6 @@ public class FlatGroupByHash
                 })
                 .toArray(BlockBuilder[]::new);
         currentHashes = other.currentHashes == null ? null : Arrays.copyOf(other.currentHashes, other.currentHashes.length);
-    }
-
-    public int getPhysicalPosition(int groupId)
-    {
-        return flatHash.getPhysicalPosition(groupId);
     }
 
     @Override
@@ -222,7 +195,7 @@ public class FlatGroupByHash
     @Override
     public GroupByHash copy()
     {
-        return new FlatGroupByHash(this);
+        return new MinimalFlatGroupByHash(this);
     }
 
     private int putIfAbsent(Block[] blocks, int position)

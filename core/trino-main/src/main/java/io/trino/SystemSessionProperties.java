@@ -92,6 +92,8 @@ public final class SystemSessionProperties
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
+    public static final String MINIMAL_GROUP_BY_HASH_ENABLED = "minimal_group_by_hash_enabled";
+    public static final String CACHE_RAW_HASHES_IN_AGGREGATIONS = "cache_raw_hashes_in_aggregations";
     public static final String USE_TABLE_SCAN_NODE_PARTITIONING = "use_table_scan_node_partitioning";
     public static final String TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO = "table_scan_node_partitioning_min_bucket_to_task_ratio";
     public static final String SPATIAL_JOIN = "spatial_join";
@@ -417,6 +419,16 @@ public final class SystemSessionProperties
                         DICTIONARY_AGGREGATION,
                         "Enable optimization for aggregations on dictionaries",
                         optimizerConfig.isDictionaryAggregation(),
+                        false),
+                booleanProperty(
+                        MINIMAL_GROUP_BY_HASH_ENABLED,
+                        "Enable minimal flat group by hash",
+                        true,
+                        false),
+                booleanProperty(
+                        CACHE_RAW_HASHES_IN_AGGREGATIONS,
+                        "Enable hash value caching in aggregations",
+                        true,
                         false),
                 integerProperty(
                         INITIAL_SPLITS_PER_NODE,
@@ -1250,6 +1262,16 @@ public final class SystemSessionProperties
     public static boolean isDictionaryAggregationEnabled(Session session)
     {
         return session.getSystemProperty(DICTIONARY_AGGREGATION, Boolean.class);
+    }
+
+    public static boolean isMinimalGroupByHashEnabled(Session session)
+    {
+        return session.getSystemProperty(MINIMAL_GROUP_BY_HASH_ENABLED, Boolean.class);
+    }
+
+    public static boolean isHashValueCachingInAggregationsEnabled(Session session)
+    {
+        return session.getSystemProperty(CACHE_RAW_HASHES_IN_AGGREGATIONS, Boolean.class);
     }
 
     public static boolean isOptimizeMetadataQueries(Session session)
