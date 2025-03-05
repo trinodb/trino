@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
@@ -47,6 +48,9 @@ public final class InterfaceTestUtils
                 continue;
             }
             if (method.getDeclaringClass() == Object.class) {
+                continue;
+            }
+            if (Arrays.stream(method.getAnnotations()).anyMatch(annotation -> annotation instanceof Deprecated deprecated && deprecated.forRemoval())) {
                 continue;
             }
             try {

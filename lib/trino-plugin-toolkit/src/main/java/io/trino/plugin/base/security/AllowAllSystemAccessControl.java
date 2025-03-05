@@ -126,9 +126,6 @@ public class AllowAllSystemAccessControl
     public void checkCanRenameSchema(SystemSecurityContext context, CatalogSchemaName schema, String newSchemaName) {}
 
     @Override
-    public void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, TrinoPrincipal principal) {}
-
-    @Override
     public void checkCanShowSchemas(SystemSecurityContext context, String catalogName) {}
 
     @Override
@@ -201,9 +198,6 @@ public class AllowAllSystemAccessControl
     public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table) {}
 
     @Override
-    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal) {}
-
-    @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
 
     @Override
@@ -223,9 +217,6 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanRenameView(SystemSecurityContext context, CatalogSchemaTableName view, CatalogSchemaTableName newView) {}
-
-    @Override
-    public void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal) {}
 
     @Override
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view) {}
@@ -358,6 +349,9 @@ public class AllowAllSystemAccessControl
     {
         return ImmutableMap.of();
     }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SystemSecurityContext context, String ownedKind, List<String> name, TrinoPrincipal principal) {}
 
     @Override
     public void shutdown() {}
