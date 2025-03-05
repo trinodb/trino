@@ -13,13 +13,12 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.inject.Inject;
 import io.airlift.concurrent.BoundedExecutor;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
-import io.trino.plugin.hive.metastore.glue.v1.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.security.UsingSystemSecurity;
 import io.trino.plugin.iceberg.ForIcebergMetadata;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -31,6 +30,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
+import software.amazon.awssdk.services.glue.GlueClient;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
@@ -49,7 +49,7 @@ public class TrinoGlueCatalogFactory
     private final IcebergTableOperationsProvider tableOperationsProvider;
     private final String trinoVersion;
     private final Optional<String> defaultSchemaLocation;
-    private final AWSGlueAsync glueClient;
+    private final GlueClient glueClient;
     private final boolean isUniqueTableLocation;
     private final boolean hideMaterializedViewStorageTable;
     private final GlueMetastoreStats stats;
@@ -68,7 +68,7 @@ public class TrinoGlueCatalogFactory
             IcebergGlueCatalogConfig catalogConfig,
             @UsingSystemSecurity boolean usingSystemSecurity,
             GlueMetastoreStats stats,
-            AWSGlueAsync glueClient,
+            GlueClient glueClient,
             @ForIcebergMetadata ExecutorService metadataExecutorService)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");

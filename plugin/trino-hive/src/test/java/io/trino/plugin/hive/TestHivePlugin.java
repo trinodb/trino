@@ -78,30 +78,6 @@ public class TestHivePlugin
     }
 
     @Test
-    public void testGlueV1Metastore()
-    {
-        ConnectorFactory factory = getHiveConnectorFactory();
-
-        factory.create(
-                        "test",
-                        ImmutableMap.of(
-                                "hive.metastore", "glue-v1",
-                                "hive.metastore.glue.region", "us-east-2",
-                                "bootstrap.quiet", "true"),
-                        new TestingConnectorContext())
-                .shutdown();
-
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "glue",
-                        "hive.metastore.uri", "thrift://foo:1234",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext()))
-                .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
-    }
-
-    @Test
     public void testGlueMetastore()
     {
         ConnectorFactory factory = getHiveConnectorFactory();
