@@ -243,6 +243,7 @@ final class S3InputStream
 
         try (var _ = in) {
             in.abort();
+            in.release();
         }
         catch (AbortedException | IOException _) {
         }
