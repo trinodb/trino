@@ -73,12 +73,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/example-http">
-        <artifact id="${project.groupId}:trino-example-http:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/exasol">
         <artifact id="${project.groupId}:trino-exasol:zip:${project.version}">
             <unpack />
@@ -114,12 +108,6 @@
 
     <artifactSet to="plugin/http-event-listener">
         <artifact id="${project.groupId}:trino-http-event-listener:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/http-server-event-listener">
-        <artifact id="${project.groupId}:trino-http-server-event-listener:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -288,12 +276,6 @@
 
     <artifactSet to="plugin/sqlserver">
         <artifact id="${project.groupId}:trino-sqlserver:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/teradata-functions">
-        <artifact id="${project.groupId}:trino-teradata-functions:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
