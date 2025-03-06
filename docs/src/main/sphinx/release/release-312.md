@@ -20,7 +20,7 @@
 - Improve support for correlated subqueries containing redundant `LIMIT` clauses. ({issue}`441`)
 - Add a new {ref}`uuid-type` type to represent UUIDs. ({issue}`755`)
 - Add {func}`uuid` function to generate random UUIDs. ({issue}`786`)
-- Add {doc}`/connector/phoenix`. ({issue}`672`)
+- Add Phoenix connector. ({issue}`672`)
 - Make semantic error name available in client protocol. ({issue}`790`)
 - Report operator statistics when `experimental.work-processor-pipelines`
   is enabled. ({issue}`788`)

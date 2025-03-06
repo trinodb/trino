@@ -133,179 +133,227 @@ You can also [download](plugins-download) them from the Maven Central Repository
 with the listed coordinates.
 
 :::{list-table} List of plugins 
-:widths: 25, 50, 25
+:widths: 25, 25, 25, 25 
 :header-rows: 1
 
 * - Plugin directory
   - Description
   - Maven coordinates
+  - Download
 * - apache-ranger
   - [](/security/ranger-access-control)
-  - [io.trino:ranger](https://central.sonatype.com/search?q=io.trino%3Atrino-ranger)
+  - [io.trino:trino-ranger](https://central.sonatype.com/search?q=io.trino%3Atrino-ranger)
+  - {maven_download}`ranger`
 * - bigquery
   - [](/connector/bigquery)
-  - [io.trino:bigquery](https://central.sonatype.com/search?q=io.trino%3Atrino-bigquery)
+  - [io.trino:trino-bigquery](https://central.sonatype.com/search?q=io.trino%3Atrino-bigquery)
+  - {maven_download}`bigquery`
 * - blackhole
   - [](/connector/blackhole)
-  - [io.trino:blackhole](https://central.sonatype.com/search?q=io.trino%3Atrino-blackhole)
+  - [io.trino:trino-blackhole](https://central.sonatype.com/search?q=io.trino%3Atrino-blackhole)
+  - {maven_download}`blackhole`
 * - cassandra
   - [](/connector/cassandra)
-  - [io.trino:cassandra](https://central.sonatype.com/search?q=io.trino%3Atrino-cassandra)
+  - [io.trino:trino-cassandra](https://central.sonatype.com/search?q=io.trino%3Atrino-cassandra)
+  - {maven_download}`cassandra`
 * - clickhouse
   - [](/connector/clickhouse)
-  - [io.trino:clickhouse](https://central.sonatype.com/search?q=io.trino%3Atrino-clickhouse)
+  - [io.trino:trino-clickhouse](https://central.sonatype.com/search?q=io.trino%3Atrino-clickhouse)
+  - {maven_download}`clickhouse`
 * - delta-lake
   - [](/connector/delta-lake)
-  - [io.trino:delta-lake](https://central.sonatype.com/search?q=io.trino%3Atrino-delta-lake)
+  - [io.trino:trino-delta-lake](https://central.sonatype.com/search?q=io.trino%3Atrino-delta-lake)
+  - {maven_download}`delta-lake`
 * - druid
   - [](/connector/druid)
-  - [io.trino:ranger](https://central.sonatype.com/search?q=io.trino%3Atrino-druid)
+  - [io.trino:trino-druid](https://central.sonatype.com/search?q=io.trino%3Atrino-druid)
+  - {maven_download}`druid`
 * - duckdb
   - [](/connector/duckdb)
-  - [io.trino:druid](https://central.sonatype.com/search?q=io.trino%3Atrino-duckdb)
+  - [io.trino:trino-duckdb](https://central.sonatype.com/search?q=io.trino%3Atrino-duckdb)
+  - {maven_download}`duckdb`
 * - elasticsearch
   - [](/connector/elasticsearch)
-  - [io.trino:elasticsearch](https://central.sonatype.com/search?q=io.trino%3Atrino-elasticsearch)
+  - [io.trinotrino-elasticsearch](https://central.sonatype.com/search?q=io.trino%3Atrino-elasticsearch)
+  - {maven_download}`elasticsearch`
 * - example-http
   - [](/develop/example-http)
-  - [io.trino:example-http](https://central.sonatype.com/search?q=io.trino%3Atrino-example-http)
+  - [io.trino:trino-example-http](https://central.sonatype.com/search?q=io.trino%3Atrino-example-http)
+  - {maven_download}`example-http`
 * - exasol
   - [](/connector/exasol)
-  - [io.trino:exasol](https://central.sonatype.com/search?q=io.trino%3Atrino-exasol)
+  - [io.trino:trino-exasol](https://central.sonatype.com/search?q=io.trino%3Atrino-exasol)
+  - {maven_download}`exasol`
 * - exchange-filesystem
   - [](/admin/fault-tolerant-execution) exchange file system
-  - [io.trino:exchange-filesystem](https://central.sonatype.com/search?q=io.trino%3Atrino-exchange-filesystem)
+  - [io.trino:trino-exchange-filesystem](https://central.sonatype.com/search?q=io.trino%3Atrino-exchange-filesystem)
+  - {maven_download}`exchange-filesystem`
 * - exchange-hdfs
   - [](/admin/fault-tolerant-execution) exchange file system for HDFS
-  - [io.trino:exchange-hdfs](https://central.sonatype.com/search?q=io.trino%3Atrino-exchange-hdfs)
+  - [io.trino:trino-exchange-hdfs](https://central.sonatype.com/search?q=io.trino%3Atrino-exchange-hdfs)
+  - {maven_download}`exchange-hdfs`
 * - faker
   - [](/connector/faker)
-  - [io.trino:faker](https://central.sonatype.com/search?q=io.trino%3Atrino-faker)
+  - [io.trino:trino-faker](https://central.sonatype.com/search?q=io.trino%3Atrino-faker)
+  - {maven_download}`faker`
 * - functions-python
   - [](/udf/python)
-  - [io.trino:functions-python](https://central.sonatype.com/search?q=io.trino%3Atrino-functions-python)
+  - [io.trino:trino-functions-python](https://central.sonatype.com/search?q=io.trino%3Atrino-functions-python)
+  - {maven_download}`functions-python`
 * - geospatial
   - [](/functions/geospatial)
-  - [io.trino:geospatial](https://central.sonatype.com/search?q=io.trino%3Atrino-geospatial)
+  - [io.trino:trino-geospatial](https://central.sonatype.com/search?q=io.trino%3Atrino-geospatial)
+  - {maven_download}`geospatial`
 * - google-sheets
   - [](/connector/googlesheets)
-  - [io.trino:google-sheets](https://central.sonatype.com/search?q=io.trino%3Atrino-google-sheets)
+  - [io.trino:trino-google-sheets](https://central.sonatype.com/search?q=io.trino%3Atrino-google-sheets)
+  - {maven_download}`google-sheets`
 * - hive
   - [](/connector/hive)
-  - [io.trino:hive](https://central.sonatype.com/search?q=io.trino%3Atrino-hive)
+  - [io.trino:trino-hive](https://central.sonatype.com/search?q=io.trino%3Atrino-hive)
+  - {maven_download}`hive`
 * - http-event-listener
   - [](/admin/event-listeners-http)
-  - [io.trino:http-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-http-event-listener)
+  - [io.trino:trino-http-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-http-event-listener)
+  - {maven_download}`http-event-listener`
 * - http-server-event-listener
   - HTTP server event listener
-  - [io.trino:http-server-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-http-server-event-listener)
+  - [io.trino:trino-http-server-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-http-server-event-listener)
+  - {maven_download}`http-server-event-listener`
 * - hudi
   - [](/connector/hudi)
-  - [io.trino:hudi](https://central.sonatype.com/search?q=io.trino%3Atrino-hudi)
+  - [io.trinotrino-:hudi](https://central.sonatype.com/search?q=io.trino%3Atrino-hudi)
+  - {maven_download}`hudi`
 * - iceberg
   - [](/connector/iceberg)
-  - [io.trino:iceberg](https://central.sonatype.com/search?q=io.trino%3Atrino-iceberg)
+  - [io.trino:trino-iceberg](https://central.sonatype.com/search?q=io.trino%3Atrino-iceberg)
+  - {maven_download}`iceberg`
 * - ignite
   - [](/connector/ignite)
-  - [io.trino:ignite](https://central.sonatype.com/search?q=io.trino%3Atrino-ignite)
+  - [io.trino:trino-ignite](https://central.sonatype.com/search?q=io.trino%3Atrino-ignite)
+  - {maven_download}`ignite`
 * - jmx
   - [](/connector/jmx)
-  - [io.trino:jmx](https://central.sonatype.com/search?q=io.trino%3Atrino-jmx)
+  - [io.trino:trino-jmx](https://central.sonatype.com/search?q=io.trino%3Atrino-jmx)
+  - {maven_download}`jmx`
 * - kafka
   - [](/connector/kafka)
-  - [io.trino:kafka](https://central.sonatype.com/search?q=io.trino%3Atrino-kafka)
+  - [io.trino:trino-kafka](https://central.sonatype.com/search?q=io.trino%3Atrino-kafka)
+  - {maven_download}`kafka`
 * - kafka-event-listener
   - [](/admin/event-listeners-kafka)
-  - [io.trino: kafka-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-kafka-event-listener)
-* - kudu
-  - [](/connector/kudu)
-  - [io.trino:kudu](https://central.sonatype.com/search?q=io.trino%3Atrino-kudu)
+  - [io.trino:trino-kafka-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-kafka-event-listener)
+  - {maven_download}`kafka-event-listener`
 * - loki
   - [](/connector/loki)
-  - [io.trino:loki](https://central.sonatype.com/search?q=io.trino%3Atrino-loki)
+  - [io.trino:trino-loki](https://central.sonatype.com/search?q=io.trino%3Atrino-loki)
+  - {maven_download}`loki`
 * - mariadb
   - [](/connector/mariadb)
-  - [io.trino:mariadb](https://central.sonatype.com/search?q=io.trino%3Atrino-mariadb)
+  - [io.trino:trino-mariadb](https://central.sonatype.com/search?q=io.trino%3Atrino-mariadb)
+  - {maven_download}`mariadb`
 * - memory
   - [](/connector/memory)
-  - [io.trino:memory](https://central.sonatype.com/search?q=io.trino%3Atrino-memory)
+  - [io.trino:trino-memory](https://central.sonatype.com/search?q=io.trino%3Atrino-memory)
+  - {maven_download}`memory`
 * - ml
   - [](/functions/ml)
-  - [io.trino:ml](https://central.sonatype.com/search?q=io.trino%3Atrino-ml)
+  - [io.trino:trino-ml](https://central.sonatype.com/search?q=io.trino%3Atrino-ml)
+  - {maven_download}`ml`
 * - mongodb
   - [](/connector/mongodb)
-  - [io.trino:mongodb](https://central.sonatype.com/search?q=io.trino%3Atrino-mongodb)
+  - [io.trino:trino-mongodb](https://central.sonatype.com/search?q=io.trino%3Atrino-mongodb)
+  - {maven_download}`mongodb`
 * - mysql
   - [](/connector/mysql)
-  - [io.trino:mysql](https://central.sonatype.com/search?q=io.trino%3Atrino-mysql)
+  - [io.trino:trino-mysql](https://central.sonatype.com/search?q=io.trino%3Atrino-mysql)
+  - {maven_download}`mysql`
 * - mysql-event-listener
   - [](/admin/event-listeners-mysql)
-  - [io.trino:mysql-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-mysql-event-listener)
+  - [io.trino:trino-mysql-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-mysql-event-listener)
+  - {maven_download}`mysql-event-listener`
 * - opa
   - [](/security/opa-access-control)
-  - [io.trino:opa](https://central.sonatype.com/search?q=io.trino%3Atrino-opa)
+  - [io.trino:trino-opa](https://central.sonatype.com/search?q=io.trino%3Atrino-opa)
+  - {maven_download}`opa`
 * - openlineage
   - [](/admin/event-listeners-openlineage)
-  - [io.trino:openlineage](https://central.sonatype.com/search?q=io.trino%3Atrino-openlineage)
+  - [io.trino:trino-openlineage](https://central.sonatype.com/search?q=io.trino%3Atrino-openlineage)
+  - {maven_download}`openlineage`
 * - opensearch
   - [](/connector/opensearch)
-  - [io.trino:opensearch](https://central.sonatype.com/search?q=io.trino%3Atrino-opensearch)
+  - [io.trino:trino-opensearch](https://central.sonatype.com/search?q=io.trino%3Atrino-opensearch)
+  - {maven_download}`opensearch`
 * - oracle
   - [](/connector/oracle)
-  - [io.trino:oracle](https://central.sonatype.com/search?q=io.trino%3Atrino-oracle)
+  - [io.trino:trino-oracle](https://central.sonatype.com/search?q=io.trino%3Atrino-oracle)
+  - {maven_download}`oracle`
 * - password-authenticators
   - Password authentication
-  - [io.trino:password-authenticators](https://central.sonatype.com/search?q=io.trino%3Atrino-password-authenticators)
-* - phoenix5
-  - [](/connector/phoenix)
-  - [io.trino:phoenix5](https://central.sonatype.com/search?q=io.trino%3Atrino-phoenix)
+  - [io.trino:trino-password-authenticators](https://central.sonatype.com/search?q=io.trino%3Atrino-password-authenticators)
+  - {maven_download}`password-authenticators`
 * - pinot
   - [](/connector/pinot)
-  - [io.trino:pinot](https://central.sonatype.com/search?q=io.trino%3Atrino-pinot)
+  - [io.trino:trino-pinot](https://central.sonatype.com/search?q=io.trino%3Atrino-pinot)
+  - {maven_download}`pinot`
 * - postgresql
   - [](/connector/postgresql)
-  - [io.trino:postgresql](https://central.sonatype.com/search?q=io.trino%3Atrino-postgresql)
+  - [io.trino:trino-postgresql](https://central.sonatype.com/search?q=io.trino%3Atrino-postgresql)
+  - {maven_download}`postgresql`
 * - prometheus
   - [](/connector/prometheus)
-  - [io.trino:prometheus](https://central.sonatype.com/search?q=io.trino%3Atrino-prometheus)
+  - [io.trino:trino-prometheus](https://central.sonatype.com/search?q=io.trino%3Atrino-prometheus)
+  - {maven_download}`prometheus`
 * - redis
   - [](/connector/redis)
-  - [io.trino:redis](https://central.sonatype.com/search?q=io.trino%3Atrino-redis)
+  - [io.trino:trino-redis](https://central.sonatype.com/search?q=io.trino%3Atrino-redis)
+  - {maven_download}`redis`
 * - redshift
   - [](/connector/redshift)
-  - [io.trino:redshift](https://central.sonatype.com/search?q=io.trino%3Atrino-redshift)
+  - [io.trino:trino-redshift](https://central.sonatype.com/search?q=io.trino%3Atrino-redshift)
+  - {maven_download}`redshift`
 * - resource-group-managers
   - [](/admin/resource-groups)
-  - [io.trino:resource-group-managers](https://central.sonatype.com/search?q=io.trino%3Atrino-resource-group-managers)
+  - [io.trino:trino-resource-group-managers](https://central.sonatype.com/search?q=io.trino%3Atrino-resource-group-managers)
+  - {maven_download}`resource-group-managers`
 * - session-property-managers
   - [](/admin/session-property-managers)
-  - [io.trino:session-property-managers](https://central.sonatype.com/search?q=io.trino%3Atrino-session-property-managers)
+  - [io.trino:trino-session-property-managers](https://central.sonatype.com/search?q=io.trino%3Atrino-session-property-managers)
+  - {maven_download}`session-property-managers`
 * - singlestore
   - [](/connector/singlestore)
-  - [io.trino:singlestore](https://central.sonatype.com/search?q=io.trino%3Atrino-singlestore)
+  - [io.trino:trino-singlestore](https://central.sonatype.com/search?q=io.trino%3Atrino-singlestore)
+  - {maven_download}`singlestore`
 * - snowflake
   - [](/connector/snowflake)
-  - [io.trino:snowflake](https://central.sonatype.com/search?q=io.trino%3Atrino-snowflake)
+  - [io.trino:trino-snowflake](https://central.sonatype.com/search?q=io.trino%3Atrino-snowflake)
+  - {maven_download}`snowflake`
 * - spooling-filesystem
   - Server side support for [](protocol-spooling)
-  - [io.trino:spooling-filesystem](https://central.sonatype.com/search?q=io.trino%3Atrino-spooling-filesystem)
+  - [io.trino:trino-spooling-filesystem](https://central.sonatype.com/search?q=io.trino%3Atrino-spooling-filesystem)
+  - {maven_download}`spooling-filesystem`
 * - sqlserver
   - [](/connector/sqlserver)
-  - [io.trino:sqlserver](https://central.sonatype.com/search?q=io.trino%3Atrino-sqlserver)
+  - [io.trino:trino-sqlserver](https://central.sonatype.com/search?q=io.trino%3Atrino-sqlserver)
+  - {maven_download}`sqlserver`
 * - teradata-functions
   - [](/functions/teradata)
-  - [io.trino:teradata-functions](https://central.sonatype.com/search?q=io.trino%3Atrino-teradata-functions)
+  - [io.trino:trino-teradata-functions](https://central.sonatype.com/search?q=io.trino%3Atrino-teradata-functions)
+  - {maven_download}`teradata-functions`
 * - thrift
   - [](/connector/thrift)
-  - [io.trino:thrift](https://central.sonatype.com/search?q=io.trino%3Atrino-thrift)
+  - [io.trino:trino-thrift](https://central.sonatype.com/search?q=io.trino%3Atrino-thrift)
+  - {maven_download}`thrift`
 * - tpcds
   - [](/connector/tpcds)
-  - [io.trino:tpcds](https://central.sonatype.com/search?q=io.trino%3Atrino-tpcds)
+  - [io.trino:trino-tpcds](https://central.sonatype.com/search?q=io.trino%3Atrino-tpcds)
+  - {maven_download}`tpcds`
 * - tpch
   - [](/connector/tpch)
-  - [io.trino:tpch](https://central.sonatype.com/search?q=io.trino%3Atrino-tpch)
+  - [io.trino:trino-tpch](https://central.sonatype.com/search?q=io.trino%3Atrino-tpch)
+  - {maven_download}`tpch`
 * - vertica
   - [](/connector/vertica)
-  - [io.trino:vertica](https://central.sonatype.com/search?q=io.trino%3Atrino-vertica)
-
+  - [io.trino:trino-vertica](https://central.sonatype.com/search?q=io.trino%3Atrino-vertica)
+  - {maven_download}`vertica`
 :::

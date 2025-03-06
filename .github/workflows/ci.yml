@@ -358,7 +358,6 @@ jobs:
             !:trino-ignite,
             !:trino-jdbc,
             !:trino-kafka,
-            !:trino-kudu,
             !:trino-main,
             !:trino-mariadb,
             !:trino-memory,
@@ -369,7 +368,6 @@ jobs:
             !:trino-oracle,
             !:trino-orc,
             !:trino-parquet,
-            !:trino-phoenix5,
             !:trino-pinot,
             !:trino-postgresql,
             !:trino-redis,
@@ -480,14 +478,12 @@ jobs:
             - { modules: plugin/trino-iceberg, profile: minio-and-avro }
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
             - { modules: plugin/trino-openlineage }
             - { modules: plugin/trino-opensearch }
             - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-redis }

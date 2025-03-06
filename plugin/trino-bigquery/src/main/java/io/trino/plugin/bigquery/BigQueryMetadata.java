@@ -257,17 +257,9 @@ public class BigQueryMetadata
 
     private List<SchemaTableName> listTablesInRemoteSchema(BigQueryClient client, String projectId, String remoteSchemaName)
     {
-        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         try {
             Iterable<TableId> tableIds = client.listTableIds(DatasetId.of(projectId, remoteSchemaName));
-            for (TableId tableId : tableIds) {
-                // filter ambiguous tables
-                client.toRemoteTable(projectId, remoteSchemaName, tableId.getTable().toLowerCase(ENGLISH), tableIds)
-                        .filter(RemoteDatabaseObject::isAmbiguous)
-                        .ifPresentOrElse(
-                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, tableId.getTable()),
-                                () -> tableNames.add(new SchemaTableName(client.toSchemaName(DatasetId.of(projectId, tableId.getDataset())), tableId.getTable())));
-            }
+            return client.listNonAmbiguousSchemaTableNames(projectId, remoteSchemaName, tableIds);
         }
         catch (TrinoException e) {
             if (e.getErrorCode() == BIGQUERY_LISTING_TABLE_ERROR.toErrorCode() &&
@@ -276,12 +268,10 @@ public class BigQueryMetadata
                     bigQueryException.getMessage().contains("Not found: Dataset")) {
                 // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
                 log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
+                return ImmutableList.of();
             }
-            else {
-                throw e;
-            }
+            throw e;
         }
-        return tableNames.build();
     }
 
     @Override

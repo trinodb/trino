@@ -10,6 +10,8 @@ connector/atop.md connector/removed.md
 connector/localfile.md connector/removed.md
 connector/accumulo.md connector/removed.md
 connector/kinesis.md connector/removed.md
+connector/kudu.md connector/removed.md
+connector/phoenix.md connector/removed.md
 object-storage/legacy-azure.md object-storage/file-system-azure.md
 object-storage/legacy-cos.md object-storage/file-system-s3.md 
 object-storage/legacy-gcs.md object-storage/file-system-gcs.md

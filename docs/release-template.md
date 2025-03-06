@@ -46,8 +46,6 @@
 
 ## Kafka connector
 
-## Kudu connector
-
 ## Loki connector
 
 ## MariaDB connector
@@ -61,8 +59,6 @@
 ## OpenSearch connector
 
 ## Oracle connector
-
-## Phoenix connector
 
 ## Pinot connector
 

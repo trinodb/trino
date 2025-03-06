@@ -110,6 +110,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -118,6 +119,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
@@ -232,7 +234,7 @@ public class Analysis
     private final Map<NodeRef<Table>, List<Expression>> checkConstraints = new LinkedHashMap<>();
 
     private final Multiset<ColumnMaskScopeEntry> columnMaskScopes = HashMultiset.create();
-    private final Map<NodeRef<Table>, Map<String, Expression>> columnMasks = new LinkedHashMap<>();
+    private final Map<NodeRef<Table>, Map<Field, Expression>> columnMasks = new LinkedHashMap<>();
 
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
@@ -1161,15 +1163,15 @@ public class Analysis
         referenceChain.pop();
     }
 
-    public void addColumnMask(Table table, String column, Expression mask)
+    public void addColumnMask(Table table, Field column, Expression mask)
     {
-        Map<String, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), node -> new LinkedHashMap<>());
-        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column);
+        Map<Field, Expression> masks = columnMasks.computeIfAbsent(NodeRef.of(table), _ -> new LinkedHashMap<>());
+        checkArgument(!masks.containsKey(column), "Mask already exists for column %s", column.getName().orElse("(unknown)"));
 
         masks.put(column, mask);
     }
 
-    public Map<String, Expression> getColumnMasks(Table table)
+    public Map<Field, Expression> getColumnMasks(Table table)
     {
         return unmodifiableMap(columnMasks.getOrDefault(NodeRef.of(table), ImmutableMap.of()));
     }
@@ -1189,7 +1191,7 @@ public class Analysis
                             .distinct()
                             .map(fieldName -> new ColumnInfo(
                                     fieldName,
-                                    Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(fieldName))
+                                    resolveColumnMask(table.getNode().getName(), fieldName, columnMasks.getOrDefault(table, ImmutableMap.of()))
                                             .map(Expression::toString)))
                             .collect(toImmutableList());
 
@@ -1208,6 +1210,23 @@ public class Analysis
                             info.getReferenceChain());
                 })
                 .collect(toImmutableList());
+    }
+
+    private static Optional<Expression> resolveColumnMask(QualifiedName tableName, String fieldName, Map<Field, Expression> expressions)
+    {
+        QualifiedName qualifiedFieldName = concatIdentifier(tableName, fieldName);
+        return expressions.entrySet().stream()
+                .filter(fieldExpression -> fieldExpression.getKey().canResolve(qualifiedFieldName))
+                .collect(toOptional())
+                .map(Map.Entry::getValue);
+    }
+
+    private static QualifiedName concatIdentifier(QualifiedName tableName, String fieldName)
+    {
+        return QualifiedName.of(Stream.concat(
+                        tableName.getOriginalParts().stream(),
+                        Stream.of(new Identifier(fieldName)))
+                .collect(toImmutableList()));
     }
 
     public List<RoutineInfo> getRoutines()
