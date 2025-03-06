@@ -43,6 +43,7 @@ public class HudiBackgroundSplitLoader
     private final int splitGeneratorNumThreads;
     private final HudiSplitFactory hudiSplitFactory;
     private final List<String> partitions;
+    private final String commitTime;
 
     public HudiBackgroundSplitLoader(
             ConnectorSession session,
@@ -51,7 +52,8 @@ public class HudiBackgroundSplitLoader
             AsyncQueue<ConnectorSplit> asyncQueue,
             Executor splitGeneratorExecutor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
-            List<String> partitions)
+            List<String> partitions,
+            String commitTime)
     {
         this.hudiDirectoryLister = requireNonNull(hudiDirectoryLister, "hudiDirectoryLister is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
@@ -59,6 +61,7 @@ public class HudiBackgroundSplitLoader
         this.splitGeneratorNumThreads = getSplitGeneratorParallelism(session);
         this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider);
         this.partitions = requireNonNull(partitions, "partitions is null");
+        this.commitTime = requireNonNull(commitTime, "commitTime is null");
     }
 
     @Override
@@ -70,7 +73,7 @@ public class HudiBackgroundSplitLoader
 
         // Start a number of partition split generators to generate the splits in parallel
         for (int i = 0; i < splitGeneratorNumThreads; i++) {
-            HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue);
+            HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, commitTime, hudiSplitFactory, asyncQueue, partitionQueue);
             splitGeneratorList.add(generator);
             splitGeneratorFutures.add(Futures.submit(generator, splitGeneratorExecutor));
         }
