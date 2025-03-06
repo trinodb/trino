@@ -19,7 +19,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -133,7 +133,7 @@ public final class IcebergSessionProperties
                 .add(enumProperty(
                         COMPRESSION_CODEC,
                         "Compression codec to use when writing files",
-                        HiveCompressionCodec.class,
+                        HiveCompressionOption.class,
                         icebergConfig.getCompressionCodec(),
                         false))
                 .add(booleanProperty(
@@ -505,9 +505,9 @@ public final class IcebergSessionProperties
         return Optional.ofNullable(session.getProperty(SPLIT_SIZE, DataSize.class));
     }
 
-    public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
+    public static HiveCompressionOption getCompressionCodec(ConnectorSession session)
     {
-        return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
+        return session.getProperty(COMPRESSION_CODEC, HiveCompressionOption.class);
     }
 
     public static boolean isUseFileSizeFromMetadata(ConnectorSession session)
