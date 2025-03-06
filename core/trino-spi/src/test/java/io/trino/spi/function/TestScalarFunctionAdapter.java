@@ -554,6 +554,7 @@ public class TestScalarFunctionAdapter
                     callArguments.add(fixedSlice);
                     callArguments.add(0);
                     callArguments.add(variableSlice);
+                    callArguments.add(0);
                 }
                 case IN_OUT -> callArguments.add(new TestingInOut(argumentType, testValue));
                 default -> throw new IllegalArgumentException("Unsupported argument convention: " + argumentConvention);

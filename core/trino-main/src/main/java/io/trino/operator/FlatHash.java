@@ -31,6 +31,7 @@ import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
+import static io.trino.operator.VariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.addExact;
@@ -179,11 +180,13 @@ public final class FlatHash
         int recordOffset = getRecordOffset(index);
 
         byte[] variableWidthChunk = EMPTY_CHUNK;
+        int variableWidthOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
+            variableWidthOffset = getChunkOffset(records, recordOffset);
         }
 
-        flatHashStrategy.readFlat(records, recordOffset + recordValueOffset, variableWidthChunk, blockBuilders);
+        flatHashStrategy.readFlat(records, recordOffset + recordValueOffset, variableWidthChunk, variableWidthOffset, blockBuilders);
         if (hasPrecomputedHash) {
             BIGINT.writeLong(blockBuilders[blockBuilders.length - 1], (long) LONG_HANDLE.get(records, recordOffset + recordHashOffset));
         }
@@ -310,7 +313,7 @@ public final class FlatHash
         if (variableWidthData != null) {
             int variableWidthSize = flatHashStrategy.getTotalVariableWidth(blocks, position);
             variableWidthChunk = variableWidthData.allocate(records, recordOffset, variableWidthSize);
-            variableWidthChunkOffset = VariableWidthData.getChunkOffset(records, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(records, recordOffset);
         }
         flatHashStrategy.writeFlat(blocks, position, records, recordOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset);
         return groupId;
@@ -474,11 +477,13 @@ public final class FlatHash
 
         try {
             byte[] variableWidthChunk = EMPTY_CHUNK;
+            int variableWidthOffset = 0;
             if (variableWidthData != null) {
                 variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
+                variableWidthOffset = getChunkOffset(records, recordOffset);
             }
 
-            return flatHashStrategy.hash(records, recordOffset + recordValueOffset, variableWidthChunk);
+            return flatHashStrategy.hash(records, recordOffset + recordValueOffset, variableWidthChunk, variableWidthOffset);
         }
         catch (Throwable throwable) {
             throwIfUnchecked(throwable);
@@ -499,14 +504,17 @@ public final class FlatHash
         }
 
         byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        int leftVariableWidthOffset = 0;
         if (variableWidthData != null) {
             leftVariableWidthChunk = variableWidthData.getChunk(leftRecords, leftRecordOffset);
+            leftVariableWidthOffset = getChunkOffset(leftRecords, leftRecordOffset);
         }
 
         return flatHashStrategy.valueIdentical(
                 leftRecords,
                 leftRecordOffset + recordValueOffset,
                 leftVariableWidthChunk,
+                leftVariableWidthOffset,
                 rightBlocks,
                 rightPosition);
     }

@@ -22,6 +22,7 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
+import io.trino.spi.function.FlatVariableOffset;
 import io.trino.spi.function.FlatVariableWidth;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -605,12 +606,14 @@ public final class TypeOperatorDeclaration
                 }
             }
             else if (isAnnotationPresent(parameterAnnotations.get(0), FlatFixed.class)) {
-                if (parameterTypes.size() > 2 &&
+                if (parameterTypes.size() > 3 &&
                         isAnnotationPresent(parameterAnnotations.get(1), FlatFixedOffset.class) &&
                         isAnnotationPresent(parameterAnnotations.get(2), FlatVariableWidth.class) &&
+                        isAnnotationPresent(parameterAnnotations.get(3), FlatVariableOffset.class) &&
                         parameterTypes.get(0).equals(byte[].class) &&
                         parameterTypes.get(1).equals(int.class) &&
-                        parameterTypes.get(2).equals(byte[].class)) {
+                        parameterTypes.get(2).equals(byte[].class) &&
+                        parameterTypes.get(3).equals(int.class)) {
                     return FLAT;
                 }
             }

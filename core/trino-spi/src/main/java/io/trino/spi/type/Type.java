@@ -247,14 +247,9 @@ public interface Type
     int getFlatVariableWidthSize(Block block, int position);
 
     /**
-     * Update the variable width offsets recorded in the value.
-     * This method is called after the value has been moved to a new location, and therefore the offsets
-     * need to be updated.
-     * Returns the length of the variable width data, so container types can update their offsets.
-     *
-     * @return the length of the variable width data
+     * Returns the variable width size of the value already written at the specified position within a flat buffer
      */
-    int relocateFlatVariableWidthOffsets(byte[] fixedSizeSlice, int fixedSizeOffset, byte[] variableSizeSlice, int variableSizeOffset);
+    int getFlatVariableWidthLength(byte[] fixedSizeSlice, int fixedSizeOffset);
 
     final class Range
     {
