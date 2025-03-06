@@ -46,8 +46,6 @@
 
 ## Kafka connector
 
-## Kudu connector
-
 ## Loki connector
 
 ## MariaDB connector
