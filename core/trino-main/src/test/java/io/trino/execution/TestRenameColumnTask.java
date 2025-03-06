@@ -118,7 +118,7 @@ public class TestRenameColumnTask
     public void testRenameColumnOnMaterializedView()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(materializedViewName), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(materializedViewName), QualifiedName.of("a"), identifier("a_renamed"), false, false)))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -212,7 +212,7 @@ public class TestRenameColumnTask
     public void testRenameFieldOnMaterializedView()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(materializedViewName), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameColumn(asQualifiedName(materializedViewName), QualifiedName.of("test"), identifier("x"), false, false)))
                 .hasErrorCode(TABLE_NOT_FOUND)

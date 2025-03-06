@@ -120,6 +120,9 @@ public abstract class AbstractTrinoCatalog
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
 
+    private static final String TRINO_VIEW_CATALOG = HiveMetadata.TRINO_VIEW_CATALOG;
+    private static final String TRINO_VIEW_CATALOG_VALUE = "Iceberg";
+
     private final CatalogName catalogName;
     protected final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
@@ -484,6 +487,7 @@ public abstract class AbstractTrinoCatalog
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
                 .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
+                .put(TRINO_VIEW_CATALOG, TRINO_VIEW_CATALOG_VALUE)
                 .buildOrThrow();
     }
 
@@ -495,6 +499,7 @@ public abstract class AbstractTrinoCatalog
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
                 .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
+                .put(TRINO_VIEW_CATALOG, TRINO_VIEW_CATALOG_VALUE)
                 .buildOrThrow();
     }
 
