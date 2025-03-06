@@ -24,7 +24,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.airlift.units.ThreadCount;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -81,7 +81,7 @@ public class DeltaLakeConfig
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
-    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.ZSTD;
+    private HiveCompressionOption compressionCodec = HiveCompressionOption.ZSTD;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean storeTableMetadataEnabled;
     private int storeTableMetadataThreads = 5;
@@ -378,14 +378,14 @@ public class DeltaLakeConfig
     }
 
     @NotNull
-    public HiveCompressionCodec getCompressionCodec()
+    public HiveCompressionOption getCompressionCodec()
     {
         return compressionCodec;
     }
 
     @Config("delta.compression-codec")
     @ConfigDescription("Compression codec to use when writing new data files")
-    public DeltaLakeConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
+    public DeltaLakeConfig setCompressionCodec(HiveCompressionOption compressionCodec)
     {
         this.compressionCodec = compressionCodec;
         return this;

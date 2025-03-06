@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -61,7 +61,7 @@ public class TestDeltaLakeConfig
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
                 .setCollectExtendedStatisticsOnWrite(true)
-                .setCompressionCodec(HiveCompressionCodec.ZSTD)
+                .setCompressionCodec(HiveCompressionOption.ZSTD)
                 .setDeleteSchemaLocationsFallback(false)
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
@@ -144,7 +144,7 @@ public class TestDeltaLakeConfig
                 .setTableStatisticsEnabled(false)
                 .setExtendedStatisticsEnabled(false)
                 .setCollectExtendedStatisticsOnWrite(false)
-                .setCompressionCodec(HiveCompressionCodec.GZIP)
+                .setCompressionCodec(HiveCompressionOption.GZIP)
                 .setDeleteSchemaLocationsFallback(true)
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(500)
