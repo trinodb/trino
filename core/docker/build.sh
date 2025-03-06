@@ -99,7 +99,7 @@ if [ -n "$TRINO_VERSION" ]; then
 else
     TRINO_VERSION=$("${SOURCE_DIR}/mvnw" -f "${SOURCE_DIR}/pom.xml" --quiet help:evaluate -Dexpression=project.version -DforceStdout)
     echo "🎯 Using currently built artifacts from the core/trino-server and client/trino-cli modules and version ${TRINO_VERSION}"
-    trino_server="${SOURCE_DIR}/core/trino-server/target/trino-server-${TRINO_VERSION}.tar.gz"
+    trino_server="${SOURCE_DIR}/core/trino-server-core/target/trino-server-core-${TRINO_VERSION}.tar.gz"
     trino_client="${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-executable.jar"
 fi
 
@@ -107,12 +107,12 @@ echo "🧱 Preparing the image build context directory"
 WORK_DIR="$(mktemp -d)"
 cp "$trino_server" "${WORK_DIR}/"
 cp "$trino_client" "${WORK_DIR}/"
-tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
-rm "${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz"
+tar -C "${WORK_DIR}" -xzf "${WORK_DIR}/trino-server-core-${TRINO_VERSION}.tar.gz"
+rm "${WORK_DIR}/trino-server-core-${TRINO_VERSION}.tar.gz"
 cp -R bin "${WORK_DIR}/trino-server-${TRINO_VERSION}"
 cp -R default "${WORK_DIR}/"
 
-TAG_PREFIX="trino:${TRINO_VERSION}"
+TAG_PREFIX="trino-core:${TRINO_VERSION}"
 
 for arch in "${ARCHITECTURES[@]}"; do
     echo "🫙  Building the image for $arch with JDK ${JDK_RELEASE}"
