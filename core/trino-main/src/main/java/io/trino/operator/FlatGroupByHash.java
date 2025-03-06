@@ -128,11 +128,6 @@ public class FlatGroupByHash
         currentHashes = other.currentHashes == null ? null : Arrays.copyOf(other.currentHashes, other.currentHashes.length);
     }
 
-    public int getPhysicalPosition(int groupId)
-    {
-        return flatHash.getPhysicalPosition(groupId);
-    }
-
     @Override
     public long getRawHash(int groupId)
     {

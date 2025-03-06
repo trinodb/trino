@@ -43,9 +43,7 @@ import org.openjdk.jmh.runner.RunnerException;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -267,14 +265,10 @@ public class BenchmarkGroupByHash
             prefilledHash = new FlatGroupByHash(data.getTypes(), data.getFlatGroupByHashMode(), EXPECTED_SIZE, false, new FlatHashStrategyCompiler(new TypeOperators()), NOOP);
             addInputPagesToHash(prefilledHash, data.getPages());
 
-            Integer[] groupIds = new Integer[prefilledHash.getGroupCount()];
-            for (int i = 0; i < groupIds.length; i++) {
-                groupIds[i] = i;
+            groupIdsByPhysicalOrder = new int[prefilledHash.getGroupCount()];
+            for (int i = 0; i < groupIdsByPhysicalOrder.length; i++) {
+                groupIdsByPhysicalOrder[i] = i;
             }
-            if (prefilledHash instanceof FlatGroupByHash flatGroupByHash) {
-                Arrays.sort(groupIds, Comparator.comparing(flatGroupByHash::getPhysicalPosition));
-            }
-            groupIdsByPhysicalOrder = Arrays.stream(groupIds).mapToInt(Integer::intValue).toArray();
 
             outputTypes = new ArrayList<>(data.getTypes());
             if (data.isHashPrecomputed()) {
