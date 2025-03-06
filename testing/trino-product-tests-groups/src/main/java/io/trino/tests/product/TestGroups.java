@@ -84,7 +84,6 @@ public final class TestGroups
     public static final String ICEBERG_REST = "iceberg_rest";
     public static final String ICEBERG_JDBC = "iceberg_jdbc";
     public static final String ICEBERG_NESSIE = "iceberg_nessie";
-    public static final String PHOENIX = "phoenix";
     public static final String CLICKHOUSE = "clickhouse";
     public static final String MARIADB = "mariadb";
     public static final String RANGER = "ranger";
