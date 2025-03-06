@@ -110,7 +110,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -119,7 +118,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.sql.analyzer.QueryType.DESCRIBE;
 import static io.trino.sql.analyzer.QueryType.EXPLAIN;
 import static java.lang.Boolean.FALSE;
@@ -156,7 +154,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
 
     // a map of users to the columns per table that they access
-    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<Field>>> tableColumnReferences = new LinkedHashMap<>();
 
     // Record fields prefixed with labels in row pattern recognition context
     private final Map<NodeRef<Expression>, Optional<String>> labels = new LinkedHashMap<>();
@@ -961,10 +959,10 @@ public class Analysis
         return unnestAnalysis.get(NodeRef.of(node));
     }
 
-    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
+    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, Field> tableColumnMap)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        Map<QualifiedObjectName, Set<Field>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMap.asMap()
                 .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
@@ -1092,7 +1090,7 @@ public class Analysis
         return jsonTableAnalyses.get(NodeRef.of(jsonTable));
     }
 
-    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<Field>>> getTableColumnReferences()
     {
         return tableColumnReferences;
     }
@@ -1188,11 +1186,11 @@ public class Analysis
                             .map(tablesToColumns -> tablesToColumns.get(tableName))
                             .filter(Objects::nonNull)
                             .flatMap(Collection::stream)
-                            .distinct()
-                            .map(fieldName -> new ColumnInfo(
-                                    fieldName,
-                                    resolveColumnMask(table.getNode().getName(), fieldName, columnMasks.getOrDefault(table, ImmutableMap.of()))
+                            .map(field -> new ColumnInfo(
+                                    field.getOriginColumnName().get(),
+                                    Optional.ofNullable(columnMasks.getOrDefault(table, ImmutableMap.of()).get(field))
                                             .map(Expression::toString)))
+                            .distinct()
                             .collect(toImmutableList());
 
                     TableEntry info = entry.getValue();
@@ -1210,23 +1208,6 @@ public class Analysis
                             info.getReferenceChain());
                 })
                 .collect(toImmutableList());
-    }
-
-    private static Optional<Expression> resolveColumnMask(QualifiedName tableName, String fieldName, Map<Field, Expression> expressions)
-    {
-        QualifiedName qualifiedFieldName = concatIdentifier(tableName, fieldName);
-        return expressions.entrySet().stream()
-                .filter(fieldExpression -> fieldExpression.getKey().canResolve(qualifiedFieldName))
-                .collect(toOptional())
-                .map(Map.Entry::getValue);
-    }
-
-    private static QualifiedName concatIdentifier(QualifiedName tableName, String fieldName)
-    {
-        return QualifiedName.of(Stream.concat(
-                        tableName.getOriginalParts().stream(),
-                        Stream.of(new Identifier(fieldName)))
-                .collect(toImmutableList()));
     }
 
     public List<RoutineInfo> getRoutines()
