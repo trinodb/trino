@@ -29,9 +29,8 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfByteArray;
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
-import static io.trino.operator.VariableWidthData.POINTER_SIZE;
-import static io.trino.operator.VariableWidthData.getChunkOffset;
+import static io.trino.operator.AppendOnlyVariableWidthData.POINTER_SIZE;
+import static io.trino.operator.AppendOnlyVariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.addExact;
@@ -74,7 +73,7 @@ public final class FlatHash
 
     private byte[] control;
     private byte[][] recordGroups;
-    private final VariableWidthData variableWidthData;
+    private final AppendOnlyVariableWidthData variableWidthData;
 
     // position of each group in the hash table
     private int[] groupRecordIndex;
@@ -105,7 +104,7 @@ public final class FlatHash
         // 2. groupId (int)
         // 3. fixed data for each type
         boolean variableWidth = flatHashStrategy.isAnyVariableWidth();
-        variableWidthData = variableWidth ? new VariableWidthData() : null;
+        variableWidthData = variableWidth ? new AppendOnlyVariableWidthData() : null;
         recordGroupIdOffset = (variableWidth ? POINTER_SIZE : 0);
         recordHashOffset = recordGroupIdOffset + Integer.BYTES;
         recordValueOffset = recordHashOffset + (hasPrecomputedHash ? Long.BYTES : 0);
@@ -130,7 +129,7 @@ public final class FlatHash
         recordGroups = Arrays.stream(other.recordGroups)
                 .map(records -> records == null ? null : Arrays.copyOf(records, records.length))
                 .toArray(byte[][]::new);
-        variableWidthData = other.variableWidthData == null ? null : new VariableWidthData(other.variableWidthData);
+        variableWidthData = other.variableWidthData == null ? null : new AppendOnlyVariableWidthData(other.variableWidthData);
         groupRecordIndex = Arrays.copyOf(other.groupRecordIndex, other.groupRecordIndex.length);
         checkMemoryReservation = other.checkMemoryReservation;
         fixedSizeEstimate = other.fixedSizeEstimate;
@@ -179,7 +178,7 @@ public final class FlatHash
         byte[] records = getRecords(index);
         int recordOffset = getRecordOffset(index);
 
-        byte[] variableWidthChunk = EMPTY_CHUNK;
+        byte[] variableWidthChunk = null;
         int variableWidthOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
@@ -308,7 +307,7 @@ public final class FlatHash
             LONG_HANDLE.set(records, recordOffset + recordHashOffset, hash);
         }
 
-        byte[] variableWidthChunk = EMPTY_CHUNK;
+        byte[] variableWidthChunk = null;
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             int variableWidthSize = flatHashStrategy.getTotalVariableWidth(blocks, position);
@@ -476,7 +475,7 @@ public final class FlatHash
         int recordOffset = getRecordOffset(index);
 
         try {
-            byte[] variableWidthChunk = EMPTY_CHUNK;
+            byte[] variableWidthChunk = null;
             int variableWidthOffset = 0;
             if (variableWidthData != null) {
                 variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
@@ -503,7 +502,7 @@ public final class FlatHash
             }
         }
 
-        byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        byte[] leftVariableWidthChunk = null;
         int leftVariableWidthOffset = 0;
         if (variableWidthData != null) {
             leftVariableWidthChunk = variableWidthData.getChunk(leftRecords, leftRecordOffset);
