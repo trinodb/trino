@@ -22,7 +22,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.ThreadCount;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -38,7 +38,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.Locale.ENGLISH;
@@ -61,7 +60,7 @@ public class IcebergConfig
     public static final String REMOVE_ORPHAN_FILES_MIN_RETENTION = "iceberg.remove-orphan-files.min-retention";
 
     private IcebergFileFormat fileFormat = PARQUET;
-    private HiveCompressionCodec compressionCodec = ZSTD;
+    private HiveCompressionOption compressionCodec = HiveCompressionOption.ZSTD;
     private int maxCommitRetry = COMMIT_NUM_RETRIES_DEFAULT;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
@@ -125,13 +124,13 @@ public class IcebergConfig
     }
 
     @NotNull
-    public HiveCompressionCodec getCompressionCodec()
+    public HiveCompressionOption getCompressionCodec()
     {
         return compressionCodec;
     }
 
     @Config("iceberg.compression-codec")
-    public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
+    public IcebergConfig setCompressionCodec(HiveCompressionOption compressionCodec)
     {
         this.compressionCodec = compressionCodec;
         return this;

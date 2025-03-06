@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -176,7 +177,7 @@ public class IcebergFileWriterFactory
                     .setBloomFilterColumns(getParquetBloomFilterColumns(storageProperties))
                     .build();
 
-            HiveCompressionCodec hiveCompressionCodec = getCompressionCodec(session);
+            HiveCompressionCodec hiveCompressionCodec = toCompressionCodec(getCompressionCodec(session));
             return new IcebergParquetFileWriter(
                     metricsConfig,
                     outputFile,
@@ -240,7 +241,7 @@ public class IcebergFileWriterFactory
                     fileColumnNames,
                     fileColumnTypes,
                     toOrcType(icebergSchema),
-                    getCompressionCodec(session).getOrcCompressionKind(),
+                    toCompressionCodec(getCompressionCodec(session)).getOrcCompressionKind(),
                     withBloomFilterOptions(orcWriterOptions, storageProperties)
                             .withStripeMinSize(getOrcWriterMinStripeSize(session))
                             .withStripeMaxSize(getOrcWriterMaxStripeSize(session))
@@ -298,6 +299,6 @@ public class IcebergFileWriterFactory
                 rollbackAction,
                 icebergSchema,
                 columnTypes,
-                getCompressionCodec(session));
+                toCompressionCodec(getCompressionCodec(session)));
     }
 }

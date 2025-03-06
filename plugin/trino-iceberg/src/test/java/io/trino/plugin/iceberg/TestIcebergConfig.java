@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
+import static io.trino.plugin.hive.HiveCompressionOption.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -126,7 +126,7 @@ public class TestIcebergConfig
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(ORC)
-                .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setCompressionCodec(HiveCompressionOption.NONE)
                 .setMaxCommitRetry(100)
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
