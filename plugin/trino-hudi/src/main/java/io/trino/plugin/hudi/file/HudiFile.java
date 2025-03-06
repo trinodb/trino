@@ -11,26 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi.model;
+package io.trino.plugin.hudi.file;
 
-import static java.util.Objects.requireNonNull;
-
-public enum HudiFileFormat
+public interface HudiFile
 {
-    PARQUET(".parquet"),
-    HOODIE_LOG(".log"),
-    HFILE(".hfile"),
-    ORC(".orc");
+    String getPath();
 
-    private final String extension;
+    long getFileSize();
 
-    HudiFileFormat(String extension)
-    {
-        this.extension = requireNonNull(extension, "extension is null");
-    }
+    long getModificationTime();
 
-    public String getFileExtension()
-    {
-        return extension;
-    }
+    long getStart();
+
+    long getLength();
 }
