@@ -223,7 +223,9 @@ public class InternalFunctionBundle
 
         public InternalFunctionBundleBuilder scalar(Class<?> clazz)
         {
-            functions.addAll(ScalarFromAnnotationsParser.parseFunctionDefinition(clazz));
+            List<SqlScalarFunction> scalarFunctions = ScalarFromAnnotationsParser.parseFunctionDefinition(clazz);
+            scalarFunctions.forEach(function -> checkArgument(function.getSchemaName().isEmpty(), "Function must not have a schema name: %s", function));
+            functions.addAll(scalarFunctions);
             return this;
         }
 
