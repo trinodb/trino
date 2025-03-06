@@ -72,6 +72,7 @@ public final class EnvMultinodeAllConnectors
                         "prometheus",
                         "redis",
                         "redshift",
+                        "scylladb",
                         "singlestore",
                         "snowflake",
                         "sqlserver",

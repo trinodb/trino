@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.scylladb;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
@@ -21,9 +21,12 @@ import com.datastax.oss.driver.api.core.config.ProgrammaticDriverConfigLoaderBui
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import org.testcontainers.containers.GenericContainer;
+import io.trino.plugin.cassandra.CassandraServer;
+import io.trino.plugin.cassandra.CassandraSession;
+import io.trino.plugin.cassandra.ExtraColumnMetadata;
+import io.trino.plugin.cassandra.SizeEstimate;
+import org.testcontainers.scylladb.ScyllaDBContainer;
 
-import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
@@ -38,27 +41,28 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestingScyllaServer
-        implements Closeable
+public class TestingScyllaDbServer
+        implements CassandraServer
 {
-    private static final Logger log = Logger.get(TestingScyllaServer.class);
+    private static final Logger log = Logger.get(TestingScyllaDbServer.class);
 
     private static final int PORT = 9042;
 
+    private static final String VERSION = "6.2";
+
     private static final Duration REFRESH_SIZE_ESTIMATES_TIMEOUT = new Duration(1, MINUTES);
 
-    private final GenericContainer<?> container;
+    private final ScyllaDBContainer container;
     private final CassandraSession session;
 
-    public TestingScyllaServer()
+    public TestingScyllaDbServer()
     {
-        this("6.2");
+        this(VERSION);
     }
 
-    public TestingScyllaServer(String version)
+    public TestingScyllaDbServer(String version)
     {
-        container = new GenericContainer<>("scylladb/scylla:" + version)
-                .withExposedPorts(PORT);
+        container = new ScyllaDBContainer("scylladb/scylla:" + version);
         container.start();
 
         ProgrammaticDriverConfigLoaderBuilder config = DriverConfigLoader.programmaticBuilder();
@@ -81,21 +85,25 @@ public class TestingScyllaServer
                 new Duration(1, MINUTES));
     }
 
+    @Override
     public CassandraSession getSession()
     {
         return session;
     }
 
+    @Override
     public String getHost()
     {
         return container.getHost();
     }
 
+    @Override
     public int getPort()
     {
         return container.getMappedPort(PORT);
     }
 
+    @Override
     public void refreshSizeEstimates(String keyspace, String table)
             throws Exception
     {

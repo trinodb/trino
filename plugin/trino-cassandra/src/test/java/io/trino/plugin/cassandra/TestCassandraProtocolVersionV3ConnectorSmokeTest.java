@@ -30,7 +30,7 @@ public class TestCassandraProtocolVersionV3ConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = closeAfterClass(new CassandraServer());
+        CassandraServer server = closeAfterClass(new TestingCassandraServer());
         CassandraSession session = server.getSession();
         createTestTables(session, KEYSPACE, Timestamp.from(TIMESTAMP_VALUE.toInstant()));
         return CassandraQueryRunner.builder(server)
