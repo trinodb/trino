@@ -172,7 +172,8 @@ public final class HudiUtil
         return fieldBuilder.endRecord();
     }
 
-    public static List<HiveColumnHandle> prependHudiMetaColumns(List<HiveColumnHandle> dataColumns) {
+    public static List<HiveColumnHandle> prependHudiMetaColumns(List<HiveColumnHandle> dataColumns)
+    {
         List<HiveColumnHandle> columns = new ArrayList<>();
         columns.addAll(IntStream.range(0, HOODIE_META_COLUMNS.size())
                 .boxed()

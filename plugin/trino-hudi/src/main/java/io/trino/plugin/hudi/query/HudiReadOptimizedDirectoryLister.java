@@ -109,7 +109,8 @@ public class HudiReadOptimizedDirectoryLister
                 .orElse(0);
     }
 
-    private static StoragePathInfo getStoragePathInfo(HoodieBaseFile baseFile) {
+    private static StoragePathInfo getStoragePathInfo(HoodieBaseFile baseFile)
+    {
         if (baseFile.getBootstrapBaseFile().isPresent()) {
             return baseFile.getBootstrapBaseFile().get().getPathInfo();
         }

@@ -1,25 +1,40 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.hudi.file;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.hudi.common.model.HoodieBaseFile;
 
-import java.util.Objects;
-
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class HudiBaseFile implements HudiFile {
+public class HudiBaseFile
+        implements HudiFile
+{
     private final String path;
     private final long fileSize;
     private final long modificationTime;
     private final long start;
     private final long length;
 
-    public static HudiBaseFile of(HoodieBaseFile baseFile) {
+    public static HudiBaseFile of(HoodieBaseFile baseFile)
+    {
         return of(baseFile, 0, baseFile.getFileSize());
     }
 
-    public static HudiBaseFile of(HoodieBaseFile baseFile, long start, long length) {
+    public static HudiBaseFile of(HoodieBaseFile baseFile, long start, long length)
+    {
         return new HudiBaseFile(baseFile, start, length);
     }
 
@@ -28,7 +43,8 @@ public class HudiBaseFile implements HudiFile {
                         @JsonProperty("fileSize") long fileSize,
                         @JsonProperty("modificationTime") long modificationTime,
                         @JsonProperty("start") long start,
-                        @JsonProperty("length") long length) {
+                        @JsonProperty("length") long length)
+    {
         this.path = path;
         this.fileSize = fileSize;
         this.modificationTime = modificationTime;
@@ -36,7 +52,8 @@ public class HudiBaseFile implements HudiFile {
         this.length = length;
     }
 
-    private HudiBaseFile(HoodieBaseFile baseFile, long start, long length) {
+    private HudiBaseFile(HoodieBaseFile baseFile, long start, long length)
+    {
         checkArgument(baseFile != null, "baseFile is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -49,27 +66,32 @@ public class HudiBaseFile implements HudiFile {
     }
 
     @JsonProperty
-    public String getPath() {
+    public String getPath()
+    {
         return path;
     }
 
     @JsonProperty
-    public long getFileSize() {
+    public long getFileSize()
+    {
         return fileSize;
     }
 
     @JsonProperty
-    public long getModificationTime() {
+    public long getModificationTime()
+    {
         return modificationTime;
     }
 
     @JsonProperty
-    public long getStart() {
+    public long getStart()
+    {
         return start;
     }
 
     @JsonProperty
-    public long getLength() {
+    public long getLength()
+    {
         return length;
     }
 }

@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.hudi;
 
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -37,7 +50,8 @@ import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 import static org.apache.hudi.common.model.HoodieRecord.RECORD_KEY_META_FIELD_ORD;
 
 public class HudiSnapshotPageSource
-        implements ConnectorPageSource {
+        implements ConnectorPageSource
+{
     private static final long LOG_SCANNER_MAX_MEMORY_BYTES = 1024 * 1024L;
     private static final int LOG_SCANNER_BUFFER_BYTES = 1024 * 1024;
     private static final String SPILLABLE_MAP_BASE_PATH = "/tmp/";
@@ -62,7 +76,8 @@ public class HudiSnapshotPageSource
                                   Optional<ConnectorPageSource> baseFilePageSource,
                                   List<HiveColumnHandle> dataHandles,
                                   List<HiveColumnHandle> columnHandles,
-                                  Optional<String> preCombineField) {
+                                  Optional<String> preCombineField)
+    {
         this.storage = storage;
         this.basePath = basePath;
         this.split = split;
@@ -86,17 +101,20 @@ public class HudiSnapshotPageSource
     }
 
     @Override
-    public long getCompletedBytes() {
+    public long getCompletedBytes()
+    {
         return 0;
     }
 
     @Override
-    public long getReadTimeNanos() {
+    public long getReadTimeNanos()
+    {
         return 0;
     }
 
     @Override
-    public boolean isFinished() {
+    public boolean isFinished()
+    {
         return (baseFilePageSource.isEmpty() || baseFilePageSource.get().isFinished())
                 && (logRecordMap != null && logRecordMap.isEmpty());
     }
@@ -109,7 +127,6 @@ public class HudiSnapshotPageSource
         }
         return CompletableFuture.completedFuture(0);
     }
-
 
     @Override
     public OptionalLong getCompletedPositions()
@@ -130,11 +147,13 @@ public class HudiSnapshotPageSource
     }
 
     @Override
-    public Page getNextPage() {
+    public Page getNextPage()
+    {
         if (logRecordMap == null) {
             try (HoodieMergedLogRecordScanner logScanner = getMergedLogRecordScanner(storage, basePath, split, readerSchema)) {
                 logRecordMap = logScanner.getRecords();
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 throw new HoodieIOException("Cannot read Hudi split " + split, e);
             }
         }
@@ -158,7 +177,8 @@ public class HudiSnapshotPageSource
                                 continue;
                             }
                             avroSerializer.buildRecordInPage(pageBuilder, mergedRecord.get().getData(), partitionValueMap, true);
-                        } else {
+                        }
+                        else {
                             avroSerializer.buildRecordInPage(pageBuilder, page, pos, partitionValueMap, true);
                         }
                     }
@@ -166,7 +186,8 @@ public class HudiSnapshotPageSource
                     Page newPage = pageBuilder.build();
                     pageBuilder.reset();
                     return newPage;
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     throw new HoodieIOException("Cannot merge record in split " + split);
                 }
             }
@@ -189,19 +210,23 @@ public class HudiSnapshotPageSource
     }
 
     @Override
-    public long getMemoryUsage() {
+    public long getMemoryUsage()
+    {
         return 0;
     }
 
     @Override
-    public void close() throws IOException {
-
+    public void close()
+            throws IOException
+    {
     }
 
     private static HoodieMergedLogRecordScanner getMergedLogRecordScanner(HoodieStorage storage,
                                                                           String basePath,
                                                                           HudiSplit split,
-                                                                          Schema readerSchema) throws IOException {
+                                                                          Schema readerSchema)
+            throws IOException
+    {
         return HoodieMergedLogRecordScanner.newBuilder()
                 .withStorage(storage)
                 .withBasePath(basePath)
@@ -219,7 +244,9 @@ public class HudiSnapshotPageSource
                 .build();
     }
 
-    private Option<HoodieAvroIndexedRecord> mergeRecord(IndexedRecord baseRecord, HoodieRecord<?> newRecord) throws IOException {
+    private Option<HoodieAvroIndexedRecord> mergeRecord(IndexedRecord baseRecord, HoodieRecord<?> newRecord)
+            throws IOException
+    {
         HoodieAvroIndexedRecord baseHudiRecord = new HoodieAvroIndexedRecord(baseRecord);
         Option<Pair<HoodieRecord, Schema>> mergeResult = HoodieAvroRecordMerger.INSTANCE.merge(
                 baseHudiRecord, baseRecord.getSchema(), newRecord, readerSchema, payloadProps);
