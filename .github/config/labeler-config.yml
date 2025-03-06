@@ -95,10 +95,6 @@ oracle:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-oracle/**'
 
-phoenix5:
-  - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-phoenix5/**'
-
 pinot:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-pinot/**'
