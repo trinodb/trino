@@ -240,7 +240,7 @@ public final class GroupByHashYieldAssertion
         @SuppressWarnings("OverlyComplexArithmeticExpression")
         int sizePerEntry = Byte.BYTES + // control byte
                 Integer.BYTES + // groupId to hashPosition
-                VariableWidthData.POINTER_SIZE + // variable width pointer
+                AppendOnlyVariableWidthData.POINTER_SIZE + // variable width pointer
                 Integer.BYTES + // groupId
                 Long.BYTES + // rawHash (optional, but present in this test)
                 Byte.BYTES + // field null
