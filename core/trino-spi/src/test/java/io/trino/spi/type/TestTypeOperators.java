@@ -102,6 +102,7 @@ class TestTypeOperators
                 callArguments.add(fixedSlice);
                 callArguments.add(0);
                 callArguments.add(new byte[0]);
+                callArguments.add(0);
             }
             default -> throw new UnsupportedOperationException();
         }

@@ -314,6 +314,48 @@
                                     <old>method long io.trino.spi.connector.Connector::getInitialMemoryRequirement()</old>
                                     <justification>Remove unused connector method</justification>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method int io.trino.spi.type.Type::getFlatVariableWidthLength(byte[], int)</new>
+                                    <justification>New interface method required for new flat variable width data layouts</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.Type::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.AbstractVariableWidthType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.ArrayType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.FixedWidthType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.MapType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.RowType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

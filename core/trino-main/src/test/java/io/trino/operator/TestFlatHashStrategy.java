@@ -87,12 +87,12 @@ class TestFlatHashStrategy
                 assertThat(fixedChunk).startsWith(new byte[FIXED_CHUNK_OFFSET]);
                 assertThat(variableChunk).startsWith(new byte[VARIABLE_CHUNK_OFFSET]);
 
-                assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk)).isEqualTo(manualHash(types, blocks, position));
-                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, position)).isTrue();
-                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blocks, 3)).isFalse();
+                assertThat(flatHashStrategy.hash(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET)).isEqualTo(manualHash(types, blocks, position));
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, position)).isTrue();
+                assertThat(flatHashStrategy.valueIdentical(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blocks, 3)).isFalse();
 
                 BlockBuilder[] blockBuilders = types.stream().map(type -> type.createBlockBuilder(null, 1)).toArray(BlockBuilder[]::new);
-                flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, blockBuilders);
+                flatHashStrategy.readFlat(fixedChunk, FIXED_CHUNK_OFFSET, variableChunk, VARIABLE_CHUNK_OFFSET, blockBuilders);
                 List<Block> output = Arrays.stream(blockBuilders).map(BlockBuilder::build).toList();
                 Page actualPage = new Page(output.toArray(Block[]::new));
                 Page expectedPage = new Page(blocks).getSingleValuePage(position);
