@@ -241,8 +241,10 @@ public class FlatArrayBuilder
         }
 
         byte[] variableWidthChunk = EMPTY_CHUNK;
+        int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(records, recordOffset);
         }
 
         try {
@@ -250,6 +252,7 @@ public class FlatArrayBuilder
                     records,
                     recordOffset + recordValueOffset,
                     variableWidthChunk,
+                    variableWidthChunkOffset,
                     blockBuilder);
         }
         catch (Throwable throwable) {

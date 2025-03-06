@@ -24,7 +24,6 @@ import io.trino.memory.QueryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
 import io.trino.spiller.SpillSpaceTracker;
 
@@ -106,9 +105,9 @@ public final class GroupByHashYieldAssertion
             long pageVariableWidthSize = 0;
             if (hashKeyType == VARCHAR) {
                 long oldVariableWidthSize = variableWidthData.getRetainedSizeBytes();
+                Block block = page.getBlock(0);
                 for (int position = 0; position < page.getPositionCount(); position++) {
-                    Block block = page.getBlock(0);
-                    variableWidthData.allocate(pointer, 0, ((VariableWidthBlock) block.getUnderlyingValueBlock()).getSliceLength(block.getUnderlyingValuePosition(position)));
+                    variableWidthData.allocate(pointer, 0, hashKeyType.getFlatVariableWidthSize(block, position));
                 }
                 pageVariableWidthSize = variableWidthData.getRetainedSizeBytes() - oldVariableWidthSize;
             }
@@ -245,9 +244,7 @@ public final class GroupByHashYieldAssertion
                 Integer.BYTES + // groupId
                 Long.BYTES + // rawHash (optional, but present in this test)
                 Byte.BYTES + // field null
-                Integer.BYTES + // field variable length
-                Long.BYTES + // field first 8 bytes
-                Integer.BYTES; // field variable offset (or 4 more field bytes)
+                Integer.BYTES; // field variable length
         return (long) capacity * sizePerEntry;
     }
 
