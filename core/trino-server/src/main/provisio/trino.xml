@@ -166,12 +166,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/kudu">
-        <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/loki">
         <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
             <unpack />
