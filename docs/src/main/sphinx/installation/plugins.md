@@ -253,9 +253,6 @@ with the listed coordinates.
 * - password-authenticators
   - Password authentication
   - [io.trino:password-authenticators](https://central.sonatype.com/search?q=io.trino%3Atrino-password-authenticators)
-* - phoenix5
-  - [](/connector/phoenix)
-  - [io.trino:phoenix5](https://central.sonatype.com/search?q=io.trino%3Atrino-phoenix)
 * - pinot
   - [](/connector/pinot)
   - [io.trino:pinot](https://central.sonatype.com/search?q=io.trino%3Atrino-pinot)

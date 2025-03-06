@@ -99,7 +99,6 @@
         <module>plugin/trino-opensearch</module>
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
-        <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
