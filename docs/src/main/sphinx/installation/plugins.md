@@ -140,6 +140,10 @@ with the listed coordinates.
   - Description
   - Maven coordinates
   - Download
+* - ai-functions
+  - [](/functions/ai)
+  - [io.trino:trino-ai-functions](https://central.sonatype.com/search?q=io.trino%3Atrino-ai-functions)
+  - {maven_download}`ai-functions`  
 * - apache-ranger
   - [](/security/ranger-access-control)
   - [io.trino:trino-ranger](https://central.sonatype.com/search?q=io.trino%3Atrino-ranger)
