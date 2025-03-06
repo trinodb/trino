@@ -111,7 +111,7 @@ final class SplitGenerators
             long perQuantaNanos = scheduledNanos / numQuanta;
             long betweenQuantaNanos = blockedNanos / numQuanta;
 
-            return new IntermediateSplitSpecification(scheduledNanos, wallNanos, numQuanta, perQuantaNanos, betweenQuantaNanos, wakeupExecutor);
+            return new IntermediateSplitSpecification(scheduledNanos, perQuantaNanos, wallNanos, numQuanta, betweenQuantaNanos, wakeupExecutor);
         }
     }
 
