@@ -174,15 +174,8 @@ public final class GroupByHashYieldAssertion
                 // Hash table capacity should not have changed, because memory must be allocated first
                 assertThat(oldCapacity).isEqualTo((long) getHashCapacity.apply(operator));
 
-                long expectedHashBytes;
-                if (hashKeyType == BIGINT) {
-                    // The increase in hash memory should be twice the current capacity.
-                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
-                }
-                else {
-                    // Flat hash uses an incremental rehash, so as new memory is allocated old memory is freed
-                    expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity) + oldCapacity;
-                }
+                // The increase in hash memory should be twice the current capacity.
+                long expectedHashBytes = getHashTableSizeInBytes(hashKeyType, oldCapacity * 2);
                 assertThat(actualHashIncreased).isBetween(expectedHashBytes, expectedHashBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
@@ -239,12 +232,7 @@ public final class GroupByHashYieldAssertion
 
         @SuppressWarnings("OverlyComplexArithmeticExpression")
         int sizePerEntry = Byte.BYTES + // control byte
-                Integer.BYTES + // groupId to hashPosition
-                AppendOnlyVariableWidthData.POINTER_SIZE + // variable width pointer
-                Integer.BYTES + // groupId
-                Long.BYTES + // rawHash (optional, but present in this test)
-                Byte.BYTES + // field null
-                Integer.BYTES; // field variable length
+                Integer.BYTES; // hashPosition to groupId
         return (long) capacity * sizePerEntry;
     }
 
