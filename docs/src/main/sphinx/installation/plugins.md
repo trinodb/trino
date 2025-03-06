@@ -217,9 +217,6 @@ with the listed coordinates.
 * - kafka-event-listener
   - [](/admin/event-listeners-kafka)
   - [io.trino: kafka-event-listener](https://central.sonatype.com/search?q=io.trino%3Atrino-kafka-event-listener)
-* - kudu
-  - [](/connector/kudu)
-  - [io.trino:kudu](https://central.sonatype.com/search?q=io.trino%3Atrino-kudu)
 * - loki
   - [](/connector/loki)
   - [io.trino:loki](https://central.sonatype.com/search?q=io.trino%3Atrino-loki)
