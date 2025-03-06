@@ -232,6 +232,20 @@ public final class MapBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (mapIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (mapIsNull[i + startOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public int getPositionCount()
     {
         return positionCount;

@@ -67,10 +67,6 @@ kafka:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-kafka/**'
 
-kudu:
-  - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-kudu/**'
-
 loki:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-loki/**'
@@ -98,10 +94,6 @@ opensearch:
 oracle:
   - changed-files:
     - any-glob-to-any-file: 'plugin/trino-oracle/**'
-
-phoenix5:
-  - changed-files:
-    - any-glob-to-any-file: 'plugin/trino-phoenix5/**'
 
 pinot:
   - changed-files:

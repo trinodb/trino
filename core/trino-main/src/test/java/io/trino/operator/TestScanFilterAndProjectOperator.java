@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -100,7 +101,7 @@ public class TestScanFilterAndProjectOperator
         runner = new StandaloneQueryRunner(session);
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         expressionCompiler = new ExpressionCompiler(
-                functionManager,
+                new CursorProcessorCompiler(functionManager),
                 new PageFunctionCompiler(functionManager, 0),
                 new ColumnarFilterCompiler(functionManager, 0));
     }
@@ -293,7 +294,7 @@ public class TestScanFilterAndProjectOperator
         // match each column with a projection
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
-                functionManager,
+                new CursorProcessorCompiler(functionManager),
                 new PageFunctionCompiler(functionManager, 0),
                 new ColumnarFilterCompiler(functionManager, 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
@@ -361,7 +362,7 @@ public class TestScanFilterAndProjectOperator
         })));
         FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
-                functionManager,
+                new CursorProcessorCompiler(functionManager),
                 new PageFunctionCompiler(functionManager, 0),
                 new ColumnarFilterCompiler(functionManager, 0));
 

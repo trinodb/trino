@@ -27,6 +27,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import jakarta.annotation.Nullable;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
+import org.jetbrains.annotations.NotNullByDefault;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -54,7 +55,7 @@ import static java.util.Objects.requireNonNull;
  *
  * @see EvictableCacheBuilder
  */
-@ElementTypesAreNonnullByDefault
+@NotNullByDefault
 class EvictableCache<K, V>
         extends AbstractLoadingCache<K, V>
         implements LoadingCache<K, V>

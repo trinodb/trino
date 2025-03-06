@@ -150,6 +150,19 @@ public sealed interface Block
     }
 
     /**
+     * Does this block have a null value? This method is expected to be O(N).
+     */
+    default boolean hasNull()
+    {
+        for (int i = 0; i < getPositionCount(); i++) {
+            if (isNull(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Is the specified position null?
      *
      * @throws IllegalArgumentException if this position is not valid. The method may return false

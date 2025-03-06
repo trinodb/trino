@@ -43,6 +43,7 @@ security/user-mapping
 security/group-file
 ```
 
+(security-access-control)=
 ## Access control
 
 ```{toctree}

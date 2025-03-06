@@ -45,7 +45,6 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -135,7 +134,7 @@ public class CheckpointWriterManager
                 // read remaining entries from checkpoint register them in writer
                 try (Stream<DeltaLakeTransactionLogEntry> checkpointLogEntriesStream = snapshot.getCheckpointTransactionLogEntries(
                         session,
-                        ImmutableSet.of(TRANSACTION, ADD, REMOVE, COMMIT),
+                        ImmutableSet.of(TRANSACTION, ADD, REMOVE),
                         checkpointSchemaManager,
                         typeManager,
                         fileSystem,

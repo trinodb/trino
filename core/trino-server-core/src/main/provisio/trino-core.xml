@@ -1,0 +1,78 @@
+<runtime>
+    <!-- Target -->
+    <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
+
+    <!-- Notices -->
+    <fileSet to="/">
+        <directory path="${basedir}">
+            <include>NOTICE</include>
+            <include>README.txt</include>
+        </directory>
+    </fileSet>
+
+    <!-- Launcher -->
+    <artifactSet to="bin">
+        <artifact id="io.airlift:launcher:tar.gz:bin:${dep.launcher.version}">
+            <unpack />
+        </artifact>
+        <artifact id="io.airlift:launcher:tar.gz:properties:${dep.launcher.version}">
+            <unpack filter="true" />
+        </artifact>
+    </artifactSet>
+
+    <!-- Server -->
+    <artifactSet to="lib">
+        <artifact id="${project.groupId}:trino-server-main:${project.version}" />
+    </artifactSet>
+
+    <!-- Configuration Plugins -->
+    <artifactSet to="secrets-plugin/keystore-secrets-plugin">
+        <artifact id="io.airlift:secrets-keystore-plugin:zip:${dep.airlift.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <!-- Plugins -->
+    <artifactSet to="plugin/exchange-filesystem">
+        <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/functions-python">
+        <artifact id="${project.groupId}:trino-functions-python:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/geospatial">
+        <artifact id="${project.groupId}:trino-geospatial:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/password-authenticators">
+        <artifact id="${project.groupId}:trino-password-authenticators:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/resource-group-managers">
+        <artifact id="${project.groupId}:trino-resource-group-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/session-property-managers">
+        <artifact id="${project.groupId}:trino-session-property-managers:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/spooling-filesystem">
+        <artifact id="${project.groupId}:trino-spooling-filesystem:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+</runtime>

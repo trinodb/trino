@@ -60,6 +60,7 @@ public class TrinoJsonCodec<T>
                 .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
                 .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
                 .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
+                .disable(StreamReadFeature.AUTO_CLOSE_SOURCE)
                 .addModule(new Jdk8Module())
                 .addModule(new QueryDataClientJacksonModule())
                 .build();

@@ -347,7 +347,7 @@ public class TableSnapshot
                     CheckpointEntryIterator iterator = new CheckpointEntryIterator(
                             fileSystem.newInputFile(sidecar),
                             session,
-                            fileSize,
+                            entry.getSidecar().sizeInBytes(),
                             checkpointSchemaManager,
                             typeManager,
                             dataEntryTypes,

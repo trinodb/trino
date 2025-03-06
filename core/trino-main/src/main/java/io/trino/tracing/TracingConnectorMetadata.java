@@ -462,15 +462,6 @@ public class TracingConnectorMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
-    {
-        Span span = startSpan("addColumn", tableHandle);
-        try (var _ = scopedSpan(span)) {
-            delegate.addColumn(session, tableHandle, column);
-        }
-    }
-
-    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
         Span span = startSpan("addColumn", tableHandle);

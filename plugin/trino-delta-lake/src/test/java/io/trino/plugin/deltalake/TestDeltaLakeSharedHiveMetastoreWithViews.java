@@ -55,7 +55,6 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
             queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                     .put("hive.metastore", "thrift")
                     .put("hive.metastore.uri", hiveMinioDataLake.getHiveMetastoreEndpoint().toString())
-                    .put("fs.hadoop.enabled", "false")
                     .put("fs.native-s3.enabled", "true")
                     .put("s3.aws-access-key", MINIO_ACCESS_KEY)
                     .put("s3.aws-secret-key", MINIO_SECRET_KEY)

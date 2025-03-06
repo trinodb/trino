@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cli.FormatUtils.formatValue;
 import static io.trino.client.ClientStandardTypes.BIGINT;
@@ -111,7 +110,7 @@ public class AlignedTablePrinter
                 if (i > 0) {
                     writer.append('+');
                 }
-                writer.append(repeat("-", columnWidth[i] + 2));
+                writer.append("-".repeat(columnWidth[i] + 2));
             }
             writer.append('\n');
         }
@@ -153,15 +152,15 @@ public class AlignedTablePrinter
         checkState(width <= maxWidth, format("Variable width %d is greater than column width %d", width, maxWidth));
         int left = (maxWidth - width) / 2;
         int right = maxWidth - (left + width);
-        return repeat(" ", left + padding) + value + repeat(" ", right + padding);
+        return " ".repeat(left + padding) + value + " ".repeat(right + padding);
     }
 
     private static String align(String value, int maxWidth, int padding, boolean right)
     {
         int width = consoleWidth(value);
         checkState(width <= maxWidth, format("Variable width %d is greater than column width %d", width, maxWidth));
-        String large = repeat(" ", maxWidth - width + padding);
-        String small = repeat(" ", padding);
+        String large = " ".repeat(maxWidth - width + padding);
+        String small = " ".repeat(padding);
         return right ? (large + value + small) : (small + value + large);
     }
 

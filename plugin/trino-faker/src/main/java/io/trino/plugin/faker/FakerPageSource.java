@@ -18,9 +18,18 @@ import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlock;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -29,6 +38,8 @@ import io.trino.spi.type.Int128Math;
 import io.trino.spi.type.LongTimeWithTimeZone;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimeZoneKey;
@@ -39,6 +50,7 @@ import io.trino.spi.type.UuidType;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.IpAddressType;
+import io.trino.type.JsonType;
 import net.datafaker.Faker;
 
 import java.math.BigDecimal;
@@ -50,6 +62,7 @@ import java.util.List;
 import java.util.Random;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -337,6 +350,44 @@ class FakerPageSource
 
     private Generator randomValueGenerator(FakerColumnHandle handle)
     {
+        Type type = handle.type();
+        if (type instanceof RowType rowType) {
+            List<Generator> fieldGenerators = rowType.getFields().stream()
+                    .map(field -> randomValueGenerator(new FakerColumnHandle(
+                            0,
+                            field.getName().orElse("unknown"),
+                            field.getType(),
+                            0,
+                            null,
+                            Domain.all(field.getType()),
+                            ValueSet.none(field.getType()))))
+                    .collect(toImmutableList());
+            return (blockBuilder) -> {
+                RowBlockBuilder rowBlockBuilder = rowType.createBlockBuilder(null, 1);
+                rowBlockBuilder.buildEntry(fieldBuilders -> {
+                    for (int i = 0; i < fieldBuilders.size(); i++) {
+                        fieldGenerators.get(i).accept(fieldBuilders.get(i));
+                    }
+                });
+                blockBuilder.append((RowBlock) rowBlockBuilder.build(), 0);
+            };
+        }
+        if (type instanceof ArrayType arrayType) {
+            ArrayBlockBuilder arrayBlockBuilder = arrayType.createBlockBuilder(null, 0);
+            arrayBlockBuilder.buildEntry(_ -> {});
+            ArrayBlock emptyBlock = (ArrayBlock) arrayBlockBuilder.build();
+            return (blockBuilder) -> blockBuilder.append(emptyBlock, 0);
+        }
+        if (type instanceof MapType mapType) {
+            MapBlockBuilder mapBlockBuilder = mapType.createBlockBuilder(null, 0);
+            mapBlockBuilder.buildEntry((_, _) -> {});
+            MapBlock emptyBlock = (MapBlock) mapBlockBuilder.build();
+            return (blockBuilder) -> blockBuilder.append(emptyBlock, 0);
+        }
+        if (type instanceof JsonType jsonType) {
+            return (blockBuilder) -> jsonType.writeSlice(blockBuilder, EMPTY_SLICE);
+        }
+
         Range genericRange = handle.domain().getValues().getRanges().getSpan();
         if (handle.generator() != null) {
             if (!genericRange.isAll()) {
@@ -344,7 +395,6 @@ class FakerPageSource
             }
             return (blockBuilder) -> VARCHAR.writeSlice(blockBuilder, Slices.utf8Slice(faker.expression(handle.generator())));
         }
-        Type type = handle.type();
         // check every type in order defined in StandardTypes
         if (BIGINT.equals(type)) {
             LongRange range = LongRange.of(genericRange);
@@ -428,7 +478,6 @@ class FakerPageSource
             }
             return (blockBuilder) -> charType.writeSlice(blockBuilder, boundedSentenceGenerator.get(charType.getLength()));
         }
-        // not supported: ROW, ARRAY, MAP, JSON
         if (type instanceof IpAddressType) {
             return generateIpV4(genericRange);
         }

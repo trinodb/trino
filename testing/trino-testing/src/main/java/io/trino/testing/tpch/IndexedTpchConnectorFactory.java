@@ -16,7 +16,7 @@ package io.trino.testing.tpch;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.tpch.DecimalTypeMapping;
 import io.trino.plugin.tpch.TpchNodePartitioningProvider;
-import io.trino.plugin.tpch.TpchRecordSetProvider;
+import io.trino.plugin.tpch.TpchPageSourceProvider;
 import io.trino.plugin.tpch.TpchSplitManager;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.NodeManager;
@@ -26,7 +26,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -88,9 +88,9 @@ public class IndexedTpchConnectorFactory
             }
 
             @Override
-            public ConnectorRecordSetProvider getRecordSetProvider()
+            public ConnectorPageSourceProvider getPageSourceProvider()
             {
-                return new TpchRecordSetProvider(DecimalTypeMapping.DOUBLE);
+                return new TpchPageSourceProvider(4096, DecimalTypeMapping.DOUBLE);
             }
 
             @Override

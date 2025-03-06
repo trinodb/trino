@@ -104,6 +104,7 @@ public abstract class AbstractDeltaLakePageSink
     private final long idleWriterMinFileSize;
     private long writtenBytes;
     private long memoryUsage;
+    private long validationCpuNanos;
 
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
@@ -217,7 +218,7 @@ public abstract class AbstractDeltaLakePageSink
     @Override
     public long getValidationCpuNanos()
     {
-        return 0;
+        return validationCpuNanos;
     }
 
     @Override
@@ -427,6 +428,7 @@ public abstract class AbstractDeltaLakePageSink
 
         writtenBytes += writer.getWrittenBytes() - currentWritten;
         memoryUsage -= currentMemory;
+        validationCpuNanos += writer.getValidationCpuNanos();
 
         writers.set(writerIndex, null);
         currentOpenWriters--;

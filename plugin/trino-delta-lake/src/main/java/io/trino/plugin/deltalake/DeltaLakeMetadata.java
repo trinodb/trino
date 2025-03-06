@@ -93,6 +93,7 @@ import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnNotFoundException;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -390,7 +391,9 @@ public class DeltaLakeMetadata
             .handleIf(throwable -> Throwables.getCausalChain(throwable).stream().anyMatch(TransactionConflictException.class::isInstance))
             .withDelay(Duration.ofMillis(400))
             .withJitter(Duration.ofMillis(200))
-            .withMaxRetries(5)
+            // Set to a high number to handle high concurrency scenarios, consistent with Delta.io/Spark.
+            // See: https://github.com/delta-io/delta/blob/9c932bf/kernel/kernel-api/src/main/java/io/delta/kernel/internal/TransactionBuilderImpl.java#L65
+            .withMaxRetries(200)
             .onRetry(event -> LOG.debug(event.getLastException(), "Commit failed on attempt %d, will retry.", event.getAttemptCount()))
             .build();
 
@@ -1786,8 +1789,16 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata newColumnMetadata)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata newColumnMetadata, ColumnPosition position)
     {
+        if (position instanceof ColumnPosition.First) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+        }
+        if (position instanceof ColumnPosition.After) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+        }
+        verify(position instanceof ColumnPosition.Last, "ColumnPosition must be instance of Last");
+
         DeltaLakeTableHandle handle = checkValidTableHandle(tableHandle);
         ProtocolEntry protocolEntry = handle.getProtocolEntry();
         checkSupportedWriterVersion(handle);
@@ -3063,6 +3074,7 @@ public class DeltaLakeMetadata
     {
         return new CommitInfoEntry(
                 commitVersion,
+                OptionalLong.empty(), // TODO: support write inCommitTimestamp
                 createdTime,
                 session.getUser(),
                 session.getUser(),

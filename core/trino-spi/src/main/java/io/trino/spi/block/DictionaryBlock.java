@@ -375,6 +375,12 @@ public final class DictionaryBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        return mayHaveNull && dictionary.hasNull();
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         if (!mayHaveNull) {

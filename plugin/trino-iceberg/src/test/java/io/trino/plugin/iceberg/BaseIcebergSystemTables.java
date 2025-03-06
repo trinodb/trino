@@ -698,7 +698,7 @@ public abstract class BaseIcebergSystemTables
             // upper_bounds
             //noinspection unchecked
             Map<Integer, String> upperBounds = (Map<Integer, String>) deleteFile.getField(11);
-            assertThat(lowerBounds)
+            assertThat(upperBounds)
                     .hasSize(2)
                     .satisfies(_ -> assertThat(upperBounds.get(DELETE_FILE_POS.fieldId())).isEqualTo("0"))
                     .satisfies(_ -> assertThat(upperBounds.get(DELETE_FILE_PATH.fieldId())).contains(table.getName()));

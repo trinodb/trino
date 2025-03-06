@@ -151,6 +151,20 @@ public final class Int128ArrayBlock
     }
 
     @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + positionOffset]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
     public boolean isNull(int position)
     {
         checkReadablePosition(this, position);

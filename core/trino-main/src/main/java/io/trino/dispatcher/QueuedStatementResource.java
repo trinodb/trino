@@ -14,7 +14,6 @@
 package io.trino.dispatcher;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -60,7 +59,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.Suspended;
 import jakarta.ws.rs.core.Context;
@@ -109,7 +107,6 @@ public class QueuedStatementResource
 {
     private static final Logger log = Logger.get(QueuedStatementResource.class);
     private static final Duration MAX_WAIT_TIME = new Duration(1, SECONDS);
-    private static final Ordering<Comparable<Duration>> WAIT_ORDERING = Ordering.natural().nullsLast();
     private static final Duration NO_DURATION = new Duration(0, MILLISECONDS);
 
     private final HttpRequestSessionContextFactory sessionContextFactory;
@@ -209,23 +206,20 @@ public class QueuedStatementResource
             @PathParam("queryId") QueryId queryId,
             @PathParam("slug") String slug,
             @PathParam("token") long token,
-            @QueryParam("maxWait") Duration maxWait,
             @BeanParam ExternalUriInfo externalUriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
 
-        ListenableFuture<Response> future = getStatus(query, token, maxWait, externalUriInfo);
+        ListenableFuture<Response> future = getStatus(query, token, externalUriInfo);
         bindAsyncResponse(asyncResponse, future, responseExecutor);
     }
 
-    private ListenableFuture<Response> getStatus(Query query, long token, Duration maxWait, ExternalUriInfo externalUriInfo)
+    private ListenableFuture<Response> getStatus(Query query, long token, ExternalUriInfo externalUriInfo)
     {
-        long waitMillis = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait).toMillis();
-
         return FluentFuture.from(query.waitForDispatched())
                 // wait for query to be dispatched, up to the wait timeout
-                .withTimeout(waitMillis, MILLISECONDS, timeoutExecutor)
+                .withTimeout(MAX_WAIT_TIME.toMillis(), MILLISECONDS, timeoutExecutor)
                 .catching(TimeoutException.class, _ -> null, directExecutor())
                 // when state changes, fetch the next result
                 .transform(_ -> query.getQueryResults(token, externalUriInfo), responseExecutor)

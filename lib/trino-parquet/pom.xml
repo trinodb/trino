@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>472-SNAPSHOT</version>
+        <version>473-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -242,7 +242,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <configuration>
-                        <compilerArgs combine.children="append">
+                        <compilerArgs combine.self="merge">
                             <arg>${extraJavaVectorArgs}</arg>
                         </compilerArgs>
                     </configuration>
@@ -251,7 +251,7 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <configuration>
-                        <additionalOptions combine.self="append">${extraJavaVectorArgs}</additionalOptions>
+                        <additionalOptions combine.self="merge">${extraJavaVectorArgs}</additionalOptions>
                     </configuration>
                 </plugin>
             </plugins>

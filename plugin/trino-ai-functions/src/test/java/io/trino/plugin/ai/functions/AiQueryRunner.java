@@ -32,9 +32,13 @@ public final class AiQueryRunner
                 .addCoordinatorProperty("sql.path", "ai.ai")
                 .build();
         queryRunner.installPlugin(new AiPlugin());
+        // Use locally running Ollama with relatively fast and small llama3.2 model
+        // Ollama must be running and model must be downloaded already
         queryRunner.createCatalog("ai", "ai", ImmutableMap.<String, String>builder()
-                .put("ai.model", "llama3.3")
-                .put("ai.ollama.endpoint", "http://localhost:11434")
+                .put("ai.provider", "openai")
+                .put("ai.model", "llama3.2")
+                .put("ai.openai.endpoint", "http://localhost:11434")
+                .put("ai.openai.api-key", "none")
                 .buildOrThrow());
         Logger log = Logger.get(AiQueryRunner.class);
         log.info("======== SERVER STARTED ========");

@@ -24,6 +24,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import org.apache.iceberg.BaseTable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -34,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@Disabled("https://github.com/trinodb/trino/issues/25129")
 @TestInstance(PER_CLASS)
 final class TestIcebergS3TablesConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
@@ -74,7 +76,6 @@ final class TestIcebergS3TablesConnectorSmokeTest
                 .addIcebergProperty("iceberg.rest-catalog.signing-name", "glue")
                 .addIcebergProperty("iceberg.writer-sort-buffer-size", "1MB")
                 .addIcebergProperty("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
-                .addIcebergProperty("fs.hadoop.enabled", "false")
                 .addIcebergProperty("fs.native-s3.enabled", "true")
                 .addIcebergProperty("s3.region", AWS_REGION)
                 .addIcebergProperty("s3.aws-access-key", AWS_ACCESS_KEY_ID)

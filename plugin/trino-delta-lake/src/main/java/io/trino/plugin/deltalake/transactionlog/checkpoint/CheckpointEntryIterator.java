@@ -28,7 +28,6 @@ import io.trino.plugin.deltalake.DeltaHiveTypeTranslator;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
-import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeletionVectorEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
@@ -88,7 +87,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.colu
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
@@ -119,7 +117,6 @@ public class CheckpointEntryIterator
         REMOVE("remove"),
         METADATA("metadata"),
         PROTOCOL("protocol"),
-        COMMIT("commitinfo"),
         SIDECAR("sidecar"),
         /**/;
 
@@ -156,7 +153,6 @@ public class CheckpointEntryIterator
     private final Optional<RowType> removeDeletionVectorType;
     private final Optional<RowType> metadataType;
     private final Optional<RowType> protocolType;
-    private final Optional<RowType> commitType;
     private final Optional<RowType> sidecarType;
 
     private MetadataEntry metadataEntry;
@@ -250,7 +246,6 @@ public class CheckpointEntryIterator
             removeDeletionVectorType = removeType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
             metadataType = getParquetType(fields, METADATA);
             protocolType = getParquetType(fields, PROTOCOL);
-            commitType = getParquetType(fields, COMMIT);
             sidecarType = getParquetType(fields, SIDECAR);
         }
         catch (Exception e) {
@@ -259,7 +254,7 @@ public class CheckpointEntryIterator
             }
             catch (Exception _) {
             }
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s" .formatted(checkpoint.location()));
         }
     }
 
@@ -310,7 +305,6 @@ public class CheckpointEntryIterator
             case REMOVE -> (session, pagePosition, blocks) -> buildRemoveEntry(session, pagePosition, blocks[0]);
             case METADATA -> (session, pagePosition, blocks) -> buildMetadataEntry(session, pagePosition, blocks[0]);
             case PROTOCOL -> (session, pagePosition, blocks) -> buildProtocolEntry(session, pagePosition, blocks[0]);
-            case COMMIT -> (session, pagePosition, blocks) -> buildCommitInfoEntry(session, pagePosition, blocks[0]);
             case SIDECAR -> (session, pagePosition, blocks) -> buildSidecarEntry(session, pagePosition, blocks[0]);
         };
     }
@@ -328,7 +322,6 @@ public class CheckpointEntryIterator
             case REMOVE -> schemaManager.getRemoveEntryType();
             case METADATA -> schemaManager.getMetadataEntryType();
             case PROTOCOL -> schemaManager.getProtocolEntryType(true, true);
-            case COMMIT -> schemaManager.getCommitInfoEntryType();
             case SIDECAR -> schemaManager.getSidecarEntryType();
         };
         return new DeltaLakeColumnHandle(entryType.getColumnName(), type, OptionalInt.empty(), entryType.getColumnName(), type, REGULAR, Optional.empty());
@@ -339,14 +332,14 @@ public class CheckpointEntryIterator
      * not null for effectively pushing down the predicate to the Parquet reader.
      * <p>
      * The particular field we select for each action is a required fields per the Delta Log specification, please see
-     * https://github.com/delta-io/delta/blob/master/PROTOCOL.md#Actions This is also enforced when we read entries.
+     * <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#Actions">Delta Lake protocol</a>. This is also enforced when we read entries.
      */
     private TupleDomain<HiveColumnHandle> buildTupleDomainColumnHandle(EntryType entryType, HiveColumnHandle column)
     {
         String field;
         Type type;
         switch (entryType) {
-            case COMMIT, TRANSACTION -> {
+            case TRANSACTION -> {
                 field = "version";
                 type = BIGINT;
             }
@@ -401,63 +394,6 @@ public class CheckpointEntryIterator
                         partitionColumn.type())),
                 HiveColumnHandle.ColumnType.REGULAR,
                 addColumn.getComment());
-    }
-
-    private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, int pagePosition, Block block)
-    {
-        log.debug("Building commitInfo entry from %s pagePosition %d", block, pagePosition);
-        if (block.isNull(pagePosition)) {
-            return null;
-        }
-        RowType type = commitType.orElseThrow();
-        int commitInfoFields = 12;
-        int jobFields = 5;
-        int notebookFields = 1;
-        SqlRow commitInfoRow = getRow(block, pagePosition);
-        CheckpointFieldReader commitInfo = new CheckpointFieldReader(session, commitInfoRow, type);
-        log.debug("Block %s has %s fields", block, commitInfoRow.getFieldCount());
-        if (commitInfoRow.getFieldCount() != commitInfoFields) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", block, commitInfoFields, commitInfoRow.getFieldCount()));
-        }
-        SqlRow jobRow = commitInfo.getRow("job");
-        if (jobRow.getFieldCount() != jobFields) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", jobRow, jobFields, jobRow.getFieldCount()));
-        }
-        RowType.Field jobField = type.getFields().stream().filter(field -> field.getName().orElseThrow().equals("job")).collect(onlyElement());
-        CheckpointFieldReader job = new CheckpointFieldReader(session, jobRow, (RowType) jobField.getType());
-
-        SqlRow notebookRow = commitInfo.getRow("notebook");
-        if (notebookRow.getFieldCount() != notebookFields) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA,
-                    format("Expected block %s to have %d children, but found %s", notebookRow, notebookFields, notebookRow.getFieldCount()));
-        }
-        RowType.Field notebookField = type.getFields().stream().filter(field -> field.getName().orElseThrow().equals("notebook")).collect(onlyElement());
-        CheckpointFieldReader notebook = new CheckpointFieldReader(session, notebookRow, (RowType) notebookField.getType());
-
-        CommitInfoEntry result = new CommitInfoEntry(
-                commitInfo.getLong("version"),
-                commitInfo.getLong("timestamp"),
-                commitInfo.getString("userId"),
-                commitInfo.getString("userName"),
-                commitInfo.getString("operation"),
-                commitInfo.getMap(stringMap, "operationParameters"),
-                new CommitInfoEntry.Job(
-                        job.getString("jobId"),
-                        job.getString("jobName"),
-                        job.getString("runId"),
-                        job.getString("jobOwnerId"),
-                        job.getString("triggerType")),
-                new CommitInfoEntry.Notebook(
-                        notebook.getString("notebookId")),
-                commitInfo.getString("clusterId"),
-                commitInfo.getInt("readVersion"),
-                commitInfo.getString("isolationLevel"),
-                Optional.of(commitInfo.getBoolean("isBlindAppend")),
-                commitInfo.getMap(stringMap, "operationMetrics"));
-        log.debug("Result: %s", result);
-        return DeltaLakeTransactionLogEntry.commitInfoEntry(result);
     }
 
     private DeltaLakeTransactionLogEntry buildProtocolEntry(ConnectorSession session, int pagePosition, Block block)
