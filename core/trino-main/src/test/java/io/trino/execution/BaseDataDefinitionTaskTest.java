@@ -185,14 +185,15 @@ public abstract class BaseDataDefinitionTaskTest
         return QualifiedName.of(qualifiedObjectName.catalogName(), qualifiedObjectName.schemaName(), qualifiedObjectName.objectName());
     }
 
-    protected MaterializedViewDefinition someMaterializedView()
+    protected MaterializedViewDefinition someMaterializedView(QualifiedObjectName viewName)
     {
-        return someMaterializedView("select * from some_table", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
+        return someMaterializedView(viewName, "select * from some_table", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
     }
 
-    protected MaterializedViewDefinition someMaterializedView(String sql, List<ViewColumn> columns)
+    protected MaterializedViewDefinition someMaterializedView(QualifiedObjectName viewName, String sql, List<ViewColumn> columns)
     {
         return new MaterializedViewDefinition(
+                viewName,
                 sql,
                 Optional.empty(),
                 Optional.empty(),
@@ -536,10 +537,10 @@ public abstract class BaseDataDefinitionTaskTest
         @Override
         public void setMaterializedViewColumnComment(Session session, QualifiedObjectName viewName, String columnName, Optional<String> comment)
         {
-            MaterializedViewDefinition view = materializedViews.get(viewName.asSchemaTableName());
-            materializedViews.put(
+            materializedViews.compute(
                     viewName.asSchemaTableName(),
-                    new MaterializedViewDefinition(
+                    (_, view) -> new MaterializedViewDefinition(
+                            viewName,
                             view.getOriginalSql(),
                             view.getCatalog(),
                             view.getSchema(),

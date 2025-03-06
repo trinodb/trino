@@ -133,7 +133,7 @@ public class TestDropNotNullConstraintConstraintTask
     public void testDropNotNullConstraintOnMaterializedView()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(materializedViewName), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropNotNullConstraint(asQualifiedName(materializedViewName), identifier("test"), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)

@@ -102,8 +102,11 @@ import static io.trino.plugin.hive.HiveMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.hive.HiveMetadata.PARQUET_BLOOM_FILTER_COLUMNS_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.trino.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_VIEW_CATALOG;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionTrinoColumnProperties;
 import static io.trino.plugin.hive.util.HiveBucketing.isSupportedBucketing;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
@@ -797,6 +800,13 @@ public final class HiveUtil
     public static boolean isIcebergTable(Map<String, String> tableParameters)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(tableParameters.get(ICEBERG_TABLE_TYPE_NAME));
+    }
+
+    public static boolean isIcebergMv(Table table)
+    {
+        return isTrinoMaterializedView(table) &&
+                ("Iceberg".equals(table.getParameters().get(TRINO_VIEW_CATALOG)) ||
+                        "Trino Iceberg connector".equalsIgnoreCase(table.getParameters().get(TRINO_CREATED_BY))); // backward compatible
     }
 
     public static boolean isHudiTable(Table table)

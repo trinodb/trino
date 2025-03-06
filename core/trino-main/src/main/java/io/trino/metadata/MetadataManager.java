@@ -665,7 +665,7 @@ public final class MetadataManager
 
             try {
                 return Optional.<RelationColumnsMetadata>empty()
-                        .or(() -> getMaterializedViewInternal(session, objectName)
+                        .or(() -> getMaterializedViewInternal(session, getRedirectedTableName(session, objectName, Optional.empty(), Optional.empty()))
                                 .map(materializedView -> RelationColumnsMetadata.forMaterializedView(schemaTableName, materializedView.getColumns())))
                         .or(() -> getViewInternal(session, objectName)
                                 .map(view -> RelationColumnsMetadata.forView(schemaTableName, view.getColumns())))
@@ -1649,13 +1649,14 @@ public final class MetadataManager
     @Override
     public void dropMaterializedView(Session session, QualifiedObjectName viewName)
     {
-        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.catalogName());
+        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, targetViewName.catalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
         ConnectorMetadata metadata = catalogMetadata.getMetadata(session);
 
-        metadata.dropMaterializedView(session.toConnectorSession(catalogHandle), viewName.asSchemaTableName());
+        metadata.dropMaterializedView(session.toConnectorSession(catalogHandle), targetViewName.asSchemaTableName());
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
-            systemSecurityMetadata.tableDropped(session, viewName.asCatalogSchemaTableName());
+            systemSecurityMetadata.tableDropped(session, targetViewName.asCatalogSchemaTableName());
         }
     }
 
@@ -1737,31 +1738,34 @@ public final class MetadataManager
     @Override
     public boolean isMaterializedView(Session session, QualifiedObjectName viewName)
     {
-        return getMaterializedViewInternal(session, viewName).isPresent();
+        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        return getMaterializedViewInternal(session, targetViewName).isPresent();
     }
 
     @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
     {
-        Optional<ConnectorMaterializedViewDefinition> connectorView = getMaterializedViewInternal(session, viewName);
+        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        Optional<ConnectorMaterializedViewDefinition> connectorView = getMaterializedViewInternal(session, targetViewName);
         if (connectorView.isEmpty()) {
             return Optional.empty();
         }
 
-        if (isCatalogManagedSecurity(session, viewName.catalogName())) {
+        if (isCatalogManagedSecurity(session, targetViewName.catalogName())) {
             String runAsUser = connectorView.get().getOwner().orElseThrow(() -> new TrinoException(INVALID_VIEW, "Owner not set for a run-as invoker view: " + viewName));
-            return Optional.of(createMaterializedViewDefinition(connectorView.get(), Identity.ofUser(runAsUser)));
+            return Optional.of(createMaterializedViewDefinition(targetViewName, connectorView.get(), Identity.ofUser(runAsUser)));
         }
 
-        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, viewName.asCatalogSchemaTableName())
+        Identity runAsIdentity = systemSecurityMetadata.getViewRunAsIdentity(session, targetViewName.asCatalogSchemaTableName())
                 .or(() -> connectorView.get().getOwner().map(Identity::ofUser))
                 .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Materialized view does not have an owner: " + viewName));
-        return Optional.of(createMaterializedViewDefinition(connectorView.get(), runAsIdentity));
+        return Optional.of(createMaterializedViewDefinition(targetViewName, connectorView.get(), runAsIdentity));
     }
 
-    private static MaterializedViewDefinition createMaterializedViewDefinition(ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
+    private static MaterializedViewDefinition createMaterializedViewDefinition(QualifiedObjectName name, ConnectorMaterializedViewDefinition view, Identity runAsIdentity)
     {
         return new MaterializedViewDefinition(
+                name,
                 view.getOriginalSql(),
                 view.getCatalog(),
                 view.getSchema(),
@@ -1814,14 +1818,15 @@ public final class MetadataManager
     @Override
     public MaterializedViewFreshness getMaterializedViewFreshness(Session session, QualifiedObjectName viewName)
     {
-        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.catalogName());
+        QualifiedObjectName targetViewName = getRedirectedTableName(session, viewName, Optional.empty(), Optional.empty());
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, targetViewName.catalogName());
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
-            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName, Optional.empty(), Optional.empty());
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, targetViewName, Optional.empty(), Optional.empty());
             ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
 
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
-            return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
+            return metadata.getMaterializedViewFreshness(connectorSession, targetViewName.asSchemaTableName());
         }
         return new MaterializedViewFreshness(STALE, Optional.empty());
     }

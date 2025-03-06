@@ -2577,9 +2577,13 @@ class StatementAnalyzer
         private List<Field> analyzeStorageTable(Table table, List<Field> viewFields, TableHandle storageTable)
         {
             TableSchema tableSchema = metadata.getTableSchema(session, storageTable);
+            CatalogSchemaTableName storageTableName = metadata.getTableName(session, storageTable);
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, storageTable);
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
-            checkStorageTableNotRedirected(tableName);
+            checkStorageTableNotRedirected(new QualifiedObjectName(
+                    storageTableName.getCatalogName(),
+                    storageTableName.getSchemaTableName().getSchemaName(),
+                    storageTableName.getSchemaTableName().getTableName()));
             List<Field> tableFields = analyzeTableOutputFields(table, tableName, tableSchema, columnHandles)
                     .stream()
                     .filter(field -> !field.isHidden())

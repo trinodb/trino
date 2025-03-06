@@ -183,6 +183,7 @@ public class TestMaterializedViews
 
         QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "fresh_materialized_view");
         MaterializedViewDefinition materializedViewDefinition = new MaterializedViewDefinition(
+                freshMaterializedView,
                 "SELECT a, b FROM test_table",
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
@@ -216,7 +217,9 @@ public class TestMaterializedViews
             return null;
         });
 
+        QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts");
         MaterializedViewDefinition materializedViewDefinitionWithCasts = new MaterializedViewDefinition(
+                materializedViewWithCasts,
                 "SELECT a, b FROM test_table",
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
@@ -226,7 +229,6 @@ public class TestMaterializedViews
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")));
-        QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts");
         planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
@@ -250,7 +252,9 @@ public class TestMaterializedViews
             return null;
         });
 
+        QualifiedObjectName materializedViewWithTimestamp = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "timestamp_mv_test");
         MaterializedViewDefinition materializedViewDefinitionWithTimestamp = new MaterializedViewDefinition(
+                materializedViewWithTimestamp,
                 "SELECT id, ts FROM timestamp_test",
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),
@@ -260,7 +264,6 @@ public class TestMaterializedViews
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "timestamp_test_storage")));
-        QualifiedObjectName materializedViewWithTimestamp = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "timestamp_mv_test");
         planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
@@ -282,6 +285,7 @@ public class TestMaterializedViews
         Metadata metadata = getPlanTester().getPlannerContext().getMetadata();
         QualifiedObjectName matViewName = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, materializedViewName);
         MaterializedViewDefinition matViewDefinition = new MaterializedViewDefinition(
+                matViewName,
                 query,
                 Optional.of(TEST_CATALOG_NAME),
                 Optional.of(SCHEMA),

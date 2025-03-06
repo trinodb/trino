@@ -30,10 +30,12 @@ import static java.util.Objects.requireNonNull;
 public class MaterializedViewDefinition
         extends ViewDefinition
 {
+    private final QualifiedObjectName viewName;
     private final Optional<Duration> gracePeriod;
     private final Optional<CatalogSchemaTableName> storageTable;
 
     public MaterializedViewDefinition(
+            QualifiedObjectName viewName,
             String originalSql,
             Optional<String> catalog,
             Optional<String> schema,
@@ -45,9 +47,15 @@ public class MaterializedViewDefinition
             Optional<CatalogSchemaTableName> storageTable)
     {
         super(originalSql, catalog, schema, columns, comment, Optional.of(owner), path);
+        this.viewName = requireNonNull(viewName, "viewName is null");
         this.gracePeriod = requireNonNull(gracePeriod, "gracePeriod is null");
         checkArgument(gracePeriod.isEmpty() || !gracePeriod.get().isNegative(), "gracePeriod cannot be negative: %s", gracePeriod);
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
+    }
+
+    public QualifiedObjectName getViewName()
+    {
+        return viewName;
     }
 
     public Optional<Duration> getGracePeriod()
