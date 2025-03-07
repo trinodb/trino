@@ -52,6 +52,7 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DELETE;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.MANIFEST;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_JSON;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.PUFFIN;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.STATS;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.ALL_FILES;
@@ -945,6 +946,64 @@ public class TestIcebergFileOperations
                         .filter(operation -> ImmutableSet.of(DATA, DELETE).contains(operation.fileType()))
                         .collect(toImmutableMultiset()),
                 expectedAccesses);
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testDeletionVector()
+    {
+        String tableName = "test_deletion_vector" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + "(id INT, age INT) WITH (format_version = 3)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 10), (2, 20), (3, 30)", 3);
+
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE id = 1",
+                ImmutableMultiset.<FileOperationUtils.FileOperation>builder()
+                        .add(new FileOperationUtils.FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperationUtils.FileOperation(METADATA_JSON, "InputFile.newStream"), 2)
+                        .add(new FileOperationUtils.FileOperation(MANIFEST, "OutputFile.create"))
+                        .addCopies(new FileOperationUtils.FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .add(new FileOperationUtils.FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .add(new FileOperationUtils.FileOperation(PUFFIN, "OutputFile.create"))
+                        .build());
+
+        assertFileSystemAccesses(
+                "SELECT * FROM " + tableName,
+                ImmutableMultiset.<FileOperationUtils.FileOperation>builder()
+                        .add(new FileOperationUtils.FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .addCopies(new FileOperationUtils.FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .add(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperationUtils.FileOperation(PUFFIN, "InputFile.newInput"))
+                        .build());
+
+        assertFileSystemAccesses(
+                "DELETE FROM " + tableName + " WHERE id = 2",
+                ImmutableMultiset.<FileOperationUtils.FileOperation>builder()
+                        .add(new FileOperationUtils.FileOperation(METADATA_JSON, "OutputFile.create"))
+                        .addCopies(new FileOperationUtils.FileOperation(METADATA_JSON, "InputFile.newStream"), 2)
+                        .addCopies(new FileOperationUtils.FileOperation(MANIFEST, "OutputFile.create"), 2)
+                        .addCopies(new FileOperationUtils.FileOperation(MANIFEST, "InputFile.newStream"), 6)
+                        .add(new FileOperationUtils.FileOperation(SNAPSHOT, "OutputFile.create"))
+                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
+                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .add(new FileOperationUtils.FileOperation(PUFFIN, "InputFile.newInput"))
+                        .add(new FileOperationUtils.FileOperation(PUFFIN, "InputFile.newStream"))
+                        .add(new FileOperationUtils.FileOperation(PUFFIN, "OutputFile.create"))
+                        .build());
+
+        assertFileSystemAccesses(
+                "SELECT * FROM " + tableName,
+                ImmutableMultiset.<FileOperationUtils.FileOperation>builder()
+                        .add(new FileOperationUtils.FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .addCopies(new FileOperationUtils.FileOperation(MANIFEST, "InputFile.newStream"), 2)
+                        .add(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"))
+                        .add(new FileOperationUtils.FileOperation(PUFFIN, "InputFile.newInput"))
+                        .build());
+
         assertUpdate("DROP TABLE " + tableName);
     }
 
