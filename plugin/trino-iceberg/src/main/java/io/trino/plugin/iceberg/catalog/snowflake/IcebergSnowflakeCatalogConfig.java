@@ -29,8 +29,8 @@ public class IcebergSnowflakeCatalogConfig
 {
     private URI uri;
     private String user;
-    private Optional<String> password;
-    private Optional<String> key;
+    private Optional<String> password = Optional.empty();
+    private Optional<String> key = Optional.empty();
     private String database;
     private Optional<String> role = Optional.empty();
 
@@ -45,7 +45,7 @@ public class IcebergSnowflakeCatalogConfig
     @AssertTrue(message = "Either iceberg.snowflake-catalog.password or iceberg.snowflake-catalog.key must be set, but not both")
     public boolean isAuthenticationMethodSet()
     {
-        return getKey().isPresent() != getPassword().isPresent();
+        return key.isPresent() != password.isPresent();
     }
 
     @NotNull
