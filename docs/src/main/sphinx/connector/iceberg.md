@@ -693,6 +693,52 @@ EXECUTE add_files(
     format => 'ORC');
 ```
 
+(iceberg-functions)=
+### Functions
+
+Functions are available in the `system` schema of each catalog. Functions can
+be called in a SQL statement. For example, the following code snippet
+displays how to execute the `system.bucket` function in an Iceberg catalog:
+
+```sql
+SELECT system.bucket('trino', 16);
+```
+
+(iceberg-bucket-function)=
+#### bucket
+
+This function exposes the [Iceberg bucket transform](https://iceberg.apache.org/spec/#bucket-transform-details)
+so that users can determine what bucket a particular value falls into. The
+function takes two arguments: the partition value and the number of buckets.
+
+The supported types for the 1st argument to this function are:
+
+* `TINYINT`
+* `SMALLINT`
+* `INTEGER`
+* `BIGINT`
+* `VARCHAR`
+* `VARBINARY`
+* `DATE`
+* `TIMESTAMP`
+* `TIMESTAMP WITH TIME ZONE`
+
+For example, if we wanted to see what bucket number a particular string would
+be assigned, we can execute:
+
+```sql
+SELECT system.bucket('trino', 16);
+```
+
+This function can be used in a `WHERE` clause to only operate on a particular
+bucket:
+
+```sql
+SELECT count(*)
+FROM customer
+WHERE system.bucket(custkey, 16) = 2;
+```
+
 (iceberg-data-management)=
 ### Data management
 
