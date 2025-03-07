@@ -118,6 +118,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -177,7 +178,9 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.mysql.MysqlTableProperties.PRIMARY_KEY_PROPERTY;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -474,8 +477,34 @@ public class MySqlClient
     @Override
     protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
-        checkArgument(tableMetadata.getProperties().isEmpty(), "Unsupported table properties: %s", tableMetadata.getProperties());
-        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columns), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
+        ImmutableList.Builder<String> columnDefinitions = ImmutableList.builder();
+        columnDefinitions.addAll(columns);
+
+        List<String> primaryKeys = MysqlTableProperties.getPrimaryKey(tableMetadata.getProperties());
+        if (!primaryKeys.isEmpty()) {
+            verifyPrimaryKey(primaryKeys, tableMetadata.getColumns());
+            columnDefinitions.add("PRIMARY KEY (" + primaryKeys.stream().map(this::quoted).collect(joining(", ")) + ")");
+        }
+        return ImmutableList.of(format("CREATE TABLE %s (%s) COMMENT %s", quoted(remoteTableName), join(", ", columnDefinitions.build()), mysqlVarcharLiteral(tableMetadata.getComment().orElse(NO_COMMENT))));
+    }
+
+    private void verifyPrimaryKey(List<String> primaryKeys, List<ColumnMetadata> columns)
+    {
+        ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builderWithExpectedSize(columns.size());
+        for (ColumnMetadata column : columns) {
+            String columnName = column.getName();
+            if (primaryKeys.contains(columnName)) {
+                checkArgument(!column.isNullable(), "Primary key must be NOT NULL in MySQL");
+            }
+            columnNamesBuilder.add(columnName);
+        }
+        List<String> columnNames = columnNamesBuilder.build();
+        for (String primaryKey : primaryKeys) {
+            if (!columnNames.contains(primaryKey)) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY,
+                        format("Column '%s' specified in property '%s' doesn't exist in table", primaryKey, PRIMARY_KEY_PROPERTY));
+            }
+        }
     }
 
     // This is overridden to pass NULL to MySQL for TIMESTAMP column types
@@ -1021,6 +1050,20 @@ public class MySqlClient
     public boolean supportsMerge()
     {
         return true;
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        List<String> primaryKeys = getPrimaryKeys(session, tableHandle.getRequiredNamedRelation().getRemoteTableName())
+                .stream()
+                .map(JdbcColumnHandle::getColumnName)
+                .collect(Collectors.toUnmodifiableList());
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        if (!primaryKeys.isEmpty()) {
+            properties.put(PRIMARY_KEY_PROPERTY, primaryKeys);
+        }
+        return properties.buildOrThrow();
     }
 
     @Override
