@@ -23,7 +23,7 @@ public class TestIcebergAvroConnectorTest
 {
     public TestIcebergAvroConnectorTest()
     {
-        super(AVRO);
+        super(AVRO, 3);
     }
 
     @Override

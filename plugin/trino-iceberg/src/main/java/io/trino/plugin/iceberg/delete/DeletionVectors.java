@@ -34,18 +34,25 @@ public final class DeletionVectors
 
     private DeletionVectors() {}
 
-    public static void readDeletionVector(TrinoInput input, DeleteFile deleteFile, LongBitmapDataProvider deletedRows)
+    public static void readDeletionVector(TrinoInput input, long recordCount, Long contentOffset, Long contentSizeInBytes, LongBitmapDataProvider deletedRows)
             throws IOException
     {
-        byte[] bytes = input.readFully(deleteFile.contentOffset(), LENGTH_SIZE_BYTES + toIntExact(deleteFile.contentSizeInBytes()) + CRC_SIZE_BYTES).getBytes();
-        deserialize(bytes, deleteFile).forEach(deletedRows::addLong);
+        byte[] bytes = input.readFully(contentOffset, LENGTH_SIZE_BYTES + toIntExact(contentSizeInBytes) + CRC_SIZE_BYTES).getBytes();
+        deserialize(bytes, recordCount, contentSizeInBytes).forEach(deletedRows::addLong);
     }
 
-    public static TrinoRoaringPositionBitmap deserialize(byte[] bytes, DeleteFile deleteFile)
+//    public static void readDeletionVector(TrinoInput input, DeleteFile deleteFile, LongBitmapDataProvider deletedRows)
+//            throws IOException
+//    {
+//        byte[] bytes = input.readFully(deleteFile.contentOffset(), LENGTH_SIZE_BYTES + toIntExact(deleteFile.contentSizeInBytes()) + CRC_SIZE_BYTES).getBytes();
+//        deserialize(bytes, deleteFile).forEach(deletedRows::addLong);
+//    }
+
+    private static TrinoRoaringPositionBitmap deserialize(byte[] bytes, long recordCount, Long contentSizeInBytes)
     {
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
-        int bitmapDataLength = readBitmapDataLength(buffer, deleteFile);
-        TrinoRoaringPositionBitmap bitmap = deserializeBitmap(bytes, bitmapDataLength, deleteFile);
+        int bitmapDataLength = readBitmapDataLength(buffer, contentSizeInBytes);
+        TrinoRoaringPositionBitmap bitmap = deserializeBitmap(bytes, bitmapDataLength, recordCount);
         int crc = computeChecksum(bytes, bitmapDataLength);
         int crcOffset = LENGTH_SIZE_BYTES + bitmapDataLength;
         int expectedCrc = buffer.getInt(crcOffset);
@@ -53,23 +60,22 @@ public final class DeletionVectors
         return bitmap;
     }
 
-    private static int readBitmapDataLength(ByteBuffer buffer, DeleteFile deleteFile)
+    private static int readBitmapDataLength(ByteBuffer buffer, Long contentSizeInBytes)
     {
         int length = buffer.getInt();
-        long expectedLength = deleteFile.contentSizeInBytes() - LENGTH_SIZE_BYTES - CRC_SIZE_BYTES;
+        long expectedLength = contentSizeInBytes - LENGTH_SIZE_BYTES - CRC_SIZE_BYTES;
         checkArgument(length == expectedLength, "Invalid bitmap data length: %s, expected %s", length, expectedLength);
         return length;
     }
 
-    private static TrinoRoaringPositionBitmap deserializeBitmap(byte[] bytes, int bitmapDataLength, DeleteFile deleteFile)
+    private static TrinoRoaringPositionBitmap deserializeBitmap(byte[] bytes, int bitmapDataLength, long recordCount)
     {
         ByteBuffer bitmapData = pointToBitmapData(bytes, bitmapDataLength);
         int magicNumber = bitmapData.getInt();
         checkArgument(magicNumber == MAGIC_NUMBER, "Invalid magic number: %s, expected %s", magicNumber, MAGIC_NUMBER);
         TrinoRoaringPositionBitmap bitmap = TrinoRoaringPositionBitmap.deserialize(bitmapData);
         long cardinality = bitmap.cardinality();
-        long expectedCardinality = deleteFile.recordCount();
-        checkArgument(cardinality == expectedCardinality, "Invalid cardinality: %s, expected %s", cardinality, expectedCardinality);
+        checkArgument(cardinality == recordCount, "Invalid cardinality: %s, expected %s", cardinality, recordCount);
         return bitmap;
     }
 

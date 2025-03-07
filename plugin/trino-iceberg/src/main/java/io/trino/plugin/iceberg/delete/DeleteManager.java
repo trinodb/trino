@@ -150,7 +150,7 @@ public class DeleteManager
             if (shouldLoadPositionDeleteFile(deleteFile, startRowPosition, endRowPosition)) {
                 if (deleteFile.format() == FileFormat.PUFFIN) {
                     try (TrinoInput input = fileSystem.newInputFile(Location.of(deleteFile.path())).newInput()) {
-                        readDeletionVector(input, deleteFile, deletedRows);
+                        readDeletionVector(input, deleteFile.recordCount(), deleteFile.contentOffset(), deleteFile.contentSizeInBytes(), deletedRows);
                     }
                     catch (IOException e) {
                         throw new UncheckedIOException(e);

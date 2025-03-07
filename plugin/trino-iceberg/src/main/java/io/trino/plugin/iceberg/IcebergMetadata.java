@@ -3072,7 +3072,7 @@ public class IcebergMetadata
                         task.file().location(),
                         task.spec().specId(),
                         task.deletes().stream()
-                                .map(a -> ContentFileParsers.toJson(a, task.spec()))
+                                .map(deleteFile -> ContentFileParsers.toJson(deleteFile, task.spec()))
                                 .collect(toImmutableList())));
             }
         }

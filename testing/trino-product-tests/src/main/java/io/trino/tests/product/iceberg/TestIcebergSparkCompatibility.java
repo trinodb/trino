@@ -1996,6 +1996,33 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoMultipleDeleteFiles(StorageFormat storageFormat)
+    {
+        // V1 doesn't support row level deletes
+        testSparkReadsTrinoMultipleDeleteFiles(storageFormat, 2);
+        testSparkReadsTrinoMultipleDeleteFiles(storageFormat, 3);
+    }
+
+    private static void testSparkReadsTrinoMultipleDeleteFiles(StorageFormat storageFormat, int formatVersion)
+    {
+        String tableName = toLowerCase(format("test_spark_reads_trino_multiple_delete_files_%s_%s", storageFormat.name(), randomNameSuffix()));
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(a INT, b INT) WITH(partitioning = ARRAY['b'], format_version = " + formatVersion + ", format = '" + storageFormat.name() + "')");
+        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
+
+        // Delete one row from each data file
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE a IN (1, 11)");
+
+        List<Row> expected = ImmutableList.of(row(2, 2), row(3, 2), row(12, 12), row(13, 12));
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testSparkReadsTrinoRowLevelDeletesWithRowTypes(StorageFormat storageFormat)
     {
         // V1 doesn't support row level deletes

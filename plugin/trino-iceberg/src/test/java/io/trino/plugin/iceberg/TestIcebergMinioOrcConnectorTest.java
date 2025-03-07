@@ -50,7 +50,7 @@ public class TestIcebergMinioOrcConnectorTest
 
     public TestIcebergMinioOrcConnectorTest()
     {
-        super(ORC);
+        super(ORC, 3);
     }
 
     @Override

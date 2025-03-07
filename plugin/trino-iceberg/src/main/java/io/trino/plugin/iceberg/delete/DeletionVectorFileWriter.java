@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.FileFormat.PUFFIN;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
@@ -93,7 +94,6 @@ public class DeletionVectorFileWriter
             throws IOException
     {
         if (result == null) {
-            List<org.apache.iceberg.DeleteFile> dvs = new ArrayList<>();
             CharSequenceSet referencedDataFiles = CharSequenceSet.empty();
             List<org.apache.iceberg.DeleteFile> rewrittenDeleteFiles = new ArrayList<>();
 
@@ -122,10 +122,9 @@ public class DeletionVectorFileWriter
             String puffinPath = writer.location();
             long puffinFileSize = writer.fileSize();
 
-            for (String path : deletesByPath.keySet()) {
-                org.apache.iceberg.DeleteFile dv = createDV(puffinPath, puffinFileSize, path);
-                dvs.add(dv);
-            }
+            List<org.apache.iceberg.DeleteFile> dvs = deletesByPath.keySet().stream()
+                    .map(path -> createDV(puffinPath, puffinFileSize, path))
+                    .collect(toImmutableList());
 
             this.result = new DeleteWriteResult(dvs, referencedDataFiles, rewrittenDeleteFiles);
         }
