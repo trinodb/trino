@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.opentelemetry.sdk.trace.data.SpanData;
-import io.trino.plugin.iceberg.util.FileOperationUtils;
+import io.trino.plugin.iceberg.util.FileOperationUtils.FileType;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -161,12 +161,12 @@ public class TestIcebergAlluxioCacheFileOperations
                 .collect(toCollection(HashMultiset::create));
     }
 
-    private record CacheOperation(String operationName, FileOperationUtils.FileType fileType)
+    private record CacheOperation(String operationName, FileType fileType)
     {
         public static CacheOperation create(SpanData span)
         {
             String path = getFileLocation(span);
-            return new CacheOperation(span.getName(), FileOperationUtils.FileType.fromFilePath(path));
+            return new CacheOperation(span.getName(), FileType.fromFilePath(path));
         }
     }
 }
