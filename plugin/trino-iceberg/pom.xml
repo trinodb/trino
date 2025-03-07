@@ -759,7 +759,9 @@
                                 <exclude>**/TestIcebergAbfsConnectorSmokeTest.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestIcebergSnowflakeCatalogWithKeyPairConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestTrinoSnowflakeCatalog.java</exclude>
+                                <exclude>**/TestTrinoSnowflakeCatalogWithKeyPair.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -824,7 +826,9 @@
                                 <include>**/TestIcebergGcsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergAbfsConnectorSmokeTest.java</include>
                                 <include>**/TestIcebergSnowflakeCatalogConnectorSmokeTest.java</include>
+                                <include>**/TestIcebergSnowflakeCatalogWithKeyPairConnectorSmokeTest.java</include>
                                 <include>**/TestTrinoSnowflakeCatalog.java</include>
+                                <include>**/TestTrinoSnowflakeCatalogWithKeyPair.java</include>
                             </includes>
                         </configuration>
                     </plugin>

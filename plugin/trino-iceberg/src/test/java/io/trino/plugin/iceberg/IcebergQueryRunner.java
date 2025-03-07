@@ -488,7 +488,7 @@ public final class IcebergQueryRunner
                             .put("iceberg.file-format", "PARQUET")
                             .put("iceberg.snowflake-catalog.account-uri", requiredNonEmptySystemProperty("testing.snowflake.catalog.account-url"))
                             .put("iceberg.snowflake-catalog.user", requiredNonEmptySystemProperty("testing.snowflake.catalog.user"))
-                            .put("iceberg.snowflake-catalog.password", requiredNonEmptySystemProperty("testing.snowflake.catalog.password"))
+                            .put("iceberg.snowflake-catalog.key", requiredNonEmptySystemProperty("testing.snowflake.catalog.key"))
                             .put("iceberg.snowflake-catalog.database", requiredNonEmptySystemProperty("testing.snowflake.catalog.database"))
                             .buildOrThrow())
                     .setSchemaInitializer(

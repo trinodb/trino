@@ -675,7 +675,10 @@ properties:
 * - `iceberg.snowflake-catalog.user`
   - Snowflake user (required).
 * - `iceberg.snowflake-catalog.password`
-  - Snowflake password (required).
+  - Snowflake password (deprecated).
+* - `iceberg.snowflake-catalog.key`
+  - Snowflake key for key-pair authentication (required). 
+    Set either key or password, but not both.
 * - `iceberg.snowflake-catalog.database`
   - Snowflake database name (required).
 * - `iceberg.snowflake-catalog.role`
@@ -687,7 +690,7 @@ connector.name=iceberg
 iceberg.catalog.type=snowflake
 iceberg.snowflake-catalog.account-uri=jdbc:snowflake://example1234567890.snowflakecomputing.com
 iceberg.snowflake-catalog.user=user
-iceberg.snowflake-catalog.password=secret
+iceberg.snowflake-catalog.key=xxxx
 iceberg.snowflake-catalog.database=db
 ```
 

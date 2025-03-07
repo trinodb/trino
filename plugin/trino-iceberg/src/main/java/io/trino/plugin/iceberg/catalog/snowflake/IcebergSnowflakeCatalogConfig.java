@@ -29,7 +29,8 @@ public class IcebergSnowflakeCatalogConfig
 {
     private URI uri;
     private String user;
-    private String password;
+    private Optional<String> password;
+    private Optional<String> key;
     private String database;
     private Optional<String> role = Optional.empty();
 
@@ -39,6 +40,12 @@ public class IcebergSnowflakeCatalogConfig
     {
         Driver driver = new SnowflakeDriver();
         return driver.acceptsURL(uri.toString());
+    }
+
+    @AssertTrue(message = "Either iceberg.snowflake-catalog.password or iceberg.snowflake-catalog.key must be set, but not both")
+    public boolean isAuthenticationMethodSet()
+    {
+        return getKey().isPresent() != getPassword().isPresent();
     }
 
     @NotNull
@@ -69,18 +76,33 @@ public class IcebergSnowflakeCatalogConfig
         return this;
     }
 
-    @NotNull
-    public String getPassword()
+    @Deprecated
+    public Optional<String> getPassword()
     {
         return password;
     }
 
+    @Deprecated
     @Config("iceberg.snowflake-catalog.password")
     @ConfigDescription("Password for Snowflake")
     @ConfigSecuritySensitive
     public IcebergSnowflakeCatalogConfig setPassword(String password)
     {
-        this.password = password;
+        this.password = Optional.ofNullable(password);
+        return this;
+    }
+
+    public Optional<String> getKey()
+    {
+        return key;
+    }
+
+    @Config("iceberg.snowflake-catalog.key")
+    @ConfigDescription("The base64 encoded private key for key-pair authentication")
+    @ConfigSecuritySensitive
+    public IcebergSnowflakeCatalogConfig setKey(String key)
+    {
+        this.key = Optional.ofNullable(key);
         return this;
     }
 

@@ -716,6 +716,7 @@ jobs:
           ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_HIERARCHICAL_ACCESS_KEY }}
           SNOWFLAKE_USER: ${{ vars.SNOWFLAKE_USER }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_KEY: ${{ secrets.SNOWFLAKE_KEY }}
           SNOWFLAKE_URL: ${{ vars.SNOWFLAKE_URL }}
           SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_CATALOG_SCHEMA: ${{ vars.SNOWFLAKE_CATALOG_SCHEMA }}
@@ -737,6 +738,7 @@ jobs:
             -Dtesting.azure-abfs-access-key="${ABFS_ACCESS_KEY}" \
             -Dtesting.snowflake.catalog.user="${SNOWFLAKE_USER}" \
             -Dtesting.snowflake.catalog.password="${SNOWFLAKE_PASSWORD}" \
+            -Dtesting.snowflake.catalog.key="${SNOWFLAKE_KEY}" \
             -Dtesting.snowflake.catalog.account-url="${SNOWFLAKE_URL}" \
             -Dtesting.snowflake.catalog.database="${SNOWFLAKE_DATABASE}" \
             -Dtesting.snowflake.catalog.schema="${SNOWFLAKE_CATALOG_SCHEMA}" \
