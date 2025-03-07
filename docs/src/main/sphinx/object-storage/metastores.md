@@ -208,34 +208,6 @@ properties:
   -
 :::
 
-Use the following configuration properties for HTTP client transport mode, so
-when the `hive.metastore.uri` uses the `http://` or `https://` protocol.
-
-:::{list-table} Thrift metastore HTTP configuration properties
-:widths: 40, 60
-:header-rows: 1
-
-* - Property name
-  - Description
-* - `hive.metastore.http.client.authentication.type`
-  - The authentication type to use with the HTTP client transport mode. When set
-    to the only supported value of `BEARER`, the token configured in
-    `hive.metastore.http.client.bearer-token` is used to authenticate to the
-    metastore service.
-* - `hive.metastore.http.client.bearer-token`
-  - Bearer token to use for authentication with the metastore service when HTTPS
-    transport mode is used by using a `https://` protocol in
-    `hive.metastore.uri`. This must not be set with `http://`.
-* - `hive.metastore.http.client.additional-headers`
-  - Additional headers to send with metastore service requests. These headers
-    must be comma-separated and delimited using `:`. For example,
-    `header1:value1,header2:value2` sends two headers `header1` and `header2`
-    with the values as `value1` and `value2`. Escape comma (`,`) or colon(`:`)
-    characters in a header name or value with a backslash (`\`). Use
-    `X-Databricks-Catalog-Name:[catalog_name]` to configure the required
-    header values for Unity catalog.
-:::
-
 (hive-thrift-metastore-authentication)=
 ### Thrift metastore authentication
 

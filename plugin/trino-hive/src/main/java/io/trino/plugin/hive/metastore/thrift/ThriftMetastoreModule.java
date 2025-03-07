@@ -45,40 +45,14 @@ public final class ThriftMetastoreModule
     {
         StaticMetastoreConfig staticMetastoreConfig = buildConfigObject(StaticMetastoreConfig.class);
         requireNonNull(staticMetastoreConfig.getMetastoreUris(), "metastoreUris is null");
-        boolean hasHttpOrHttpsMetastore = staticMetastoreConfig.getMetastoreUris().stream()
-                .anyMatch(uri -> ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())));
-
-        if (hasHttpOrHttpsMetastore) {
-            OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
-                    .setDefault().to(HttpThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
-            binder.bind(IdentityAwareMetastoreClientFactory.class).to(StaticTokenAwareHttpMetastoreClientFactory.class).in(Scopes.SINGLETON);
-            binder.bind(ThriftMetastoreFactory.class).to(ThriftHttpMetastoreFactory.class).in(Scopes.SINGLETON);
-            newOptionalBinder(binder, Key.get(new TypeLiteral<ExecutorService>() {}, ThriftHiveWriteStatisticsExecutor.class))
-                    .setDefault().toInstance(newFixedThreadPool(1, threadsNamed("http-thrift-statistics-write-%s")));
-            ThriftHttpMetastoreConfig httpMetastoreConfig = buildConfigObject(ThriftHttpMetastoreConfig.class);
-            boolean hasHttpsMetastore = staticMetastoreConfig.getMetastoreUris().stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
-            if (hasHttpsMetastore && httpMetastoreConfig.getHttpBearerToken().isEmpty()) {
-                throw new IllegalStateException("'hive.metastore.http.client.bearer-token' must be set while using https metastore URIs in 'hive.metastore.uri'");
-            }
-
-            if (!hasHttpsMetastore && httpMetastoreConfig.getHttpBearerToken().isPresent()) {
-                throw new IllegalStateException("'hive.metastore.http.client.bearer-token' must not be set while using http metastore URIs in 'hive.metastore.uri'");
-            }
-            if (httpMetastoreConfig.getAuthenticationMode().isEmpty()) {
-                throw new IllegalStateException("'hive.metastore.http.client.authentication.type' must be set while using http/https metastore URIs in 'hive.metastore.uri'");
-            }
-        }
-        else {
-            OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
-                    .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
-            binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
-            configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
-            newOptionalBinder(binder, Key.get(new TypeLiteral<ExecutorService>() {}, ThriftHiveWriteStatisticsExecutor.class))
-                    .setDefault().toProvider(ThriftHiveMetastoreStatisticExecutorProvider.class).in(Scopes.SINGLETON);
-            install(new ThriftMetastoreAuthenticationModule());
-            binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
-        }
-
+        OptionalBinder.newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
+                .setDefault().to(DefaultThriftMetastoreClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(TokenAwareMetastoreClientFactory.class).to(StaticTokenAwareMetastoreClientFactory.class).in(Scopes.SINGLETON);
+        configBinder(binder).bindConfig(ThriftMetastoreConfig.class);
+        newOptionalBinder(binder, Key.get(new TypeLiteral<ExecutorService>() {}, ThriftHiveWriteStatisticsExecutor.class))
+                .setDefault().toProvider(ThriftHiveMetastoreStatisticExecutorProvider.class).in(Scopes.SINGLETON);
+        install(new ThriftMetastoreAuthenticationModule());
+        binder.bind(ThriftMetastoreFactory.class).to(ThriftHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ThriftMetastoreFactory.class)
                 .as(generator -> generator.generatedNameOf(ThriftHiveMetastore.class));
         binder.bind(HiveMetastoreFactory.class)
