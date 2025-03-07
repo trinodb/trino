@@ -38,15 +38,17 @@ public sealed interface Block
     int getPositionCount();
 
     /**
-     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
-     * For example, in dictionary blocks, this only counts each dictionary entry once,
-     * rather than each time a value is referenced.
+     * Returns the estimated size of this block as if were fully expanded.
+     * This size includes the extra space to represent null values.
+     * For example, the size of an RLE block is the size of the repeated value
+     * times the number of positions in the block. The size of a dictionary
+     * block is the average size of a dictionary entry times the number of
+     * positions in the block.
      */
     long getSizeInBytes();
 
     /**
      * Returns the size of {@code block.getRegion(position, length)}.
-     * The method can be expensive. Do not use it outside an implementation of Block.
      */
     long getRegionSizeInBytes(int position, int length);
 
