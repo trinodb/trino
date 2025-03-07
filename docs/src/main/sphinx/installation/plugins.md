@@ -144,10 +144,6 @@ with the listed coordinates.
   - [](/functions/ai)
   - [io.trino:trino-ai-functions](https://central.sonatype.com/search?q=io.trino%3Atrino-ai-functions)
   - {maven_download}`ai-functions`  
-* - apache-ranger
-  - [](/security/ranger-access-control)
-  - [io.trino:trino-ranger](https://central.sonatype.com/search?q=io.trino%3Atrino-ranger)
-  - {maven_download}`ranger`
 * - bigquery
   - [](/connector/bigquery)
   - [io.trino:trino-bigquery](https://central.sonatype.com/search?q=io.trino%3Atrino-bigquery)
@@ -308,6 +304,10 @@ with the listed coordinates.
   - [](/connector/prometheus)
   - [io.trino:trino-prometheus](https://central.sonatype.com/search?q=io.trino%3Atrino-prometheus)
   - {maven_download}`prometheus`
+* - ranger
+  - [](/security/ranger-access-control)
+  - [io.trino:trino-ranger](https://central.sonatype.com/search?q=io.trino%3Atrino-ranger)
+  - {maven_download}`ranger`
 * - redis
   - [](/connector/redis)
   - [io.trino:trino-redis](https://central.sonatype.com/search?q=io.trino%3Atrino-redis)
