@@ -38,6 +38,8 @@ import io.trino.plugin.hive.avro.AvroFileWriterFactory;
 import io.trino.plugin.hive.avro.AvroPageSourceFactory;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
+import io.trino.plugin.hive.line.GrokFileWriterFactory;
+import io.trino.plugin.hive.line.GrokPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
 import io.trino.plugin.hive.line.JsonPageSourceFactory;
 import io.trino.plugin.hive.line.OpenXJsonFileWriterFactory;
@@ -172,6 +174,7 @@ public final class HiveTestUtils
                 .add(new JsonPageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new OpenXJsonPageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new RegexPageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new GrokPageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new SimpleTextFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new SimpleSequenceFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new AvroPageSourceFactory(fileSystemFactory))
@@ -188,6 +191,7 @@ public final class HiveTestUtils
                 .add(new CsvFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new JsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new RegexFileWriterFactory())
+                .add(new GrokFileWriterFactory())
                 .add(new OpenXJsonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new SimpleTextFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .add(new SimpleSequenceFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion))

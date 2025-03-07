@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.hive.formats.HiveClassNames.GROK_SERDE_CLASS;
 
 public class GrokDeserializerFactory
         implements LineDeserializerFactory
@@ -33,7 +34,7 @@ public class GrokDeserializerFactory
     @Override
     public Set<String> getHiveSerDeClassNames()
     {
-        return ImmutableSet.of("com.amazonaws.serde.GrokSerDe");
+        return ImmutableSet.of(GROK_SERDE_CLASS);
     }
 
     @Override
