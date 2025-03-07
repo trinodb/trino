@@ -61,10 +61,9 @@ RUN \
     mkdir -p /usr/lib/trino /data/trino && \
     chown -R "trino:trino" /usr/lib/trino /data/trino
 
-ARG TRINO_VERSION
-COPY --chown=trino:trino trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
-COPY --chown=trino:trino --exclude=bin/darwin-* --exclude=bin/linux-* trino-server-${TRINO_VERSION} /usr/lib/trino
-COPY --chown=trino:trino trino-server-${TRINO_VERSION}/bin/linux-${ARCH} /usr/lib/trino/bin/linux-${ARCH}
+COPY --chown=trino:trino trino-cli.jar /usr/bin/trino
+COPY --chown=trino:trino --exclude=bin/darwin-* --exclude=bin/linux-* trino-server /usr/lib/trino
+COPY --chown=trino:trino trino-server/bin/linux-${ARCH} /usr/lib/trino/bin/linux-${ARCH}
 COPY --chown=trino:trino default/etc /etc/trino
 COPY --chown=trino:trino --from=jvmkill /libjvmkill.so /usr/lib/trino/bin
 
