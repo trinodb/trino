@@ -21,7 +21,7 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.util.FileOperationUtils;
+import io.trino.plugin.iceberg.util.FileOperationUtils.Scope;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -56,6 +56,7 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.STATS;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.ALL_FILES;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.METADATA_FILES;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.getOperations;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -552,12 +553,12 @@ public class TestIcebergFileOperations
                 getSession(),
                 selectQuery,
                 ALL_FILES,
-                ImmutableMultiset.<FileOperationUtils.FileOperation>builder()
-                        .add(new FileOperationUtils.FileOperation(METADATA_JSON, "InputFile.newStream"))
-                        .add(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"))
-                        .add(new FileOperationUtils.FileOperation(MANIFEST, "InputFile.newStream"))
-                        .add(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"))
-                        .addCopies(new FileOperationUtils.FileOperation(DATA, "InputFile.newInput"), expectedDataFileOperations)
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .addCopies(new FileOperation(DATA, "InputFile.newInput"), expectedDataFileOperations)
                         .build());
 
         assertThat((long) computeScalar("SELECT COUNT(DISTINCT file_path) FROM \"" + tableName + "$files\""))
@@ -931,9 +932,9 @@ public class TestIcebergFileOperations
                 ImmutableMap.of("id", 2),
                 Optional.empty());
 
-        ImmutableMultiset<FileOperation> expectedAccesses = ImmutableMultiset.<FileOperationUtils.FileOperation>builder()
-                .addCopies(new FileOperationUtils.FileOperation(DATA, "InputFile.newInput"), 2)
-                .addCopies(new FileOperationUtils.FileOperation(DELETE, "InputFile.newInput"), 1)
+        ImmutableMultiset<FileOperation> expectedAccesses = ImmutableMultiset.<FileOperation>builder()
+                .addCopies(new FileOperation(DATA, "InputFile.newInput"), 2)
+                .addCopies(new FileOperation(DELETE, "InputFile.newInput"), 1)
                 .build();
 
         QueryRunner.MaterializedResultWithPlan queryResult = getDistributedQueryRunner().executeWithPlan(getSession(), "SELECT * FROM " + tableName);
@@ -941,7 +942,7 @@ public class TestIcebergFileOperations
                 .describedAs("query result row count")
                 .isEqualTo(1);
         assertMultisetsEqual(
-                FileOperationUtils.getOperations(getDistributedQueryRunner().getSpans()).stream()
+                getOperations(getDistributedQueryRunner().getSpans()).stream()
                         .filter(operation -> ImmutableSet.of(DATA, DELETE).contains(operation.fileType()))
                         .collect(toImmutableMultiset()),
                 expectedAccesses);
@@ -959,7 +960,7 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses(query, METADATA_FILES, expectedAccesses);
     }
 
-    private void assertFileSystemAccesses(@Language("SQL") String query, FileOperationUtils.Scope scope, Multiset<FileOperation> expectedAccesses)
+    private void assertFileSystemAccesses(@Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         assertFileSystemAccesses(getSession(), query, scope, expectedAccesses);
     }
@@ -969,11 +970,11 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses(session, query, METADATA_FILES, expectedAccesses);
     }
 
-    private synchronized void assertFileSystemAccesses(Session session, @Language("SQL") String query, FileOperationUtils.Scope scope, Multiset<FileOperationUtils.FileOperation> expectedAccesses)
+    private synchronized void assertFileSystemAccesses(Session session, @Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         getDistributedQueryRunner().executeWithPlan(session, query);
         assertMultisetsEqual(
-                FileOperationUtils.getOperations(getDistributedQueryRunner().getSpans()).stream()
+                getOperations(getDistributedQueryRunner().getSpans()).stream()
                         .filter(scope)
                         .collect(toImmutableMultiset()),
                 expectedAccesses);
