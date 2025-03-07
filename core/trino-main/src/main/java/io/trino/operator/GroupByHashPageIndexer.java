@@ -30,7 +30,7 @@ public class GroupByHashPageIndexer
 
     public GroupByHashPageIndexer(List<Type> hashTypes, FlatHashStrategyCompiler hashStrategyCompiler)
     {
-        this(GroupByHash.createGroupByHash(hashTypes, false, 20, false, hashStrategyCompiler, NOOP));
+        this(GroupByHash.createGroupByHash(hashTypes, false, false, 20, false, hashStrategyCompiler, NOOP));
     }
 
     public GroupByHashPageIndexer(GroupByHash hash)
