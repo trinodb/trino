@@ -73,6 +73,7 @@ public final class FileOperationUtils
         SNAPSHOT,
         MANIFEST,
         STATS,
+        PUFFIN,
         DATA,
         DELETE,
         METASTORE,
@@ -86,11 +87,14 @@ public final class FileOperationUtils
             if (path.contains("/snap-")) {
                 return SNAPSHOT;
             }
-            if (path.endsWith("-m0.avro")) {
+            if (path.endsWith("-m0.avro") || path.endsWith("-m1.avro")) {
                 return MANIFEST;
             }
             if (path.endsWith(".stats")) {
                 return STATS;
+            }
+            if (path.endsWith(".puffin")) {
+                return PUFFIN;
             }
             if (path.contains("/data/") && (path.endsWith(".orc") || path.endsWith(".parquet"))) {
                 return DATA;
