@@ -70,6 +70,8 @@ public class HiveTableProperties
     public static final String PARQUET_BLOOM_FILTER_COLUMNS = "parquet_bloom_filter_columns";
     public static final String REGEX_PATTERN = "regex";
     public static final String REGEX_CASE_INSENSITIVE = "regex_case_insensitive";
+    public static final String GROK_INPUT_FORMAT = "grok_input_format";
+    public static final String GROK_CUSTOM_PATTERNS = "grok_custom_patterns";
     public static final String TRANSACTIONAL = "transactional";
     public static final String AUTO_PURGE = "auto_purge";
     public static final String EXTRA_PROPERTIES = "extra_properties";
@@ -174,6 +176,8 @@ public class HiveTableProperties
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
                 stringProperty(REGEX_PATTERN, "REGEX pattern", null, false),
                 booleanProperty(REGEX_CASE_INSENSITIVE, "REGEX pattern is case insensitive", null, false),
+                stringProperty(GROK_INPUT_FORMAT, "GROK input format", null, false),
+                stringProperty(GROK_CUSTOM_PATTERNS, "GROK custom patterns", null, false),
                 booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
                 booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", config.isAutoPurge(), false),
                 booleanProperty(
@@ -341,6 +345,16 @@ public class HiveTableProperties
     public static Optional<Boolean> isRegexCaseInsensitive(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(REGEX_CASE_INSENSITIVE));
+    }
+
+    public static Optional<String> getGrokInputFormat(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(GROK_INPUT_FORMAT));
+    }
+
+    public static Optional<String> getGrokCustomPatterns(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(GROK_CUSTOM_PATTERNS));
     }
 
     public static Optional<Boolean> isTransactional(Map<String, Object> tableProperties)
