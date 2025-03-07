@@ -28,6 +28,7 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
@@ -106,7 +107,7 @@ public class BenchmarkJsonFunctions
                         FULL_CONNECTOR_SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @Benchmark
@@ -118,7 +119,7 @@ public class BenchmarkJsonFunctions
                         FULL_CONNECTOR_SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @Benchmark
@@ -130,7 +131,7 @@ public class BenchmarkJsonFunctions
                         FULL_CONNECTOR_SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @Benchmark
@@ -142,7 +143,7 @@ public class BenchmarkJsonFunctions
                         SESSION,
                         new DriverYieldSignal(),
                         newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                        data.getPage()));
+                        SourcePage.create(data.getPage())));
     }
 
     @SuppressWarnings("FieldMayBeFinal")

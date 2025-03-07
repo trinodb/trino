@@ -16,12 +16,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/apache-ranger">
-        <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/bigquery">
         <artifact id="${project.groupId}:trino-bigquery:zip:${project.version}">
             <unpack />
@@ -249,6 +243,13 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/ranger">
+        <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
 
     <artifactSet to="plugin/redis">
         <artifact id="${project.groupId}:trino-redis:zip:${project.version}">

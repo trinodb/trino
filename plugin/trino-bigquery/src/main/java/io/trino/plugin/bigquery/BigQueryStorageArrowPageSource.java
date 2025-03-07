@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -102,7 +103,7 @@ public class BigQueryStorageArrowPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
         ReadRowsResponse response;
@@ -125,7 +126,7 @@ public class BigQueryStorageArrowPageSource
             pageBuilder.reset();
         }
         readTimeNanos.addAndGet(System.nanoTime() - start);
-        return page;
+        return SourcePage.create(page);
     }
 
     @Override

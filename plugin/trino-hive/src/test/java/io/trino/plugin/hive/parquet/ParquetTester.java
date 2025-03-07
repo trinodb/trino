@@ -36,7 +36,6 @@ import io.trino.plugin.hive.parquet.write.MapKeyValuesSchemaConverter;
 import io.trino.plugin.hive.parquet.write.SingleLevelArrayMapKeyValuesSchemaConverter;
 import io.trino.plugin.hive.parquet.write.SingleLevelArraySchemaConverter;
 import io.trino.plugin.hive.parquet.write.TestingMapredParquetOutputFormat;
-import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -49,6 +48,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
@@ -500,7 +500,7 @@ class ParquetTester
     private static void assertPageSource(List<Type> types, Iterator<?>[] valuesByField, ConnectorPageSource pageSource, Optional<Long> maxReadBlockSize)
     {
         while (!pageSource.isFinished()) {
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             if (page == null) {
                 continue;
             }

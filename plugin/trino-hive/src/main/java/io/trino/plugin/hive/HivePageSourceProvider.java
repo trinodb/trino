@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.BiMap;
-import com.google.common.collect.ImmutableBiMap;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
@@ -22,11 +21,11 @@ import io.trino.filesystem.Location;
 import io.trino.metastore.HiveType;
 import io.trino.metastore.HiveTypeName;
 import io.trino.metastore.type.TypeInfo;
-import io.trino.plugin.hive.HivePageSource.BucketValidator;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
+import io.trino.plugin.hive.coercions.TypeCoercer;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -41,6 +40,8 @@ import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.Utils;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.util.ArrayList;
@@ -48,10 +49,10 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -67,6 +68,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.toColumnHandles;
 import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMappingKind.PREFILLED;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
+import static io.trino.plugin.hive.coercions.CoercionUtils.createCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.createTypeFromCoercer;
 import static io.trino.plugin.hive.coercions.CoercionUtils.extractHiveStorageFormat;
 import static io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
@@ -81,6 +83,9 @@ import static java.util.stream.Collectors.toList;
 public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
+    public static final int ORIGINAL_TRANSACTION_CHANNEL = 0;
+    public static final int BUCKET_CHANNEL = 1;
+    public static final int ROW_ID_CHANNEL = 2;
     // The original file path looks like this: /root/dir/nnnnnnn_m(_copy_ccc)?
     private static final Pattern ORIGINAL_FILE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<filename>(?<bucketNumber>\\d+)_(?<rest>.*)?)$");
 
@@ -200,7 +205,7 @@ public class HivePageSourceProvider
         for (HivePageSourceFactory pageSourceFactory : pageSourceFactories) {
             List<HiveColumnHandle> desiredColumns = toColumnHandles(regularAndInterimColumnMappings, typeManager, coercionContext);
 
-            Optional<ReaderPageSource> readerWithProjections = pageSourceFactory.createPageSource(
+            Optional<ConnectorPageSource> pageSource = pageSourceFactory.createPageSource(
                     session,
                     path,
                     start,
@@ -215,27 +220,73 @@ public class HivePageSourceProvider
                     originalFile,
                     transaction);
 
-            if (readerWithProjections.isPresent()) {
-                ConnectorPageSource pageSource = readerWithProjections.get().get();
-
-                Optional<ReaderColumns> readerProjections = readerWithProjections.get().getReaderColumns();
-                Optional<ReaderProjectionsAdapter> adapter = Optional.empty();
-                if (readerProjections.isPresent()) {
-                    adapter = Optional.of(hiveProjectionsAdapter(desiredColumns, readerProjections.get()));
-                }
-
-                return Optional.of(new HivePageSource(
-                        columnMappings,
+            if (pageSource.isPresent()) {
+                return Optional.of(createHivePageSource(columnMappings,
                         bucketAdaptation,
                         bucketValidator,
-                        adapter,
                         typeManager,
                         coercionContext,
-                        pageSource));
+                        pageSource.get()));
             }
         }
 
         return Optional.empty();
+    }
+
+    @VisibleForTesting
+    static ConnectorPageSource createHivePageSource(
+            List<ColumnMapping> columnMappings,
+            Optional<BucketAdaptation> bucketAdaptation,
+            Optional<BucketValidator> bucketValidator,
+            TypeManager typeManager,
+            CoercionContext coercionContext,
+            ConnectorPageSource pageSource)
+    {
+        if (bucketAdaptation.isPresent()) {
+            BucketAdapter bucketAdapter = new BucketAdapter(bucketAdaptation.get());
+            pageSource = TransformConnectorPageSource.create(pageSource, bucketAdapter::filterPageToEligibleRowsOrDiscard);
+        }
+        else if (bucketValidator.isPresent()) {
+            BucketValidator validator = bucketValidator.get();
+            pageSource = TransformConnectorPageSource.create(pageSource, page -> {
+                validator.validate(page);
+                return page;
+            });
+        }
+
+        TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+        for (ColumnMapping columnMapping : columnMappings) {
+            HiveColumnHandle column = columnMapping.getHiveColumnHandle();
+
+            Type type = column.getType();
+            switch (columnMapping.getKind()) {
+                case PREFILLED -> transforms.constantValue(Utils.nativeValueToBlock(type, columnMapping.getPrefilledValue().getValue()));
+                case EMPTY -> transforms.constantValue(type.createNullBlock());
+                case REGULAR, SYNTHESIZED -> {
+                    Optional<TypeCoercer<? extends Type, ? extends Type>> coercer = Optional.empty();
+                    if (columnMapping.getBaseTypeCoercionFrom().isPresent()) {
+                        List<Integer> dereferenceIndices = column.getHiveColumnProjectionInfo()
+                                .map(HiveColumnProjectionInfo::getDereferenceIndices)
+                                .orElse(ImmutableList.of());
+                        HiveType fromType = getHiveTypeForDereferences(columnMapping.getBaseTypeCoercionFrom().get(), dereferenceIndices).orElseThrow();
+                        HiveType toType = columnMapping.getHiveColumnHandle().getHiveType();
+                        coercer = createCoercer(typeManager, fromType, toType, coercionContext);
+                    }
+
+                    int inputChannel = columnMapping.getIndex();
+                    if (coercer.isPresent()) {
+                        transforms.transform(inputChannel, coercer.get());
+                    }
+                    else {
+                        transforms.column(inputChannel);
+                    }
+                }
+                case INTERIM -> {
+                    // interim columns don't show up in output
+                }
+            }
+        }
+        return transforms.build(pageSource);
     }
 
     private static boolean shouldSkipBucket(HiveTableHandle hiveTable, HiveSplit hiveSplit, DynamicFilter dynamicFilter)
@@ -267,13 +318,38 @@ public class HivePageSourceProvider
         return false;
     }
 
-    private static ReaderProjectionsAdapter hiveProjectionsAdapter(List<HiveColumnHandle> expectedColumns, ReaderColumns readColumns)
+    /**
+     * Create a page source using base columns and project the final shape from the base columns.
+     * This utility is used for page sources that do not handle column dereferences directly.
+     */
+    public static ConnectorPageSource projectColumnDereferences(List<HiveColumnHandle> columns, Function<List<HiveColumnHandle>, ConnectorPageSource> pageSourceFactory)
     {
-        return new ReaderProjectionsAdapter(
-                expectedColumns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
-                readColumns,
-                column -> ((HiveColumnHandle) column).getType(),
-                HivePageSourceProvider::getProjection);
+        // determine base columns and create transform to project the final shape from the base columns
+        List<HiveColumnHandle> baseColumns = new ArrayList<>();
+        TransformConnectorPageSource.Builder transforms = TransformConnectorPageSource.builder();
+        Map<Integer, Integer> baseColumnOrdinalByColumnIndex = new HashMap<>();
+        for (HiveColumnHandle column : columns) {
+            HiveColumnHandle baseColumn = column.getBaseColumn();
+            Integer ordinal = baseColumnOrdinalByColumnIndex.get(baseColumn.getBaseHiveColumnIndex());
+            if (ordinal == null) {
+                ordinal = baseColumns.size();
+                baseColumnOrdinalByColumnIndex.put(baseColumn.getBaseHiveColumnIndex(), ordinal);
+                baseColumns.add(baseColumn);
+            }
+
+            if (column.isBaseColumn()) {
+                transforms.column(ordinal);
+            }
+            else {
+                transforms.dereferenceField(ImmutableList.<Integer>builder()
+                        .add(ordinal)
+                        .addAll(getProjection(column, baseColumn))
+                        .build());
+            }
+        }
+
+        ConnectorPageSource connectorPageSource = pageSourceFactory.apply(baseColumns);
+        return transforms.build(connectorPageSource);
     }
 
     public static List<Integer> getProjection(ColumnHandle expected, ColumnHandle read)
@@ -632,159 +708,5 @@ public class HivePageSourceProvider
                     validation.bucketCount(),
                     bucketNumber.orElseThrow()));
         });
-    }
-
-    /**
-     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex if required.
-     */
-    public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
-    {
-        return projectBaseColumns(columns, false);
-    }
-
-    /**
-     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
-     */
-    public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns, boolean useColumnNames)
-    {
-        requireNonNull(columns, "columns is null");
-
-        // No projection is required if all columns are base columns
-        if (columns.stream().allMatch(HiveColumnHandle::isBaseColumn)) {
-            return Optional.empty();
-        }
-
-        ImmutableList.Builder<ColumnHandle> projectedColumns = ImmutableList.builder();
-        ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
-        Map<Object, Integer> mappedHiveBaseColumnKeys = new HashMap<>();
-        int projectedColumnCount = 0;
-
-        for (HiveColumnHandle column : columns) {
-            Object baseColumnKey = useColumnNames ? column.getBaseColumnName() : column.getBaseHiveColumnIndex();
-            Integer mapped = mappedHiveBaseColumnKeys.get(baseColumnKey);
-
-            if (mapped == null) {
-                projectedColumns.add(column.getBaseColumn());
-                mappedHiveBaseColumnKeys.put(baseColumnKey, projectedColumnCount);
-                outputColumnMapping.add(projectedColumnCount);
-                projectedColumnCount++;
-            }
-            else {
-                outputColumnMapping.add(mapped);
-            }
-        }
-
-        return Optional.of(new ReaderColumns(projectedColumns.build(), outputColumnMapping.build()));
-    }
-
-    /**
-     * Creates a set of sufficient columns for the input projected columns and prepares a mapping between the two. For example,
-     * if input columns include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
-     */
-    public static Optional<ReaderColumns> projectSufficientColumns(List<HiveColumnHandle> columns)
-    {
-        requireNonNull(columns, "columns is null");
-
-        if (columns.stream().allMatch(HiveColumnHandle::isBaseColumn)) {
-            return Optional.empty();
-        }
-
-        ImmutableBiMap.Builder<DereferenceChain, HiveColumnHandle> dereferenceChainsBuilder = ImmutableBiMap.builder();
-
-        for (HiveColumnHandle column : columns) {
-            List<Integer> indices = column.getHiveColumnProjectionInfo()
-                    .map(HiveColumnProjectionInfo::getDereferenceIndices)
-                    .orElse(ImmutableList.of());
-
-            DereferenceChain dereferenceChain = new DereferenceChain(column.getBaseColumnName(), indices);
-            dereferenceChainsBuilder.put(dereferenceChain, column);
-        }
-
-        BiMap<DereferenceChain, HiveColumnHandle> dereferenceChains = dereferenceChainsBuilder.build();
-
-        List<ColumnHandle> sufficientColumns = new ArrayList<>();
-        ImmutableList.Builder<Integer> outputColumnMapping = ImmutableList.builder();
-
-        Map<DereferenceChain, Integer> pickedColumns = new HashMap<>();
-
-        // Pick a covering column for every column
-        for (HiveColumnHandle columnHandle : columns) {
-            DereferenceChain column = dereferenceChains.inverse().get(columnHandle);
-            List<DereferenceChain> orderedPrefixes = column.getOrderedPrefixes();
-            DereferenceChain chosenColumn = null;
-
-            // Shortest existing prefix is chosen as the input.
-            for (DereferenceChain prefix : orderedPrefixes) {
-                if (dereferenceChains.containsKey(prefix)) {
-                    chosenColumn = prefix;
-                    break;
-                }
-            }
-
-            checkState(chosenColumn != null, "chosenColumn is null");
-            int inputBlockIndex;
-
-            if (pickedColumns.containsKey(chosenColumn)) {
-                // Use already picked column
-                inputBlockIndex = pickedColumns.get(chosenColumn);
-            }
-            else {
-                // Add a new column for the reader
-                sufficientColumns.add(dereferenceChains.get(chosenColumn));
-                pickedColumns.put(chosenColumn, sufficientColumns.size() - 1);
-                inputBlockIndex = sufficientColumns.size() - 1;
-            }
-
-            outputColumnMapping.add(inputBlockIndex);
-        }
-
-        return Optional.of(new ReaderColumns(sufficientColumns, outputColumnMapping.build()));
-    }
-
-    private static class DereferenceChain
-    {
-        private final String name;
-        private final List<Integer> indices;
-
-        public DereferenceChain(String name, List<Integer> indices)
-        {
-            this.name = requireNonNull(name, "name is null");
-            this.indices = ImmutableList.copyOf(requireNonNull(indices, "indices is null"));
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            DereferenceChain that = (DereferenceChain) o;
-            return Objects.equals(name, that.name) &&
-                    Objects.equals(indices, that.indices);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(name, indices);
-        }
-
-        /**
-         * Get Prefixes of this Dereference chain in increasing order of lengths
-         */
-        public List<DereferenceChain> getOrderedPrefixes()
-        {
-            ImmutableList.Builder<DereferenceChain> prefixes = ImmutableList.builder();
-
-            for (int prefixLen = 0; prefixLen <= indices.size(); prefixLen++) {
-                prefixes.add(new DereferenceChain(name, indices.subList(0, prefixLen)));
-            }
-
-            return prefixes.build();
-        }
     }
 }

@@ -13,8 +13,8 @@
  */
 package io.trino.operator.project;
 
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 
 public interface PageFilter
 {
@@ -22,7 +22,7 @@ public interface PageFilter
 
     InputChannels getInputChannels();
 
-    SelectedPositions filter(ConnectorSession session, Page page);
+    SelectedPositions filter(ConnectorSession session, SourcePage page);
 
     static SelectedPositions positionsArrayToSelectedPositions(boolean[] selectedPositions, int size)
     {

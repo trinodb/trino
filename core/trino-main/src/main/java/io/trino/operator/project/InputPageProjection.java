@@ -16,9 +16,9 @@ package io.trino.operator.project;
 import io.trino.operator.CompletedWork;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
-import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
@@ -54,12 +54,11 @@ public class InputPageProjection
     }
 
     @Override
-    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, Page page, SelectedPositions selectedPositions)
+    public Work<Block> project(ConnectorSession session, DriverYieldSignal yieldSignal, SourcePage page, SelectedPositions selectedPositions)
     {
         Block block = page.getBlock(0);
         requireNonNull(selectedPositions, "selectedPositions is null");
 
-        // TODO: make it lazy when MergePages have better merging heuristics for small lazy pages
         if (selectedPositions.isList()) {
             block = block.copyPositions(selectedPositions.getPositions(), selectedPositions.getOffset(), selectedPositions.size());
         }

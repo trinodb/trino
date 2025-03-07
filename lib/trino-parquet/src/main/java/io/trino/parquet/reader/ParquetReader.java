@@ -17,6 +17,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ListMultimap;
+import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -43,8 +44,10 @@ import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.ArrayType;
@@ -64,12 +67,14 @@ import org.joda.time.DateTimeZone;
 import java.io.Closeable;
 import java.io.IOException;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -88,6 +93,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetReader
@@ -103,6 +109,7 @@ public class ParquetReader
     private final Optional<String> fileCreatedBy;
     private final List<RowGroupInfo> rowGroups;
     private final List<Column> columnFields;
+    private final boolean appendRowNumberColumn;
     private final List<PrimitiveField> primitiveFields;
     private final ParquetDataSource dataSource;
     private final ZoneId zoneId;
@@ -142,6 +149,7 @@ public class ParquetReader
     public ParquetReader(
             Optional<String> fileCreatedBy,
             List<Column> columnFields,
+            boolean appendRowNumberColumn,
             List<RowGroupInfo> rowGroups,
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
@@ -155,6 +163,7 @@ public class ParquetReader
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         requireNonNull(columnFields, "columnFields is null");
         this.columnFields = ImmutableList.copyOf(columnFields);
+        this.appendRowNumberColumn = appendRowNumberColumn;
         this.primitiveFields = getPrimitiveFields(columnFields.stream().map(Column::field).collect(toImmutableList()));
         this.rowGroups = requireNonNull(rowGroups, "rowGroups is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -247,7 +256,7 @@ public class ParquetReader
         }
     }
 
-    public Page nextPage()
+    public SourcePage nextPage()
             throws IOException
     {
         int batchSize = nextBatch();
@@ -256,14 +265,149 @@ public class ParquetReader
         }
         // create a lazy page
         blockFactory.nextPage();
-        Block[] blocks = new Block[columnFields.size()];
-        for (int channel = 0; channel < columnFields.size(); channel++) {
-            Field field = columnFields.get(channel).field();
-            blocks[channel] = blockFactory.createBlock(batchSize, () -> readBlock(field));
-        }
-        Page page = new Page(batchSize, blocks);
+        SourcePage page = new ParquetSourcePage(batchSize);
         validateWritePageChecksum(page);
         return page;
+    }
+
+    private class ParquetSourcePage
+            implements SourcePage
+    {
+        private final Block[] blocks = new Block[columnFields.size() + (appendRowNumberColumn ? 1 : 0)];
+        private final int rowNumberColumnIndex = appendRowNumberColumn ? columnFields.size() : -1;
+        private SelectedPositions selectedPositions;
+
+        public ParquetSourcePage(int positionCount)
+        {
+            selectedPositions = new SelectedPositions(positionCount, null);
+        }
+
+        @Override
+        public int getPositionCount()
+        {
+            return selectedPositions.positionCount();
+        }
+
+        @Override
+        public long getSizeInBytes()
+        {
+            long sizeInBytes = 0;
+            for (Block block : blocks) {
+                if (block != null) {
+                    sizeInBytes += block.getSizeInBytes();
+                }
+            }
+            return sizeInBytes;
+        }
+
+        @Override
+        public long getRetainedSizeInBytes()
+        {
+            long retainedSizeInBytes = 0;
+            for (Block block : blocks) {
+                if (block != null) {
+                    retainedSizeInBytes += block.getRetainedSizeInBytes();
+                }
+            }
+            return retainedSizeInBytes;
+        }
+
+        @Override
+        public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+        {
+            for (Block block : blocks) {
+                if (block != null) {
+                    block.retainedBytesForEachPart(consumer);
+                }
+            }
+        }
+
+        @Override
+        public int getChannelCount()
+        {
+            return blocks.length;
+        }
+
+        @Override
+        public Block getBlock(int channel)
+        {
+            Block block = blocks[channel];
+            if (block == null) {
+                if (channel == rowNumberColumnIndex) {
+                    block = selectedPositions.createRowNumberBlock(lastBatchStartRow());
+                }
+                else {
+                    // todo use selected positions to improve read performance
+                    Field field = columnFields.get(channel).field();
+                    block = blockFactory.createBlock(batchSize, () -> readBlock(field));
+                    block = selectedPositions.apply(block);
+                }
+                blocks[channel] = block;
+            }
+            return block;
+        }
+
+        @Override
+        public Page getPage()
+        {
+            // ensure all blocks are loaded
+            for (int i = 0; i < blocks.length; i++) {
+                getBlock(i);
+            }
+            return new Page(selectedPositions.positionCount(), blocks);
+        }
+
+        @Override
+        public void selectPositions(int[] positions, int offset, int size)
+        {
+            selectedPositions = selectedPositions.selectPositions(positions, offset, size);
+            for (int i = 0; i < blocks.length; i++) {
+                Block block = blocks[i];
+                if (block != null) {
+                    block = selectedPositions.apply(block);
+                    blocks[i] = block;
+                }
+            }
+        }
+    }
+
+    private record SelectedPositions(int positionCount, @Nullable int[] positions)
+    {
+        @CheckReturnValue
+        public Block apply(Block block)
+        {
+            if (positions == null) {
+                return block;
+            }
+            return block.getPositions(positions, 0, positionCount);
+        }
+
+        public Block createRowNumberBlock(long startRowNumber)
+        {
+            long[] rowNumbers = new long[positionCount];
+            for (int i = 0; i < positionCount; i++) {
+                int position = positions == null ? i : positions[i];
+                rowNumbers[i] = startRowNumber + position;
+            }
+            return new LongArrayBlock(positionCount, Optional.empty(), rowNumbers);
+        }
+
+        @CheckReturnValue
+        public SelectedPositions selectPositions(int[] positions, int offset, int size)
+        {
+            if (this.positions == null) {
+                for (int i = 0; i < size; i++) {
+                    checkIndex(offset + i, positionCount);
+                }
+                return new SelectedPositions(size, Arrays.copyOfRange(positions, offset, offset + size));
+            }
+
+            int[] newPositions = new int[size];
+            for (int i = 0; i < size; i++) {
+                newPositions[i] = this.positions[positions[offset + i]];
+            }
+            return new SelectedPositions(size, newPositions);
+        }
     }
 
     /**
@@ -627,10 +771,10 @@ public class ParquetReader
         return blockRowRanges;
     }
 
-    private void validateWritePageChecksum(Page page)
+    private void validateWritePageChecksum(SourcePage sourcePage)
     {
         if (writeChecksumBuilder.isPresent()) {
-            page = page.getLoadedPage();
+            Page page = sourcePage.getPage();
             writeChecksumBuilder.get().addPage(page);
             rowGroupStatisticsValidation.orElseThrow().addPage(page);
         }

@@ -25,6 +25,7 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -155,7 +156,7 @@ public class BigQueryStorageAvroPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
         ReadRowsResponse response;
@@ -181,7 +182,7 @@ public class BigQueryStorageAvroPageSource
         Page page = pageBuilder.build();
         pageBuilder.reset();
         readTimeNanos.addAndGet(System.nanoTime() - start);
-        return page;
+        return SourcePage.create(page);
     }
 
     private static Object getValueRecord(GenericRecord record, BigQueryColumnHandle columnHandle)

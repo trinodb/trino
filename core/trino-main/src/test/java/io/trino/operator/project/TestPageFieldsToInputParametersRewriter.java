@@ -17,9 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
-import io.trino.spi.Page;
+import io.trino.operator.TestingSourcePage;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
@@ -132,17 +131,13 @@ public class TestPageFieldsToInputParametersRewriter
         Result result = rewritePageFieldsToInputParameters(rowExpression);
         Block[] blocks = new Block[columnCount];
         for (int channel = 0; channel < columnCount; channel++) {
-            blocks[channel] = lazyWrapper(createLongSequenceBlock(0, 100));
+            blocks[channel] = createLongSequenceBlock(0, 100);
         }
-        Page page = result.getInputChannels().getInputChannels(new Page(blocks));
+        TestingSourcePage inputPage = new TestingSourcePage(100, blocks);
+        result.getInputChannels().getInputChannels(inputPage);
         for (int channel = 0; channel < columnCount; channel++) {
-            assertThat(page.getBlock(channel).isLoaded()).isEqualTo(eagerlyLoadedChannels.contains(channel));
+            assertThat(inputPage.wasLoaded(channel)).isEqualTo(eagerlyLoadedChannels.contains(channel));
         }
-    }
-
-    private static LazyBlock lazyWrapper(Block block)
-    {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static class RowExpressionBuilder

@@ -23,6 +23,7 @@ ARTIFACTS = {
     'cli': ('trino-cli', 'jar', 'executable'),
     'jdbc': ('trino-jdbc', 'jar', None),
     #plugins
+    'ai-functions':  ('trino-ai-functions', 'zip', None),
     'bigquery':  ('trino-bigquery', 'zip', None),
     'blackhole':  ('trino-blackhole', 'zip', None),
     'cassandra':  ('trino-cassandra', 'zip', None),

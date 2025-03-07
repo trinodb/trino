@@ -27,9 +27,9 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
-import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -135,6 +135,7 @@ public class OrcDeleteDeltaPageSource
                 rowIdColumns,
                 ImmutableList.of(BIGINT, INTEGER, BIGINT),
                 ImmutableList.of(fullyProjectedLayout(), fullyProjectedLayout(), fullyProjectedLayout()),
+                false,
                 OrcPredicate.TRUE,
                 0,
                 fileSize,
@@ -164,10 +165,10 @@ public class OrcDeleteDeltaPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         try {
-            Page page = recordReader.nextPage();
+            SourcePage page = recordReader.nextPage();
             if (page == null) {
                 close();
             }

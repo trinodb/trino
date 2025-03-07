@@ -29,12 +29,14 @@ import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.TestPageProcessor.LazyPagePageProjection;
 import io.trino.operator.project.TestPageProcessor.SelectAllFilter;
 import io.trino.spi.Page;
+import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
@@ -56,6 +58,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -63,6 +66,7 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.createIntsBlock;
 import static io.trino.block.BlockAssertions.toValues;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -206,9 +210,7 @@ public class TestScanFilterAndProjectOperator
     {
         Block inputBlock = BlockAssertions.createLongSequenceBlock(0, 100);
         // If column 1 is loaded, test will fail
-        Page input = new Page(100, inputBlock, new LazyBlock(100, () -> {
-            throw new AssertionError("Lazy block should not be loaded");
-        }));
+        TestingSourcePage input = new TestingSourcePage(100, inputBlock, null);
         DriverContext driverContext = newDriverContext();
 
         List<RowExpression> projections = ImmutableList.of(field(0, VARCHAR));
@@ -405,6 +407,52 @@ public class TestScanFilterAndProjectOperator
         assertThat(toValues(BIGINT, output.getBlock(0))).isEqualTo(toValues(BIGINT, input.getBlock(0)));
     }
 
+    @Test
+    public void testRecordMaterializedBytes()
+    {
+        Block first = createIntsBlock(1, 2, 3);
+        LazyBlock second = lazyWrapper(first);
+        LazyBlock third = lazyWrapper(first);
+        SourcePage page = new TestingSourcePage(3, first, second, third);
+
+        second.getLoadedBlock();
+
+        AtomicLong sizeInBytes = new AtomicLong();
+        ScanFilterAndProjectOperator.ProcessedBytesMonitor monitor = new ScanFilterAndProjectOperator.ProcessedBytesMonitor(page, sizeInBytes::getAndAdd);
+
+        assertThat(sizeInBytes.get()).isEqualTo(first.getSizeInBytes() * 2);
+
+        page.getBlock(2).getLoadedBlock();
+        monitor.update();
+        assertThat(sizeInBytes.get()).isEqualTo(first.getSizeInBytes() * 3);
+    }
+
+    @Test
+    public void testNestedBlocks()
+    {
+        Block elements = lazyWrapper(createIntsBlock(1, 2, 3));
+        Block arrayBlock = ArrayBlock.fromElementBlock(2, Optional.empty(), new int[] {0, 1, 3}, elements);
+        long initialArraySize = arrayBlock.getSizeInBytes();
+        SourcePage page = new TestingSourcePage(2, arrayBlock);
+
+        AtomicLong sizeInBytes = new AtomicLong();
+        ScanFilterAndProjectOperator.ProcessedBytesMonitor monitor = new ScanFilterAndProjectOperator.ProcessedBytesMonitor(page, sizeInBytes::getAndAdd);
+
+        assertThat(arrayBlock.getSizeInBytes()).isEqualTo(initialArraySize);
+        assertThat(sizeInBytes.get()).isEqualTo(arrayBlock.getSizeInBytes());
+
+        // dictionary block caches size in bytes
+        arrayBlock.getLoadedBlock();
+        monitor.update();
+        assertThat(sizeInBytes.get()).isEqualTo(arrayBlock.getSizeInBytes());
+        assertThat(sizeInBytes.get()).isEqualTo(initialArraySize + elements.getSizeInBytes());
+    }
+
+    private static LazyBlock lazyWrapper(Block block)
+    {
+        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
+    }
+
     private static List<Page> toPages(Operator operator)
     {
         ImmutableList.Builder<Page> outputPages = ImmutableList.builder();
@@ -439,9 +487,9 @@ public class TestScanFilterAndProjectOperator
     public static class SinglePagePageSource
             implements ConnectorPageSource
     {
-        private Page page;
+        private SourcePage page;
 
-        public SinglePagePageSource(Page page)
+        public SinglePagePageSource(SourcePage page)
         {
             this.page = page;
         }
@@ -477,9 +525,12 @@ public class TestScanFilterAndProjectOperator
         }
 
         @Override
-        public Page getNextPage()
+        public SourcePage getNextSourcePage()
         {
-            Page page = this.page;
+            SourcePage page = this.page;
+            if (page == null) {
+                return null;
+            }
             this.page = null;
             return page;
         }
