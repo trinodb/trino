@@ -75,6 +75,14 @@ public class TestUnwrapCastInComparison
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
             }
+
+            for (Number to : asList(null, Byte.MIN_VALUE - 1, Byte.MIN_VALUE, 0, 1, Byte.MAX_VALUE, Byte.MAX_VALUE + 1)) {
+                validateBetween(fromType, from, "SMALLINT", to, to);
+                validateBetween(fromType, from, "INTEGER", to, to);
+                validateBetween(fromType, from, "BIGINT", to, to);
+                validateBetween(fromType, from, "REAL", to, to);
+                validateBetween(fromType, from, "DOUBLE", to, to);
+            }
         }
     }
 
@@ -100,6 +108,13 @@ public class TestUnwrapCastInComparison
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
             }
+
+            for (Number to : asList(null, Short.MIN_VALUE - 1, Short.MIN_VALUE, 0, 1, Short.MAX_VALUE, Short.MAX_VALUE + 1)) {
+                validateBetween(fromType, from, "INTEGER", to, to);
+                validateBetween(fromType, from, "BIGINT", to, to);
+                validateBetween(fromType, from, "REAL", to, to);
+                validateBetween(fromType, from, "DOUBLE", to, to);
+            }
         }
     }
 
@@ -121,6 +136,16 @@ public class TestUnwrapCastInComparison
                     validate(operator, fromType, from, "REAL", to);
                 }
             }
+
+            for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, 0, 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+                validateBetween(fromType, from, "BIGINT", to, to);
+            }
+            for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, 0, 0.1, 0.9, 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+                validateBetween(fromType, from, "DOUBLE", to, to);
+            }
+            for (Number to : asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+                validateBetween(fromType, from, "REAL", to, to);
+            }
         }
     }
 
@@ -138,6 +163,13 @@ public class TestUnwrapCastInComparison
                     validate(operator, fromType, from, "REAL", to);
                 }
             }
+
+            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 53 + 1, 0, 0.1, 0.9, 1, 1L << 53 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                validateBetween(fromType, from, "DOUBLE", to, to);
+            }
+            for (Number to : asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                validateBetween(fromType, from, "REAL", to, to);
+            }
         }
     }
 
@@ -153,6 +185,9 @@ public class TestUnwrapCastInComparison
                     validate(operator, fromType, from, toType, to);
                 }
             }
+            for (String to : toLiteral(toType, asList(null, Double.NEGATIVE_INFINITY, Math.nextDown((double) -Float.MIN_VALUE), (double) -Float.MIN_VALUE, 0, 0.1, 0.9, 1, (double) Float.MAX_VALUE, Math.nextUp((double) Float.MAX_VALUE), Double.POSITIVE_INFINITY, Double.NaN))) {
+                validateBetween(fromType, from, toType, to, to);
+            }
         }
     }
 
@@ -167,6 +202,9 @@ public class TestUnwrapCastInComparison
                     validate(operator, "DECIMAL(15, 0)", from, "DOUBLE", Double.valueOf(to));
                 }
             }
+            for (String to : values) {
+                validateBetween("DECIMAL(15, 0)", from, "DOUBLE", Double.valueOf(to), Double.valueOf(to));
+            }
         }
 
         // decimal(16) -> double
@@ -176,6 +214,9 @@ public class TestUnwrapCastInComparison
                 for (String to : values) {
                     validate(operator, "DECIMAL(16, 0)", from, "DOUBLE", Double.valueOf(to));
                 }
+            }
+            for (String to : values) {
+                validateBetween("DECIMAL(16, 0)", from, "DOUBLE", Double.valueOf(to), Double.valueOf(to));
             }
         }
 
@@ -187,6 +228,9 @@ public class TestUnwrapCastInComparison
                     validate(operator, "DECIMAL(7, 0)", from, "REAL", Double.valueOf(to));
                 }
             }
+            for (String to : values) {
+                validateBetween("DECIMAL(7, 0)", from, "REAL", Double.valueOf(to), Double.valueOf(to));
+            }
         }
 
         // decimal(8) -> real
@@ -196,6 +240,9 @@ public class TestUnwrapCastInComparison
                 for (String to : values) {
                     validate(operator, "DECIMAL(8, 0)", from, "REAL", Double.valueOf(to));
                 }
+            }
+            for (String to : values) {
+                validateBetween("DECIMAL(8, 0)", from, "REAL", Double.valueOf(to), Double.valueOf(to));
             }
         }
     }
@@ -209,6 +256,9 @@ public class TestUnwrapCastInComparison
                     validate(operator, "VARCHAR(1)", from, "VARCHAR(2)", to);
                 }
             }
+            for (String to : asList(null, "''", "'a'", "'aa'", "'b'", "'bb'")) {
+                validateBetween("VARCHAR(1)", from, "VARCHAR(2)", to, to);
+            }
         }
 
         // type with no range
@@ -216,6 +266,9 @@ public class TestUnwrapCastInComparison
             for (String to : asList("'" + "a".repeat(200) + "'", "'" + "b".repeat(200) + "'")) {
                 validate(operator, "VARCHAR(200)", "'" + "a".repeat(200) + "'", "VARCHAR(300)", to);
             }
+        }
+        for (String to : asList("'" + "a".repeat(200) + "'", "'" + "b".repeat(200) + "'")) {
+            validateBetween("VARCHAR(200)", "'" + "a".repeat(200) + "'", "VARCHAR(300)", to, to);
         }
     }
 
@@ -326,6 +379,15 @@ public class TestUnwrapCastInComparison
             validate(session, operator, "timestamp(12)", "TIMESTAMP '2020-07-03 01:23:45.123456789123'", "timestamp(12) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
             validate(session, operator, "timestamp(12)", "TIMESTAMP '2020-07-03 01:23:45.123456789123'", "timestamp(12) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
         }
+
+        validateBetween(session, "timestamp(3)", "TIMESTAMP '2020-07-03 01:23:45.123'", "timestamp(3) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
+        validateBetween(session, "timestamp(3)", "TIMESTAMP '2020-07-03 01:23:45.123'", "timestamp(3) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
+        validateBetween(session, "timestamp(6)", "TIMESTAMP '2020-07-03 01:23:45.123456'", "timestamp(6) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
+        validateBetween(session, "timestamp(6)", "TIMESTAMP '2020-07-03 01:23:45.123456'", "timestamp(6) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
+        validateBetween(session, "timestamp(9)", "TIMESTAMP '2020-07-03 01:23:45.123456789'", "timestamp(9) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
+        validateBetween(session, "timestamp(9)", "TIMESTAMP '2020-07-03 01:23:45.123456789'", "timestamp(9) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
+        validateBetween(session, "timestamp(12)", "TIMESTAMP '2020-07-03 01:23:45.123456789123'", "timestamp(12) with time zone", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'", "TIMESTAMP '2020-07-03 01:23:45 Europe/Warsaw'");
+        validateBetween(session, "timestamp(12)", "TIMESTAMP '2020-07-03 01:23:45.123456789123'", "timestamp(12) with time zone", "TIMESTAMP '2020-07-03 01:23:45 UTC'", "TIMESTAMP '2020-07-03 01:23:45 UTC'");
 
         // DST forward change (2017-09-24 03:00 -> 2017-09-24 04:00)
         List<LocalTime> fromLocalTimes = asList(
@@ -447,6 +509,32 @@ public class TestUnwrapCastInComparison
                         "FROM (VALUES CAST(ROW(%s) AS ROW(%s))) t(v)",
                 toType, operator, toValue, toType,
                 fromValue, toType, operator, toValue, toType,
+                fromValue, fromType);
+
+        boolean result = (boolean) assertions.execute(session, query)
+                .getMaterializedRows()
+                .get(0)
+                .getField(0);
+
+        assertThat(result)
+                .as("Query evaluated to false: " + query)
+                .isTrue();
+    }
+
+    private void validateBetween(String fromType, Object fromValue, String toType, Object minValue, Object maxValue)
+    {
+        validateBetween(assertions.getDefaultSession(), fromType, fromValue, toType, minValue, maxValue);
+    }
+
+    private void validateBetween(Session session, String fromType, Object fromValue, String toType, Object minValue, Object maxValue)
+    {
+        String query = format(
+                "SELECT (CAST(v AS %s) BETWEEN CAST(%s AS %s) AND CAST(%s AS %s)) " +
+                        "IS NOT DISTINCT FROM " +
+                        "(CAST(%s AS %s) BETWEEN CAST(%s AS %s) AND CAST(%s AS %s)) " +
+                        "FROM (VALUES CAST(%s AS %s)) t(v)",
+                toType, minValue, toType, maxValue, toType,
+                fromValue, toType, minValue, toType, maxValue, toType,
                 fromValue, fromType);
 
         boolean result = (boolean) assertions.execute(session, query)
