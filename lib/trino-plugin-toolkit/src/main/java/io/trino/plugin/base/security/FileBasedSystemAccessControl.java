@@ -668,10 +668,6 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
-        if (!canAccessCatalog(context, table.getCatalogName(), READ_ONLY)) {
-            denySelectTable(table.toString());
-        }
-
         if (INFORMATION_SCHEMA_NAME.equals(table.getSchemaTableName().getSchemaName())) {
             return;
         }
