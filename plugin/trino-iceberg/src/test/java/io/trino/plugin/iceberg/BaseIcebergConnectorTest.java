@@ -5057,19 +5057,45 @@ public abstract class BaseIcebergConnectorTest
     public void testGetIcebergTableProperties()
     {
         assertUpdate("CREATE TABLE test_iceberg_get_table_props (x BIGINT)");
-        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""));
+        verifyIcebergTableProperties(computeActual("SELECT * FROM \"test_iceberg_get_table_props$properties\""), HiveCompressionCodec.ZSTD);
         assertUpdate("DROP TABLE test_iceberg_get_table_props");
     }
 
-    protected void verifyIcebergTableProperties(MaterializedResult actual)
+    protected void verifyIcebergTableProperties(MaterializedResult actual, HiveCompressionCodec codec)
     {
         assertThat(actual).isNotNull();
-        MaterializedResult expected = resultBuilder(getSession())
+        Optional<String> codecName = switch (format) {
+            case AVRO -> switch (codec) {
+                case NONE -> Optional.of("uncompressed");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.empty(); // codec unsupported by Iceberg
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("gzip");
+            };
+            case ORC -> switch (codec) {
+                case NONE -> Optional.of("none");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.of("lz4");
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("zlib");
+            };
+            case PARQUET -> switch (codec) {
+                case NONE -> Optional.of("uncompressed");
+                case SNAPPY -> Optional.of("snappy");
+                case LZ4 -> Optional.of("lz4");
+                case ZSTD -> Optional.of("zstd");
+                case GZIP -> Optional.of("gzip");
+            };
+        };
+        MaterializedResult.Builder expected = resultBuilder(getSession())
                 .row("write.format.default", format.name())
-                .row("write.parquet.compression-codec", "zstd")
-                .row("commit.retry.num-retries", "4")
-                .build();
-        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+                .row("commit.retry.num-retries", "4");
+        codecName.ifPresent(name -> expected.row("write.%s.compression-codec".formatted(format.name().toLowerCase(ENGLISH)), name));
+        if (format != PARQUET) {
+            // this is incorrectly persisted in Iceberg: https://github.com/trinodb/trino/issues/20401
+            expected.row("write.parquet.compression-codec", "zstd");
+        }
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.build().getMaterializedRows());
     }
 
     @Test
@@ -8513,14 +8539,22 @@ public abstract class BaseIcebergConnectorTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
         String tableName = "test_table_with_compression_" + compressionCodec;
-        String createTableSql = format("CREATE TABLE %s AS TABLE tpch.tiny.nation", tableName);
-        // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-        if ((format == IcebergFileFormat.PARQUET || format == AVRO) && compressionCodec == HiveCompressionCodec.LZ4) {
+        String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.nation WITH NO DATA", tableName);
+        if (format == AVRO && compressionCodec == HiveCompressionCodec.LZ4) {
             assertTrinoExceptionThrownBy(() -> computeActual(session, createTableSql))
                     .hasMessage("Compression codec LZ4 not supported for " + format.humanName());
             return;
         }
-        assertUpdate(session, createTableSql, 25);
+        assertUpdate(session, createTableSql, 0);
+        verifyIcebergTableProperties(computeActual("SELECT * FROM \"%s$properties\"".formatted(tableName)), compressionCodec);
+        String insertIntoSql = format("INSERT INTO %s SELECT * FROM tpch.tiny.nation", tableName);
+        // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+        if (format == IcebergFileFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
+            assertTrinoExceptionThrownBy(() -> computeActual(session, insertIntoSql))
+                    .hasMessage("Compression codec LZ4 not supported for " + format.humanName());
+            return;
+        }
+        assertUpdate(session, insertIntoSql, 25);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
         assertUpdate("DROP TABLE " + tableName);
