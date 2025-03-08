@@ -55,6 +55,10 @@ statement
          (WITH properties)?                                            #createCatalog
     | DROP CATALOG (IF EXISTS)? catalog=identifier
          (CASCADE | RESTRICT)?                                         #dropCatalog
+    | ALTER CATALOG from=identifier
+        RENAME TO to=identifier                                        #renameCatalog
+    | ALTER CATALOG catalog=identifier
+        SET PROPERTIES propertyAssignments                             #setCatalogProperties
     | CREATE SCHEMA (IF NOT EXISTS)? qualifiedName
         (AUTHORIZATION principal)?
         (WITH properties)?                                             #createSchema
