@@ -22,6 +22,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
@@ -116,7 +117,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
                         format("   location = '.*/" + schemaName + "/region.*',\n" +
-                        "   max_commit_retry = 4\n") +
+                                "   max_commit_retry = 4\n") +
                         "\\)");
     }
 
@@ -868,6 +869,50 @@ public abstract class BaseIcebergConnectorSmokeTest
             assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
         }
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testIcebergTablesSystemTable()
+            throws Exception
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        String firstSchema = "first_schema_" + randomNameSuffix();
+        String secondSchema = "second_schema_" + randomNameSuffix();
+        String firstSchemaLocation = schemaPath().replaceAll(schemaName, firstSchema);
+        String secondSchemaLocation = schemaPath().replaceAll(schemaName, secondSchema);
+        assertQuerySucceeds("CREATE SCHEMA " + firstSchema + " WITH (location = '%s')".formatted(firstSchemaLocation));
+        assertQuerySucceeds("CREATE SCHEMA " + secondSchema + " WITH (location = '%s')".formatted(secondSchemaLocation));
+        QueryRunner queryRunner = getQueryRunner();
+        Session firstSchemaSession = Session.builder(queryRunner.getDefaultSession()).setSchema(firstSchema).build();
+        Session secondSchemaSession = Session.builder(queryRunner.getDefaultSession()).setSchema(secondSchema).build();
+
+        try (TestTable _ = new TestTable(
+                sql -> getQueryRunner().execute(firstSchemaSession, sql),
+                "first_schema_table1_",
+                "(id int)");
+                TestTable _ = new TestTable(
+                        sql -> getQueryRunner().execute(firstSchemaSession, sql),
+                        "first_schema_table2_",
+                        "(id int)");
+                TestTable secondSchemaTable = new TestTable(
+                        sql -> queryRunner.execute(secondSchemaSession, sql),
+                        "second_schema_table_",
+                        "(id int)");
+                AutoCloseable _ = createAdditionalTables(firstSchema)) {
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema = '%s'".formatted(firstSchema)))
+                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema)))
+                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
+        }
+        finally {
+            assertQuerySucceeds("DROP SCHEMA " + firstSchema);
+            assertQuerySucceeds("DROP SCHEMA " + secondSchema);
+        }
+    }
+
+    protected AutoCloseable createAdditionalTables(String schema)
+    {
+        return () -> {};
     }
 
     private long getMostRecentSnapshotId(String tableName)
