@@ -33,6 +33,7 @@ public class TestIcebergSnowflakeCatalogConfig
         assertRecordedDefaults(recordDefaults(IcebergSnowflakeCatalogConfig.class)
                 .setUser(null)
                 .setPassword(null)
+                .setKey(null)
                 .setDatabase(null)
                 .setUri(null)
                 .setRole(null));
@@ -43,6 +44,7 @@ public class TestIcebergSnowflakeCatalogConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.snowflake-catalog.password", "password")
+                .put("iceberg.snowflake-catalog.key", "key")
                 .put("iceberg.snowflake-catalog.user", "user")
                 .put("iceberg.snowflake-catalog.role", "role")
                 .put("iceberg.snowflake-catalog.account-uri", "jdbc:snowflake://sample.url")
@@ -51,6 +53,7 @@ public class TestIcebergSnowflakeCatalogConfig
 
         IcebergSnowflakeCatalogConfig expected = new IcebergSnowflakeCatalogConfig()
                 .setPassword("password")
+                .setKey("key")
                 .setUser("user")
                 .setRole("role")
                 .setUri(URI.create("jdbc:snowflake://sample.url"))
@@ -65,10 +68,47 @@ public class TestIcebergSnowflakeCatalogConfig
     {
         IcebergSnowflakeCatalogConfig config = new IcebergSnowflakeCatalogConfig()
                 .setPassword("password")
+                .setKey("key")
                 .setUser("user")
                 .setRole("role")
                 .setUri(URI.create("foobar"))
                 .setDatabase("database");
         assertThat(config.isUrlValid()).isFalse();
+    }
+
+    @Test
+    public void testInvalidAuthenticationMethod()
+    {
+        IcebergSnowflakeCatalogConfig configWithBothKeyAndPassword = new IcebergSnowflakeCatalogConfig()
+                .setPassword("password")
+                .setKey("key")
+                .setUser("user")
+                .setRole("role")
+                .setUri(URI.create("foobar"))
+                .setDatabase("database");
+        assertThat(configWithBothKeyAndPassword.isAuthenticationMethodSet()).isFalse();
+
+        IcebergSnowflakeCatalogConfig configWithNeitherKeyNorPassword = new IcebergSnowflakeCatalogConfig()
+                .setUser("user")
+                .setRole("role")
+                .setUri(URI.create("foobar"))
+                .setDatabase("database");
+        assertThat(configWithNeitherKeyNorPassword.isAuthenticationMethodSet()).isFalse();
+
+        IcebergSnowflakeCatalogConfig configWithPassword = new IcebergSnowflakeCatalogConfig()
+                .setPassword("password")
+                .setUser("user")
+                .setRole("role")
+                .setUri(URI.create("foobar"))
+                .setDatabase("database");
+        assertThat(configWithPassword.isAuthenticationMethodSet()).isTrue();
+
+        IcebergSnowflakeCatalogConfig configWithKey = new IcebergSnowflakeCatalogConfig()
+                .setKey("key")
+                .setUser("user")
+                .setRole("role")
+                .setUri(URI.create("foobar"))
+                .setDatabase("database");
+        assertThat(configWithKey.isAuthenticationMethodSet()).isTrue();
     }
 }

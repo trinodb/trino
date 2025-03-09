@@ -39,6 +39,7 @@ public class TestingSnowflakeServer
     public static final String SNOWFLAKE_JDBC_URI = requiredNonEmptySystemProperty("testing.snowflake.catalog.account-url");
     public static final String SNOWFLAKE_USER = requiredNonEmptySystemProperty("testing.snowflake.catalog.user");
     public static final String SNOWFLAKE_PASSWORD = requiredNonEmptySystemProperty("testing.snowflake.catalog.password");
+    public static final String SNOWFLAKE_KEY = requiredNonEmptySystemProperty("testing.snowflake.catalog.key");
     public static final String SNOWFLAKE_ROLE = requiredNonEmptySystemProperty("testing.snowflake.catalog.role");
     public static final String SNOWFLAKE_WAREHOUSE = requiredNonEmptySystemProperty("testing.snowflake.catalog.warehouse");
     public static final String SNOWFLAKE_TEST_DATABASE = requiredNonEmptySystemProperty("testing.snowflake.catalog.database");
@@ -71,7 +72,7 @@ public class TestingSnowflakeServer
     {
         Properties properties = new Properties();
         properties.put("user", SNOWFLAKE_USER);
-        properties.put("password", SNOWFLAKE_PASSWORD);
+        properties.put("private_key_base64", SNOWFLAKE_KEY);
         properties.put("role", SNOWFLAKE_ROLE);
         properties.put("warehouse", SNOWFLAKE_WAREHOUSE);
         properties.put("db", SNOWFLAKE_TEST_DATABASE);
