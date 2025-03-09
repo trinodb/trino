@@ -291,9 +291,7 @@ export const RootLayout = (props: { children: React.ReactNode }) => {
                 <Box sx={{ overflowX: 'hidden', flexGrow: 1 }}>
                     <List>
                         {routers.map((routerItem: RouterItem) =>
-                            routerItem.hidden ? (
-                                <></>
-                            ) : (
+                            routerItem.hidden ? null : (
                                 <ListItem key={routerItem.text} disablePadding>
                                     {/*@ts-expect-error TS2769*/}
                                     <ListItemButton
