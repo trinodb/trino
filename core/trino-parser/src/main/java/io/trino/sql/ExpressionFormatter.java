@@ -712,7 +712,7 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitRowField(RowDataType.Field node, Void context)
+        protected String visitRowDataTypeField(RowDataType.Field node, Void context)
         {
             StringBuilder result = new StringBuilder();
 
