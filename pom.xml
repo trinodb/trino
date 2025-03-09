@@ -106,6 +106,7 @@
         <module>plugin/trino-redis</module>
         <module>plugin/trino-redshift</module>
         <module>plugin/trino-resource-group-managers</module>
+        <module>plugin/trino-scylladb</module>
         <module>plugin/trino-session-property-managers</module>
         <module>plugin/trino-singlestore</module>
         <module>plugin/trino-snowflake</module>
