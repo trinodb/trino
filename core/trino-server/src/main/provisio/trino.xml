@@ -166,6 +166,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/ldap-group-provider">
+        <artifact id="${project.groupId}:trino-ldap-group-provider:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/mariadb">
         <artifact id="${project.groupId}:trino-mariadb:zip:${project.version}">
             <unpack />
