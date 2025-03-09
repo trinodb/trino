@@ -291,4 +291,13 @@ public class AllowAllAccessControl
 
     @Override
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName) {}
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String name) {}
+
+    @Override
+    public void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String name) {}
+
+    @Override
+    public void canCanAlterBranch(SecurityContext context, QualifiedObjectName tableName, String name) {}
 }

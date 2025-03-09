@@ -360,5 +360,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateBranchAndTag(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name) {}
+
+    @Override
+    public void checkCanDropBranchAndTag(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name) {}
+
+    @Override
     public void shutdown() {}
 }
