@@ -515,7 +515,6 @@ public class CheckpointEntryIterator
             }
 
             // Materialize from Parquet the information needed to build the AddEntry instance
-            addBlock = addBlock.getLoadedBlock();
             SqlRow addEntryRow = getRow(addBlock, pagePosition);
             log.debug("Block %s has %s fields", addBlock, addEntryRow.getFieldCount());
             CheckpointFieldReader addReader = new CheckpointFieldReader(session, addEntryRow, addType.orElseThrow());
@@ -758,14 +757,7 @@ public class CheckpointEntryIterator
             // process page
             int blockIndex = 0;
             for (CheckpointFieldExtractor extractor : extractors) {
-                DeltaLakeTransactionLogEntry entry;
-                if (extractor instanceof AddFileEntryExtractor) {
-                    // Avoid unnecessary loading of the block in case there is a partition predicate mismatch for this add entry
-                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex));
-                }
-                else {
-                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex).getLoadedBlock());
-                }
+                DeltaLakeTransactionLogEntry entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex));
                 if (entry != null) {
                     nextEntries.add(entry);
                 }

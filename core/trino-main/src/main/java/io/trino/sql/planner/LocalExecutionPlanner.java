@@ -4280,8 +4280,7 @@ public class LocalExecutionPlanner
                 .toArray();
 
         if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {
-            // this is an identity mapping, simply ensuring that the page is fully loaded is sufficient
-            return PageChannelSelector.identitySelection();
+            return Function.identity();
         }
 
         return new PageChannelSelector(channels);

@@ -687,7 +687,7 @@ public class OrcWriteValidation
             }
             else if (type instanceof RowType) {
                 statisticsBuilder = new CountStatisticsBuilder();
-                fieldExtractor = block -> RowBlock.getRowFieldsFromBlock(block.getLoadedBlock());
+                fieldExtractor = RowBlock::getRowFieldsFromBlock;
                 fieldBuilders = type.getTypeParameters().stream()
                         .map(ColumnStatisticsValidation::new)
                         .collect(toImmutableList());
