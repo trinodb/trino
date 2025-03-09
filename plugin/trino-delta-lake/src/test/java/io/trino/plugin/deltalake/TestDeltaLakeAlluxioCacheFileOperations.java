@@ -343,6 +343,52 @@ public class TestDeltaLakeAlluxioCacheFileOperations
     }
 
     @Test
+    public void testTimeTravelWithLastCheckpointUsingTemporalVersion()
+    {
+        // Version 2 has a checkpoint file
+        registerTable("time_travel_with_last_checkpoint_using_temporal", "trino440/time_travel");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'time_travel_with_last_checkpoint_using_temporal')");
+
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint_using_temporal FOR TIMESTAMP AS OF TIMESTAMP '2024-03-13 04:33:19.122 UTC'", // version 1
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000001.json"), 3)
+                        .addCopies(new CacheOperation("InputFile.newStream", "_last_checkpoint"), 2)
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.json", 0, 613))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 613))
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.json"), 2)
+                        .add(new CacheOperation("Alluxio.readExternalStream", "00000000000000000002.json", 0, 613))
+                        .add(new CacheOperation("InputFile.newStream", "00000000000000000002.json"))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 2)
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint_using_temporal FOR TIMESTAMP AS OF TIMESTAMP '2024-03-13 04:33:19.342 UTC'", // version 2
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .addCopies(new CacheOperation("InputFile.newStream", "_last_checkpoint"), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.json"), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 613))
+                        .build());
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_with_last_checkpoint_using_temporal FOR TIMESTAMP AS OF TIMESTAMP '2024-03-13 04:33:19.342 UTC'", // version 2
+                ImmutableMultiset.<CacheOperation>builder()
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .addCopies(new CacheOperation("InputFile.newStream", "_last_checkpoint"), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.json"), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 613))
+                        .build());
+
+        assertUpdate("DROP TABLE time_travel_with_last_checkpoint_using_temporal");
+    }
+
+    @Test
     public void testTimeTravelWithoutLastCheckpoint()
             throws Exception
     {
@@ -391,6 +437,81 @@ public class TestDeltaLakeAlluxioCacheFileOperations
                         .build());
 
         assertUpdate("DROP TABLE time_travel_without_last_checkpoint");
+    }
+
+    @Test
+    public void testTimeTravelWithoutLastCheckpointUsingTemporal()
+            throws Exception
+    {
+        // Version 2 has a checkpoint file
+        Path tableLocation = Files.createTempFile("time_travel_using_temporal", null);
+        copyDirectoryContents(new File(Resources.getResource("trino440/time_travel").toURI()).toPath(), tableLocation);
+        Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
+
+        getQueryRunner().execute("CALL system.register_table(CURRENT_SCHEMA, 'time_travel_without_last_checkpoint_using_temporal', '" + tableLocation.toUri() + "')");
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'time_travel_without_last_checkpoint_using_temporal')");
+
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint_using_temporal FOR TIMESTAMP AS OF TIMESTAMP '2024-03-13 04:33:19.122 UTC'", // version 1
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("InputFile.exists", "00000000000000000000.json"))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000000.json"), 3)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000001.json"), 3)
+                        .addCopies(new CacheOperation("Input.readFully", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.writeCache", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 2)
+                        .addCopies(new CacheOperation("InputFile.newStream", "_last_checkpoint"), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.json"), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 613))
+                        .build());
+
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint_using_temporal FOR TIMESTAMP AS OF TIMESTAMP '2024-03-13 04:33:19.342 UTC'", // version 2
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("InputFile.exists", "00000000000000000000.json"))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))
+                        .add(new CacheOperation("Input.readFully", "data", 0, 199))
+                        .add(new CacheOperation("Alluxio.writeCache", "data", 0, 199))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .add(new CacheOperation("Input.readFully", "00000000000000000002.checkpoint.parquet", 0, 5884))
+                        .add(new CacheOperation("Alluxio.writeCache", "00000000000000000002.checkpoint.parquet", 0, 5884))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.json"), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 613))
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000003.json"), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000003.json", 0, 613))
+                        .addCopies(new CacheOperation("InputFile.newStream", "_last_checkpoint"), 2)
+                        .build());
+
+        assertFileSystemAccesses(
+                "SELECT * FROM time_travel_without_last_checkpoint_using_temporal FOR TIMESTAMP AS OF TIMESTAMP '2024-03-13 04:33:19.342 UTC'", // version 2
+                ImmutableMultiset.<CacheOperation>builder()
+                        .add(new CacheOperation("InputFile.exists", "00000000000000000000.json"))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000000.json", 0, 1015))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000000.json"))
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000001.json", 0, 613))
+                        .add(new CacheOperation("InputFile.length", "00000000000000000001.json"))
+                        .addCopies(new CacheOperation("Alluxio.readCached", "data", 0, 199), 3)
+                        .addCopies(new CacheOperation("Alluxio.readCached", "00000000000000000002.checkpoint.parquet", 0, 5884), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000002.json", 0, 613))
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.json"), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000002.checkpoint.parquet"), 2)
+                        .addCopies(new CacheOperation("InputFile.length", "00000000000000000003.json"), 2)
+                        .add(new CacheOperation("Alluxio.readCached", "00000000000000000003.json", 0, 613))
+                        .addCopies(new CacheOperation("InputFile.newStream", "_last_checkpoint"), 2)
+                        .build());
+
+        assertUpdate("DROP TABLE time_travel_without_last_checkpoint_using_temporal");
     }
 
     @Test
