@@ -48,6 +48,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
