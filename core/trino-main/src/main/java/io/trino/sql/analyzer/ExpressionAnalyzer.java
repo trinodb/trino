@@ -328,7 +328,7 @@ public class ExpressionAnalyzer
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
-    private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
+    private final Multimap<QualifiedObjectName, Field> tableColumnReferences = HashMultimap.create();
 
     // Track referenced fields from source relation node
     private final Multimap<NodeRef<Node>, Field> referencedFields = HashMultimap.create();
@@ -578,7 +578,7 @@ public class ExpressionAnalyzer
         return unmodifiableSet(windowFunctions);
     }
 
-    public Multimap<QualifiedObjectName, String> getTableColumnReferences()
+    public Multimap<QualifiedObjectName, Field> getTableColumnReferences()
     {
         return tableColumnReferences;
     }
@@ -766,7 +766,7 @@ public class ExpressionAnalyzer
             }
 
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-                tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
+                tableColumnReferences.put(field.getOriginTable().get(), field);
             }
 
             sourceFields.add(field);
