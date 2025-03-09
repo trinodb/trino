@@ -39,7 +39,7 @@ public class TestSetPropertiesTask
     public void testSetMaterializedViewProperties()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("test_materialized_view");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(materializedViewName), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         // set all properties to non-DEFAULT values and check the results
         executeSetProperties(
