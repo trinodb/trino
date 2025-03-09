@@ -152,9 +152,21 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return node.getItems().stream()
+            return node.getFields().stream()
                     .map(child -> process(child, context))
                     .collect(joining(", ", "ROW (", ")"));
+        }
+
+        @Override
+        protected String visitRowField(Row.Field node, Void context)
+        {
+            StringBuilder builder = new StringBuilder();
+            if (node.getName().isPresent()) {
+                builder.append(process(node.getName().get(), context));
+                builder.append(" ");
+            }
+            builder.append(process(node.getExpression(), context));
+            return builder.toString();
         }
 
         @Override

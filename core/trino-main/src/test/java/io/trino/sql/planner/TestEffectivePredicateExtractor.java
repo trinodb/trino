@@ -535,8 +535,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(3)))))
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(1))),
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(3)))))
         )).isEqualTo(new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))));
 
         // one column with null
@@ -546,9 +546,9 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(3))),
-                                new Row(ImmutableList.of(new Constant(BIGINT, null)))))))
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(1))),
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(3))),
+                                Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, null)))))))
                 .isEqualTo(or(
                         new IsNull(new Reference(BIGINT, "a")),
                         new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3)))));
@@ -559,7 +559,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(BIGINT, "a")),
-                        ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, null)))))))
+                        ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, null)))))))
                 .isEqualTo(new IsNull(new Reference(BIGINT, "a")));
 
         // nested row
@@ -568,14 +568,14 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)), "r")),
-                        ImmutableList.of(new Row(ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new Constant(UNKNOWN, null)))))))))
+                        ImmutableList.of(Row.anonymousRow(ImmutableList.of(Row.anonymousRow(ImmutableList.of(bigintLiteral(1), new Constant(UNKNOWN, null)))))))))
                 .isEqualTo(TRUE);
 
         // many rows
         List<Expression> rows = IntStream.range(0, 500)
                 .mapToObj(TestEffectivePredicateExtractor::bigintLiteral)
                 .map(ImmutableList::of)
-                .map(Row::new)
+                .map(Row::anonymousRow)
                 .collect(toImmutableList());
         assertThat(effectivePredicateExtractor.extract(
                 SESSION,
@@ -591,7 +591,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(DOUBLE, "c")),
-                        ImmutableList.of(new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
+                        ImmutableList.of(Row.anonymousRow(ImmutableList.of(doubleLiteral(Double.NaN)))))
         )).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "c"))));
 
         // NaN and NULL
@@ -601,8 +601,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(DOUBLE, "c")),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(new Constant(DOUBLE, null))),
-                                new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
+                                Row.anonymousRow(ImmutableList.of(new Constant(DOUBLE, null))),
+                                Row.anonymousRow(ImmutableList.of(doubleLiteral(Double.NaN)))))
         )).isEqualTo(TRUE);
 
         // NaN and value
@@ -612,8 +612,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(DOUBLE, "x")),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(doubleLiteral(42.))),
-                                new Row(ImmutableList.of(doubleLiteral(Double.NaN)))))
+                                Row.anonymousRow(ImmutableList.of(doubleLiteral(42.))),
+                                Row.anonymousRow(ImmutableList.of(doubleLiteral(Double.NaN)))))
         )).isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(DOUBLE, "x"))));
 
         // Real NaN
@@ -622,7 +622,7 @@ public class TestEffectivePredicateExtractor
                 new ValuesNode(
                         newId(),
                         ImmutableList.of(new Symbol(REAL, "d")),
-                        ImmutableList.of(new Row(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), REAL)))))))
+                        ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), REAL)))))))
                 .isEqualTo(not(functionResolution.getMetadata(), new IsNull(new Reference(REAL, "d"))));
 
         // multiple columns
@@ -632,8 +632,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(bigintLiteral(1), bigintLiteral(100))),
-                                new Row(ImmutableList.of(bigintLiteral(3), bigintLiteral(200)))))))
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(1), bigintLiteral(100))),
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(3), bigintLiteral(200)))))))
                 .isEqualTo(and(
                         new In(new Reference(BIGINT, "a"), ImmutableList.of(bigintLiteral(1), bigintLiteral(3))),
                         new In(new Reference(BIGINT, "b"), ImmutableList.of(bigintLiteral(100), bigintLiteral(200)))));
@@ -645,8 +645,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(bigintLiteral(1), new Constant(BIGINT, null))),
-                                new Row(ImmutableList.of(new Constant(BIGINT, null), bigintLiteral(200)))))
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(1), new Constant(BIGINT, null))),
+                                Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, null), bigintLiteral(200)))))
         )).isEqualTo(and(
                 or(new IsNull(new Reference(BIGINT, "a")), new Comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1))),
                 or(new IsNull(new Reference(BIGINT, "b")), new Comparison(EQUAL, new Reference(BIGINT, "b"), bigintLiteral(200)))));
@@ -656,7 +656,7 @@ public class TestEffectivePredicateExtractor
         ValuesNode node = new ValuesNode(
                 newId(),
                 ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BIGINT, "b")),
-                ImmutableList.of(new Row(ImmutableList.of(bigintLiteral(1), new Call(rand, ImmutableList.of())))));
+                ImmutableList.of(Row.anonymousRow(ImmutableList.of(bigintLiteral(1), new Call(rand, ImmutableList.of())))));
         assertThat(extract(node)).isEqualTo(new Comparison(EQUAL, new Reference(BIGINT, "a"), bigintLiteral(1)));
 
         // non-constant
@@ -666,8 +666,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(BIGINT, "a")),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(new Reference(BIGINT, "b")))))
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(1))),
+                                Row.anonymousRow(ImmutableList.of(new Reference(BIGINT, "b")))))
         )).isEqualTo(TRUE);
 
         // non-comparable and non-orderable
@@ -677,8 +677,8 @@ public class TestEffectivePredicateExtractor
                         newId(),
                         ImmutableList.of(new Symbol(BOGUS, "g")),
                         ImmutableList.of(
-                                new Row(ImmutableList.of(bigintLiteral(1))),
-                                new Row(ImmutableList.of(bigintLiteral(2)))))
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(1))),
+                                Row.anonymousRow(ImmutableList.of(bigintLiteral(2)))))
         )).isEqualTo(TRUE);
     }
 

@@ -19,24 +19,32 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Row(List<Expression> items)
+public record Row(List<Field> fields)
         implements Expression
 {
     public Row
     {
-        requireNonNull(items, "items is null");
-        items = ImmutableList.copyOf(items);
+        requireNonNull(fields, "fields is null");
+        fields = ImmutableList.copyOf(fields);
+    }
+
+    public static Row anonymousRow(List<Expression> values)
+    {
+        return new Row(values.stream()
+                .map(Field::anonymousField)
+                .collect(Collectors.toList()));
     }
 
     @Override
     public Type type()
     {
-        return RowType.anonymous(items.stream().map(Expression::type).collect(Collectors.toList()));
+        return RowType.from(fields.stream().map(Field::asRowTypeField).collect(Collectors.toList()));
     }
 
     @Override
@@ -48,16 +56,44 @@ public record Row(List<Expression> items)
     @Override
     public List<? extends Expression> children()
     {
-        return items;
+        return fields.stream()
+                .map(Field::value)
+                .collect(Collectors.toList());
     }
 
     @Override
     public String toString()
     {
         return "(" +
-                items.stream()
-                        .map(Expression::toString)
+                fields.stream()
+                        .map(Field::toString)
                         .collect(Collectors.joining(", ")) +
                 ")";
+    }
+
+    @JsonSerialize
+    public record Field(Optional<String> name, Expression value)
+    {
+        public Field
+        {
+            requireNonNull(name, "name is null");
+            requireNonNull(value, "value is null");
+        }
+
+        public static Field anonymousField(Expression value)
+        {
+            return new Field(Optional.empty(), value);
+        }
+
+        public RowType.Field asRowTypeField()
+        {
+            return new RowType.Field(name, value.type());
+        }
+
+        @Override
+        public String toString()
+        {
+            return name.map(n -> n + " " + value).orElseGet(value::toString);
+        }
     }
 }

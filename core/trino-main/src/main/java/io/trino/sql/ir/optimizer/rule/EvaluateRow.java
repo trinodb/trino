@@ -37,7 +37,7 @@ public class EvaluateRow
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Row(List<Expression> fields)) || !fields.stream().allMatch(Constant.class::isInstance)) {
+        if (!(expression instanceof Row(List<Row.Field> fields)) || !fields.stream().map(Row.Field::value).allMatch(Constant.class::isInstance)) {
             return Optional.empty();
         }
 
@@ -46,7 +46,8 @@ public class EvaluateRow
                 rowType,
                 buildRowValue(rowType, builders -> {
                     for (int i = 0; i < fields.size(); ++i) {
-                        writeNativeValue(fields.get(i).type(), builders.get(i), ((Constant) fields.get(i)).value());
+                        Expression fieldValue = fields.get(i).value();
+                        writeNativeValue(fieldValue.type(), builders.get(i), ((Constant) fieldValue).value());
                     }
                 })));
     }

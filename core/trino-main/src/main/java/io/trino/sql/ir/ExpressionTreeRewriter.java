@@ -107,9 +107,13 @@ public final class ExpressionTreeRewriter<C>
                 }
             }
 
-            List<Expression> items = rewrite(node.items(), context);
+            ImmutableList.Builder<Row.Field> builder = ImmutableList.builder();
+            for (Row.Field field : node.fields()) {
+                builder.add(new Row.Field(field.name(), rewrite(field.value(), context.get())));
+            }
+            List<Row.Field> items = builder.build();
 
-            if (!sameElements(node.items(), items)) {
+            if (!sameElements(node.fields(), items)) {
                 return new Row(items);
             }
 

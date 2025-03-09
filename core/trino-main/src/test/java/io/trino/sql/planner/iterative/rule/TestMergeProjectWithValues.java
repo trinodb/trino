@@ -60,7 +60,7 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(new Cast(
-                                                new Row(ImmutableList.of(new Constant(UNKNOWN, null), new Constant(UNKNOWN, null))),
+                                                Row.anonymousRow(ImmutableList.of(new Constant(UNKNOWN, null), new Constant(UNKNOWN, null))),
                                                 RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))))))
                 .doesNotFire();
     }
@@ -76,8 +76,8 @@ public class TestMergeProjectWithValues
                                 p.valuesOfExpressions(
                                         ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                         ImmutableList.of(
-                                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE)),
-                                                new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE))))))
+                                                Row.anonymousRow(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE)),
+                                                Row.anonymousRow(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE))))))
                 .matches(values(2));
 
         // ValuesNode has no output symbols and two rows
@@ -151,7 +151,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("rand", DOUBLE), new Reference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand", DOUBLE)),
-                                ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
+                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(randomFunction))))))
                 .matches(
                         values(
                                 ImmutableList.of("rand"),
@@ -164,9 +164,9 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("value", DOUBLE)),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(new Constant(DOUBLE, null))),
-                                        new Row(ImmutableList.of(randomFunction)),
-                                        new Row(ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction))))))))
+                                        Row.anonymousRow(ImmutableList.of(new Constant(DOUBLE, null))),
+                                        Row.anonymousRow(ImmutableList.of(randomFunction)),
+                                        Row.anonymousRow(ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction))))))))
                 .matches(
                         values(
                                 ImmutableList.of("output"),
@@ -184,9 +184,9 @@ public class TestMergeProjectWithValues
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a", DOUBLE), p.symbol("b", DOUBLE)),
                                 ImmutableList.of(
-                                        new Row(ImmutableList.of(new Constant(DOUBLE, 1e0), randomFunction)),
-                                        new Row(ImmutableList.of(randomFunction, new Constant(DOUBLE, null))),
-                                        new Row(ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction)), new Constant(DOUBLE, null)))))))
+                                        Row.anonymousRow(ImmutableList.of(new Constant(DOUBLE, 1e0), randomFunction)),
+                                        Row.anonymousRow(ImmutableList.of(randomFunction, new Constant(DOUBLE, null))),
+                                        Row.anonymousRow(ImmutableList.of(new Call(NEGATION_DOUBLE, ImmutableList.of(randomFunction)), new Constant(DOUBLE, null)))))))
                 .matches(
                         values(
                                 ImmutableList.of("x", "y"),
@@ -210,7 +210,7 @@ public class TestMergeProjectWithValues
                                 p.symbol("y", DOUBLE), new Reference(DOUBLE, "rand")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand", DOUBLE)),
-                                ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
+                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(randomFunction))))))
                 .doesNotFire();
 
         tester().assertThat(new MergeProjectWithValues())
@@ -218,7 +218,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x", DOUBLE), new Call(ADD_DOUBLE, ImmutableList.of(new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand")))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("rand", DOUBLE)),
-                                ImmutableList.of(new Row(ImmutableList.of(randomFunction))))))
+                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(randomFunction))))))
                 .doesNotFire();
     }
 
@@ -231,7 +231,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x", INTEGER), new Call(ADD_INTEGER, ImmutableList.of(new Reference(INTEGER, "a"), new Reference(INTEGER, "corr")))),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a", INTEGER)),
-                                ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
+                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L)))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Call(ADD_INTEGER, ImmutableList.of(new Constant(INTEGER, 1L), new Reference(INTEGER, "corr")))))));
 
         // correlation symbol in values (note: the resulting plan is not yet supported in execution)
@@ -240,7 +240,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x"), new Reference(BIGINT, "a")),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new Reference(BIGINT, "corr")))))))
+                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Reference(BIGINT, "corr")))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Reference(BIGINT, "corr")))));
 
         // correlation symbol is not present in the resulting expression
@@ -249,7 +249,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x", INTEGER), new Constant(INTEGER, 1L)),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new Reference(INTEGER, "corr")))))))
+                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Reference(INTEGER, "corr")))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)))));
     }
 
@@ -263,7 +263,7 @@ public class TestMergeProjectWithValues
                         Assignments.of(p.symbol("x", UNKNOWN), failFunction),
                         p.valuesOfExpressions(
                                 ImmutableList.of(p.symbol("a")),
-                                ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L)))))))
+                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L)))))))
                 .matches(values(ImmutableList.of("x"), ImmutableList.of(ImmutableList.of(failFunction))));
     }
 
@@ -288,9 +288,9 @@ public class TestMergeProjectWithValues
                             p.valuesOfExpressions(
                                     ImmutableList.of(a, b, c),
                                     ImmutableList.of(
-                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE, new Constant(INTEGER, 1L))),
-                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE, new Constant(INTEGER, 2L))),
-                                            new Row(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("z")), TRUE, new Constant(INTEGER, 3L))))));
+                                            Row.anonymousRow(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("x")), TRUE, new Constant(INTEGER, 1L))),
+                                            Row.anonymousRow(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("y")), FALSE, new Constant(INTEGER, 2L))),
+                                            Row.anonymousRow(ImmutableList.of(new Constant(createCharType(1), Slices.utf8Slice("z")), TRUE, new Constant(INTEGER, 3L))))));
                 })
                 .matches(values(
                         ImmutableList.of("a", "d", "e", "f"),

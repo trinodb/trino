@@ -288,11 +288,21 @@ public final class ExpressionVerifier
     @Override
     protected Boolean visitRow(Row actual, Expression expectedExpression)
     {
-        if (!(expectedExpression instanceof Row expected)) {
+        if (!(expectedExpression instanceof Row(List<Row.Field> expectedFields))) {
             return false;
         }
 
-        return process(actual.items(), expected.items());
+        List<Row.Field> actualFields = actual.fields();
+        if (actualFields.size() != expectedFields.size()) {
+            return false;
+        }
+        for (int i = 0; i < actualFields.size(); i++) {
+            if (!actualFields.get(i).name().equals(expectedFields.get(i).name()) ||
+                    !process(actualFields.get(i).value(), expectedFields.get(i).value())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

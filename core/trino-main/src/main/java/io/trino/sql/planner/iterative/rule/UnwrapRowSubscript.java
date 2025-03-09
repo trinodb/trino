@@ -89,7 +89,7 @@ public class UnwrapRowSubscript
             }
 
             if (base instanceof Row row) {
-                Expression result = row.items().get(node.field());
+                Expression result = row.fields().get(node.field()).value();
 
                 while (!coercions.isEmpty()) {
                     Coercion coercion = coercions.pop();

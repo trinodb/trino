@@ -102,7 +102,7 @@ public class IrExpressions
             case Logical e -> e.terms().stream().anyMatch(argument -> mayFail(plannerContext, argument));
             case NullIf e -> mayFail(plannerContext, e.first()) || mayFail(plannerContext, e.second());
             case Reference e -> false;
-            case Row e -> e.items().stream().anyMatch(argument -> mayFail(plannerContext, argument));
+            case Row e -> e.fields().stream().anyMatch(field -> mayFail(plannerContext, field.value()));
             case Switch e -> mayFail(plannerContext, e.operand()) || e.whenClauses().stream().anyMatch(clause -> mayFail(plannerContext, clause.getOperand()) || mayFail(plannerContext, clause.getResult())) ||
                     mayFail(plannerContext, e.defaultValue());
         };

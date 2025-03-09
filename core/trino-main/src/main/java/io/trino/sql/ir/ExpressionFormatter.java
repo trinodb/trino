@@ -67,9 +67,14 @@ public final class ExpressionFormatter
         @Override
         protected String visitRow(Row node, Void context)
         {
-            return node.items().stream()
-                    .map(child -> process(child, context))
+            return node.fields().stream()
+                    .map(this::formatRowField)
                     .collect(joining(", ", "ROW (", ")"));
+        }
+
+        private String formatRowField(Row.Field field)
+        {
+            return field.name().map(name -> name + " ").orElse("") + process(field.value(), null);
         }
 
         @Override

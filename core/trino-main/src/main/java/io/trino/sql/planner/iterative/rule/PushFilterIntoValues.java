@@ -117,7 +117,7 @@ public class PushFilterIntoValues
             Row row = (Row) expression;
             ImmutableMap.Builder<Symbol, Expression> mapping = ImmutableMap.builder();
             for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                mapping.put(valuesNode.getOutputSymbols().get(i), row.items().get(i));
+                mapping.put(valuesNode.getOutputSymbols().get(i), row.fields().get(i).value());
             }
             Expression rewrittenPredicate = inlineSymbols(mapping.buildOrThrow(), predicate);
             Optional<Expression> optimizedPredicate = newOptimizer(plannerContext).process(rewrittenPredicate, context.getSession(), ImmutableMap.of());

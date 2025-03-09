@@ -245,7 +245,7 @@ class SubqueryPlanner
                 }
             }
 
-            Expression expression = new Cast(new Row(fields.build()), type);
+            Expression expression = new Cast(Row.anonymousRow(fields.build()), type);
 
             root = new ProjectNode(idAllocator.getNextId(), root, Assignments.of(column, expression));
         }
@@ -442,7 +442,7 @@ class SubqueryPlanner
 
             Assignments assignments = Assignments.builder()
                     .putIdentities(subPlan.getRoot().getOutputSymbols())
-                    .put(wrapped, new Row(ImmutableList.of(column.toSymbolReference())))
+                    .put(wrapped, Row.anonymousRow(ImmutableList.of(column.toSymbolReference())))
                     .build();
 
             subPlan = subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments));
@@ -481,7 +481,7 @@ class SubqueryPlanner
                 new ProjectNode(
                         idAllocator.getNextId(),
                         relationPlan.getRoot(),
-                        Assignments.of(column, new Cast(new Row(fields.build()), type))));
+                        Assignments.of(column, new Cast(Row.anonymousRow(fields.build()), type))));
 
         return coerceIfNecessary(subqueryPlan, column, subquery, coercion);
     }

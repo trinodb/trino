@@ -88,7 +88,7 @@ public class ValuesStatsRule
         checkState(valuesNode.getRows().isPresent(), "rows is empty");
         return valuesNode.getRows().get().stream()
                 .map(row -> switch (row) {
-                    case Row value -> ((Constant) value.items().get(symbolId)).value();
+                    case Row value -> ((Constant) value.fields().get(symbolId).value()).value();
                     case Constant(Type type, SqlRow value) -> readNativeValue(symbolType, value.getRawFieldBlock(symbolId), value.getRawIndex());
                     default -> throw new IllegalArgumentException("Expected Row or Constant: " + row);
                 })

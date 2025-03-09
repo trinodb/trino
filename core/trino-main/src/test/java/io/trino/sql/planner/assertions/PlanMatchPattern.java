@@ -792,7 +792,7 @@ public final class PlanMatchPattern
                 aliasToIndex(aliases),
                 Optional.of(aliases.size()),
                 expectedRows.map(list -> list.stream()
-                        .map(Row::new)
+                        .map(Row::anonymousRow)
                         .collect(toImmutableList())));
     }
 
