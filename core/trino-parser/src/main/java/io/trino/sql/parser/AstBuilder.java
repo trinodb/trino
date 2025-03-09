@@ -167,6 +167,8 @@ import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.LoopStatement;
+import io.trino.sql.tree.MapLiteral;
+import io.trino.sql.tree.MapLiteral.EntryLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.MergeCase;
@@ -2375,6 +2377,16 @@ class AstBuilder
     public Node visitRowConstructor(SqlBaseParser.RowConstructorContext context)
     {
         return new Row(getLocation(context), visit(context.expression(), Expression.class));
+    }
+
+    @Override
+    public Node visitMapConstructor(SqlBaseParser.MapConstructorContext context)
+    {
+        List<EntryLiteral> entries = new ArrayList<>();
+        for (SqlBaseParser.MapEntryContext mapEntry : context.mapEntry()) {
+            entries.add(new EntryLiteral((Expression) visit(mapEntry.key), (Expression) visit(mapEntry.value)));
+        }
+        return new MapLiteral(getLocation(context), entries);
     }
 
     @Override

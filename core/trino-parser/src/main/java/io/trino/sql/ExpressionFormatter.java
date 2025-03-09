@@ -74,6 +74,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MapLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -301,6 +302,19 @@ public final class ExpressionFormatter
         protected String visitAllRows(AllRows node, Void context)
         {
             return "ALL";
+        }
+
+        @Override
+        protected String visitMapLiteral(MapLiteral node, Void context)
+        {
+            return node.getEntries().stream()
+                    .map(Formatter::formatMapEntry)
+                    .collect(joining(", ", "{", "}"));
+        }
+
+        private static String formatMapEntry(MapLiteral.EntryLiteral entry)
+        {
+            return formatSql(entry.key()) + " : " + formatSql(entry.value());
         }
 
         @Override

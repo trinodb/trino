@@ -13,10 +13,14 @@
  */
 package io.trino.sql;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MapLiteral;
+import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
@@ -108,6 +112,18 @@ public class TestExpressionFormatter
         assertFormattedExpression(
                 new IntervalLiteral("2", NEGATIVE, HOUR, Optional.of(SECOND)),
                 "INTERVAL -'2' HOUR TO SECOND");
+    }
+
+    @Test
+    public void testMapLiteral()
+    {
+        assertFormattedExpression(
+                new MapLiteral(
+                        new NodeLocation(1, 1),
+                        ImmutableList.of(
+                                new MapLiteral.EntryLiteral(new StringLiteral("a"), new LongLiteral("1")),
+                                new MapLiteral.EntryLiteral(new StringLiteral("b"), new LongLiteral("2")))),
+                "{'a' : 1, 'b' : 2}");
     }
 
     private void assertFormattedExpression(Expression expression, String expected)

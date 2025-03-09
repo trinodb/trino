@@ -437,6 +437,11 @@ public abstract class AstVisitor<R, C>
         return visitExpression(node, context);
     }
 
+    protected R visitMapLiteral(MapLiteral node, C context)
+    {
+        return visitExpression(node, context);
+    }
+
     protected R visitArray(Array node, C context)
     {
         return visitExpression(node, context);

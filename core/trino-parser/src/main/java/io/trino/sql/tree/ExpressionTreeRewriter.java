@@ -136,6 +136,37 @@ public final class ExpressionTreeRewriter<C>
         }
 
         @Override
+        protected Expression visitMapLiteral(MapLiteral node, Context<C> context)
+        {
+            if (!context.isDefaultRewrite()) {
+                Expression result = rewriter.rewriteMapLiteral(node, context.get(), ExpressionTreeRewriter.this);
+                if (result != null) {
+                    return result;
+                }
+            }
+
+            boolean changed = false;
+            ImmutableList.Builder<MapLiteral.EntryLiteral> entries = ImmutableList.builder();
+            for (MapLiteral.EntryLiteral entry : node.getEntries()) {
+                Expression key = rewrite(entry.key(), context.get());
+                Expression value = rewrite(entry.value(), context.get());
+                if (entry.key() != key || entry.value() != value) {
+                    entries.add(new MapLiteral.EntryLiteral(key, value));
+                    changed = true;
+                }
+                else {
+                    entries.add(entry);
+                }
+            }
+
+            if (changed) {
+                return new MapLiteral(node.getLocation().orElseThrow(), entries.build());
+            }
+
+            return node;
+        }
+
+        @Override
         protected Expression visitArray(Array node, Context<C> context)
         {
             if (!context.isDefaultRewrite()) {

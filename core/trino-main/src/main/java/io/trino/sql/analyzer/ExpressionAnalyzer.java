@@ -41,6 +41,7 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -119,6 +120,7 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MapLiteral;
 import io.trino.sql.tree.MeasureDefinition;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
@@ -1097,6 +1099,15 @@ public class ExpressionAnalyzer
 
             // Subscript on Array or Map uses an operator to resolve Type.
             return getOperator(context, node, SUBSCRIPT, node.getBase(), node.getIndex());
+        }
+
+        @Override
+        protected Type visitMapLiteral(MapLiteral node, Context context)
+        {
+            Type keyType = coerceToSingleType(context, "All MAP keys", node.getKeys());
+            Type valueType = coerceToSingleType(context, "All MAP values", node.getValues());
+            MapType mapType = new MapType(keyType, valueType, plannerContext.getTypeOperators());
+            return setExpressionType(node, mapType);
         }
 
         @Override
