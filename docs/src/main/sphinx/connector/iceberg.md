@@ -693,6 +693,62 @@ EXECUTE add_files(
     format => 'ORC');
 ```
 
+(iceberg-functions)=
+### Functions
+
+Functions are available in the system schema of each catalog. Functions can
+be called in a SQL statement. The following code snippet displays how to
+execute the `system.bucket` function:
+
+```sql
+SELECT system.bucket('saoirse', 16);
+```
+
+(iceberg-bucket-function)=
+#### system.bucket
+
+This function exposes the Iceberg bucket transform so that users can determine
+what bucket a particular value would fall into.
+
+For example, if we wanted to see what bucket number a particular string would
+be assigned, we can execute:
+
+```sql
+select system.bucket('saoirse', 16);
+```
+
+The function takes two arguments: the partition value and the number of buckets.
+
+This function can be used in a `WHERE` clause to only operate on a particular bucket:
+
+```sql
+SELECT count(*)
+FROM customer
+WHERE system.bucket(custkey, 16) = 2;
+```
+
+This function could also be used in the `optimize` function to only optimize a
+subset of buckets:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE system.bucket(partition_column, 16) = 2;
+```
+
+Note that pushdown of this function is not yet supported.
+
+The supported types for the 1st argument to this function are:
+
+* TINYINT
+* SMALLINT
+* INT
+* BIGINT
+* VARCHAR
+* VARBINARY
+* DATE
+* TIMESTAMP
+* TIMESTAMP WITH TIME ZONE
+
 (iceberg-data-management)=
 ### Data management
 
