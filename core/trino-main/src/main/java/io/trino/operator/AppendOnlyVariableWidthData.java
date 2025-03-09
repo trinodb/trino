@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import com.google.common.primitives.Ints;
-import io.airlift.slice.SizeOf;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.lang.invoke.MethodHandles;
@@ -24,34 +23,30 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.lang.Math.addExact;
 import static java.lang.Math.clamp;
 import static java.lang.Math.max;
-import static java.lang.Math.subtractExact;
 import static java.util.Objects.checkIndex;
 
 /**
- * A related implementation of {@link VariableWidthData} exists in {@link AppendOnlyVariableWidthData} which reduces
- * the size of each variable width pointer at the cost of not supporting {@link VariableWidthData#free}. If your data
- * structure does not need to support moving variable width data after insertion, that implementation will consume
- * less memory and should be used instead.
+ * Variation of {@link VariableWidthData} that does not support {@link VariableWidthData#free}. As a result of that
+ * limitation, the embedded variable width data pointer only needs to encode the chunk index and chunk offset but not
+ * the variable width length. This reduces the number of bytes required in each fixed size record by 4.
  */
-public final class VariableWidthData
+public final class AppendOnlyVariableWidthData
 {
-    private static final int INSTANCE_SIZE = instanceSize(VariableWidthData.class);
+    private static final int INSTANCE_SIZE = instanceSize(AppendOnlyVariableWidthData.class);
 
     public static final int MIN_CHUNK_SIZE = 1024;
     public static final int MAX_CHUNK_SIZE = 8 * 1024 * 1024;
     private static final int DOUBLING_CHUNK_THRESHOLD = 512 * 1024;
 
-    public static final int POINTER_SIZE = SIZE_OF_INT + SIZE_OF_INT + SIZE_OF_INT;
+    public static final int POINTER_SIZE = Integer.BYTES + Integer.BYTES;
 
     private static final VarHandle INT_HANDLE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.LITTLE_ENDIAN);
-    public static final byte[] EMPTY_CHUNK = new byte[0];
+    private static final byte[] EMPTY_CHUNK = VariableWidthData.EMPTY_CHUNK;
 
     private final ObjectArrayList<byte[]> chunks = new ObjectArrayList<>();
     private int openChunkOffset;
@@ -61,28 +56,19 @@ public final class VariableWidthData
     private long allocatedBytes;
     private long freeBytes;
 
-    public VariableWidthData() {}
+    public AppendOnlyVariableWidthData() {}
 
-    public VariableWidthData(VariableWidthData variableWidthData)
+    public AppendOnlyVariableWidthData(AppendOnlyVariableWidthData other)
     {
-        for (byte[] chunk : variableWidthData.chunks) {
+        for (byte[] chunk : other.chunks) {
             chunks.add(Arrays.copyOf(chunk, chunk.length));
         }
-        this.openChunkOffset = variableWidthData.openChunkOffset;
+        this.openChunkOffset = other.openChunkOffset;
 
-        this.chunksRetainedSizeInBytes = variableWidthData.chunksRetainedSizeInBytes;
+        this.chunksRetainedSizeInBytes = other.chunksRetainedSizeInBytes;
 
-        this.allocatedBytes = variableWidthData.allocatedBytes;
-        this.freeBytes = variableWidthData.freeBytes;
-    }
-
-    public VariableWidthData(List<byte[]> chunks, int openChunkOffset)
-    {
-        this.chunks.addAll(chunks);
-        this.openChunkOffset = openChunkOffset;
-        this.chunksRetainedSizeInBytes = chunks.stream().mapToLong(SizeOf::sizeOf).reduce(0L, Math::addExact);
-        this.allocatedBytes = chunks.stream().mapToLong(chunk -> chunk.length).sum();
-        this.freeBytes = 0;
+        this.allocatedBytes = other.allocatedBytes;
+        this.freeBytes = other.freeBytes;
     }
 
     public long getRetainedSizeBytes()
@@ -110,7 +96,7 @@ public final class VariableWidthData
     public byte[] allocate(byte[] pointer, int pointerOffset, int size)
     {
         if (size == 0) {
-            writePointer(pointer, pointerOffset, 0, 0, 0);
+            writePointer(pointer, pointerOffset, 0, 0);
             return EMPTY_CHUNK;
         }
 
@@ -136,40 +122,9 @@ public final class VariableWidthData
                 pointer,
                 pointerOffset,
                 chunks.size() - 1,
-                openChunkOffset,
-                size);
+                openChunkOffset);
         openChunkOffset += size;
         return openChunk;
-    }
-
-    public void free(byte[] pointer, int pointerOffset)
-    {
-        int valueLength = getValueLength(pointer, pointerOffset);
-        if (valueLength == 0) {
-            return;
-        }
-
-        int valueChunkIndex = getChunkIndex(pointer, pointerOffset);
-        byte[] valueChunk = chunks.get(valueChunkIndex);
-
-        // if this is the last value in the open byte[], then we can simply back up the open chunk offset
-        if (valueChunkIndex == chunks.size() - 1) {
-            int valueOffset = getChunkOffset(pointer, pointerOffset);
-            if (this.openChunkOffset - valueLength == valueOffset) {
-                this.openChunkOffset = valueOffset;
-                return;
-            }
-        }
-
-        // if this is the only value written to the chunk, we can simply replace the chunk with the empty chunk
-        if (valueLength == valueChunk.length) {
-            chunks.set(valueChunkIndex, EMPTY_CHUNK);
-            chunksRetainedSizeInBytes = subtractExact(chunksRetainedSizeInBytes, sizeOf(valueChunk));
-            allocatedBytes -= valueChunk.length;
-            return;
-        }
-
-        freeBytes += valueLength;
     }
 
     public byte[] getChunk(byte[] pointer, int pointerOffset)
@@ -199,18 +154,12 @@ public final class VariableWidthData
 
     public static int getChunkOffset(byte[] pointer, int pointerOffset)
     {
-        return (int) INT_HANDLE.get(pointer, pointerOffset + SIZE_OF_INT);
+        return (int) INT_HANDLE.get(pointer, pointerOffset + Integer.BYTES);
     }
 
-    public static int getValueLength(byte[] pointer, int pointerOffset)
-    {
-        return (int) INT_HANDLE.get(pointer, pointerOffset + SIZE_OF_LONG);
-    }
-
-    public static void writePointer(byte[] pointer, int pointerOffset, int chunkIndex, int chunkOffset, int valueLength)
+    public static void writePointer(byte[] pointer, int pointerOffset, int chunkIndex, int chunkOffset)
     {
         INT_HANDLE.set(pointer, pointerOffset, chunkIndex);
-        INT_HANDLE.set(pointer, pointerOffset + SIZE_OF_INT, chunkOffset);
-        INT_HANDLE.set(pointer, pointerOffset + SIZE_OF_LONG, valueLength);
+        INT_HANDLE.set(pointer, pointerOffset + Integer.BYTES, chunkOffset);
     }
 }
