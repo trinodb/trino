@@ -28,82 +28,28 @@ import NotStartedIcon from '@mui/icons-material/NotStarted'
 import PlayCircleIcon from '@mui/icons-material/PlayCircle'
 import QueryBuilderIcon from '@mui/icons-material/QueryBuilder'
 import { CodeBlock } from './CodeBlock.tsx'
-import { LinearProgressWithLabel, LinearProgressWithLabelProps } from './LinearProgressWithLabel.tsx'
+import { QueryProgressBar } from './QueryProgressBar'
 import { QueryInfo } from '../api/webapp/api.ts'
-import {
-    formatDataSizeBytes,
-    formatShortTime,
-    getHumanReadableState,
-    parseAndFormatDataSize,
-    truncateString,
-} from '../utils/utils.ts'
+import { formatDataSizeBytes, formatShortTime, parseAndFormatDataSize, truncateString } from '../utils/utils.ts'
+import { styled } from '@mui/material/styles'
+import { Link as RouterLink } from 'react-router-dom'
 
 interface IQueryListItemProps {
     queryInfo: QueryInfo
 }
 
+const StyledLink = styled(RouterLink)(({ theme }) => ({
+    textDecoration: 'none',
+    color: theme.palette.info.main,
+    '&:hover': {
+        textDecoration: 'underline',
+    },
+    fontSize: 14,
+    fontWeight: 500,
+}))
+
 export const QueryListItem = (props: IQueryListItemProps) => {
     const { queryInfo } = props
-
-    const STATE_COLOR_MAP: Record<string, LinearProgressWithLabelProps['color']> = {
-        QUEUED: 'default',
-        RUNNING: 'info',
-        PLANNING: 'info',
-        FINISHED: 'success',
-        BLOCKED: 'secondary',
-        USER_ERROR: 'error',
-        CANCELED: 'warning',
-        INSUFFICIENT_RESOURCES: 'error',
-        EXTERNAL_ERROR: 'error',
-        UNKNOWN_ERROR: 'error',
-    }
-
-    const getQueryStateColor = (query: QueryInfo): LinearProgressWithLabelProps['color'] => {
-        switch (query.state) {
-            case 'QUEUED':
-                return STATE_COLOR_MAP.QUEUED
-            case 'PLANNING':
-                return STATE_COLOR_MAP.PLANNING
-            case 'STARTING':
-            case 'FINISHING':
-            case 'RUNNING':
-                if (query.queryStats && query.queryStats.fullyBlocked) {
-                    return STATE_COLOR_MAP.BLOCKED
-                }
-                return STATE_COLOR_MAP.RUNNING
-            case 'FAILED':
-                switch (query.errorType) {
-                    case 'USER_ERROR':
-                        if (query.errorCode.name === 'USER_CANCELED') {
-                            return STATE_COLOR_MAP.CANCELED
-                        }
-                        return STATE_COLOR_MAP.USER_ERROR
-                    case 'EXTERNAL':
-                        return STATE_COLOR_MAP.EXTERNAL_ERROR
-                    case 'INSUFFICIENT_RESOURCES':
-                        return STATE_COLOR_MAP.INSUFFICIENT_RESOURCES
-                    default:
-                        return STATE_COLOR_MAP.UNKNOWN_ERROR
-                }
-            case 'FINISHED':
-                return STATE_COLOR_MAP.FINISHED
-            default:
-                return STATE_COLOR_MAP.QUEUED
-        }
-    }
-
-    const getProgressBarPercentage = (queryInfo: QueryInfo) => {
-        if (queryInfo.state !== 'RUNNING') {
-            return 100
-        }
-
-        const progress = queryInfo.queryStats.progressPercentage || 0
-        return Math.round(progress)
-    }
-
-    const getProgressBarTitle = (queryInfo: QueryInfo) => {
-        return getHumanReadableState(queryInfo)
-    }
 
     const stripQueryTextWhitespace = (queryText: string) => {
         const maxLines = 6
@@ -180,7 +126,7 @@ export const QueryListItem = (props: IQueryListItemProps) => {
                 >
                     <Box>
                         <Tooltip placement="top-start" title="Query ID">
-                            <Typography variant="subtitle2">{queryInfo.queryId}</Typography>
+                            <StyledLink to={`/queries/${queryInfo.queryId}`}>{queryInfo.queryId}</StyledLink>
                         </Tooltip>
                     </Box>
                     <Box>
@@ -326,11 +272,7 @@ export const QueryListItem = (props: IQueryListItemProps) => {
             </Grid>
             <Grid size={{ xs: 12, lg: 8 }}>
                 <Stack flex={1} spacing={1}>
-                    <LinearProgressWithLabel
-                        value={getProgressBarPercentage(queryInfo)}
-                        title={getProgressBarTitle(queryInfo)}
-                        color={getQueryStateColor(queryInfo)}
-                    />
+                    <QueryProgressBar queryInfoBase={queryInfo} />
                     <Grid container>
                         <Grid
                             key={queryInfo.queryId}
@@ -345,6 +287,7 @@ export const QueryListItem = (props: IQueryListItemProps) => {
                                 language="sql"
                                 code={stripQueryTextWhitespace(queryInfo.queryTextPreview)}
                                 height="158px"
+                                noBottomBorder
                             />
                         </Grid>
                     </Grid>

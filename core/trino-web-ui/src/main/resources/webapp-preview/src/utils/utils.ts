@@ -11,22 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { QueryInfo } from '../api/webapp/api.ts'
+import { QueryInfoBase } from '../api/webapp/api.ts'
 
-export const getHumanReadableState = (queryInfo: QueryInfo) => {
-    if (queryInfo.state === 'RUNNING') {
+export const getHumanReadableState = (queryInfoBase: QueryInfoBase) => {
+    if (queryInfoBase.state === 'RUNNING') {
         let title = 'RUNNING'
 
-        if (queryInfo.scheduled && queryInfo.queryStats.totalDrivers > 0 && queryInfo.queryStats.runningDrivers >= 0) {
-            if (queryInfo.queryStats.fullyBlocked) {
+        if (
+            queryInfoBase.scheduled &&
+            queryInfoBase.queryStats.totalDrivers > 0 &&
+            queryInfoBase.queryStats.runningDrivers >= 0
+        ) {
+            if (queryInfoBase.queryStats.fullyBlocked) {
                 title = 'BLOCKED'
 
-                if (queryInfo.queryStats.blockedReasons?.length > 0) {
-                    title += ' (' + queryInfo.queryStats.blockedReasons.join(', ') + ')'
+                if (queryInfoBase.queryStats.blockedReasons?.length > 0) {
+                    title += ' (' + queryInfoBase.queryStats.blockedReasons.join(', ') + ')'
                 }
             }
 
-            if (queryInfo.memoryPool === 'reserved') {
+            if (queryInfoBase.memoryPool === 'reserved') {
                 title += ' (RESERVED)'
             }
 
@@ -34,12 +38,12 @@ export const getHumanReadableState = (queryInfo: QueryInfo) => {
         }
     }
 
-    if (queryInfo.state === 'FAILED') {
+    if (queryInfoBase.state === 'FAILED') {
         let errorMsg = ''
-        switch (queryInfo.errorType) {
+        switch (queryInfoBase.errorType) {
             case 'USER_ERROR':
                 errorMsg = 'USER ERROR'
-                if (queryInfo.errorCode.name === 'USER_CANCELED') {
+                if (queryInfoBase.errorCode.name === 'USER_CANCELED') {
                     errorMsg = 'USER CANCELED'
                 }
                 break
@@ -53,13 +57,13 @@ export const getHumanReadableState = (queryInfo: QueryInfo) => {
                 errorMsg = 'EXTERNAL ERROR'
                 break
         }
-        if (queryInfo.errorCode && queryInfo.errorCode.name) {
-            errorMsg += ` - ${queryInfo.errorCode.name}`
+        if (queryInfoBase.errorCode && queryInfoBase.errorCode.name) {
+            errorMsg += ` - ${queryInfoBase.errorCode.name}`
         }
         return errorMsg
     }
 
-    return queryInfo.state
+    return queryInfoBase.state
 }
 
 // Sparkline-related functions
@@ -151,7 +155,7 @@ export function formatDataSizeBytes(size: number | null): string {
     return formatDataSizeMinUnit(size, '')
 }
 
-export function formatDataSize(size: number): string {
+export function formatDataSize(size: number | null): string {
     return formatDataSizeMinUnit(size, 'B')
 }
 
@@ -254,4 +258,19 @@ export function formatShortTime(date: Date): string {
     const hours = date.getHours() % 12 || 12
     const minutes = (date.getMinutes() < 10 ? '0' : '') + date.getMinutes()
     return hours + ':' + minutes + (date.getHours() >= 12 ? 'pm' : 'am')
+}
+
+export function formatShortDateTime(date: Date): string {
+    const year = date.getFullYear()
+    const month = '' + (date.getMonth() + 1)
+    const dayOfMonth = '' + date.getDate()
+    return (
+        year +
+        '-' +
+        (month[1] ? month : '0' + month[0]) +
+        '-' +
+        (dayOfMonth[1] ? dayOfMonth : '0' + dayOfMonth[0]) +
+        ' ' +
+        formatShortTime(date)
+    )
 }
