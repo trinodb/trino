@@ -112,8 +112,8 @@ public class TestPushDownDereferencesRules
                 .on(p ->
                         p.project(
                                 Assignments.of(
-                                        p.symbol("expr_1", rowType(field("x", BIGINT), field("y", BIGINT))), new FieldReference(new Cast(new Row(ImmutableList.of(new Reference(ROW_TYPE, "a"), new Reference(BIGINT, "b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), 0),
-                                        p.symbol("expr_2"), new FieldReference(new FieldReference(new Cast(new Row(ImmutableList.of(new Reference(ROW_TYPE, "a"), new Reference(BIGINT, "b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), 0), 1)),
+                                        p.symbol("expr_1", rowType(field("x", BIGINT), field("y", BIGINT))), new FieldReference(new Cast(Row.anonymousRow(ImmutableList.of(new Reference(ROW_TYPE, "a"), new Reference(BIGINT, "b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), 0),
+                                        p.symbol("expr_2"), new FieldReference(new FieldReference(new Cast(Row.anonymousRow(ImmutableList.of(new Reference(ROW_TYPE, "a"), new Reference(BIGINT, "b"))), rowType(field("f1", rowType(field("x", BIGINT), field("y", BIGINT))), field("f2", BIGINT))), 0), 1)),
                                 p.project(
                                         Assignments.of(
                                                 p.symbol("a", ROW_TYPE), new Reference(ROW_TYPE, "a"),

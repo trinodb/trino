@@ -547,8 +547,10 @@ public class TranslationMap
 
     private io.trino.sql.ir.Expression translate(Row expression)
     {
-        return new io.trino.sql.ir.Row(expression.getItems().stream()
-                .map(this::translateExpression)
+        return new io.trino.sql.ir.Row(expression.getFields().stream()
+                .map(field -> new io.trino.sql.ir.Row.Field(
+                        field.getName().map(Identifier::getCanonicalValue),
+                        translateExpression(field.getExpression())))
                 .collect(toImmutableList()));
     }
 
@@ -893,7 +895,7 @@ public class TranslationMap
         Call call = BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
                 .setName(FormatFunction.NAME)
                 .addArgument(VARCHAR, new io.trino.sql.ir.Cast(arguments.get(0), VARCHAR))
-                .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), new io.trino.sql.ir.Row(arguments.subList(1, arguments.size())))
+                .addArgument(RowType.anonymous(argumentTypes.subList(1, arguments.size())), io.trino.sql.ir.Row.anonymousRow(arguments.subList(1, arguments.size())))
                 .build();
 
         return call;
@@ -1156,8 +1158,8 @@ public class TranslationMap
                     values.add(rewrittenValue);
                 }
             }
-            keysRow = new io.trino.sql.ir.Row(keys.build());
-            valuesRow = new io.trino.sql.ir.Row(values.build());
+            keysRow = io.trino.sql.ir.Row.anonymousRow(keys.build());
+            valuesRow = io.trino.sql.ir.Row.anonymousRow(values.build());
         }
 
         List<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
@@ -1215,7 +1217,7 @@ public class TranslationMap
                     elements.add(rewrittenElement);
                 }
             }
-            elementsRow = new io.trino.sql.ir.Row(elements.build());
+            elementsRow = io.trino.sql.ir.Row.anonymousRow(elements.build());
         }
 
         List<io.trino.sql.ir.Expression> arguments = ImmutableList.<io.trino.sql.ir.Expression>builder()
@@ -1303,7 +1305,7 @@ public class TranslationMap
                     parameters.add(rewrittenParameter);
                 }
             }
-            parametersRow = new io.trino.sql.ir.Cast(new io.trino.sql.ir.Row(parameters.build()), parameterRowType);
+            parametersRow = new io.trino.sql.ir.Cast(io.trino.sql.ir.Row.anonymousRow(parameters.build()), parameterRowType);
             parametersOrder = pathParameters.stream()
                     .map(parameter -> parameter.getName().getCanonicalValue())
                     .collect(toImmutableList());

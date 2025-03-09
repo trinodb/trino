@@ -37,7 +37,7 @@ public class TestEvaluateRow
     void test()
     {
         assertThat(optimize(
-                new Row(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))))
+                Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L)))))
                 .isPresent()
                 .get()
                 .satisfies(row -> {
@@ -52,7 +52,7 @@ public class TestEvaluateRow
                 });
 
         assertThat(optimize(
-                new Row(ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "x")))))
+                Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, 1L), new Reference(BIGINT, "x")))))
                 .isEmpty();
     }
 

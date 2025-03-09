@@ -39,7 +39,7 @@ public class TestEvaluateFieldReference
     void test()
     {
         assertThat(optimize(
-                new FieldReference(new Row(ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), 1)))
+                new FieldReference(Row.anonymousRow(ImmutableList.of(new Reference(BIGINT, "a"), new Reference(BIGINT, "b"))), 1)))
                 .isEqualTo(Optional.of(new Reference(BIGINT, "b")));
 
         assertThat(optimize(

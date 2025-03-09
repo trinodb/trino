@@ -346,7 +346,7 @@ public class LogicalPlanner
         if ((statement instanceof CreateTableAsSelect && analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) ||
                 statement instanceof RefreshMaterializedView && analysis.isSkipMaterializedViewRefresh()) {
             Symbol symbol = symbolAllocator.newSymbol("rows", BIGINT);
-            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 0L)))));
+            PlanNode source = new ValuesNode(idAllocator.getNextId(), ImmutableList.of(symbol), ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, 0L)))));
             return new OutputNode(idAllocator.getNextId(), source, ImmutableList.of("rows"), ImmutableList.of(symbol));
         }
         return createOutputPlan(planStatementWithoutOutput(analysis, statement), analysis);

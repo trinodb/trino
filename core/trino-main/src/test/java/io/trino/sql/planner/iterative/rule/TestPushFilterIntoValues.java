@@ -56,8 +56,8 @@ class TestPushFilterIntoValues
                     return p.filter(TRUE, p.valuesOfExpressions(
                             ImmutableList.of(a, b),
                             ImmutableList.of(
-                                    new Row(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))),
-                                    new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))), anonymousRow(BIGINT, BIGINT)))));
+                                    Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, 1L), new Constant(BIGINT, 2L))),
+                                    new Cast(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 3L), new Constant(INTEGER, 4L))), anonymousRow(BIGINT, BIGINT)))));
                 }).doesNotFire();
     }
 

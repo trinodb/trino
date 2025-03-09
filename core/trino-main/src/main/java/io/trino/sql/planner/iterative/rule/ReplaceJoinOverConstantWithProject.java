@@ -186,7 +186,7 @@ public class ReplaceJoinOverConstantWithProject
 
         Map<Symbol, Expression> mapping = new HashMap<>();
         for (int i = 0; i < values.getOutputSymbols().size(); i++) {
-            mapping.put(values.getOutputSymbols().get(i), row.items().get(i));
+            mapping.put(values.getOutputSymbols().get(i), row.fields().get(i).value());
         }
 
         Assignments.Builder assignments = Assignments.builder()
