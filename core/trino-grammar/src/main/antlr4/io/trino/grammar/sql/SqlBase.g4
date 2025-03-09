@@ -592,6 +592,8 @@ primaryExpression
     | CASE operand=expression whenClause+ (ELSE elseExpression=expression)? END           #simpleCase
     | CASE whenClause+ (ELSE elseExpression=expression)? END                              #searchedCase
     | CAST '(' expression AS type ')'                                                     #cast
+    // This is a postgres extension to ANSI SQL, which allows for the use of "::" to cast
+    | primaryExpression DOUBLE_COLON type                                                 #cast
     | TRY_CAST '(' expression AS type ')'                                                 #cast
     | ARRAY '[' (expression (',' expression)*)? ']'                                       #arrayConstructor
     | value=primaryExpression '[' index=valueExpression ']'                               #subscript
@@ -1327,6 +1329,7 @@ LT: '<';
 LTE: '<=';
 GT: '>';
 GTE: '>=';
+DOUBLE_COLON: '::';
 
 PLUS: '+';
 MINUS: '-';
