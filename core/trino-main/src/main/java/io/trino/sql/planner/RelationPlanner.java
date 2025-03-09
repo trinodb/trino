@@ -1865,8 +1865,33 @@ class RelationPlanner
         ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
 
-        for (Relation child : node.getRelations()) {
+        List<Relation> relations = node.getRelations();
+        checkArgument(relations.size() == 2, "relations size must be 2");
+        Relation rightRelation = relations.getLast();
+        for (Relation child : relations) {
             RelationPlan plan = process(child, null);
+
+            if (node.isCorresponding() && child.equals(rightRelation)) {
+                // Replace right relation's field order to match the output fields of the set operation
+                Map<String, Symbol> nameToSymbol = new HashMap<>();
+                RelationType descriptor = plan.getDescriptor();
+                Collection<Field> visibleFields = outputFields.getVisibleFields();
+                for (int i = 0; i < visibleFields.size(); i++) {
+                    nameToSymbol.put(descriptor.getFieldByIndex(i).getName().orElseThrow(), plan.getSymbol(i));
+                }
+
+                ImmutableList.Builder<Symbol> fieldMappingsBuilder = ImmutableList.builderWithExpectedSize(visibleFields.size());
+                for (Field field : visibleFields) {
+                    String fieldName = field.getName().orElseThrow();
+                    fieldMappingsBuilder.add(nameToSymbol.get(fieldName));
+                }
+                List<Symbol> fieldMappings = fieldMappingsBuilder.build();
+                ProjectNode projectNode = new ProjectNode(
+                        idAllocator.getNextId(),
+                        plan.getRoot(),
+                        Assignments.identity(fieldMappings));
+                plan = new RelationPlan(projectNode, plan.getScope(), fieldMappings, plan.getOuterContext());
+            }
 
             NodeAndMappings planAndMappings;
             List<Type> types = analysis.getRelationCoercion(child);
