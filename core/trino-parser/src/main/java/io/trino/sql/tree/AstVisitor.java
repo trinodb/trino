@@ -962,7 +962,7 @@ public abstract class AstVisitor<R, C>
         return visitDataType(node, context);
     }
 
-    protected R visitRowField(RowDataType.Field node, C context)
+    protected R visitRowDataTypeField(RowDataType.Field node, C context)
     {
         return visitNode(node, context);
     }
