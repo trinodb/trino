@@ -2018,14 +2018,22 @@ public final class SqlFormatter
         {
             builder.append("ROW(");
             boolean firstItem = true;
-            for (Expression item : node.getItems()) {
+            for (Row.Field field : node.getFields()) {
                 if (!firstItem) {
                     builder.append(", ");
                 }
-                process(item, indent);
+                process(field, indent);
                 firstItem = false;
             }
             builder.append(")");
+            return null;
+        }
+
+        @Override
+        protected Void visitRowField(Row.Field node, Integer context)
+        {
+            node.getName().ifPresent(name -> builder.append(formatName(name)).append(" "));
+            builder.append(formatExpression(node.getExpression()));
             return null;
         }
 

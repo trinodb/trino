@@ -605,9 +605,9 @@ public class TestSqlParser
                         new Row(
                                 location(1, 1),
                                 ImmutableList.of(
-                                        new LongLiteral(location(1, 6), "1"),
-                                        new StringLiteral(location(1, 9), "a"),
-                                        new BooleanLiteral(location(1, 14), "true"))),
+                                        new Row.Field(location(1, 6), Optional.empty(), new LongLiteral(location(1, 6), "1")),
+                                        new Row.Field(location(1, 9), Optional.empty(), new StringLiteral(location(1, 9), "a")),
+                                        new Row.Field(location(1, 14), Optional.empty(), new BooleanLiteral(location(1, 14), "true")))),
                         new LongLiteral(location(1, 20), "1")));
     }
 
@@ -640,7 +640,7 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new AllColumns(
                                         Optional.empty(),
-                                        Optional.of(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true")))),
+                                        Optional.of(row(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
                                         ImmutableList.of())))));
 
         assertStatement("SELECT ROW (1, 'a', true).* AS (f1, f2, f3)", simpleQuery(
@@ -649,7 +649,7 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new AllColumns(
                                         Optional.empty(),
-                                        Optional.of(new Row(ImmutableList.of(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true")))),
+                                        Optional.of(row(new LongLiteral("1"), new StringLiteral("a"), new BooleanLiteral("true"))),
                                         ImmutableList.of(new Identifier("f1"), new Identifier("f2"), new Identifier("f3")))))));
     }
 
@@ -1627,7 +1627,7 @@ public class TestSqlParser
                         selectList(
                                 new DereferenceExpression(
                                         new Cast(
-                                                new Row(Lists.newArrayList(new LongLiteral("11"), new LongLiteral("12"))),
+                                                row(new LongLiteral("11"), new LongLiteral("12")),
                                                 rowType(location(1, 26),
                                                         field(location(1, 30), "COL0", simpleType(location(1, 35), "INTEGER")),
                                                         field(location(1, 44), "COL1", simpleType(location(1, 49), "INTEGER")))),
@@ -4952,8 +4952,8 @@ public class TestSqlParser
                                 ImmutableList.of(),
                                 Optional.empty(),
                                 new Values(location(1, 13), ImmutableList.of(
-                                        new Row(location(1, 20), ImmutableList.of(new LongLiteral(location(1, 24), "1"))),
-                                        new Row(location(1, 28), ImmutableList.of(new LongLiteral(location(1, 32), "2"))))),
+                                        new Row(location(1, 20), ImmutableList.of(new Row.Field(location(1, 24), Optional.empty(), new LongLiteral(location(1, 24), "1")))),
+                                        new Row(location(1, 28), ImmutableList.of(new Row.Field(location(1, 32), Optional.empty(), new LongLiteral(location(1, 32), "2")))))),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()))));

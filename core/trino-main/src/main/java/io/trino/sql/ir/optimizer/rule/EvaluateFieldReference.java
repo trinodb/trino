@@ -43,7 +43,7 @@ public class EvaluateFieldReference
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
         return switch (expression) {
-            case FieldReference(Row row, int field) -> Optional.of(row.items().get(field));
+            case FieldReference(Row row, int field) -> Optional.of(row.fields().get(field).value());
             case FieldReference(Constant(RowType type, SqlRow row), int field) -> {
                 Type fieldType = type.getFields().get(field).getType();
                 yield Optional.of(new Constant(

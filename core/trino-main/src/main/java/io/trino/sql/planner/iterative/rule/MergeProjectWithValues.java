@@ -123,7 +123,7 @@ public class MergeProjectWithValues
             return Result.ofPlanNode(new ValuesNode(
                     valuesNode.getId(),
                     outputs,
-                    nCopies(valuesNode.getRowCount(), new Row(ImmutableList.copyOf(expressions)))));
+                    nCopies(valuesNode.getRowCount(), Row.anonymousRow(ImmutableList.copyOf(expressions)))));
         }
 
         // do not proceed if ValuesNode contains a non-deterministic expression and it is referenced more than once by the projection
@@ -131,7 +131,7 @@ public class MergeProjectWithValues
         for (Expression rowExpression : valuesNode.getRows().get()) {
             Row row = (Row) rowExpression;
             for (int i = 0; i < valuesNode.getOutputSymbols().size(); i++) {
-                if (!isDeterministic(row.items().get(i))) {
+                if (!isDeterministic(row.fields().get(i).value())) {
                     nonDeterministicValuesOutputs.add(valuesNode.getOutputSymbols().get(i));
                 }
             }
@@ -151,7 +151,7 @@ public class MergeProjectWithValues
         ImmutableList.Builder<Expression> projectedRows = ImmutableList.builder();
         for (Expression rowExpression : valuesNode.getRows().get()) {
             Map<Reference, Expression> mapping = buildMappings(valuesNode.getOutputSymbols(), (Row) rowExpression);
-            Row projectedRow = new Row(expressions.stream()
+            Row projectedRow = Row.anonymousRow(expressions.stream()
                     .map(expression -> replaceExpression(expression, mapping))
                     .collect(toImmutableList()));
             projectedRows.add(projectedRow);
@@ -167,8 +167,8 @@ public class MergeProjectWithValues
     private Map<Reference, Expression> buildMappings(List<Symbol> symbols, Row row)
     {
         ImmutableMap.Builder<Reference, Expression> mappingBuilder = ImmutableMap.builder();
-        for (int i = 0; i < row.items().size(); i++) {
-            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.items().get(i));
+        for (int i = 0; i < row.fields().size(); i++) {
+            mappingBuilder.put(symbols.get(i).toSymbolReference(), row.fields().get(i).value());
         }
         return mappingBuilder.buildOrThrow();
     }

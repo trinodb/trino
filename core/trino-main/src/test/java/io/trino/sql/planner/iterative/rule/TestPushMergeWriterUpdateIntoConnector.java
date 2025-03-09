@@ -70,7 +70,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowId = p.symbol("row_id");
                         Symbol rowCount = p.symbol("row_count");
                         // set column name and constant update
-                        Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(), new Constant(INTEGER, 1L), TRUE, new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)));
+                        Expression updateMergeRowExpression = Row.anonymousRow(ImmutableList.of(p.symbol("column_1").toSymbolReference(), new Constant(INTEGER, 1L), TRUE, new Constant(INTEGER, 1L), new Constant(INTEGER, 1L)));
 
                         return p.tableFinish(
                                 p.merge(
@@ -108,7 +108,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowId = p.symbol("row_id");
                         Symbol rowCount = p.symbol("row_count");
                         // set arithmetic expression which we don't support yet
-                        Expression updateMergeRowExpression = new Row(ImmutableList.of(p.symbol("column_1").toSymbolReference(),
+                        Expression updateMergeRowExpression = Row.anonymousRow(ImmutableList.of(p.symbol("column_1").toSymbolReference(),
                                 new Call(MULTIPLY_BIGINT, ImmutableList.of(p.symbol("col1").toSymbolReference(), new Constant(BIGINT, 5L)))));
 
                         return p.tableFinish(
@@ -147,7 +147,7 @@ public class TestPushMergeWriterUpdateIntoConnector
                         Symbol rowId = p.symbol("row_id");
                         Symbol rowCount = p.symbol("row_count");
                         // set function call, which represents update all columns statement
-                        Expression updateMergeRowExpression = new Row(ImmutableList.of(new Call(
+                        Expression updateMergeRowExpression = Row.anonymousRow(ImmutableList.of(new Call(
                                 ruleTester.getMetadata().resolveBuiltinFunction("from_base64", fromTypes(VARCHAR)),
                                 ImmutableList.of(new Constant(VARCHAR, Slices.utf8Slice(""))))));
 

@@ -675,7 +675,7 @@ class QueryPlanner
         rowBuilder.add(new Constant(INTEGER, 0L));
 
         // Finally, the merge row is complete
-        Expression mergeRow = new Row(rowBuilder.build());
+        Expression mergeRow = Row.anonymousRow(rowBuilder.build());
 
         List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(table);
         if (!constraints.isEmpty()) {
@@ -850,7 +850,7 @@ class QueryPlanner
                         coerceIfNecessary(analysis, casePredicate.get(), subPlan.rewrite(casePredicate.get())));
             }
 
-            whenClauses.add(new WhenClause(condition, new Row(rowBuilder.build())));
+            whenClauses.add(new WhenClause(condition, Row.anonymousRow(rowBuilder.build())));
 
             List<io.trino.sql.tree.Expression> constraints = analysis.getCheckConstraints(mergeAnalysis.getTargetTable());
             if (!constraints.isEmpty()) {

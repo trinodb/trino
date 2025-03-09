@@ -45,27 +45,27 @@ public class TestUnwrapRowSubscript
     @Test
     public void testSimpleSubscript()
     {
-        test(new FieldReference(new Row(ImmutableList.of(new Constant(INTEGER, 1L))), 0), new Constant(INTEGER, 1L));
-        test(new FieldReference(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), 0), new Constant(INTEGER, 1L));
-        test(new FieldReference(new FieldReference(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), 0), 1), new Constant(INTEGER, 2L));
+        test(new FieldReference(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L))), 0), new Constant(INTEGER, 1L));
+        test(new FieldReference(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), 0), new Constant(INTEGER, 1L));
+        test(new FieldReference(new FieldReference(Row.anonymousRow(ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), 0), 1), new Constant(INTEGER, 2L));
     }
 
     @Test
     public void testWithCast()
     {
         test(
-                new FieldReference(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), 0),
+                new FieldReference(new Cast(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), 0),
                 new Cast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
-                new FieldReference(new Cast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), 0),
+                new FieldReference(new Cast(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), 0),
                 new Cast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
                 new FieldReference(
                         new Cast(new FieldReference(
                                 new Cast(
-                                        new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))),
+                                        Row.anonymousRow(ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))),
                                         anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT)),
                                 0),
                                 rowType(field("x", BIGINT), field("y", BIGINT))),
@@ -77,15 +77,15 @@ public class TestUnwrapRowSubscript
     public void testWithTryCast()
     {
         test(
-                new FieldReference(tryCast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), 0),
+                new FieldReference(tryCast(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), rowType(field("a", BIGINT), field("b", BIGINT))), 0),
                 tryCast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
-                new FieldReference(tryCast(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), 0),
+                new FieldReference(tryCast(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), anonymousRow(BIGINT, BIGINT)), 0),
                 tryCast(new Constant(INTEGER, 1L), BIGINT));
 
         test(
-                new FieldReference(tryCast(new FieldReference(new Cast(new Row(ImmutableList.of(new Row(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT)), 0), rowType(field("x", BIGINT), field("y", BIGINT))), 1),
+                new FieldReference(tryCast(new FieldReference(new Cast(Row.anonymousRow(ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 1L), new Constant(INTEGER, 2L))), new Constant(INTEGER, 3L))), anonymousRow(anonymousRow(SMALLINT, SMALLINT), BIGINT)), 0), rowType(field("x", BIGINT), field("y", BIGINT))), 1),
                 tryCast(new Cast(new Constant(INTEGER, 2L), SMALLINT), BIGINT));
     }
 

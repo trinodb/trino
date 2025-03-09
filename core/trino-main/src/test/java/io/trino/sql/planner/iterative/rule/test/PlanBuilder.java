@@ -257,7 +257,7 @@ public class PlanBuilder
 
     public ValuesNode values(PlanNodeId id, List<Symbol> columns, List<List<Expression>> rows)
     {
-        return new ValuesNode(id, columns, rows.stream().map(Row::new).collect(toImmutableList()));
+        return new ValuesNode(id, columns, rows.stream().map(Row::anonymousRow).collect(toImmutableList()));
     }
 
     public ValuesNode valuesOfExpressions(List<Symbol> columns, List<Expression> rows)
