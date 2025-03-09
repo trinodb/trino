@@ -118,7 +118,7 @@ public class TestInt96Timestamp
         SourcePage page = reader.nextPage();
         ImmutableList.Builder<LocalDateTime> builder = ImmutableList.builder();
         while (page != null) {
-            Fixed12Block block = (Fixed12Block) page.getBlock(0).getLoadedBlock();
+            Fixed12Block block = (Fixed12Block) page.getBlock(0);
             for (int i = 0; i < block.getPositionCount(); i++) {
                 builder.add(toLocalDateTime(block, i));
             }

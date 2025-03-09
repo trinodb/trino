@@ -23,8 +23,7 @@ public interface BlockBuilder
     int getPositionCount();
 
     /**
-     * Returns the size of this block as if it was compacted, ignoring any over-allocations
-     * and any unloaded nested blocks.
+     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
      * For example, in dictionary blocks, this only counts each dictionary entry once,
      * rather than each time a value is referenced.
      */
