@@ -1346,6 +1346,51 @@ public class TestSqlParser
     }
 
     @Test
+    public void testCast()
+    {
+        assertThat(expression("CAST(1 AS BIGINT)"))
+                .isEqualTo(new Cast(location(1, 1),
+                        new LongLiteral(location(1, 6), "1"),
+                        simpleType(location(1, 11), "BIGINT")));
+
+        assertThat(expression("1::BIGINT"))
+                .isEqualTo(new Cast(location(1, 1),
+                        new LongLiteral(location(1, 1), "1"),
+                        simpleType(location(1, 4), "BIGINT")));
+
+        assertThat(expression("-3::BIGINT"))
+                .isEqualTo(new Cast(location(1, 1),
+                        new LongLiteral(location(1, 1), "-3"),
+                        simpleType(location(1, 5), "BIGINT")));
+
+        assertThat(expression("3*'4'::BIGINT"))
+                .isEqualTo(new ArithmeticBinaryExpression(
+                        location(1, 2),
+                        ArithmeticBinaryExpression.Operator.MULTIPLY,
+                        new LongLiteral(location(1, 1), "3"),
+                        new Cast(
+                                location(1, 3),
+                                new StringLiteral(location(1, 3), "4"),
+                                simpleType(location(1, 8), "BIGINT"))));
+
+        assertThat(expression("CAST(ROW(11, 12) AS ROW(COL0 INTEGER, COL1 INTEGER))"))
+                .isEqualTo(new Cast(location(1, 1),
+                                new Row(location(1, 6), Lists.newArrayList(new LongLiteral(location(1, 10), "11"), new LongLiteral(location(1, 14), "12"))),
+                                rowType(
+                                        location(1, 21),
+                                        field(location(1, 25), "COL0", simpleType(location(1, 30), "INTEGER")),
+                                        field(location(1, 39), "COL1", simpleType(location(1, 44), "INTEGER")))));
+
+        assertThat(expression("ROW(11, 12)::ROW(COL0 INTEGER, COL1 INTEGER)"))
+                .isEqualTo(new Cast(location(1, 1),
+                                new Row(location(1, 1), Lists.newArrayList(new LongLiteral(location(1, 5), "11"), new LongLiteral(location(1, 9), "12"))),
+                                rowType(
+                                        location(1, 14),
+                                        field(location(1, 18), "COL0", simpleType(location(1, 23), "INTEGER")),
+                                        field(location(1, 32), "COL1", simpleType(location(1, 37), "INTEGER")))));
+    }
+
+    @Test
     public void testSearchedCase()
     {
         assertThat(expression("CASE WHEN a > 3 THEN 23 WHEN b = a THEN 33 END"))
