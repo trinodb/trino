@@ -47,7 +47,8 @@ final class HdfsFileSystemLoader
             boolean s3Enabled,
             String catalogName,
             NodeManager nodeManager,
-            OpenTelemetry openTelemetry)
+            OpenTelemetry openTelemetry,
+            boolean quietBootstrap)
     {
         Class<?> clazz = tryLoadExistingHdfsManager();
 
@@ -75,8 +76,8 @@ final class HdfsFileSystemLoader
         }
 
         try (var _ = new ThreadContextClassLoader(classLoader)) {
-            manager = clazz.getConstructor(Map.class, boolean.class, boolean.class, boolean.class, String.class, NodeManager.class, OpenTelemetry.class)
-                    .newInstance(config, azureEnabled, gcsEnabled, s3Enabled, catalogName, nodeManager, openTelemetry);
+            manager = clazz.getConstructor(Map.class, boolean.class, boolean.class, boolean.class, String.class, NodeManager.class, OpenTelemetry.class, boolean.class)
+                    .newInstance(config, azureEnabled, gcsEnabled, s3Enabled, catalogName, nodeManager, openTelemetry, quietBootstrap);
         }
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
