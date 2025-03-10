@@ -3189,11 +3189,29 @@ class StatementAnalyzer
         @Override
         protected Scope visitSetOperation(SetOperation node, Optional<Scope> scope)
         {
-            checkState(node.getRelations().size() == 2, "relations size must be 2");
+            List<Relation> relations = node.getRelations();
+            checkState(relations.size() == 2, "relations size must be 2");
+            boolean corresponding = node.isCorresponding();
 
-            List<RelationType> childrenTypes = node.getRelations().stream()
-                    .map(relation -> process(relation, scope).getRelationType().withOnlyVisibleFields())
-                    .collect(toImmutableList());
+            List<RelationType> childrenTypes = new ArrayList<>();
+            childrenTypes.add(process(relations.getFirst(), scope).getRelationType().withOnlyVisibleFields());
+            if (corresponding) {
+                RelationType left = childrenTypes.getFirst();
+                RelationType right = process(relations.getLast(), scope).getRelationType().withOnlyVisibleFields();
+                checkColumnNames(node, left.getVisibleFields());
+                checkColumnNames(node, right.getVisibleFields());
+
+                List<Field> fields = new ArrayList<>();
+                for (int i = 0; i < left.getAllFieldCount(); i++) {
+                    Field field = left.getFieldByIndex(i);
+                    String name = field.getName().orElseThrow();
+                    fields.add(right.getFieldByName(name).orElseThrow(() -> semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved", name)));
+                }
+                childrenTypes.add(new RelationType(fields).withOnlyVisibleFields());
+            }
+            else {
+                childrenTypes.add(process(relations.getLast(), scope).getRelationType().withOnlyVisibleFields());
+            }
 
             String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
             Type[] outputFieldTypes = childrenTypes.get(0).getVisibleFields().stream()
@@ -3264,8 +3282,8 @@ class StatementAnalyzer
                                 .collect(toImmutableSet()));
             }
 
-            for (int i = 0; i < node.getRelations().size(); i++) {
-                Relation relation = node.getRelations().get(i);
+            for (int i = 0; i < relations.size(); i++) {
+                Relation relation = relations.get(i);
                 RelationType relationType = childrenTypes.get(i);
                 for (int j = 0; j < relationType.getVisibleFields().size(); j++) {
                     Type outputFieldType = outputFieldTypes[j];
@@ -3277,6 +3295,17 @@ class StatementAnalyzer
                 }
             }
             return createAndAssignScope(node, scope, outputDescriptorFields);
+        }
+
+        private static void checkColumnNames(SetOperation node, Collection<Field> fields)
+        {
+            Set<String> names = new HashSet<>();
+            for (Field field : fields) {
+                String name = field.getName().orElseThrow(() -> semanticException(MISSING_COLUMN_NAME, node, "Anonymous columns are not allowed in set operations with CORRESPONDING"));
+                if (!names.add(name)) {
+                    throw semanticException(AMBIGUOUS_NAME, node, "Duplicate columns found when using CORRESPONDING in set operations: %s", name);
+                }
+            }
         }
 
         @Override
