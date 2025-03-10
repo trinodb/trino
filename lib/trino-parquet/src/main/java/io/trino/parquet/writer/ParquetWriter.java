@@ -175,9 +175,6 @@ public class ParquetWriter
 
         checkArgument(page.getChannelCount() == columnWriters.size());
 
-        // page should already be loaded, but double check
-        page = page.getLoadedPage();
-
         Page validationPage = page;
         recordValidation(validation -> validation.addPage(validationPage));
 

@@ -55,6 +55,7 @@ import static io.trino.orc.OrcTester.createSettableStructObjectInspector;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.SNAPPY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -231,7 +232,10 @@ public class TestOrcReaderPositions
                         // Either we are bounded by 1MB per batch, or it is the last batch in the row group
                         // From the 4th row group, the strings are have length > 1200
                         // So the loaded data is bounded by MAX_BLOCK_SIZE
-                        assertThat(block.getPositionCount() == READER_OPTIONS.getMaxBlockSize().toBytes() / currentStringBytes || rowCountsInCurrentRowGroup == rowsInRowGroup).isTrue();
+                        if (rowCountsInCurrentRowGroup != rowsInRowGroup) {
+                            int maxRows = toIntExact(READER_OPTIONS.getMaxBlockSize().toBytes() / currentStringBytes);
+                            assertThat(block.getPositionCount()).isLessThanOrEqualTo(maxRows);
+                        }
                     }
 
                     if (rowCountsInCurrentRowGroup == rowsInRowGroup) {

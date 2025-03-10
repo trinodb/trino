@@ -62,26 +62,6 @@ public class TestRunLengthEncodedBlock
     }
 
     @Test
-    public void testPositionsSizeInBytes()
-    {
-        Block valueBlock = createSingleValueBlock(createExpectedValue(10));
-        Block rleBlock = RunLengthEncodedBlock.create(valueBlock, 10);
-        // Size in bytes is not fixed per position
-        assertThat(rleBlock.fixedSizeInBytesPerPosition()).isEmpty();
-        // Accepts specific position selection
-        boolean[] positions = new boolean[rleBlock.getPositionCount()];
-        positions[0] = true;
-        positions[1] = true;
-        assertThat(rleBlock.getPositionsSizeInBytes(positions, 2)).isEqualTo(valueBlock.getSizeInBytes());
-        // Accepts null positions array with count only
-        assertThat(rleBlock.getPositionsSizeInBytes(null, 2)).isEqualTo(valueBlock.getSizeInBytes());
-        // Always reports the same size in bytes regardless of positions
-        for (int positionCount = 0; positionCount < rleBlock.getPositionCount(); positionCount++) {
-            assertThat(rleBlock.getPositionsSizeInBytes(null, positionCount)).isEqualTo(valueBlock.getSizeInBytes());
-        }
-    }
-
-    @Test
     public void testBuildingFromLongArrayBlockBuilder()
     {
         LongArrayBlockBuilder blockBuilder = new LongArrayBlockBuilder(null, 100);

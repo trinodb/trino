@@ -252,7 +252,7 @@ public class TestHivePageSink
             while (!pageSource.isFinished()) {
                 SourcePage nextPage = pageSource.getNextSourcePage();
                 if (nextPage != null) {
-                    pages.add(nextPage.getPage().getLoadedPage());
+                    pages.add(nextPage.getPage());
                 }
             }
         }
