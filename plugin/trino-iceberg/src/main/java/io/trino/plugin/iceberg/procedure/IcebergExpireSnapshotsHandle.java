@@ -15,13 +15,27 @@ package io.trino.plugin.iceberg.procedure;
 
 import io.airlift.units.Duration;
 
+import java.util.Optional;
+
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public record IcebergExpireSnapshotsHandle(Duration retentionThreshold)
+public record IcebergExpireSnapshotsHandle(Duration retentionThreshold, Optional<Integer> retainLast)
         implements IcebergProcedureHandle
 {
     public IcebergExpireSnapshotsHandle
     {
         requireNonNull(retentionThreshold, "retentionThreshold is null");
+        requireNonNull(retainLast, "retainLast is null");
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .omitEmptyValues()
+                .add("retentionThreshold", retentionThreshold)
+                .add("retainLast", retainLast)
+                .toString();
     }
 }

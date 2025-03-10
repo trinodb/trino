@@ -142,6 +142,7 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.DeleteFiles;
+import org.apache.iceberg.ExpireSnapshots;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
@@ -1707,12 +1708,13 @@ public class IcebergMetadata
     private Optional<ConnectorTableExecuteHandle> getTableHandleForExpireSnapshots(ConnectorSession session, IcebergTableHandle tableHandle, Map<String, Object> executeProperties)
     {
         Duration retentionThreshold = (Duration) executeProperties.get(RETENTION_THRESHOLD);
+        Optional<Integer> retainLast = Optional.ofNullable((Integer) executeProperties.get("retain_last"));
         Table icebergTable = catalog.loadTable(session, tableHandle.getSchemaTableName());
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 EXPIRE_SNAPSHOTS,
-                new IcebergExpireSnapshotsHandle(retentionThreshold),
+                new IcebergExpireSnapshotsHandle(retentionThreshold, retainLast),
                 icebergTable.location(),
                 icebergTable.io().properties()));
     }
@@ -2174,11 +2176,12 @@ public class IcebergMetadata
             }
         };
 
+        ExpireSnapshots expireSnapshots = table.expireSnapshots()
+                .expireOlderThan(expireTimestampMillis)
+                .deleteWith(deleteFunction);
+        expireSnapshotsHandle.retainLast().ifPresent(expireSnapshots::retainLast);
         try {
-            table.expireSnapshots()
-                    .expireOlderThan(expireTimestampMillis)
-                    .deleteWith(deleteFunction)
-                    .commit();
+            expireSnapshots.commit();
 
             fileSystem.deleteFiles(pathsToDelete);
         }
