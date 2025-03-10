@@ -14,7 +14,9 @@
 package io.trino.plugin.iceberg.containers;
 
 import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.Request;
+import io.airlift.http.client.StringResponseHandler;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.trino.plugin.base.util.AutoCloseableCloser;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
@@ -40,6 +42,7 @@ import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerat
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.trino.testing.TestingProperties.getDockerImagesVersion;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.Objects.requireNonNull;
@@ -121,7 +124,7 @@ public class UnityCatalogContainer
                 .setHeader("Content-Type", "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
-        HTTP_CLIENT.execute(request, createStringResponseHandler());
+        execute(request);
     }
 
     public void copyTpchTables(Iterable<TpchTable<?>> tpchTables)
@@ -160,7 +163,7 @@ public class UnityCatalogContainer
                 .setHeader("Content-Type", "application/json")
                 .setBodyGenerator(createStaticBodyGenerator(body, UTF_8))
                 .build();
-        HTTP_CLIENT.execute(request, createStringResponseHandler());
+        execute(request);
 
         // TODO https://github.com/unitycatalog/unitycatalog/issues/312 Fix uc_tables directly until the issue is fixed
         execute("UPDATE uc_tables " +
@@ -185,5 +188,15 @@ public class UnityCatalogContainer
             throws Exception
     {
         closer.close();
+    }
+
+    private static void execute(Request request)
+    {
+        StringResponseHandler.StringResponse response = HTTP_CLIENT.execute(request, createStringResponseHandler());
+
+        int status = response.getStatusCode();
+        if (status != HttpStatus.OK.code()) {
+            throw new IllegalStateException(format("Request '%s' returned unexpected status code: '%d'", request, status));
+        }
     }
 }
