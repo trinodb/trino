@@ -25,7 +25,6 @@ import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Count;
@@ -93,15 +92,14 @@ public class TestParquetReader
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, memoryContext, types, columnNames);
 
         SourcePage page = reader.nextPage();
-        assertThat(page.getBlock(0)).isInstanceOf(LazyBlock.class);
         assertThat(memoryContext.getBytes()).isEqualTo(0);
-        page.getBlock(0).getLoadedBlock();
+        page.getBlock(0);
         // Memory usage due to reading data and decoding parquet page of 1st block
         long initialMemoryUsage = memoryContext.getBytes();
         assertThat(initialMemoryUsage).isGreaterThan(0);
 
         // Memory usage due to decoding parquet page of 2nd block
-        page.getBlock(1).getLoadedBlock();
+        page.getBlock(1);
         long currentMemoryUsage = memoryContext.getBytes();
         assertThat(currentMemoryUsage).isGreaterThan(initialMemoryUsage);
 

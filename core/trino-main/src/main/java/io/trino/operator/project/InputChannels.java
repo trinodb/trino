@@ -97,7 +97,7 @@ public class InputChannels
             if (eagerlyLoad != null) {
                 for (int channel = 0; channel < eagerlyLoad.length; channel++) {
                     if (eagerlyLoad[channel]) {
-                        this.blocks[channel] = sourcePage.getBlock(channels[channel]).getLoadedBlock();
+                        this.blocks[channel] = sourcePage.getBlock(channels[channel]);
                     }
                 }
             }

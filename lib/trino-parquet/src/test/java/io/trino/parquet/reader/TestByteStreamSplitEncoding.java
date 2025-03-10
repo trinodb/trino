@@ -84,7 +84,7 @@ public class TestByteStreamSplitEncoding
             assertThat(page.getChannelCount()).isEqualTo(2);
             if (pageCount % 2 == 1) { // Skip loading every alternative page
                 for (int channel = 0; channel < page.getChannelCount(); channel++) {
-                    Block block = page.getBlock(channel).getLoadedBlock();
+                    Block block = page.getBlock(channel);
                     List<Double> expectedValues = expected.get(channel);
                     for (int postition = 0; postition < block.getPositionCount(); postition++) {
                         if (block instanceof IntArrayBlock) {

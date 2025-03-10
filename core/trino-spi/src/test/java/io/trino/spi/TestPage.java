@@ -19,12 +19,10 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
-import io.trino.spi.block.LazyBlock;
 import org.junit.jupiter.api.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
-import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.DictionaryBlock.createProjectedDictionaryBlock;
 import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -137,41 +135,6 @@ public class TestPage
             assertThat(BIGINT.getLong(testBlock, 3)).isEqualTo(2);
             assertThat(BIGINT.getLong(testBlock, 4)).isEqualTo(5);
         }
-    }
-
-    @Test
-    public void testGetLoadedPage()
-    {
-        int entries = 10;
-        BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(entries);
-        for (int i = 0; i < entries; i++) {
-            BIGINT.writeLong(blockBuilder, i);
-        }
-        Block block = blockBuilder.build();
-
-        LazyBlock lazyBlock = lazyWrapper(block);
-        Page page = new Page(lazyBlock);
-        long lazyPageRetainedSize = Page.INSTANCE_SIZE + sizeOf(new Block[] {block}) + lazyBlock.getRetainedSizeInBytes();
-        assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
-        Page loadedPage = page.getLoadedPage();
-        // Retained size of page remains the same
-        assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
-        long loadedPageRetainedSize = Page.INSTANCE_SIZE + sizeOf(new Block[] {block}) + block.getRetainedSizeInBytes();
-        // Retained size of loaded page depends on the loaded block
-        assertThat(loadedPage.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
-
-        lazyBlock = lazyWrapper(block);
-        page = new Page(lazyBlock);
-        assertThat(page.getRetainedSizeInBytes()).isEqualTo(lazyPageRetainedSize);
-        loadedPage = page.getLoadedPage(new int[] {0}, new int[] {0});
-        // Retained size of page is updated based on loaded block
-        assertThat(page.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
-        assertThat(loadedPage.getRetainedSizeInBytes()).isEqualTo(loadedPageRetainedSize);
-    }
-
-    private static LazyBlock lazyWrapper(Block block)
-    {
-        return new LazyBlock(block.getPositionCount(), block::getLoadedBlock);
     }
 
     private static Slice[] createExpectedValues(int positionCount)

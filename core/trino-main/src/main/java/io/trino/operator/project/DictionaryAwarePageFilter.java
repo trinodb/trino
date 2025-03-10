@@ -56,7 +56,7 @@ public class DictionaryAwarePageFilter
     @Override
     public SelectedPositions filter(ConnectorSession session, SourcePage page)
     {
-        Block block = page.getBlock(0).getLoadedBlock();
+        Block block = page.getBlock(0);
 
         if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
             Block value = runLengthEncodedBlock.getValue();

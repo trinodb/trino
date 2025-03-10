@@ -19,7 +19,6 @@ import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.connector.ConnectorSession;
@@ -777,7 +776,6 @@ public final class SortedRangeSet
             case ValueBlock valueBlock -> copyValueBlock(source, valueBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
             case DictionaryBlock dictionaryBlock -> copyDictionaryBlock(source, dictionaryBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
             case RunLengthEncodedBlock rleBlock -> copyRleBlock(source, rleBlock, sourceOffset, destination, destinationInclusive, destinationOffset, size);
-            case LazyBlock _ -> throw new IllegalArgumentException("Did not expect LazyBlock");
         }
     }
 
