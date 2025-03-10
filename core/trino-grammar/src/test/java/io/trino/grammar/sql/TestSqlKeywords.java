@@ -61,6 +61,7 @@ public class TestSqlKeywords
                         "CONDITIONAL",
                         "CONSTRAINT",
                         "COPARTITION",
+                        "CORRESPONDING",
                         "COUNT",
                         "CREATE",
                         "CROSS",

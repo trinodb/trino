@@ -39,6 +39,7 @@ import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
@@ -67,6 +68,7 @@ import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.EmptyPattern;
 import io.trino.sql.tree.EmptyTableTreatment;
+import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.ExistsPredicate;
@@ -850,9 +852,26 @@ public class TestSqlParser
         assertStatement("SELECT 123 INTERSECT DISTINCT SELECT 123 INTERSECT ALL SELECT 123",
                 query(new Intersect(
                         ImmutableList.of(
-                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true),
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.empty()),
                                 createSelect123()),
-                        false)));
+                        false,
+                        Optional.empty())));
+
+        assertStatement("SELECT 123 INTERSECT DISTINCT CORRESPONDING SELECT 123 INTERSECT ALL CORRESPONDING SELECT 123",
+                query(new Intersect(
+                        ImmutableList.of(
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                                createSelect123()),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+
+        assertStatement("SELECT 123 INTERSECT DISTINCT CORRESPONDING BY (x) SELECT 123 INTERSECT ALL CORRESPONDING SELECT 123",
+                query(new Intersect(
+                        ImmutableList.of(
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                                createSelect123()),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
     }
 
     @Test
@@ -861,9 +880,54 @@ public class TestSqlParser
         assertStatement("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123",
                 query(new Union(
                         ImmutableList.of(
-                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true),
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.empty()),
                                 createSelect123()),
-                        false)));
+                        false,
+                        Optional.empty())));
+
+        assertStatement("SELECT 123 UNION DISTINCT CORRESPONDING SELECT 123 UNION ALL CORRESPONDING SELECT 123",
+                query(new Union(
+                        ImmutableList.of(
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                                createSelect123()),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+
+        assertStatement("SELECT 123 UNION DISTINCT CORRESPONDING BY (x) SELECT 123 UNION ALL CORRESPONDING SELECT 123",
+                query(new Union(
+                        ImmutableList.of(
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                                createSelect123()),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+    }
+
+    @Test
+    public void testExcept()
+    {
+        assertStatement("SELECT 123 EXCEPT DISTINCT SELECT 123 EXCEPT ALL SELECT 123",
+                query(new Except(
+                        location(1, 1),
+                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.empty()),
+                        createSelect123(),
+                        false,
+                        Optional.empty())));
+
+        assertStatement("SELECT 123 EXCEPT DISTINCT CORRESPONDING SELECT 123 EXCEPT ALL CORRESPONDING SELECT 123",
+                query(new Except(
+                        location(1, 1),
+                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                        createSelect123(),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+
+        assertStatement("SELECT 123 EXCEPT DISTINCT CORRESPONDING BY (x) SELECT 123 EXCEPT ALL CORRESPONDING SELECT 123",
+                query(new Except(
+                        location(1, 1),
+                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                        createSelect123(),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
     }
 
     private static QuerySpecification createSelect123()

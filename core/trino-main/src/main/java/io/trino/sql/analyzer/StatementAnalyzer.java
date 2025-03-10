@@ -105,6 +105,7 @@ import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.JsonTableAnalysis;
 import io.trino.sql.analyzer.Analysis.MergeAnalysis;
@@ -134,6 +135,7 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
+import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
@@ -281,6 +283,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -3178,9 +3181,54 @@ class StatementAnalyzer
         {
             checkState(node.getRelations().size() >= 2);
 
-            List<RelationType> childrenTypes = node.getRelations().stream()
-                    .map(relation -> process(relation, scope).getRelationType().withOnlyVisibleFields())
-                    .collect(toImmutableList());
+            List<Relation> relations = node.getRelations();
+
+            List<RelationType> childrenTypes = new ArrayList<>();
+            if (node.getCorresponding().isPresent()) {
+                checkState(relations.size() == 2, "CORRESPONDING requires 2 relations");
+
+                Corresponding corresponding = node.getCorresponding().get();
+                if (!corresponding.getColumns().isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, node, "CORRESPONDING with columns is unsupported");
+                }
+
+                RelationType leftRelation = process(relations.getFirst(), scope).getRelationType().withOnlyVisibleFields();
+                RelationType rightRelation = process(relations.getLast(), scope).getRelationType().withOnlyVisibleFields();
+
+                Map<String, Integer> leftFieldsByName = buildNameToIndex(node, leftRelation);
+                Map<String, Integer> rightFieldsByName = buildNameToIndex(node, rightRelation);
+
+                List<String> correspondingColumns = leftFieldsByName.keySet().stream()
+                        .filter(rightFieldsByName::containsKey)
+                        .collect(toImmutableList());
+
+                if (correspondingColumns.isEmpty()) {
+                    throw semanticException(MISMATCHED_COLUMN_ALIASES, node, "No corresponding columns");
+                }
+
+                ImmutableList.Builder<Integer> leftColumnIndexes = ImmutableList.builderWithExpectedSize(correspondingColumns.size());
+                ImmutableList.Builder<Integer> rightColumnIndexes = ImmutableList.builderWithExpectedSize(correspondingColumns.size());
+                ImmutableList.Builder<Field> leftRequiredFields = ImmutableList.builderWithExpectedSize(correspondingColumns.size());
+                ImmutableList.Builder<Field> rightRequiredFields = ImmutableList.builderWithExpectedSize(correspondingColumns.size());
+                for (String correspondingColumn : correspondingColumns) {
+                    int leftFieldIndex = leftFieldsByName.get(correspondingColumn);
+                    int rightFieldIndex = rightFieldsByName.get(correspondingColumn);
+                    leftColumnIndexes.add(leftFieldIndex);
+                    rightColumnIndexes.add(rightFieldIndex);
+                    leftRequiredFields.add(leftRelation.getFieldByIndex(leftFieldIndex));
+                    rightRequiredFields.add(rightRelation.getFieldByIndex(rightFieldIndex));
+                }
+
+                analysis.setCorrespondingAnalysis(node.getRelations().getFirst(), new CorrespondingAnalysis(leftColumnIndexes.build(), leftRequiredFields.build()));
+                analysis.setCorrespondingAnalysis(node.getRelations().getLast(), new CorrespondingAnalysis(rightColumnIndexes.build(), rightRequiredFields.build()));
+
+                childrenTypes.add(new RelationType(leftRequiredFields.build()).withOnlyVisibleFields());
+                childrenTypes.add(new RelationType(rightRequiredFields.build()).withOnlyVisibleFields());
+            }
+            else {
+                childrenTypes.add(process(relations.getFirst(), scope).getRelationType().withOnlyVisibleFields());
+                childrenTypes.add(process(relations.getLast(), scope).getRelationType().withOnlyVisibleFields());
+            }
 
             String setOperationName = node.getClass().getSimpleName().toUpperCase(ENGLISH);
             Type[] outputFieldTypes = childrenTypes.get(0).getVisibleFields().stream()
@@ -3251,8 +3299,8 @@ class StatementAnalyzer
                                 .collect(toImmutableSet()));
             }
 
-            for (int i = 0; i < node.getRelations().size(); i++) {
-                Relation relation = node.getRelations().get(i);
+            for (int i = 0; i < relations.size(); i++) {
+                Relation relation = relations.get(i);
                 RelationType relationType = childrenTypes.get(i);
                 for (int j = 0; j < relationType.getVisibleFields().size(); j++) {
                     Type outputFieldType = outputFieldTypes[j];
@@ -3264,6 +3312,22 @@ class StatementAnalyzer
                 }
             }
             return createAndAssignScope(node, scope, outputDescriptorFields);
+        }
+
+        private static Map<String, Integer> buildNameToIndex(SetOperation node, RelationType relationType)
+        {
+            Map<String, Integer> nameToIndex = new LinkedHashMap<>();
+            for (int i = 0; i < relationType.getAllFieldCount(); i++) {
+                Field field = relationType.getFieldByIndex(i);
+                String name = field.getName()
+                        .orElseThrow(() -> semanticException(MISSING_COLUMN_NAME, node, "Anonymous columns are not allowed in set operations with CORRESPONDING"))
+                        // TODO https://github.com/trinodb/trino/issues/17 Add support for case sensitive identifiers
+                        .toLowerCase(ENGLISH);
+                if (nameToIndex.put(name, i) != null) {
+                    throw semanticException(AMBIGUOUS_NAME, node, "Duplicate columns found when using CORRESPONDING in set operations: %s", name);
+                }
+            }
+            return ImmutableMap.copyOf(nameToIndex);
         }
 
         @Override
