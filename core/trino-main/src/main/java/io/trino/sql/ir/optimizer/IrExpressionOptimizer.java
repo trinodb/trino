@@ -192,7 +192,17 @@ public class IrExpressionOptimizer
             case Logical logical -> process(logical.terms(), session, bindings).map(arguments -> new Logical(logical.operator(), arguments));
             case Call call -> process(call.arguments(), session, bindings).map(arguments -> new Call(call.function(), arguments));
             case Array array -> process(array.elements(), session, bindings).map(elements -> new Array(array.elementType(), elements));
-            case Row row -> process(row.items(), session, bindings).map(fields -> new Row(fields));
+            case Row row -> {
+                boolean changed = false;
+                ImmutableList.Builder<Row.Field> fields = ImmutableList.builder();
+                for (Row.Field field : row.fields()) {
+                    Optional<Expression> optimized = process(field.value(), session, bindings);
+                    changed = changed || optimized.isPresent();
+                    fields.add(new Row.Field(field.name(), optimized.orElse(field.value())));
+                }
+
+                yield changed ? Optional.of(new Row(fields.build())) : Optional.empty();
+            }
             case Between between -> {
                 Optional<Expression> value = process(between.value(), session, bindings);
                 Optional<Expression> min = process(between.min(), session, bindings);

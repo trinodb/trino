@@ -574,7 +574,7 @@ primaryExpression
     | QUESTION_MARK                                                                       #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
-    | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
+    | ROW '(' fieldConstructor (',' fieldConstructor)* ')'                                        #rowConstructor
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')
@@ -644,6 +644,13 @@ primaryExpression
         )?
         (RETURNING type (FORMAT jsonRepresentation)?)?
      ')'                                                                                  #jsonArray
+    ;
+
+// Match a single expression before identifier expression so that the field `ROW(1, 2)` is not parsed as
+// "ROW" identifier followed by the expression `(1, 2)`.
+fieldConstructor
+    : expression
+    | identifier expression
     ;
 
 jsonPathInvocation

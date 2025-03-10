@@ -164,7 +164,7 @@ public class MetadataQueryOptimizer
                         }
                         rowBuilder.add(new Constant(type, value.getValue()));
                     }
-                    rowsBuilder.add(new Row(rowBuilder.build()));
+                    rowsBuilder.add(Row.anonymousRow(rowBuilder.build()));
                 }
             }
 

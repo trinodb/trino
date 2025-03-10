@@ -61,7 +61,7 @@ public class TestEvaluateIsNull
         assertThat(optimize(new IsNull(new IsNull(new Reference(BIGINT, "a")))))
                 .isEqualTo(Optional.of(FALSE));
 
-        assertThat(optimize(new IsNull(new Row(ImmutableList.of(new Reference(BIGINT, "a"))))))
+        assertThat(optimize(new IsNull(Row.anonymousRow(ImmutableList.of(new Reference(BIGINT, "a"))))))
                 .isEqualTo(Optional.of(FALSE));
 
         assertThat(optimize(new IsNull(new Comparison(EQUAL, new Reference(BIGINT, "a"), new Reference(BIGINT, "b")))))

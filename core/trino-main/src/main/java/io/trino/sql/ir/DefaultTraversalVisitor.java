@@ -158,8 +158,8 @@ public abstract class DefaultTraversalVisitor<C>
     @Override
     protected Void visitRow(Row node, C context)
     {
-        for (Expression expression : node.items()) {
-            process(expression, context);
+        for (Row.Field field : node.fields()) {
+            process(field.value(), context);
         }
         return null;
     }

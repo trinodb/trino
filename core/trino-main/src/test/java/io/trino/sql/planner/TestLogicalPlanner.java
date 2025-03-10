@@ -299,7 +299,7 @@ public class TestLogicalPlanner
                                         "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), 0)),
                                         "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(BIGINT, BIGINT), "row"), 1))),
                                 project(
-                                        ImmutableMap.of("row", expression(new Row(ImmutableList.of(new Reference(BIGINT, "min"), new Reference(BIGINT, "max"))))),
+                                        ImmutableMap.of("row", expression(Row.anonymousRow(ImmutableList.of(new Reference(BIGINT, "min"), new Reference(BIGINT, "max"))))),
                                         aggregation(
                                                 ImmutableMap.of(
                                                         "min", aggregationFunction("min", ImmutableList.of("min_regionkey")),
@@ -328,7 +328,7 @@ public class TestLogicalPlanner
                                         "output_1", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), 0)),
                                         "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "row"), 1))),
                                 project(
-                                        ImmutableMap.of("row", expression(new Row(ImmutableList.of(new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand"))))),
+                                        ImmutableMap.of("row", expression(Row.anonymousRow(ImmutableList.of(new Reference(DOUBLE, "rand"), new Reference(DOUBLE, "rand"))))),
                                         values(
                                                 ImmutableList.of("rand"),
                                                 ImmutableList.of(ImmutableList.of(randomFunction)))))));
@@ -341,7 +341,7 @@ public class TestLogicalPlanner
                                         "output_2", expression(new FieldReference(new Reference(RowType.anonymousRow(DOUBLE, DOUBLE), "r"), 1))),
                                 values(
                                         ImmutableList.of("r"),
-                                        ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
+                                        ImmutableList.of(ImmutableList.of(Row.anonymousRow(ImmutableList.of(randomFunction, randomFunction))))))));
 
         // Ensure the calls to rand() are not duplicated by the ORDER BY clause
         assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1, 2) t(x) ORDER BY 1",
@@ -355,8 +355,8 @@ public class TestLogicalPlanner
                                                 values(
                                                         ImmutableList.of("row"),
                                                         ImmutableList.of(
-                                                                ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))),
-                                                                ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))))));
+                                                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(randomFunction, randomFunction))),
+                                                                ImmutableList.of(Row.anonymousRow(ImmutableList.of(randomFunction, randomFunction))))))))));
     }
 
     @Test
@@ -2269,10 +2269,10 @@ public class TestLogicalPlanner
                                 aliasToIndex(ImmutableList.of("field")),
                                 Optional.of(1),
                                 Optional.of(ImmutableList.of(
-                                        new Row(ImmutableList.of(new Constant(DOUBLE, (double) 1))),
+                                        Row.anonymousRow(ImmutableList.of(new Constant(DOUBLE, (double) 1))),
                                         new Cast(
                                                 new Cast(
-                                                        new Row(ImmutableList.of(new Constant(INTEGER, 2L))),
+                                                        Row.anonymousRow(ImmutableList.of(new Constant(INTEGER, 2L))),
                                                         RowType.anonymous(ImmutableList.of(BIGINT))),
                                                 RowType.anonymous(ImmutableList.of(DOUBLE))))))));
     }

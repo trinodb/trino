@@ -71,7 +71,7 @@ public class PruneCountAggregationOverScalar
             }
         }
         if (!assignments.isEmpty() && isScalar(parent.getSource(), context.getLookup())) {
-            return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, 1L))))));
+            return Result.ofPlanNode(new ValuesNode(parent.getId(), parent.getOutputSymbols(), ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, 1L))))));
         }
         return Result.empty();
     }

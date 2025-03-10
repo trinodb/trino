@@ -611,7 +611,7 @@ public class UnaliasSymbolReferences
             for (int i = 0; i < node.getOutputSymbols().size(); i++) {
                 ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
                 for (Expression row : node.getRows().get()) {
-                    expressionsBuilder.add(mapper.map(((Row) row).items().get(i)));
+                    expressionsBuilder.add(mapper.map(((Row) row).fields().get(i).value()));
                 }
                 rewrittenAssignmentsBuilder.add(new SimpleEntry<>(mapper.map(node.getOutputSymbols().get(i)), expressionsBuilder.build()));
             }
@@ -642,7 +642,7 @@ public class UnaliasSymbolReferences
                             newOutputs,
                             newRows.stream()
                                     .map(ImmutableList.Builder::build)
-                                    .map(Row::new)
+                                    .map(Row::anonymousRow)
                                     .collect(toImmutableList())),
                     mapping);
         }

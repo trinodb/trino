@@ -121,7 +121,7 @@ public class TestJsonTable
                                                 project(
                                                         ImmutableMap.of(
                                                                 "context_item", expression(new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "json_col_coerced"), FALSE))), // apply input function to context item
-                                                                "parameters_row", expression(new Cast(new Row(ImmutableList.of(new Reference(INTEGER, "int_col"), new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "name_coerced"), FALSE)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
+                                                                "parameters_row", expression(new Cast(Row.anonymousRow(ImmutableList.of(new Reference(INTEGER, "int_col"), new Call(VARCHAR_TO_JSON, ImmutableList.of(new Reference(VARCHAR, "name_coerced"), FALSE)))), rowType(field("id", INTEGER), field("name", JSON_2016))))), // apply input function to formatted path parameter and gather path parameters in a row
                                                         project(// coerce context item, path parameters and default expressions
                                                                 ImmutableMap.of(
                                                                         "name_coerced", expression(new Cast(new Reference(createVarcharType(5), "name"), VARCHAR)), // cast formatted path parameter to VARCHAR for the input function

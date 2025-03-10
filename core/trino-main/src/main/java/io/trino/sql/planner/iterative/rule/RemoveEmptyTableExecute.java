@@ -87,7 +87,7 @@ public class RemoveEmptyTableExecute
                 new ValuesNode(
                         finishNode.getId(),
                         finishNode.getOutputSymbols(),
-                        ImmutableList.of(new Row(ImmutableList.of(new Constant(BIGINT, null))))));
+                        ImmutableList.of(Row.anonymousRow(ImmutableList.of(new Constant(BIGINT, null))))));
     }
 
     private Optional<PlanNode> getSingleSourceSkipExchange(PlanNode node, Lookup lookup)

@@ -366,7 +366,7 @@ public class EffectivePredicateExtractor
             for (Expression expression : node.getRows().get()) {
                 if (expression instanceof Row row) {
                     for (int i = 0; i < node.getOutputSymbols().size(); i++) {
-                        Expression value = row.items().get(i);
+                        Expression value = row.fields().get(i).value();
                         if (!DeterminismEvaluator.isDeterministic(value)) {
                             nonDeterministic[i] = true;
                         }

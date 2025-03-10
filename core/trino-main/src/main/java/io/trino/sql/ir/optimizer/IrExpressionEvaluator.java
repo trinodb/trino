@@ -173,10 +173,11 @@ public class IrExpressionEvaluator
     private Object evaluateInternal(Row expression, Session session, Map<String, Object> bindings)
     {
         return buildRowValue((RowType) expression.type(), builders -> {
-            for (int i = 0; i < expression.items().size(); ++i) {
+            for (int i = 0; i < expression.fields().size(); ++i) {
+                Expression fieldValue = expression.fields().get(i).value();
                 writeNativeValue(
-                        expression.items().get(i).type(), builders.get(i),
-                        evaluate(expression.items().get(i), session, bindings));
+                        fieldValue.type(), builders.get(i),
+                        evaluate(fieldValue, session, bindings));
             }
         });
     }

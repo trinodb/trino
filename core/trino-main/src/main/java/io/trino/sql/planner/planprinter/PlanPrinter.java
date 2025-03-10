@@ -1170,7 +1170,8 @@ public class PlanPrinter
             List<String> rows = nodeRows.stream()
                     .map(row -> {
                         if (row instanceof Row) {
-                            return ((Row) row).items().stream()
+                            return ((Row) row).fields().stream()
+                                    .map(Row.Field::value)
                                     .map(anonymizer::anonymize)
                                     .collect(joining(", ", "(", ")"));
                         }
