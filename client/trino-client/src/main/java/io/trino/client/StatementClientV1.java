@@ -555,9 +555,11 @@ class StatementClientV1
     {
         // If the query is not done, abort the query.
         if (state.compareAndSet(State.RUNNING, State.CLIENT_ABORTED)) {
-            URI uri = currentResults.get().getNextUri();
-            if (uri != null) {
-                httpDelete(uri);
+            if (currentStatusInfo() != null) {
+                URI uri = currentStatusInfo().getNextUri();
+                if (uri != null) {
+                    httpDelete(uri);
+                }
             }
         }
 
