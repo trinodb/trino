@@ -122,6 +122,33 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     }
 
     @Override
+    protected void createSchema(String schemaName)
+            throws SQLException
+    {
+        server.execute(schemaName, "CREATE SCHEMA %s".formatted(schemaName));
+    }
+
+    @Override
+    protected void dropSchema(String schema)
+            throws SQLException
+    {
+        server.execute(schema, "DROP SCHEMA %s".formatted(schema));
+    }
+
+    @Override
+    protected AutoCloseable createTable(String schema, String tableName, String tableDefinition)
+            throws SQLException
+    {
+        server.execute(schema,
+                """
+                CREATE OR REPLACE ICEBERG TABLE %s %s
+                 EXTERNAL_VOLUME = '%s'
+                 CATALOG = 'SNOWFLAKE'
+                 BASE_LOCATION = '%s/'""".formatted(tableName, tableDefinition, SNOWFLAKE_S3_EXTERNAL_VOLUME, tableName));
+        return () -> server.execute(schema, "DROP TABLE %s".formatted(tableName));
+    }
+
+    @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
@@ -682,14 +709,6 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
         assertThatThrownBy(() -> assertQuery("SELECT count(*) FROM " + snowflakeNativeTableName))
                 .hasCauseInstanceOf(QueryFailedException.class)
                 .hasRootCauseMessage("SQL compilation error:\ninvalid parameter 'table ? is not a Snowflake iceberg table'");
-    }
-
-    @Test
-    @Override
-    public void testIcebergTablesSystemTable()
-    {
-        assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema = '%s'".formatted(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH))))
-                .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH)));
     }
 
     @Override
