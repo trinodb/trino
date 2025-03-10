@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -71,6 +72,7 @@ public class IcebergConnector
     private final Set<TableProcedureMetadata> tableProcedures;
     private final Set<ConnectorTableFunction> tableFunctions;
     private final FunctionProvider functionProvider;
+    private final Set<SystemTable> systemTables;
 
     @Inject
     public IcebergConnector(
@@ -90,7 +92,8 @@ public class IcebergConnector
             Set<Procedure> procedures,
             Set<TableProcedureMetadata> tableProcedures,
             Set<ConnectorTableFunction> tableFunctions,
-            FunctionProvider functionProvider)
+            FunctionProvider functionProvider,
+            Set<SystemTable> systemTables)
     {
         this.injector = requireNonNull(injector, "injector is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -111,6 +114,7 @@ public class IcebergConnector
         this.tableProcedures = ImmutableSet.copyOf(requireNonNull(tableProcedures, "tableProcedures is null"));
         this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
         this.functionProvider = requireNonNull(functionProvider, "functionProvider is null");
+        this.systemTables = ImmutableSet.copyOf(systemTables);
     }
 
     @Override
@@ -168,6 +172,12 @@ public class IcebergConnector
     public Set<ConnectorTableFunction> getTableFunctions()
     {
         return tableFunctions;
+    }
+
+    @Override
+    public Set<SystemTable> getSystemTables()
+    {
+        return systemTables;
     }
 
     @Override

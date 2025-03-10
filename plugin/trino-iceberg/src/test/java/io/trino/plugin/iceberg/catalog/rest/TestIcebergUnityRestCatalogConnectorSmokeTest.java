@@ -38,6 +38,7 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
         extends BaseIcebergConnectorSmokeTest
 {
     private final Path warehouseLocation;
+    private UnityCatalogContainer unityCatalog;
 
     public TestIcebergUnityRestCatalogConnectorSmokeTest()
             throws IOException
@@ -62,7 +63,7 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
             throws Exception
     {
         closeAfterClass(() -> deleteRecursively(warehouseLocation, ALLOW_INSECURE));
-        UnityCatalogContainer unityCatalog = closeAfterClass(new UnityCatalogContainer("unity", "tpch"));
+        unityCatalog = closeAfterClass(new UnityCatalogContainer("unity", "tpch"));
 
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setBaseDataDir(Optional.of(warehouseLocation))
@@ -81,6 +82,25 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     }
 
     @Override
+    protected void createSchema(String schemaName)
+    {
+        unityCatalog.createSchema(schemaName);
+    }
+
+    @Override
+    protected AutoCloseable createTable(String schema, String tableName, String tableDefinition)
+    {
+        unityCatalog.createTable(schema, tableName, tableDefinition);
+        return () -> unityCatalog.dropTable(schema, tableName);
+    }
+
+    @Override
+    protected void dropSchema(String schema)
+    {
+        unityCatalog.dropSchema(schema);
+    }
+
+    @Override
     protected void dropTableFromMetastore(String tableName)
     {
         throw new UnsupportedOperationException();
@@ -95,7 +115,7 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
     @Override
     protected String schemaPath()
     {
-        return format("%s/%s", warehouseLocation, getSession().getSchema());
+        return format("%s/%s", warehouseLocation, getSession().getSchema().orElseThrow());
     }
 
     @Override
