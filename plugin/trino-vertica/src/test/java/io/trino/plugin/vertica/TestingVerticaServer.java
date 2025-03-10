@@ -38,11 +38,10 @@ import static java.util.Objects.requireNonNull;
 public class TestingVerticaServer
         extends JdbcDatabaseContainer<TestingVerticaServer>
 {
-    public static final String LATEST_IMAGE = "vertica/vertica-ce:23.4.0-0";
-    public static final String DEFAULT_IMAGE = "datagrip/vertica:9.1.1";
+    public static final String LATEST_VERSION = "23.4.0-0";
+    public static final String DEFAULT_VERSION = "11.0.0-0";
 
     public static final Integer PORT = 5433;
-    public static final String SCHEMA = "tpch";
 
     public static final String DATABASE = "tpch";
     private static final String USER = "test_user";
@@ -55,17 +54,17 @@ public class TestingVerticaServer
 
     public TestingVerticaServer()
     {
-        this(DEFAULT_IMAGE, DATABASE, USER, PASSWORD);
+        this(DEFAULT_VERSION, DATABASE, USER, PASSWORD);
     }
 
-    public TestingVerticaServer(String dockerImageName)
+    public TestingVerticaServer(String version)
     {
-        this(dockerImageName, DATABASE, USER, PASSWORD);
+        this(version, DATABASE, USER, PASSWORD);
     }
 
-    public TestingVerticaServer(String dockerImageName, String database, String user, String password)
+    public TestingVerticaServer(String version, String database, String user, String password)
     {
-        super(DockerImageName.parse(dockerImageName));
+        super(DockerImageName.parse("vertica/vertica-ce").withTag(version));
         this.database = requireNonNull(database, "database is null");
         this.user = requireNonNull(user, "user is null");
         this.password = requireNonNull(password, "password is null");
@@ -85,19 +84,11 @@ public class TestingVerticaServer
     protected void configure()
     {
         addExposedPort(PORT);
-        if (getDockerImageName().contains("datagrip/vertica:")) {
-            addEnv("VERTICA_DB", database);
-            addEnv("VERTICA_SCHEMA", SCHEMA);
-            addEnv("VERTICA_USER", user);
-            addEnv("VERTICA_PASSWORD", password);
-        }
-        else if (getDockerImageName().contains("vertica/vertica-ce:")) {
-            addEnv("VERTICA_DB_NAME", database);
-            addEnv("APP_DB_USER", user);
-            addEnv("APP_DB_PASSWORD", password);
-            withCopyFileToContainer(MountableFile.forClasspathResource("vmart_define_schema.sql"), "/opt/vertica/examples/VMart_Schema");
-            withCopyFileToContainer(MountableFile.forClasspathResource("vmart_load_data.sql"), "/opt/vertica/examples/VMart_Schema");
-        }
+        addEnv("VERTICA_DB_NAME", database);
+        addEnv("APP_DB_USER", user);
+        addEnv("APP_DB_PASSWORD", password);
+        withCopyFileToContainer(MountableFile.forClasspathResource("vmart_define_schema.sql"), "/opt/vertica/examples/VMart_Schema");
+        withCopyFileToContainer(MountableFile.forClasspathResource("vmart_load_data.sql"), "/opt/vertica/examples/VMart_Schema");
         setStartupAttempts(3);
     }
 

@@ -18,7 +18,7 @@ external data source.
 
 To connect to Vertica, you need:
 
-- Vertica 9.1.x or higher.
+- Vertica 11.x or higher.
 - Network access from the coordinator and workers to the Vertica server.
   Port 5433 is the default port.
 
