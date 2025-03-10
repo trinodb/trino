@@ -3189,7 +3189,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitSetOperation(SetOperation node, Optional<Scope> scope)
         {
-            checkState(node.getRelations().size() >= 2);
+            checkState(node.getRelations().size() == 2, "relations size must be 2");
 
             List<RelationType> childrenTypes = node.getRelations().stream()
                     .map(relation -> process(relation, scope).getRelationType().withOnlyVisibleFields())
