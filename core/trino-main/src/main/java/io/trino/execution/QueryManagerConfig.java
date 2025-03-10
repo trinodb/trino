@@ -358,7 +358,7 @@ public class QueryManagerConfig
         return this;
     }
 
-    @MinDuration("5s")
+    @MinDuration("1s")
     @NotNull
     public Duration getClientTimeout()
     {
