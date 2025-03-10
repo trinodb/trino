@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.io.Closeables;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
@@ -554,16 +555,18 @@ class StatementClientV1
     {
         // If the query is not done, abort the query.
         if (state.compareAndSet(State.RUNNING, State.CLIENT_ABORTED)) {
-            URI uri = currentResults.get().getNextUri();
-            if (uri != null) {
-                httpDelete(uri);
+            if (currentStatusInfo() != null) {
+                URI uri = currentStatusInfo().getNextUri();
+                if (uri != null) {
+                    httpDelete(uri);
+                }
             }
         }
 
         // Close rows - this will close the underlying iterators,
         // releasing all resources and pruning remote segments
         try {
-            currentRows.get().close();
+            Closeables.close(currentRows.get(), true);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
