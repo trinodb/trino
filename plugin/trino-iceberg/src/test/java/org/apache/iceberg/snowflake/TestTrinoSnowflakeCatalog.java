@@ -151,11 +151,7 @@ public class TestTrinoSnowflakeCatalog
     @Override
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
-        Map<String, String> properties = getSnowflakeDriverProperties(
-                CATALOG_CONFIG.getUri(),
-                CATALOG_CONFIG.getUser(),
-                CATALOG_CONFIG.getPassword(),
-                CATALOG_CONFIG.getRole());
+        Map<String, String> properties = createSnowflakeDriverProperties();
         JdbcClientPool connectionPool = new JdbcClientPool(SNOWFLAKE_JDBC_URI, properties);
         SnowflakeClient snowflakeClient = new JdbcSnowflakeClient(connectionPool);
 
@@ -173,7 +169,7 @@ public class TestTrinoSnowflakeCatalog
         SnowflakeCatalog snowflakeCatalog = new SnowflakeCatalog();
         snowflakeCatalog.initialize(catalogName.toString(), snowflakeClient, catalogFileIOFactory, properties);
 
-        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(CATALOG_CONFIG, s3FileSystemFactory);
+        IcebergTableOperationsProvider tableOperationsProvider = new SnowflakeIcebergTableOperationsProvider(getCatalogConfig(), s3FileSystemFactory);
 
         return new TrinoSnowflakeCatalog(
                 snowflakeCatalog,
@@ -182,6 +178,21 @@ public class TestTrinoSnowflakeCatalog
                 s3FileSystemFactory,
                 tableOperationsProvider,
                 SNOWFLAKE_TEST_DATABASE);
+    }
+
+    protected Map<String, String> createSnowflakeDriverProperties()
+    {
+        return getSnowflakeDriverProperties(
+                CATALOG_CONFIG.getUri(),
+                CATALOG_CONFIG.getUser(),
+                CATALOG_CONFIG.getPassword(),
+                Optional.empty(),
+                CATALOG_CONFIG.getRole());
+    }
+
+    protected IcebergSnowflakeCatalogConfig getCatalogConfig()
+    {
+        return CATALOG_CONFIG;
     }
 
     @Test

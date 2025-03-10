@@ -98,7 +98,20 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                     .formatted(TpchTable.REGION.getTableName(), TpchTable.REGION.getTableName()));
         }
 
-        ImmutableMap<String, String> properties = ImmutableMap.<String, String>builder()
+        ImmutableMap<String, String> properties = createIcebergProperties();
+
+        return IcebergQueryRunner.builder(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH))
+                .setIcebergProperties(properties)
+                .setSchemaInitializer(
+                        SchemaInitializer.builder()
+                                .withSchemaName(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH))
+                                .build())
+                .build();
+    }
+
+    protected ImmutableMap<String, String> createIcebergProperties()
+    {
+        return ImmutableMap.<String, String>builder()
                 .put("fs.native-s3.enabled", "true")
                 .put("s3.aws-access-key", S3_ACCESS_KEY)
                 .put("s3.aws-secret-key", S3_SECRET_KEY)
@@ -111,14 +124,6 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                 .put("iceberg.snowflake-catalog.user", SNOWFLAKE_USER)
                 .put("iceberg.snowflake-catalog.password", SNOWFLAKE_PASSWORD)
                 .buildOrThrow();
-
-        return IcebergQueryRunner.builder(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH))
-                .setIcebergProperties(properties)
-                .setSchemaInitializer(
-                        SchemaInitializer.builder()
-                                .withSchemaName(SNOWFLAKE_TEST_SCHEMA.toLowerCase(ENGLISH))
-                                .build())
-                .build();
     }
 
     @Override
