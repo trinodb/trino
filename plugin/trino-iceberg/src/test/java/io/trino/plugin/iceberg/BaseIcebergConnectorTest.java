@@ -300,6 +300,15 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testDeleteOnV1TableWhenManifestFileIsNotExist()
+    {
+        try (TestTable table = newTrinoTable("test_delete_", "(a bigint, dt date) WITH (format_version = 1, partitioning = ARRAY['dt'])")) {
+            assertQuerySucceeds("DELETE FROM " + table.getName() + " WHERE dt = date '2025-02-17'");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+        }
+    }
+
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -4121,6 +4130,20 @@ public abstract class BaseIcebergConnectorTest
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
                     .isNotFullyPushedDown(FilterNode.class);
             assertUpdate("INSERT INTO " + testTable.getName() + " VALUES 10", 1);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
+                    .isNotFullyPushedDown(FilterNode.class);
+        }
+    }
+
+    @Test
+    public void testPredicateOnDataColumnForPartitionedTableIsNotPushedDown()
+    {
+        try (TestTable testTable = newTrinoTable(
+                "test_predicate_on_data_column_for_partitioned_table_is_not_pushed_down",
+                "(a integer, dt date) WITH (partitioning = ARRAY['dt'])")) {
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (10, date '2025-02-18')", 1);
             assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE a = 10"))
                     .isNotFullyPushedDown(FilterNode.class);
         }
