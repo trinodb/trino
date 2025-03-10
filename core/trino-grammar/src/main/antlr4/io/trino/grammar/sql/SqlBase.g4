@@ -271,9 +271,9 @@ rowCount
     ;
 
 queryTerm
-    : queryPrimary                                                             #queryTermDefault
-    | left=queryTerm operator=INTERSECT setQuantifier? right=queryTerm         #setOperation
-    | left=queryTerm operator=(UNION | EXCEPT) setQuantifier? right=queryTerm  #setOperation
+    : queryPrimary                                                                                #queryTermDefault
+    | left=queryTerm operator=INTERSECT setQuantifier? corresponding? right=queryTerm             #setOperation
+    | left=queryTerm operator=(UNION | EXCEPT) setQuantifier? corresponding? right=queryTerm      #setOperation
     ;
 
 queryPrimary
@@ -281,6 +281,10 @@ queryPrimary
     | TABLE qualifiedName                  #table
     | VALUES expression (',' expression)*  #inlineTable
     | '(' queryNoWith ')'                  #subquery
+    ;
+
+corresponding
+    : CORRESPONDING (BY columnAliases)?
     ;
 
 sortItem
@@ -1001,7 +1005,7 @@ nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
     | BEGIN | BERNOULLI | BOTH
-    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
+    | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | CORRESPONDING | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
     | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
     | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
@@ -1062,6 +1066,7 @@ CONDITIONAL: 'CONDITIONAL';
 CONSTRAINT: 'CONSTRAINT';
 COUNT: 'COUNT';
 COPARTITION: 'COPARTITION';
+CORRESPONDING: 'CORRESPONDING';
 CREATE: 'CREATE';
 CROSS: 'CROSS';
 CUBE: 'CUBE';
