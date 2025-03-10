@@ -15,7 +15,7 @@ package io.trino.plugin.vertica;
 
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.vertica.TestingVerticaServer.DEFAULT_IMAGE;
+import static io.trino.plugin.vertica.TestingVerticaServer.DEFAULT_VERSION;
 
 public class TestVerticaConnectorSmokeTest
         extends BaseVerticaConnectorSmokeTest
@@ -24,7 +24,7 @@ public class TestVerticaConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return VerticaQueryRunner.builder(closeAfterClass(new TestingVerticaServer(DEFAULT_IMAGE)))
+        return VerticaQueryRunner.builder(closeAfterClass(new TestingVerticaServer(DEFAULT_VERSION)))
                 .setTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
