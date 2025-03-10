@@ -583,18 +583,24 @@ public class DistributedQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
-        spansValid = concurrentQueries.incrementAndGet() == 1;
+        lock.readLock().lock();
         try {
-            spanExporter.reset();
-            return coordinator.getQueryExplainer().getLogicalPlan(
-                    session,
-                    coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
-                    ImmutableList.of(),
-                    WarningCollector.NOOP,
-                    createPlanOptimizersStatsCollector());
+            spansValid = concurrentQueries.incrementAndGet() == 1;
+            try {
+                spanExporter.reset();
+                return coordinator.getQueryExplainer().getLogicalPlan(
+                        session,
+                        coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
+                        ImmutableList.of(),
+                        WarningCollector.NOOP,
+                        createPlanOptimizersStatsCollector());
+            }
+            finally {
+                concurrentQueries.decrementAndGet();
+            }
         }
         finally {
-            concurrentQueries.decrementAndGet();
+            lock.readLock().unlock();
         }
     }
 
