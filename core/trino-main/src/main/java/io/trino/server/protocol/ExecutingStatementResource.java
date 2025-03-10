@@ -159,6 +159,19 @@ public class ExecutingStatementResource
         asyncQueryResults(query, token, externalUriInfo, asyncResponse);
     }
 
+    @GET
+    @Path("{queryId}/{slug}/{token}/heartbeat")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response heartbeat(@PathParam("queryId") QueryId queryId, @PathParam("slug") String slug, @PathParam("token") long token)
+    {
+        Query query = queries.get(queryId);
+        if (query != null && query.isSlugValid(slug, token)) {
+            queryManager.recordHeartbeat(queryId);
+            return Response.ok().build();
+        }
+        throw new NotFoundException("Query not found");
+    }
+
     protected Query getQuery(QueryId queryId, String slug, long token)
     {
         Query query = queries.get(queryId);
