@@ -837,7 +837,7 @@ public abstract class BaseIcebergSystemTables
         }
     }
 
-    private Map<String, String> getTableProperties(String tableName)
+    protected Map<String, String> getTableProperties(String tableName)
     {
         return computeActual("SELECT key, value FROM \"" + tableName + "$properties\"").getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> (String) row.getField(0), row -> (String) row.getField(1)));
@@ -860,7 +860,7 @@ public abstract class BaseIcebergSystemTables
         return format == PARQUET ? parquet : orc;
     }
 
-    private BaseTable loadTable(String tableName)
+    protected BaseTable loadTable(String tableName)
     {
         return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "hive", "tpch");
     }
