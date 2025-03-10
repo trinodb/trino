@@ -51,7 +51,8 @@ public final class HdfsFileSystemManager
             boolean s3Enabled,
             String catalogName,
             NodeManager nodeManager,
-            OpenTelemetry openTelemetry)
+            OpenTelemetry openTelemetry,
+            boolean quietBootstrap)
     {
         List<Module> modules = new ArrayList<>();
 
@@ -82,7 +83,9 @@ public final class HdfsFileSystemManager
         bootstrap = new Bootstrap(modules)
                 .doNotInitializeLogging()
                 .setRequiredConfigurationProperties(Map.of())
-                .setOptionalConfigurationProperties(config);
+                .setOptionalConfigurationProperties(config)
+                .withQuiet(quietBootstrap)
+                .withSkipErrorReporting(quietBootstrap);
     }
 
     public Map<String, Boolean> configure()
