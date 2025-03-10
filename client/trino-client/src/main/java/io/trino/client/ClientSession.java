@@ -32,6 +32,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ClientSession
 {
@@ -57,6 +58,7 @@ public class ClientSession
     private final Duration clientRequestTimeout;
     private final boolean compressionDisabled;
     private final Optional<String> encoding;
+    private final Duration heartbeatInterval;
 
     public static Builder builder()
     {
@@ -97,7 +99,8 @@ public class ClientSession
             String transactionId,
             Duration clientRequestTimeout,
             boolean compressionDisabled,
-            Optional<String> encoding)
+            Optional<String> encoding,
+            Duration heartbeatInterval)
     {
         this.server = requireNonNull(server, "server is null");
         this.user = requireNonNull(user, "user is null");
@@ -121,6 +124,7 @@ public class ClientSession
         this.clientRequestTimeout = clientRequestTimeout;
         this.compressionDisabled = compressionDisabled;
         this.encoding = requireNonNull(encoding, "encoding is null");
+        this.heartbeatInterval = requireNonNull(heartbeatInterval, "heartbeatInterval is null");
 
         for (String clientTag : clientTags) {
             checkArgument(!clientTag.contains(","), "client tag cannot contain ','");
@@ -269,6 +273,11 @@ public class ClientSession
         return encoding;
     }
 
+    public Duration getHeartbeatInterval()
+    {
+        return heartbeatInterval;
+    }
+
     @Override
     public String toString()
     {
@@ -292,6 +301,7 @@ public class ClientSession
                 .add("clientRequestTimeout", clientRequestTimeout)
                 .add("compressionDisabled", compressionDisabled)
                 .add("encoding", encoding)
+                .add("heartbeatInterval", heartbeatInterval)
                 .omitNullValues()
                 .toString();
     }
@@ -320,6 +330,7 @@ public class ClientSession
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
         private Optional<String> encoding = Optional.empty();
+        private Duration heartbeatInterval = new Duration(30, SECONDS);
 
         private Builder() {}
 
@@ -482,6 +493,12 @@ public class ClientSession
             return this;
         }
 
+        public Builder heartbeatInterval(Duration heartbeatInterval)
+        {
+            this.heartbeatInterval = heartbeatInterval;
+            return this;
+        }
+
         public ClientSession build()
         {
             return new ClientSession(
@@ -506,7 +523,8 @@ public class ClientSession
                     transactionId,
                     clientRequestTimeout,
                     compressionDisabled,
-                    encoding);
+                    encoding,
+                    heartbeatInterval);
         }
     }
 }
