@@ -315,6 +315,7 @@ import static io.trino.plugin.hive.util.HiveUtil.hiveColumnHandles;
 import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHiveSystemSchema;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
+import static io.trino.plugin.hive.util.HiveUtil.isIcebergMv;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.hive.util.HiveUtil.isSparkBucketedTable;
 import static io.trino.plugin.hive.util.HiveUtil.parsePartitionValue;
@@ -360,6 +361,7 @@ public class HiveMetadata
     public static final String TRINO_VERSION_NAME = "trino_version";
     public static final String TRINO_CREATED_BY = "trino_created_by";
     public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
+    public static final String TRINO_VIEW_CATALOG = "trino_view_catalog";
     private static final String BUCKETING_VERSION = "bucketing_version";
     public static final String STORAGE_TABLE = "storage_table";
     public static final String TRANSACTIONAL = "transactional";
@@ -3932,7 +3934,7 @@ public class HiveMetadata
         // we need to chop off any "$partitions" and similar suffixes from table name while querying the metastore for the Table object
         TableNameSplitResult tableNameSplit = splitTableName(tableName.getTableName());
         Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableNameSplit.getBaseTableName());
-        if (table.isEmpty() || isSomeKindOfAView(table.get())) {
+        if (table.isEmpty() || (isSomeKindOfAView(table.get()) && !isTrinoMaterializedView(table.get()))) {
             return Optional.empty();
         }
 
@@ -3954,7 +3956,7 @@ public class HiveMetadata
         if (targetCatalogName.isEmpty()) {
             return Optional.empty();
         }
-        if (isIcebergTable(table)) {
+        if (isIcebergTable(table) || isIcebergMv(table)) {
             return targetCatalogName.map(catalog -> new CatalogSchemaTableName(catalog, table.getSchemaTableName()));
         }
         return Optional.empty();

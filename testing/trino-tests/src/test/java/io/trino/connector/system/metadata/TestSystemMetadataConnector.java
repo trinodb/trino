@@ -92,10 +92,10 @@ public class TestSystemMetadataConnector
                 "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'test_catalog' AND schema_name = 'test_schema1' AND table_name = 'test_table1'",
                 "VALUES 'comment for test_schema1.test_table1'",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .build());
@@ -105,10 +105,10 @@ public class TestSystemMetadataConnector
                 "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'test_catalog' AND schema_name = 'test_schema1' AND table_name = 'does_not_exist'",
                 "SELECT '' WHERE false",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=does_not_exist)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=does_not_exist)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=does_not_exist)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=does_not_exist)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=does_not_exist)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=does_not_exist)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=does_not_exist)")
                         .build());
 
@@ -117,10 +117,10 @@ public class TestSystemMetadataConnector
                 "SELECT comment FROM system.metadata.table_comments WHERE catalog_name = 'test_catalog' AND schema_name = 'wrong_schema1' AND table_name = 'test_table1'",
                 "SELECT '' WHERE false",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=wrong_schema1, table=test_table1)")
                         .build());
 
@@ -129,10 +129,10 @@ public class TestSystemMetadataConnector
                 "SELECT comment FROM system.metadata.table_comments WHERE catalog_name IN ('wrong', 'test_catalog') AND schema_name = 'wrong_schema1' AND table_name = 'test_table1'",
                 "SELECT '' WHERE false",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=wrong_schema1, table=test_table1)")
                         .build());
 
