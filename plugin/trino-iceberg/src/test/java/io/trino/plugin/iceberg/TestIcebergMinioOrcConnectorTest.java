@@ -65,6 +65,7 @@ public class TestIcebergMinioOrcConnectorTest
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
+                                .put("iceberg.format-version", "3")
                                 .put("fs.hadoop.enabled", "true")
                                 .put("fs.native-s3.enabled", "true")
                                 .put("s3.aws-access-key", MINIO_ACCESS_KEY)
