@@ -25,7 +25,6 @@ import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -55,7 +54,6 @@ public class HudiModule
 
         configBinder(binder).bindConfig(HudiConfig.class);
 
-        binder.bind(boolean.class).annotatedWith(TranslateHiveViews.class).toInstance(false);
         binder.bind(boolean.class).annotatedWith(HideDeltaLakeTables.class).toInstance(false);
 
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HudiSessionProperties.class).in(Scopes.SINGLETON);
