@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation.histogram;
 
 import com.google.common.base.Throwables;
-import io.trino.operator.VariableWidthData;
+import io.trino.operator.AppendOnlyVariableWidthData;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
@@ -31,9 +31,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
-import static io.trino.operator.VariableWidthData.POINTER_SIZE;
-import static io.trino.operator.VariableWidthData.getChunkOffset;
+import static io.trino.operator.AppendOnlyVariableWidthData.POINTER_SIZE;
+import static io.trino.operator.AppendOnlyVariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.clamp;
@@ -86,7 +85,7 @@ public final class TypedHistogram
 
     private byte[] control;
     private byte[][] recordGroups;
-    private final VariableWidthData variableWidthData;
+    private final AppendOnlyVariableWidthData variableWidthData;
 
     // head position of each group in the hash table
     @Nullable
@@ -120,7 +119,7 @@ public final class TypedHistogram
         groupRecordIndex = grouped ? new int[0] : null;
 
         boolean variableWidth = type.isFlatVariableWidth();
-        variableWidthData = variableWidth ? new VariableWidthData() : null;
+        variableWidthData = variableWidth ? new AppendOnlyVariableWidthData() : null;
         if (grouped) {
             recordGroupIdOffset = (variableWidth ? POINTER_SIZE : 0);
             recordNextIndexOffset = recordGroupIdOffset + Integer.BYTES;
@@ -223,7 +222,7 @@ public final class TypedHistogram
 
     private void serializeEntry(BlockBuilder keyBuilder, BlockBuilder valueBuilder, byte[] records, int recordOffset)
     {
-        byte[] variableWidthChunk = EMPTY_CHUNK;
+        byte[] variableWidthChunk = null;
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
@@ -330,12 +329,12 @@ public final class TypedHistogram
         LONG_HANDLE.set(records, recordOffset + recordCountOffset, count);
 
         // write value
-        byte[] variableWidthChunk = EMPTY_CHUNK;
+        byte[] variableWidthChunk = null;
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             int variableWidthLength = type.getFlatVariableWidthSize(block, position);
             variableWidthChunk = variableWidthData.allocate(records, recordOffset, variableWidthLength);
-            variableWidthChunkOffset = VariableWidthData.getChunkOffset(records, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(records, recordOffset);
         }
 
         try {
@@ -441,7 +440,7 @@ public final class TypedHistogram
         int recordOffset = getRecordOffset(index);
 
         try {
-            byte[] variableWidthChunk = EMPTY_CHUNK;
+            byte[] variableWidthChunk = null;
             int variableWidthChunkOffset = 0;
             if (variableWidthData != null) {
                 variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
@@ -485,7 +484,7 @@ public final class TypedHistogram
             }
         }
 
-        byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        byte[] leftVariableWidthChunk = null;
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             leftVariableWidthChunk = variableWidthData.getChunk(leftRecords, leftRecordOffset);
