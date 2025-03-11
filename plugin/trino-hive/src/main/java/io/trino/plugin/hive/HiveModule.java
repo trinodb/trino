@@ -39,7 +39,6 @@ import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
 import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -160,14 +159,6 @@ public class HiveModule
         return newScheduledThreadPool(
                 hiveConfig.getHiveTransactionHeartbeatThreads(),
                 daemonThreadsNamed("hive-heartbeat-" + catalogName + "-%s"));
-    }
-
-    @TranslateHiveViews
-    @Singleton
-    @Provides
-    public boolean translateHiveViews(HiveConfig hiveConfig)
-    {
-        return hiveConfig.isTranslateHiveViews();
     }
 
     @Provides
