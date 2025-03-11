@@ -62,7 +62,7 @@ class SpooledSegmentIterator
         checkState(iterator == null, "Iterator should be unloaded");
         try {
             InputStream stream = closer.register(loader.load(segment)); // close stream when exhausted
-            iterator = decoder.decode(stream, segment.getMetadata());
+            iterator = closer.register(decoder.decode(stream, segment.getMetadata()));
             loaded = true;
         }
         catch (IOException e) {
