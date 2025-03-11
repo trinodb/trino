@@ -93,7 +93,7 @@ public class FeaturesConfig
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
      */
-    private CompressionCodec exchangeCompressionCodec = NONE;
+    private CompressionCodec exchangeCompressionCodec = LZ4;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean omitDateTimeTypePrecision;
     private int maxRecursionDepth = 10;
