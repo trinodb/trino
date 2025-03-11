@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation.arrayagg;
 
 import com.google.common.base.Throwables;
-import io.trino.operator.VariableWidthData;
+import io.trino.operator.AppendOnlyVariableWidthData;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
@@ -30,9 +30,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
-import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
-import static io.trino.operator.VariableWidthData.POINTER_SIZE;
-import static io.trino.operator.VariableWidthData.getChunkOffset;
+import static io.trino.operator.AppendOnlyVariableWidthData.POINTER_SIZE;
+import static io.trino.operator.AppendOnlyVariableWidthData.getChunkOffset;
 import static java.lang.Math.toIntExact;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.util.Objects.checkIndex;
@@ -73,7 +72,7 @@ public class FlatArrayBuilder
 
     private byte[] openRecordGroup;
 
-    private final VariableWidthData variableWidthData;
+    private final AppendOnlyVariableWidthData variableWidthData;
 
     private long capacity;
     private long size;
@@ -90,7 +89,7 @@ public class FlatArrayBuilder
         this.hasNextIndex = hasNextIndex;
 
         boolean variableWidth = type.isFlatVariableWidth();
-        variableWidthData = variableWidth ? new VariableWidthData() : null;
+        variableWidthData = variableWidth ? new AppendOnlyVariableWidthData() : null;
         if (hasNextIndex) {
             recordNextIndexOffset = (variableWidth ? POINTER_SIZE : 0);
             recordNullOffset = recordNextIndexOffset + Long.BYTES;
@@ -174,7 +173,7 @@ public class FlatArrayBuilder
             return;
         }
 
-        byte[] variableWidthChunk = EMPTY_CHUNK;
+        byte[] variableWidthChunk = null;
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             int variableWidthLength = type.getFlatVariableWidthSize(block, position);
@@ -240,7 +239,7 @@ public class FlatArrayBuilder
             return;
         }
 
-        byte[] variableWidthChunk = EMPTY_CHUNK;
+        byte[] variableWidthChunk = null;
         int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
