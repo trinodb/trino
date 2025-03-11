@@ -94,8 +94,8 @@ public final class GroupByHashYieldAssertion
                 .addDriverContext();
         Operator operator = operatorFactory.createOperator(driverContext);
 
-        byte[] pointer = new byte[VariableWidthData.POINTER_SIZE];
-        VariableWidthData variableWidthData = new VariableWidthData();
+        byte[] pointer = new byte[AppendOnlyVariableWidthData.POINTER_SIZE];
+        AppendOnlyVariableWidthData variableWidthData = new AppendOnlyVariableWidthData();
 
         // run operator
         int yieldCount = 0;
