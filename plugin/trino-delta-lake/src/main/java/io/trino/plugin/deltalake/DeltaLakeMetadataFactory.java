@@ -82,7 +82,7 @@ public class DeltaLakeMetadataFactory
             @UsingSystemSecurity boolean useSystemSecurity,
             NodeVersion nodeVersion,
             DeltaLakeTableMetadataScheduler metadataScheduler,
-            ExecutorService executorService)
+            @ForDeltaLakeMetadata ExecutorService executorService)
     {
         this.hiveMetastoreFactory = requireNonNull(hiveMetastoreFactory, "hiveMetastore is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");

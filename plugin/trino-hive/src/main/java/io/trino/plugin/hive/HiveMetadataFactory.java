@@ -89,7 +89,7 @@ public class HiveMetadataFactory
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
             HivePartitionManager partitionManager,
-            ExecutorService executorService,
+            @ForHiveMetadata ExecutorService executorService,
             @ForHiveTransactionHeartbeats ScheduledExecutorService heartbeatService,
             TypeManager typeManager,
             MetadataProvider metadataProvider,
