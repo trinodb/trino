@@ -715,8 +715,8 @@ identifiers are upper-cased. Therefore, it is recommended to use quoted
 identifiers in the `PASSING` clause:
 
 ```text
-'lax $.$KeyName' PASSING nation.name AS KeyName --> ERROR; no passed value found
-'lax $.$KeyName' PASSING nation.name AS "KeyName" --> correct
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS KeyName --> ERROR; no passed value found
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS "KeyName" --> correct
 ```
 
 ### Examples
@@ -837,8 +837,8 @@ identifiers are upper-cased. Therefore, it is recommended to use quoted
 identifiers in the `PASSING` clause:
 
 ```text
-'lax $.$KeyName' PASSING nation.name AS KeyName --> ERROR; no passed value found
-'lax $.$KeyName' PASSING nation.name AS "KeyName" --> correct
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS KeyName --> ERROR; no passed value found
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS "KeyName" --> correct
 ```
 
 The `ARRAY WRAPPER` clause lets you modify the output by wrapping the results
@@ -1033,8 +1033,8 @@ identifiers are upper-cased. Therefore, it is recommended to use quoted
 identifiers in the `PASSING` clause:
 
 ```text
-'lax $.$KeyName' PASSING nation.name AS KeyName --> ERROR; no passed value found
-'lax $.$KeyName' PASSING nation.name AS "KeyName" --> correct
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS KeyName --> ERROR; no passed value found
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS "KeyName" --> correct
 ```
 
 If the path returns an empty sequence, the `ON EMPTY` clause is applied. The
@@ -1213,8 +1213,8 @@ The `json_path` value is case-sensitive. The SQL identifiers are uppercase. Use
 quoted identifiers in the `PASSING` clause:
 
 ```text
-'lax $.$KeyName' PASSING nation.name AS KeyName --> ERROR; no passed value found
-'lax $.$KeyName' PASSING nation.name AS "KeyName" --> correct
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS KeyName --> ERROR; no passed value found
+'lax $.keyvalue()?(@.name == $KeyName).value' PASSING nation.name AS "KeyName" --> correct
 ```
 
 The `PLAN` clause specifies how to join columns from different paths. Use
