@@ -14,6 +14,7 @@
 package io.trino.server.protocol;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
 import io.trino.client.QueryDataDecoder;
 import io.trino.client.Row;
@@ -538,7 +539,9 @@ public class TestJsonEncodingUtils
             throws IOException
     {
         QueryDataDecoder decoder = newDecoder(columns);
-        return ImmutableList.copyOf(decoder.decode(new ByteArrayInputStream(json), null));
+        try (CloseableIterator<List<Object>> iterator = decoder.decode(new ByteArrayInputStream(json), null)) {
+            return ImmutableList.copyOf(iterator);
+        }
     }
 
     record TypedColumn(String name, Type type)
