@@ -39,6 +39,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
@@ -51,14 +52,15 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.operator.PageUtils.recordMaterializedBytes;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
 import static io.trino.operator.project.MergePages.mergePages;
@@ -283,12 +285,16 @@ public class ScanFilterAndProjectOperator
             return WorkProcessor
                     .create(new ConnectorPageSourceToPages(pageSourceMemoryContext))
                     .yielding(yieldSignal::isSet)
-                    .flatMap(page -> pageProcessor.createWorkProcessor(
-                            connectorSession,
-                            yieldSignal,
-                            outputMemoryContext,
-                            pageProcessorMetrics,
-                            page))
+                    .flatMap(page -> {
+                        WorkProcessor<Page> workProcessor = pageProcessor.createWorkProcessor(
+                                connectorSession,
+                                yieldSignal,
+                                outputMemoryContext,
+                                pageProcessorMetrics,
+                                page);
+                        // Note this is monitoring the original source page not the result page
+                        return workProcessor.withProcessStateMonitor(new ProcessedBytesMonitor(page, bytes -> processedBytes += bytes));
+                    })
                     .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                     .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
@@ -356,8 +362,37 @@ public class ScanFilterAndProjectOperator
         }
     }
 
+    static class ProcessedBytesMonitor
+            implements Consumer<ProcessState<Page>>
+    {
+        private final SourcePage page;
+        private final LongConsumer processedBytesConsumer;
+        private long localProcessedBytes;
+
+        public ProcessedBytesMonitor(SourcePage page, LongConsumer processedBytesConsumer)
+        {
+            this.page = requireNonNull(page, "page is null");
+            this.processedBytesConsumer = requireNonNull(processedBytesConsumer, "processedBytesConsumer is null");
+            localProcessedBytes = page.getSizeInBytes();
+            processedBytesConsumer.accept(localProcessedBytes);
+        }
+
+        @Override
+        public void accept(ProcessState<Page> state)
+        {
+            update();
+        }
+
+        void update()
+        {
+            long newProcessedBytes = page.getSizeInBytes();
+            processedBytesConsumer.accept(newProcessedBytes - localProcessedBytes);
+            localProcessedBytes = newProcessedBytes;
+        }
+    }
+
     private class ConnectorPageSourceToPages
-            implements WorkProcessor.Process<Page>
+            implements WorkProcessor.Process<SourcePage>
     {
         final LocalMemoryContext pageSourceMemoryContext;
 
@@ -367,7 +402,7 @@ public class ScanFilterAndProjectOperator
         }
 
         @Override
-        public ProcessState<Page> process()
+        public ProcessState<SourcePage> process()
         {
             if (pageSource.isFinished()) {
                 return ProcessState.finished();
@@ -378,7 +413,7 @@ public class ScanFilterAndProjectOperator
                 return ProcessState.blocked(asVoid(toListenableFuture(isBlocked)));
             }
 
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             pageSourceMemoryContext.setBytes(pageSource.getMemoryUsage());
 
             if (page == null) {
@@ -387,8 +422,6 @@ public class ScanFilterAndProjectOperator
                 }
                 return ProcessState.yielded();
             }
-
-            recordMaterializedBytes(page, sizeInBytes -> processedBytes += sizeInBytes);
 
             // update operator stats
             processedPositions += page.getPositionCount();

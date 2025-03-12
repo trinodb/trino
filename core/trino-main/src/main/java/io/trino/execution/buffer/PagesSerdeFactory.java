@@ -13,6 +13,7 @@
  */
 package io.trino.execution.buffer;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.compress.v3.Compressor;
 import io.airlift.compress.v3.Decompressor;
 import io.airlift.compress.v3.lz4.Lz4Compressor;
@@ -23,51 +24,51 @@ import io.trino.spi.block.BlockEncodingSerde;
 
 import javax.crypto.SecretKey;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
-import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.CompressionCodec.ZSTD;
 import static java.util.Objects.requireNonNull;
 
 public class PagesSerdeFactory
 {
     private static final int SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES = 64 * 1024;
-
-    private static final Map<CompressionCodec, OptionalInt> MAX_COMPRESSED_LENGTH = Map.of(
-            NONE, NONE.maxCompressedLength(SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES),
-            LZ4, LZ4.maxCompressedLength(SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES),
-            ZSTD, ZSTD.maxCompressedLength(SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES));
-
     private final BlockEncodingSerde blockEncodingSerde;
     private final CompressionCodec compressionCodec;
+    private final int blockSizeInBytes;
 
     public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec)
     {
+        this(blockEncodingSerde, compressionCodec, SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES);
+    }
+
+    @VisibleForTesting
+    PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec, int blockSizeInBytes)
+    {
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+        this.blockSizeInBytes = blockSizeInBytes;
     }
 
     public PageSerializer createSerializer(Optional<SecretKey> encryptionKey)
     {
-        return new PageSerializer(
+        return new CompressingEncryptingPageSerializer(
                 blockEncodingSerde,
                 createCompressor(compressionCodec),
                 encryptionKey,
-                SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES,
-                MAX_COMPRESSED_LENGTH.get(compressionCodec));
+                blockSizeInBytes,
+                maxCompressedSize(blockSizeInBytes, compressionCodec));
     }
 
     public PageDeserializer createDeserializer(Optional<SecretKey> encryptionKey)
     {
-        return new PageDeserializer(
+        return new CompressingDecryptingPageDeserializer(
                 blockEncodingSerde,
                 createDecompressor(compressionCodec),
                 encryptionKey,
-                SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES,
-                MAX_COMPRESSED_LENGTH.get(compressionCodec));
+                blockSizeInBytes,
+                maxCompressedSize(blockSizeInBytes, compressionCodec));
     }
 
     public static Optional<Compressor> createCompressor(CompressionCodec compressionCodec)
@@ -85,6 +86,15 @@ public class PagesSerdeFactory
             case NONE -> Optional.empty();
             case LZ4 -> Optional.of(Lz4Decompressor.create());
             case ZSTD -> Optional.of(ZstdDecompressor.create());
+        };
+    }
+
+    private static OptionalInt maxCompressedSize(int uncompressedSize, CompressionCodec compressionCodec)
+    {
+        return switch (compressionCodec) {
+            case NONE -> OptionalInt.of(uncompressedSize);
+            case LZ4 -> LZ4.maxCompressedLength(uncompressedSize);
+            case ZSTD -> ZSTD.maxCompressedLength(uncompressedSize);
         };
     }
 }

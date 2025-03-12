@@ -23,9 +23,9 @@ default value.
 
 The possible values are:
 
-> - `AUTOMATIC` (default) - enable full automatic join enumeration
-> - `ELIMINATE_CROSS_JOINS` - eliminate unnecessary cross joins
-> - `NONE` - purely syntactic join order
+- `AUTOMATIC` (default) - enable full automatic join enumeration
+- `ELIMINATE_CROSS_JOINS` - eliminate unnecessary cross joins
+- `NONE` - purely syntactic join order
 
 If you are using `AUTOMATIC` join enumeration and statistics are not
 available or a cost can not be computed for any other reason, the
@@ -40,10 +40,10 @@ is queried to find matching rows.
 
 There are two types of join distributions:
 
-> - Partitioned: each node participating in the query builds a hash table from
->   only a fraction of the data
-> - Broadcast: each node participating in the query builds a hash table from all
->   of the data. The data is replicated to each node.
+- Partitioned: each node participating in the query builds a hash table from
+  only a fraction of the data
+- Broadcast: each node participating in the query builds a hash table from all
+  of the data. The data is replicated to each node.
 
 Each type has advantages and disadvantages. Partitioned joins require
 redistributing both tables using a hash of the join key. These joins can be much
@@ -63,10 +63,10 @@ providing the default value.
 
 The valid values are:
 
-> - `AUTOMATIC` (default) - join distribution type is determined automatically
->   for each join
-> - `BROADCAST` - broadcast join distribution is used for all joins
-> - `PARTITIONED` - partitioned join distribution is used for all join
+- `AUTOMATIC` (default) - join distribution type is determined automatically
+  for each join
+- `BROADCAST` - broadcast join distribution is used for all joins
+- `PARTITIONED` - partitioned join distribution is used for all join
 
 ### Capping replicated table size
 

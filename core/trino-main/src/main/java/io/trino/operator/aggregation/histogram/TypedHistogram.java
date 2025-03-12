@@ -33,6 +33,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
+import static io.trino.operator.VariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.clamp;
@@ -223,12 +224,14 @@ public final class TypedHistogram
     private void serializeEntry(BlockBuilder keyBuilder, BlockBuilder valueBuilder, byte[] records, int recordOffset)
     {
         byte[] variableWidthChunk = EMPTY_CHUNK;
+        int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(records, recordOffset);
         }
 
         try {
-            readFlat.invokeExact(records, recordOffset + recordValueOffset, variableWidthChunk, keyBuilder);
+            readFlat.invokeExact(records, recordOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset, keyBuilder);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -439,14 +442,17 @@ public final class TypedHistogram
 
         try {
             byte[] variableWidthChunk = EMPTY_CHUNK;
+            int variableWidthChunkOffset = 0;
             if (variableWidthData != null) {
                 variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
+                variableWidthChunkOffset = getChunkOffset(records, recordOffset);
             }
 
             long valueHash = (long) hashFlat.invokeExact(
                     records,
                     recordOffset + recordValueOffset,
-                    variableWidthChunk);
+                    variableWidthChunk,
+                    variableWidthChunkOffset);
             return groupId * HASH_COMBINE_PRIME + valueHash;
         }
         catch (Throwable throwable) {
@@ -480,8 +486,10 @@ public final class TypedHistogram
         }
 
         byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             leftVariableWidthChunk = variableWidthData.getChunk(leftRecords, leftRecordOffset);
+            variableWidthChunkOffset = getChunkOffset(leftRecords, leftRecordOffset);
         }
 
         try {
@@ -489,6 +497,7 @@ public final class TypedHistogram
                     leftRecords,
                     leftRecordOffset + recordValueOffset,
                     leftVariableWidthChunk,
+                    variableWidthChunkOffset,
                     right,
                     rightPosition);
         }

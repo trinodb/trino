@@ -39,6 +39,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
 import static io.trino.operator.VariableWidthData.POINTER_SIZE;
+import static io.trino.operator.VariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.lang.Math.clamp;
 import static java.lang.Math.multiplyExact;
@@ -271,12 +272,14 @@ public abstract class AbstractMultimapAggregationState
     private void serializeEntry(BlockBuilder keyBuilder, ArrayBlockBuilder valueBuilder, byte[] records, int recordOffset)
     {
         byte[] variableWidthChunk = EMPTY_CHUNK;
+        int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(records, recordOffset);
         }
 
         try {
-            keyReadFlat.invokeExact(records, recordOffset + recordKeyOffset, variableWidthChunk, keyBuilder);
+            keyReadFlat.invokeExact(records, recordOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset, keyBuilder);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -541,14 +544,17 @@ public abstract class AbstractMultimapAggregationState
 
         try {
             byte[] variableWidthChunk = EMPTY_CHUNK;
+            int variableWidthChunkOffset = 0;
             if (variableWidthData != null) {
                 variableWidthChunk = variableWidthData.getChunk(records, recordOffset);
+                variableWidthChunkOffset = getChunkOffset(records, recordOffset);
             }
 
             long valueHash = (long) keyHashFlat.invokeExact(
                     records,
                     recordOffset + recordKeyOffset,
-                    variableWidthChunk);
+                    variableWidthChunk,
+                    variableWidthChunkOffset);
             return groupId * HASH_COMBINE_PRIME + valueHash;
         }
         catch (Throwable throwable) {
@@ -582,8 +588,10 @@ public abstract class AbstractMultimapAggregationState
         }
 
         byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        int leftVariableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             leftVariableWidthChunk = variableWidthData.getChunk(leftRecords, leftRecordOffset);
+            leftVariableWidthChunkOffset = getChunkOffset(leftRecords, leftRecordOffset);
         }
 
         try {
@@ -591,6 +599,7 @@ public abstract class AbstractMultimapAggregationState
                     leftRecords,
                     leftRecordOffset + recordKeyOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthChunkOffset,
                     right,
                     rightPosition);
         }

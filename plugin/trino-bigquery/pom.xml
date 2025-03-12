@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>466-SNAPSHOT</version>
+        <version>473-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -225,6 +225,11 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>stats</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
 
@@ -315,12 +320,17 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20240303</version>
+            <version>20250107</version>
         </dependency>
 
         <dependency>
             <groupId>org.threeten</groupId>
             <artifactId>threetenbp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <dependency>
@@ -338,6 +348,12 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api-incubator</artifactId>
             <scope>provided</scope>
         </dependency>
 
@@ -539,6 +555,7 @@
                                 <exclude>**/TestBigQuery*FailureRecoveryTest.java</exclude>
                                 <exclude>**/TestBigQueryWithProxyTest.java</exclude>
                                 <exclude>**/TestBigQueryParentProjectId.java</exclude>
+                                <exclude>**/TestBigQueryWithBothProjectIdsSet.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -560,6 +577,7 @@
                             <includes>
                                 <include>**/TestBigQueryAvroConnectorTest.java</include>
                                 <include>**/TestBigQueryParentProjectId.java</include>
+                                <include>**/TestBigQueryWithBothProjectIdsSet.java</include>
                             </includes>
                         </configuration>
                     </plugin>

@@ -25,6 +25,7 @@ import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
+import jakarta.annotation.Nullable;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -83,6 +84,8 @@ public interface TrinoCatalog
 
     List<TableInfo> listTables(ConnectorSession session, Optional<String> namespace);
 
+    List<SchemaTableName> listIcebergTables(ConnectorSession session, Optional<String> namespace);
+
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> namespace)
     {
         return listTables(session, namespace).stream()
@@ -114,7 +117,7 @@ public interface TrinoCatalog
             Schema schema,
             PartitionSpec partitionSpec,
             SortOrder sortOrder,
-            String location,
+            Optional<String> location,
             Map<String, String> properties);
 
     Transaction newCreateOrReplaceTableTransaction(
@@ -144,7 +147,7 @@ public interface TrinoCatalog
      * @return Iceberg table loaded
      * @throws UnknownTableTypeException if table is not of Iceberg type in the metastore
      */
-    Table loadTable(ConnectorSession session, SchemaTableName schemaTableName);
+    BaseTable loadTable(ConnectorSession session, SchemaTableName schemaTableName);
 
     /**
      * Bulk load column metadata. The returned map may contain fewer entries then asked for.
@@ -157,6 +160,7 @@ public interface TrinoCatalog
 
     void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment);
 
+    @Nullable
     String defaultTableLocation(ConnectorSession session, SchemaTableName schemaTableName);
 
     void setTablePrincipal(ConnectorSession session, SchemaTableName schemaTableName, TrinoPrincipal principal);

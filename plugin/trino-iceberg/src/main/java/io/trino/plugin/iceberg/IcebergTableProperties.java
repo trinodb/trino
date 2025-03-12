@@ -43,6 +43,7 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
@@ -56,10 +57,11 @@ public class IcebergTableProperties
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String LOCATION_PROPERTY = "location";
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
+    public static final String MAX_COMMIT_RETRY = "max_commit_retry";
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
     public static final String PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY = "parquet_bloom_filter_columns";
-    public static final String OBJECT_STORE_ENABLED_PROPERTY = "object_store_enabled";
+    public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
 
@@ -69,9 +71,10 @@ public class IcebergTableProperties
             .add(SORTED_BY_PROPERTY)
             .add(LOCATION_PROPERTY)
             .add(FORMAT_VERSION_PROPERTY)
+            .add(MAX_COMMIT_RETRY)
             .add(ORC_BLOOM_FILTER_COLUMNS_PROPERTY)
             .add(ORC_BLOOM_FILTER_FPP_PROPERTY)
-            .add(OBJECT_STORE_ENABLED_PROPERTY)
+            .add(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY)
             .add(DATA_LOCATION_PROPERTY)
             .add(EXTRA_PROPERTIES_PROPERTY)
             .add(PARQUET_BLOOM_FILTER_COLUMNS_PROPERTY)
@@ -130,6 +133,16 @@ public class IcebergTableProperties
                         icebergConfig.getFormatVersion(),
                         IcebergTableProperties::validateFormatVersion,
                         false))
+                .add(integerProperty(
+                        MAX_COMMIT_RETRY,
+                        "Number of times to retry a commit before failing",
+                        icebergConfig.getMaxCommitRetry(),
+                        value -> {
+                            if (value < 0) {
+                                throw new TrinoException(INVALID_TABLE_PROPERTY, "max_commit_retry must be greater than or equal to 0");
+                            }
+                        },
+                        false))
                 .add(new PropertyMetadata<>(
                         ORC_BLOOM_FILTER_COLUMNS_PROPERTY,
                         "ORC Bloom filter index columns",
@@ -181,9 +194,9 @@ public class IcebergTableProperties
                         },
                         value -> value))
                 .add(booleanProperty(
-                        OBJECT_STORE_ENABLED_PROPERTY,
+                        OBJECT_STORE_LAYOUT_ENABLED_PROPERTY,
                         "Set to true to enable Iceberg object store file layout",
-                        icebergConfig.isObjectStoreEnabled(),
+                        icebergConfig.isObjectStoreLayoutEnabled(),
                         false))
                 .add(stringProperty(
                         DATA_LOCATION_PROPERTY,
@@ -240,6 +253,11 @@ public class IcebergTableProperties
         }
     }
 
+    public static int getMaxCommitRetry(Map<String, Object> tableProperties)
+    {
+        return (int) tableProperties.getOrDefault(MAX_COMMIT_RETRY, COMMIT_NUM_RETRIES_DEFAULT);
+    }
+
     public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)
     {
         List<String> orcBloomFilterColumns = (List<String>) tableProperties.get(ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
@@ -264,9 +282,9 @@ public class IcebergTableProperties
         return parquetBloomFilterColumns == null ? ImmutableList.of() : ImmutableList.copyOf(parquetBloomFilterColumns);
     }
 
-    public static boolean getObjectStoreEnabled(Map<String, Object> tableProperties)
+    public static boolean getObjectStoreLayoutEnabled(Map<String, Object> tableProperties)
     {
-        return (boolean) tableProperties.getOrDefault(OBJECT_STORE_ENABLED_PROPERTY, false);
+        return (boolean) tableProperties.getOrDefault(OBJECT_STORE_LAYOUT_ENABLED_PROPERTY, false);
     }
 
     public static Optional<String> getDataLocation(Map<String, Object> tableProperties)

@@ -138,12 +138,6 @@ public final class RunLengthEncodedBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return RunLengthBlockEncoding.NAME;
-    }
-
-    @Override
     public Block getPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
@@ -200,6 +194,12 @@ public final class RunLengthEncodedBlock
     public boolean mayHaveNull()
     {
         return positionCount > 0 && value.isNull(0);
+    }
+
+    @Override
+    public boolean hasNull()
+    {
+        return mayHaveNull();
     }
 
     @Override

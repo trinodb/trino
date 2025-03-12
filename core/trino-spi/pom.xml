@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>466-SNAPSHOT</version>
+        <version>473-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -44,6 +44,12 @@
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
             <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api-incubator</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -213,9 +219,142 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method io.trino.spi.connector.RecordCursor io.trino.spi.connector.SystemTable::cursor(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.predicate.TupleDomain&lt;java.lang.Integer&gt;, java.util.Set&lt;java.lang.Integer&gt;)</old>
-                                    <new>method io.trino.spi.connector.RecordCursor io.trino.spi.connector.SystemTable::cursor(io.trino.spi.connector.ConnectorTransactionHandle, io.trino.spi.connector.ConnectorSession, io.trino.spi.predicate.TupleDomain&lt;java.lang.Integer&gt;, java.util.Set&lt;java.lang.Integer&gt;, io.trino.spi.connector.ConnectorSplit)</new>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.ArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.Block::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.Class&lt;? extends io.trino.spi.block.Block&gt; io.trino.spi.block.BlockEncoding::getBlockClass()</new>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.ByteArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.DictionaryBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.Fixed12Block::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.Int128ArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.IntArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.LazyBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.LongArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.MapBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.RowBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.RunLengthEncodedBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.ShortArrayBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method java.lang.String io.trino.spi.block.VariableWidthBlock::getEncodingName()</old>
+                                    <justification>Removal of bidrectional coupling of Blocks and BlockEncodings</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method long io.trino.spi.connector.Connector::getInitialMemoryRequirement()</old>
+                                    <justification>Remove unused connector method</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method int io.trino.spi.type.Type::getFlatVariableWidthLength(byte[], int)</new>
+                                    <justification>New interface method required for new flat variable width data layouts</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.Type::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.AbstractVariableWidthType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.ArrayType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.FixedWidthType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.MapType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.type.RowType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
+                                    <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
                                 </item>
                             </differences>
                         </revapi.differences>

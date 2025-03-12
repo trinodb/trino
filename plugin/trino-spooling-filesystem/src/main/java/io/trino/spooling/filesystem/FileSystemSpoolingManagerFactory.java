@@ -17,9 +17,9 @@ import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.base.jmx.MBeanServerModule;
-import io.trino.spi.protocol.SpoolingManager;
-import io.trino.spi.protocol.SpoolingManagerContext;
-import io.trino.spi.protocol.SpoolingManagerFactory;
+import io.trino.spi.spool.SpoolingManager;
+import io.trino.spi.spool.SpoolingManagerContext;
+import io.trino.spi.spool.SpoolingManagerFactory;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.Map;
@@ -53,6 +53,6 @@ public class FileSystemSpoolingManagerFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return new TracingSpoolingManager(context.getTracer(), injector.getInstance(SpoolingManager.class));
+        return injector.getInstance(SpoolingManager.class);
     }
 }

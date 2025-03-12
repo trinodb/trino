@@ -41,7 +41,6 @@ import static io.trino.geospatial.GeometryUtils.isPointOrRectangle;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.geospatial.serde.GeometrySerde.serialize;
 import static io.trino.plugin.geospatial.BingTile.MAX_ZOOM_LEVEL;
-import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -87,7 +86,7 @@ public final class BingTileFunctions
 
     @Description("Creates a Bing tile from XY coordinates and zoom level")
     @ScalarFunction("bing_tile")
-    @SqlType(BingTileType.NAME)
+    @SqlType(StandardTypes.BING_TILE)
     public static long toBingTile(@SqlType(StandardTypes.INTEGER) long tileX, @SqlType(StandardTypes.INTEGER) long tileY, @SqlType(StandardTypes.INTEGER) long zoomLevel)
     {
         checkZoomLevel(zoomLevel);
@@ -100,7 +99,7 @@ public final class BingTileFunctions
     @Description("Given a Bing tile, returns its QuadKey")
     @ScalarFunction("bing_tile_quadkey")
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice toQuadKey(@SqlType(BingTileType.NAME) long input)
+    public static Slice toQuadKey(@SqlType(StandardTypes.BING_TILE) long input)
     {
         return utf8Slice(BingTile.decode(input).toQuadKey());
     }
@@ -119,7 +118,7 @@ public final class BingTileFunctions
         }
 
         @SqlType("row(x integer,y integer)")
-        public SqlRow bingTileCoordinates(@SqlType(BingTileType.NAME) long input)
+        public SqlRow bingTileCoordinates(@SqlType(StandardTypes.BING_TILE) long input)
         {
             BingTile tile = BingTile.decode(input);
             return rowValueBuilder.build(fields -> {
@@ -132,14 +131,14 @@ public final class BingTileFunctions
     @Description("Given a Bing tile, returns zoom level of the tile")
     @ScalarFunction("bing_tile_zoom_level")
     @SqlType(StandardTypes.TINYINT)
-    public static long bingTileZoomLevel(@SqlType(BingTileType.NAME) long input)
+    public static long bingTileZoomLevel(@SqlType(StandardTypes.BING_TILE) long input)
     {
         return BingTile.decode(input).getZoomLevel();
     }
 
     @Description("Creates a Bing tile from a QuadKey")
     @ScalarFunction("bing_tile")
-    @SqlType(BingTileType.NAME)
+    @SqlType(StandardTypes.BING_TILE)
     public static long toBingTile(@SqlType(StandardTypes.VARCHAR) Slice quadKey)
     {
         checkQuadKey(quadKey);
@@ -148,7 +147,7 @@ public final class BingTileFunctions
 
     @Description("Given a (latitude, longitude) point, returns the containing Bing tile at the specified zoom level")
     @ScalarFunction("bing_tile_at")
-    @SqlType(BingTileType.NAME)
+    @SqlType(StandardTypes.BING_TILE)
     public static long bingTileAt(
             @SqlType(StandardTypes.DOUBLE) double latitude,
             @SqlType(StandardTypes.DOUBLE) double longitude,
@@ -163,7 +162,7 @@ public final class BingTileFunctions
 
     @Description("Given a (longitude, latitude) point, returns the surrounding Bing tiles at the specified zoom level")
     @ScalarFunction("bing_tiles_around")
-    @SqlType("array(" + BingTileType.NAME + ")")
+    @SqlType("array(" + StandardTypes.BING_TILE + ")")
     public static Block bingTilesAround(
             @SqlType(StandardTypes.DOUBLE) double latitude,
             @SqlType(StandardTypes.DOUBLE) double longitude,
@@ -196,7 +195,7 @@ public final class BingTileFunctions
             "returns a minimum set of Bing tiles at specified zoom level that cover a circle of " +
             "specified radius around the specified point.")
     @ScalarFunction("bing_tiles_around")
-    @SqlType("array(" + BingTileType.NAME + ")")
+    @SqlType("array(" + StandardTypes.BING_TILE + ")")
     public static Block bingTilesAround(
             @SqlType(StandardTypes.DOUBLE) double latitude,
             @SqlType(StandardTypes.DOUBLE) double longitude,
@@ -331,8 +330,8 @@ public final class BingTileFunctions
 
     @Description("Given a Bing tile, returns the polygon representation of the tile")
     @ScalarFunction("bing_tile_polygon")
-    @SqlType(GEOMETRY_TYPE_NAME)
-    public static Slice bingTilePolygon(@SqlType(BingTileType.NAME) long input)
+    @SqlType(StandardTypes.GEOMETRY)
+    public static Slice bingTilePolygon(@SqlType(StandardTypes.BING_TILE) long input)
     {
         BingTile tile = BingTile.decode(input);
 
@@ -341,8 +340,8 @@ public final class BingTileFunctions
 
     @Description("Given a geometry and a zoom level, returns the minimum set of Bing tiles that fully covers that geometry")
     @ScalarFunction("geometry_to_bing_tiles")
-    @SqlType("array(" + BingTileType.NAME + ")")
-    public static Block geometryToBingTiles(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(StandardTypes.INTEGER) long zoomLevelInput)
+    @SqlType("array(" + StandardTypes.BING_TILE + ")")
+    public static Block geometryToBingTiles(@SqlType(StandardTypes.GEOMETRY) Slice input, @SqlType(StandardTypes.INTEGER) long zoomLevelInput)
     {
         checkZoomLevel(zoomLevelInput);
 

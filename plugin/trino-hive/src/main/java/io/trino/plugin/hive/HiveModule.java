@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -21,6 +20,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.avro.AvroFileWriterFactory;
 import io.trino.plugin.hive.avro.AvroPageSourceFactory;
 import io.trino.plugin.hive.fs.CachingDirectoryLister;
@@ -39,7 +39,6 @@ import io.trino.plugin.hive.line.SimpleSequenceFileWriterFactory;
 import io.trino.plugin.hive.line.SimpleTextFilePageSourceFactory;
 import io.trino.plugin.hive.line.SimpleTextFileWriterFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -54,8 +53,6 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
-import io.trino.spi.function.FunctionProvider;
-import io.trino.spi.function.table.ConnectorTableFunction;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -85,8 +82,6 @@ public class HiveModule
         binder.bind(HiveViewProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveColumnProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, HiveMaterializedViewPropertiesProvider.class)
-                .setDefault().toInstance(ImmutableList::of);
 
         binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();
@@ -99,15 +94,13 @@ public class HiveModule
         Multibinder<SystemTableProvider> systemTableProviders = newSetBinder(binder, SystemTableProvider.class);
         systemTableProviders.addBinding().to(PartitionsSystemTableProvider.class).in(Scopes.SINGLETON);
         systemTableProviders.addBinding().to(PropertiesSystemTableProvider.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, HiveRedirectionsProvider.class)
-                .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, TransactionalMetadataFactory.class)
                 .setDefault().to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(TransactionScopeCachingDirectoryListerFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorSplitManager.class).to(HiveSplitManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(ConnectorSplitManager.class).as(generator -> generator.generatedNameOf(HiveSplitManager.class));
-        newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
+        binder.bind(ConnectorPageSourceProvider.class).to(HivePageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPageSinkProvider.class).to(HivePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorNodePartitioningProvider.class).to(HiveNodePartitioningProvider.class).in(Scopes.SINGLETON);
 
@@ -147,9 +140,6 @@ public class HiveModule
         configBinder(binder).bindConfig(ParquetWriterConfig.class);
         fileWriterFactoryBinder.addBinding().to(ParquetFileWriterFactory.class).in(Scopes.SINGLETON);
 
-        newOptionalBinder(binder, FunctionProvider.class).setDefault().toInstance(new NoopFunctionProvider());
-        newSetBinder(binder, ConnectorTableFunction.class);
-
         closingBinder(binder).registerExecutor(ExecutorService.class);
         closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForHiveTransactionHeartbeats.class));
     }
@@ -171,11 +161,11 @@ public class HiveModule
                 daemonThreadsNamed("hive-heartbeat-" + catalogName + "-%s"));
     }
 
-    @TranslateHiveViews
-    @Singleton
     @Provides
-    public boolean translateHiveViews(HiveConfig hiveConfig)
+    @Singleton
+    @HideDeltaLakeTables
+    public boolean hideDeltaLakeTables(HiveMetastoreConfig config)
     {
-        return hiveConfig.isTranslateHiveViews();
+        return config.isHideDeltaLakeTables();
     }
 }

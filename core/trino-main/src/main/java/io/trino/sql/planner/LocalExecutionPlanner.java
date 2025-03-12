@@ -102,6 +102,7 @@ import io.trino.operator.WindowOperator.WindowOperatorFactory;
 import io.trino.operator.aggregation.AccumulatorFactory;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
+import io.trino.operator.aggregation.DistinctWindowAccumulator;
 import io.trino.operator.aggregation.OrderedAccumulatorFactory;
 import io.trino.operator.aggregation.OrderedWindowAccumulator;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
@@ -156,7 +157,6 @@ import io.trino.operator.window.pattern.SetEvaluator.SetEvaluatorSupplier;
 import io.trino.plugin.base.MappedRecordSet;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.QueryDataEncoders;
-import io.trino.server.protocol.spooling.SpoolingConfig;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -174,12 +174,13 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionKind;
+import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpoolingManager;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -430,7 +431,6 @@ public class LocalExecutionPlanner
     private final SpillerFactory spillerFactory;
     private final QueryDataEncoders encoders;
     private final Optional<SpoolingManager> spoolingManager;
-    private final Optional<SpoolingConfig> spoolingConfig;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
     private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final PagesIndex.Factory pagesIndexFactory;
@@ -485,7 +485,6 @@ public class LocalExecutionPlanner
             SpillerFactory spillerFactory,
             QueryDataEncoders encoders,
             Optional<SpoolingManager> spoolingManager,
-            Optional<SpoolingConfig> spoolingConfig,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
             PartitioningSpillerFactory partitioningSpillerFactory,
             PagesIndex.Factory pagesIndexFactory,
@@ -506,7 +505,7 @@ public class LocalExecutionPlanner
         this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
         this.indexManager = requireNonNull(indexManager, "indexManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
-        this.directExchangeClientSupplier = directExchangeClientSupplier;
+        this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.pageSinkManager = requireNonNull(pageSinkManager, "pageSinkManager is null");
         this.expressionCompiler = requireNonNull(expressionCompiler, "expressionCompiler is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
@@ -516,7 +515,6 @@ public class LocalExecutionPlanner
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.encoders = requireNonNull(encoders, "encoders is null");
         this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
-        this.spoolingConfig = requireNonNull(spoolingConfig, "spoolingConfig is null");
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
         this.partitioningSpillerFactory = requireNonNull(partitioningSpillerFactory, "partitioningSpillerFactory is null");
         this.maxPartialAggregationMemorySize = taskManagerConfig.getMaxPartialAggregationMemoryUsage();
@@ -994,14 +992,12 @@ public class LocalExecutionPlanner
                     .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
 
             Map<Symbol, Integer> spooledLayout = layoutUnionWithSpooledMetadata(operation.layout);
-            QueryDataEncoder queryDataEncoder = encoderFactory.create(session, spooledOutputLayout(node, operation.layout));
             OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
                     spooledLayout,
-                    queryDataEncoder,
-                    spoolingManager.orElseThrow(),
-                    spoolingConfig.orElseThrow());
+                    () -> encoderFactory.create(session, spooledOutputLayout(node, operation.layout)),
+                    spoolingManager.orElseThrow());
 
             return new PhysicalOperation(outputSpoolingOperatorFactory, spooledLayout, operation);
         }
@@ -1059,6 +1055,9 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
             List<Integer> sortChannels = getChannelsForSymbols(orderBySymbols, source.getLayout());
+            List<Type> sortTypes = sortChannels.stream()
+                    .map(channel -> source.getTypes().get(channel))
+                    .collect(toImmutableList());
             List<SortOrder> sortOrder = orderBySymbols.stream()
                     .map(symbol -> node.getOrderingScheme().ordering(symbol))
                     .collect(toImmutableList());
@@ -1081,14 +1080,13 @@ public class LocalExecutionPlanner
                     partitionChannels,
                     partitionTypes,
                     sortChannels,
-                    sortOrder,
                     node.getMaxRankingPerPartition(),
                     isPartial,
                     hashChannel,
                     1000,
                     maxPartialTopNMemorySize,
                     hashStrategyCompiler,
-                    plannerContext.getTypeOperators(),
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrder),
                     blockTypeOperators);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
@@ -1180,32 +1178,59 @@ public class LocalExecutionPlanner
                         .collect(toImmutableList());
 
                 WindowFunctionSupplier windowFunctionSupplier;
-                if (function.getOrderingScheme().isPresent()) {
-                    OrderingScheme orderingScheme = function.getOrderingScheme().orElseThrow();
-                    List<Symbol> sortKeys = orderingScheme.orderBy();
-                    List<SortOrder> sortOrders = sortKeys.stream()
-                            .map(orderingScheme::ordering)
-                            .collect(toImmutableList());
+                if (resolvedFunction.functionKind() == FunctionKind.AGGREGATE) {
+                    AggregationWindowFunctionSupplier targetFunction = getAggregationWindowFunctionSupplier(resolvedFunction);
+                    List<Class<?>> lambdaInterfaces = targetFunction.getLambdaInterfaces();
+                    Function<List<Supplier<Object>>, WindowAccumulator> accumulatorSupplier = targetFunction::createWindowAccumulator;
 
-                    ImmutableList.Builder<Integer> sortKeysArguments = ImmutableList.builder();
-                    sortKeys.forEach(orderingArgumentSymbol -> {
-                        argumentChannels.add(source.getLayout().get(orderingArgumentSymbol));
-                        sortKeysArguments.add(argumentChannels.size() - 1); // last added argument
-                    });
+                    if (function.getOrderingScheme().isPresent()) {
+                        OrderingScheme orderingScheme = function.getOrderingScheme().orElseThrow();
+                        List<Symbol> sortKeys = orderingScheme.orderBy();
+                        List<SortOrder> sortOrders = sortKeys.stream()
+                                .map(orderingScheme::ordering)
+                                .collect(toImmutableList());
+                        ImmutableList.Builder<Integer> sortKeysArgumentsBuilder = ImmutableList.builder();
+                        sortKeys.forEach(orderingArgumentSymbol -> {
+                            argumentChannels.add(source.getLayout().get(orderingArgumentSymbol));
+                            sortKeysArgumentsBuilder.add(argumentChannels.size() - 1); // last added argument
+                        });
 
-                    List<Type> argumentTypes = argumentChannels.stream()
-                            .map(channel -> source.getTypes().get(channel))
-                            .collect(toImmutableList());
+                        List<Type> argumentTypes = argumentChannels.stream()
+                                .map(channel -> source.getTypes().get(channel))
+                                .collect(toImmutableList());
 
-                    windowFunctionSupplier = getOrderedWindowFunctionImplementation(
-                            resolvedFunction,
-                            argumentTypes,
-                            argumentChannels,
-                            sortKeysArguments.build(),
-                            sortOrders);
+                        List<Integer> sortKeysArguments = sortKeysArgumentsBuilder.build();
+                        Function<List<Supplier<Object>>, WindowAccumulator> finalAccumulatorSupplier = accumulatorSupplier;
+                        accumulatorSupplier = (lambdaProviders) ->
+                                new OrderedWindowAccumulator(
+                                        pagesIndexFactory,
+                                        finalAccumulatorSupplier.apply(lambdaProviders),
+                                        argumentTypes,
+                                        argumentChannels,
+                                        sortKeysArguments,
+                                        sortOrders);
+                    }
+
+                    if (function.isDistinct()) {
+                        List<Type> argumentTypes = argumentChannels.stream()
+                                .map(channel -> source.getTypes().get(channel))
+                                .collect(toImmutableList());
+
+                        Function<List<Supplier<Object>>, WindowAccumulator> finalAccumulatorSupplier = accumulatorSupplier;
+                        List<Integer> argumentChannelsFinal = ImmutableList.copyOf(argumentChannels);
+                        accumulatorSupplier = (lambdaProviders) -> new DistinctWindowAccumulator(
+                                finalAccumulatorSupplier.apply(lambdaProviders),
+                                argumentTypes,
+                                argumentChannelsFinal,
+                                hashStrategyCompiler,
+                                session,
+                                pagesIndexFactory);
+                    }
+
+                    windowFunctionSupplier = windowAggregationFunctionSupplier(resolvedFunction, lambdaInterfaces, accumulatorSupplier);
                 }
                 else {
-                    windowFunctionSupplier = getWindowFunctionImplementation(resolvedFunction);
+                    windowFunctionSupplier = plannerContext.getFunctionManager().getWindowFunctionSupplier(resolvedFunction);
                 }
 
                 List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdas, windowFunctionSupplier.getLambdaInterfaces(), functionTypes);
@@ -1252,59 +1277,24 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
         }
 
-        private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
+        private WindowFunctionSupplier windowAggregationFunctionSupplier(ResolvedFunction resolvedFunction, List<Class<?>> lambdaInterfaces, Function<List<Supplier<Object>>, WindowAccumulator> accumulatorSupplier)
         {
-            if (resolvedFunction.functionKind() == FunctionKind.AGGREGATE) {
-                return getAggregationWindowFunctionSupplier(resolvedFunction);
-            }
-            return plannerContext.getFunctionManager().getWindowFunctionSupplier(resolvedFunction);
-        }
-
-        private AggregationWindowFunctionSupplier getAggregationWindowFunctionSupplier(ResolvedFunction resolvedFunction)
-        {
-            checkArgument(
-                    resolvedFunction.functionKind() == FunctionKind.AGGREGATE,
-                    "Expected %s to be AGGREGATE function, but got %s",
-                    resolvedFunction.functionId(),
-                    resolvedFunction.functionKind());
-            return uncheckedCacheGet(aggregationWindowFunctionSupplierCache, new FunctionKey(resolvedFunction.functionId(), resolvedFunction.signature()), () -> {
-                AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
-                return new AggregationWindowFunctionSupplier(
-                        resolvedFunction.signature(),
-                        aggregationImplementation,
-                        resolvedFunction.functionNullability());
-            });
-        }
-
-        private WindowFunctionSupplier getOrderedWindowFunctionImplementation(
-                ResolvedFunction resolvedFunction,
-                List<Type> argumentTypes,
-                List<Integer> argumentChannels,
-                List<Integer> sortKeysArguments,
-                List<SortOrder> sortOrders)
-        {
-            AggregationWindowFunctionSupplier aggregationWindowFunctionSupplier = getAggregationWindowFunctionSupplier(resolvedFunction);
-            return new WindowFunctionSupplier() {
+            return new WindowFunctionSupplier()
+            {
                 @Override
                 public WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders)
                 {
                     AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
                     boolean hasRemoveInput = aggregationImplementation.getWindowAccumulator().isPresent();
                     return new AggregateWindowFunction(
-                            () -> new OrderedWindowAccumulator(
-                                    pagesIndexFactory,
-                                    aggregationWindowFunctionSupplier.createWindowAccumulator(lambdaProviders),
-                                    argumentTypes,
-                                    argumentChannels,
-                                    sortKeysArguments,
-                                    sortOrders),
+                            () -> accumulatorSupplier.apply(lambdaProviders),
                             hasRemoveInput);
                 }
 
                 @Override
                 public List<Class<?>> getLambdaInterfaces()
                 {
-                    return aggregationWindowFunctionSupplier.getLambdaInterfaces();
+                    return lambdaInterfaces;
                 }
             };
         }
@@ -1550,6 +1540,30 @@ public class LocalExecutionPlanner
                     partitionerSupplier);
 
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
+        }
+
+        private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
+        {
+            if (resolvedFunction.functionKind() == FunctionKind.AGGREGATE) {
+                return getAggregationWindowFunctionSupplier(resolvedFunction);
+            }
+            return plannerContext.getFunctionManager().getWindowFunctionSupplier(resolvedFunction);
+        }
+
+        private AggregationWindowFunctionSupplier getAggregationWindowFunctionSupplier(ResolvedFunction resolvedFunction)
+        {
+            checkArgument(
+                    resolvedFunction.functionKind() == FunctionKind.AGGREGATE,
+                    "Expected %s to be AGGREGATE function, but got %s",
+                    resolvedFunction.functionId(),
+                    resolvedFunction.functionKind());
+            return uncheckedCacheGet(aggregationWindowFunctionSupplierCache, new FunctionKey(resolvedFunction.functionId(), resolvedFunction.signature()), () -> {
+                AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
+                return new AggregationWindowFunctionSupplier(
+                        resolvedFunction.signature(),
+                        aggregationImplementation,
+                        resolvedFunction.functionNullability());
+            });
         }
 
         private Supplier<PageProjection> prepareProjection(ExpressionAndValuePointers expressionAndValuePointers)
@@ -1822,10 +1836,13 @@ public class LocalExecutionPlanner
 
             List<Symbol> orderBySymbols = node.getOrderingScheme().orderBy();
 
+            List<Type> sortTypes = new ArrayList<>();
             List<Integer> sortChannels = new ArrayList<>();
             List<SortOrder> sortOrders = new ArrayList<>();
             for (Symbol symbol : orderBySymbols) {
-                sortChannels.add(source.getLayout().get(symbol));
+                int sortChannel = source.getLayout().get(symbol);
+                sortTypes.add(source.getTypes().get(sortChannel));
+                sortChannels.add(sortChannel);
                 sortOrders.add(node.getOrderingScheme().ordering(symbol));
             }
 
@@ -1834,9 +1851,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     source.getTypes(),
                     (int) node.getCount(),
-                    sortChannels,
-                    sortOrders,
-                    plannerContext.getTypeOperators());
+                    orderingCompiler.compilePageWithPositionComparator(sortTypes, sortChannels, sortOrders));
 
             return new PhysicalOperation(operator, source.getLayout(), source);
         }

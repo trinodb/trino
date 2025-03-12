@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>466-SNAPSHOT</version>
+        <version>473-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -179,6 +179,12 @@
             <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <profiles>
@@ -194,7 +200,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestGcsFileSystem*.java</exclude>
+                                <exclude>**/TestGcsFileSystem.java</exclude>
+                                <exclude>**/TestGcsFileSystemWithEncryption.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -211,7 +218,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestGcsFileSystem*.java</include>
+                                <include>**/TestGcsFileSystem.java</include>
+                                <include>**/TestGcsFileSystemWithEncryption.java</include>
                             </includes>
                         </configuration>
                     </plugin>

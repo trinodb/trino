@@ -14,7 +14,7 @@
 package io.trino.spooling.filesystem;
 
 import io.trino.spi.QueryId;
-import io.trino.spi.protocol.SpoolingContext;
+import io.trino.spi.spool.SpoolingContext;
 import org.junit.jupiter.api.Test;
 
 import java.security.SecureRandom;

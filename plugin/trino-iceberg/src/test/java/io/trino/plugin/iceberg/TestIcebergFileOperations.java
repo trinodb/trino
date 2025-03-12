@@ -21,9 +21,9 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.plugin.iceberg.util.FileOperationUtils;
+import io.trino.plugin.iceberg.util.FileOperationUtils.Scope;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -45,6 +45,7 @@ import static io.trino.SystemSessionProperties.MIN_INPUT_SIZE_PER_TASK;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileOperation;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.DATA;
@@ -55,6 +56,7 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.SNAPSHOT;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.STATS;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.ALL_FILES;
 import static io.trino.plugin.iceberg.util.FileOperationUtils.Scope.METADATA_FILES;
+import static io.trino.plugin.iceberg.util.FileOperationUtils.getOperations;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -100,9 +102,7 @@ public class TestIcebergFileOperations
                 .put("iceberg.metadata-cache.enabled", "false")
                 .buildOrThrow());
 
-        metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
-                .getInstance(HiveMetastoreFactory.class)
-                .createMetastore(Optional.empty());
+        metastore = getHiveMetastore(queryRunner);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -512,6 +512,62 @@ public class TestIcebergFileOperations
     }
 
     @Test
+    public void testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform()
+    {
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("hour(d)", 4);
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("day(d)", 2);
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("month(d)", 2);
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("year(d)", 2);
+        testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform("bucket(d, 4)", 2);
+    }
+
+    private void testPartialTimestampPartitionPruningEffectivenessWithPartitionTransform(String partitionTransform, int expectedDataFileOperations)
+    {
+        String tableName = "test_transform_timestamp" + randomNameSuffix();
+        assertUpdate(format("CREATE TABLE %s (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['%s'])", tableName, partitionTransform));
+
+        @Language("SQL") String values =
+                """
+                VALUES
+                    (NULL, 101),
+                    (TIMESTAMP '1969-12-25 15:13:12.876543', 8),
+                    (TIMESTAMP '1969-12-30 18:47:33.345678', 9),
+                    (TIMESTAMP '1969-12-31 00:00:00.000000', 10),
+                    (TIMESTAMP '1969-12-31 05:06:07.234567', 11),
+                    (TIMESTAMP '1970-01-01 12:03:08.456789', 12),
+                    (TIMESTAMP '2015-01-01 10:01:23.123456', 1),
+                    (TIMESTAMP '2015-01-01 11:10:02.987654', 2),
+                    (TIMESTAMP '2015-01-01 12:55:00.456789', 3),
+                    (TIMESTAMP '2015-05-15 13:05:01.234567', 4),
+                    (TIMESTAMP '2015-05-15 14:21:02.345678', 5),
+                    (TIMESTAMP '2020-02-21 15:11:11.876543', 6),
+                    (TIMESTAMP '2020-02-21 16:12:12.654321', 7)
+                """;
+        assertUpdate("INSERT INTO " + tableName + " " + values, 13);
+        assertQuery("SELECT * FROM " + tableName, values);
+
+        @Language("SQL") String selectQuery = "SELECT * FROM " + tableName + " WHERE d >= TIMESTAMP '2015-05-15 01:23:45.678901'";
+        assertThat(query(selectQuery)).isNotFullyPushedDown(FilterNode.class);
+
+        assertFileSystemAccesses(
+                getSession(),
+                selectQuery,
+                ALL_FILES,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.newStream"))
+                        .add(new FileOperation(MANIFEST, "InputFile.newStream"))
+                        .add(new FileOperation(SNAPSHOT, "InputFile.length"))
+                        .addCopies(new FileOperation(DATA, "InputFile.newInput"), expectedDataFileOperations)
+                        .build());
+
+        assertThat((long) computeScalar("SELECT COUNT(DISTINCT file_path) FROM \"" + tableName + "$files\""))
+                .isGreaterThan(expectedDataFileOperations);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testJoin()
     {
         assertUpdate("CREATE TABLE test_join_t1 AS SELECT 2 AS age, 'id1' AS id", 1);
@@ -876,9 +932,9 @@ public class TestIcebergFileOperations
                 ImmutableMap.of("id", 2),
                 Optional.empty());
 
-        ImmutableMultiset<FileOperation> expectedAccesses = ImmutableMultiset.<FileOperationUtils.FileOperation>builder()
-                .addCopies(new FileOperationUtils.FileOperation(DATA, "InputFile.newInput"), 2)
-                .addCopies(new FileOperationUtils.FileOperation(DELETE, "InputFile.newInput"), 1)
+        ImmutableMultiset<FileOperation> expectedAccesses = ImmutableMultiset.<FileOperation>builder()
+                .addCopies(new FileOperation(DATA, "InputFile.newInput"), 2)
+                .addCopies(new FileOperation(DELETE, "InputFile.newInput"), 1)
                 .build();
 
         QueryRunner.MaterializedResultWithPlan queryResult = getDistributedQueryRunner().executeWithPlan(getSession(), "SELECT * FROM " + tableName);
@@ -886,7 +942,7 @@ public class TestIcebergFileOperations
                 .describedAs("query result row count")
                 .isEqualTo(1);
         assertMultisetsEqual(
-                FileOperationUtils.getOperations(getDistributedQueryRunner().getSpans()).stream()
+                getOperations(getDistributedQueryRunner().getSpans()).stream()
                         .filter(operation -> ImmutableSet.of(DATA, DELETE).contains(operation.fileType()))
                         .collect(toImmutableMultiset()),
                 expectedAccesses);
@@ -904,7 +960,7 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses(query, METADATA_FILES, expectedAccesses);
     }
 
-    private void assertFileSystemAccesses(@Language("SQL") String query, FileOperationUtils.Scope scope, Multiset<FileOperation> expectedAccesses)
+    private void assertFileSystemAccesses(@Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         assertFileSystemAccesses(getSession(), query, scope, expectedAccesses);
     }
@@ -914,11 +970,11 @@ public class TestIcebergFileOperations
         assertFileSystemAccesses(session, query, METADATA_FILES, expectedAccesses);
     }
 
-    private synchronized void assertFileSystemAccesses(Session session, @Language("SQL") String query, FileOperationUtils.Scope scope, Multiset<FileOperationUtils.FileOperation> expectedAccesses)
+    private synchronized void assertFileSystemAccesses(Session session, @Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         getDistributedQueryRunner().executeWithPlan(session, query);
         assertMultisetsEqual(
-                FileOperationUtils.getOperations(getDistributedQueryRunner().getSpans()).stream()
+                getOperations(getDistributedQueryRunner().getSpans()).stream()
                         .filter(scope)
                         .collect(toImmutableMultiset()),
                 expectedAccesses);

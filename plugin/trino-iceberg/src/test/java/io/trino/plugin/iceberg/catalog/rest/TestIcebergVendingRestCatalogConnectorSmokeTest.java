@@ -22,6 +22,7 @@ import io.trino.filesystem.s3.S3FileSystemStats;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.containers.IcebergRestCatalogBackendContainer;
@@ -120,7 +121,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                                 .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
-                                .put("fs.hadoop.enabled", "false")
+                                .put("iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max")
                                 .put("fs.native-s3.enabled", "true")
                                 .put("s3.region", MINIO_REGION)
                                 .put("s3.endpoint", minio.getMinioAddress())
@@ -288,6 +289,10 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingSnapshotFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingSnapshotFile)
+                .isInstanceOf(QueryFailedException.class)
+                .cause()
+                .hasMessageContaining("Failed to drop table")
+                .cause()
                 .hasMessageMatching("Server error: NoSuchKeyException:.*");
     }
 

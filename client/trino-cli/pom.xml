@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>466-SNAPSHOT</version>
+        <version>473-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -13,9 +13,9 @@
     <description>Trino - CLI</description>
 
     <properties>
-        <project.build.targetJdk>8</project.build.targetJdk>
+        <project.build.targetJdk>11</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>3.27.1</dep.jline.version>
+        <dep.jline.version>3.29.0</dep.jline.version>
     </properties>
 
     <dependencies>
@@ -60,8 +60,8 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-            <!-- JDK8 support dropped by version 1.8+ -->
-            <version>1.7</version>
+            <!-- JDK11 support dropped by version 1.9+ -->
+            <version>1.8</version>
         </dependency>
 
         <dependency>
@@ -77,8 +77,6 @@
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
-            <!-- JDK8 support dropped by version 3.0.0+ -->
-            <version>2.1.1</version>
         </dependency>
 
         <dependency>
@@ -224,18 +222,12 @@
                             <excludes>
                                 <!-- jline-terminal-ffm works only on JDK 22+, but will fall back to JNI on lower JDKs -->
                                 <exclude>org.jline:jline-terminal-ffm</exclude>
+                                <!-- Used reflectively on JDK22+ for native decompression -->
+                                <exclude>io.airlift:aircompressor-v3</exclude>
                             </excludes>
                         </enforceBytecodeVersion>
                     </rules>
                 </configuration>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <phase>verify</phase>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

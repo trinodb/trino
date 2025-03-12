@@ -13,7 +13,6 @@
  */
 package io.trino.cli;
 
-import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -62,9 +61,9 @@ public class StatusPrinter
     private final PrintStream out;
     private final ConsolePrinter console;
     private final boolean checkInput;
+    private final boolean decimalDataSize;
 
     private boolean debug;
-    private boolean decimalDataSize;
 
     public StatusPrinter(StatementClient client, PrintStream out, boolean debug, boolean checkInput, boolean decimalDataSize)
     {
@@ -216,7 +215,7 @@ Spilled: 20GB
             reprintLine(perNodeSummary);
 
             // Parallelism: 5.3
-            out.println(format("Parallelism: %.1f", parallelism));
+            out.printf("Parallelism: %.1f%n", parallelism);
 
             // Peak Memory: 1.97GB
             reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true, decimalDataSize));
@@ -412,7 +411,7 @@ Spilled: 20GB
 
         String id = String.valueOf(stageNumberCounter.getAndIncrement());
         String name = indent + id;
-        name += Strings.repeat(".", max(0, 10 - name.length()));
+        name += ".".repeat(max(0, 10 - name.length()));
 
         String bytesPerSecond;
         String rowsPerSecond;

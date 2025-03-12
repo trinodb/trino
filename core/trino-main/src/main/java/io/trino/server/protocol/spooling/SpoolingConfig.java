@@ -16,9 +16,14 @@ package io.trino.server.protocol.spooling;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.airlift.units.MaxDataSize;
+import io.airlift.units.MinDataSize;
 import io.trino.util.Ciphers;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -34,9 +39,9 @@ public class SpoolingConfig
     private Optional<SecretKey> sharedSecretKey = Optional.empty();
     private SegmentRetrievalMode retrievalMode = SegmentRetrievalMode.STORAGE;
 
-    private boolean allowInlining = true;
-    private long maximumInlinedRows = 1000;
-    private DataSize maximumInlinedSize = DataSize.of(128, KILOBYTE);
+    private boolean inliningEnabled = true;
+    private long inliningMaxRows = 1000;
+    private DataSize inliningMaxSize = DataSize.of(128, KILOBYTE);
     private DataSize initialSegmentSize = DataSize.of(8, MEGABYTE);
     private DataSize maximumSegmentSize = DataSize.of(16, MEGABYTE);
 
@@ -68,6 +73,8 @@ public class SpoolingConfig
         return this;
     }
 
+    @MinDataSize("1kB")
+    @MaxDataSize("128MB")
     public DataSize getInitialSegmentSize()
     {
         return initialSegmentSize;
@@ -81,12 +88,15 @@ public class SpoolingConfig
         return this;
     }
 
+    @MinDataSize("1kB")
+    @MaxDataSize("128MB")
     public DataSize getMaximumSegmentSize()
     {
         return maximumSegmentSize;
     }
 
-    @Config("protocol.spooling.maximum-segment-size")
+    @LegacyConfig("protocol.spooling.maximum-segment-size")
+    @Config("protocol.spooling.max-segment-size")
     @ConfigDescription("Maximum size of the spooled segments in bytes")
     public SpoolingConfig setMaximumSegmentSize(DataSize maximumSegmentSize)
     {
@@ -94,42 +104,46 @@ public class SpoolingConfig
         return this;
     }
 
-    public boolean isAllowInlining()
+    public boolean isInliningEnabled()
     {
-        return allowInlining;
+        return inliningEnabled;
     }
 
-    @ConfigDescription("Allow spooled protocol to inline data")
+    @ConfigDescription("Allow spooling protocol to inline data")
     @Config("protocol.spooling.inlining.enabled")
-    public SpoolingConfig setAllowInlining(boolean allowInlining)
+    public SpoolingConfig setInliningEnabled(boolean inliningEnabled)
     {
-        this.allowInlining = allowInlining;
+        this.inliningEnabled = inliningEnabled;
         return this;
     }
 
-    public long getMaximumInlinedRows()
+    @Min(1)
+    @Max(1_000_000)
+    public long getInliningMaxRows()
     {
-        return maximumInlinedRows;
+        return inliningMaxRows;
     }
 
     @Config("protocol.spooling.inlining.max-rows")
     @ConfigDescription("Maximum number of rows that are allowed to be inlined per worker")
-    public SpoolingConfig setMaximumInlinedRows(long maximumInlinedRows)
+    public SpoolingConfig setInliningMaxRows(long inliningMaxRows)
     {
-        this.maximumInlinedRows = maximumInlinedRows;
+        this.inliningMaxRows = inliningMaxRows;
         return this;
     }
 
-    public DataSize getMaximumInlinedSize()
+    @MinDataSize("1kB")
+    @MaxDataSize("1MB")
+    public DataSize getInliningMaxSize()
     {
-        return maximumInlinedSize;
+        return inliningMaxSize;
     }
 
     @Config("protocol.spooling.inlining.max-size")
     @ConfigDescription("Maximum size of rows that are allowed to be inlined per worker")
-    public SpoolingConfig setMaximumInlinedSize(DataSize maximumInlinedSize)
+    public SpoolingConfig setInliningMaxSize(DataSize inliningMaxSize)
     {
-        this.maximumInlinedSize = maximumInlinedSize;
+        this.inliningMaxSize = inliningMaxSize;
         return this;
     }
 
@@ -139,6 +153,12 @@ public class SpoolingConfig
         return sharedSecretKey
                 .map(Ciphers::is256BitSecretKeySpec)
                 .orElse(true);
+    }
+
+    @AssertTrue(message = "protocol.spooling.initial-segment-size must be smaller than protocol.spooling.maximum-segment-size")
+    public boolean areSegmentSizesCorrect()
+    {
+        return getInitialSegmentSize().compareTo(getMaximumSegmentSize()) < 0;
     }
 
     @AssertTrue(message = "protocol.spooling.shared-secret-key must be set")

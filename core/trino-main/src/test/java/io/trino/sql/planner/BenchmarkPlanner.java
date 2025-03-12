@@ -56,8 +56,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.jmh.Benchmarks.benchmark;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
-import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.BenchmarkPlanner.Queries.TPCH;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
@@ -103,8 +101,8 @@ public class BenchmarkPlanner
             planTester = PlanTester.create(session);
             planTester.installPlugin(new TpchPlugin());
             planTester.createCatalog(tpch, "tpch", ImmutableMap.<String, String>builder()
-                    .put(TPCH_SPLITS_PER_NODE, "4")
-                    .put(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name())
+                    .put("tpch.splits-per-node", "4")
+                    .put("tpch.column-naming", ColumnNaming.STANDARD.name())
                     .buildOrThrow());
 
             planTester.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()

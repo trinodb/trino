@@ -125,29 +125,6 @@ public interface ConnectorMetadata
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
      * </pre>
      * unless {@code retryMode} is set to {@code NO_RETRIES}.
-     *
-     * @deprecated {Use {@link #getTableHandleForExecute(ConnectorSession, ConnectorAccessControl, ConnectorTableHandle, String, Map, RetryMode)}}
-     */
-    @Deprecated
-    default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
-            ConnectorSession session,
-            ConnectorTableHandle tableHandle,
-            String procedureName,
-            Map<String, Object> executeProperties,
-            RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
-    }
-
-    /**
-     * Create initial handle for execution of table procedure. The handle will be used through planning process. It will be converted to final
-     * handle used for execution via @{link {@link ConnectorMetadata#beginTableExecute}
-     * <p>
-     * If connector does not support execution with retries, the method should throw:
-     * <pre>
-     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
-     * </pre>
-     * unless {@code retryMode} is set to {@code NO_RETRIES}.
      */
     default Optional<ConnectorTableExecuteHandle> getTableHandleForExecute(
             ConnectorSession session,
@@ -157,7 +134,7 @@ public interface ConnectorMetadata
             Map<String, Object> executeProperties,
             RetryMode retryMode)
     {
-        return getTableHandleForExecute(session, tableHandle, procedureName, executeProperties, retryMode);
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table procedures");
     }
 
     default Optional<ConnectorTableLayout> getLayoutForTableExecute(ConnectorSession session, ConnectorTableExecuteHandle tableExecuteHandle)
@@ -203,19 +180,29 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Return a table handle whose partitioning is converted to the provided partitioning handle,
-     * but otherwise identical to the provided table handle.
-     * The provided table handle must be one that the connector can transparently convert to from
-     * the original partitioning handle associated with the provided table handle,
-     * as promised by {@link #getCommonPartitioningHandle}.
+     * Attempt to push down partitioning into the table. If a connector can provide
+     * data for the table using the specified partitioning, it should return a
+     * table handle that when passed to {@link #getTableProperties(ConnectorSession, ConnectorTableHandle)}
+     * will return TableProperties compatible with the specified partitioning.
+     * The returned table handle does not have to use the exact partitioning, but
+     * must be compatible with the specified partitioning, meaning that a table with
+     * specified partitioning can be repartitioned on the partitioning of the returned
+     * table handle. If the partitioning handle is not specified, any partitioning
+     * function can be applied as long as it uses the specified columns.
      */
-    default ConnectorTableHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorPartitioningHandle partitioningHandle)
+    default Optional<ConnectorTableHandle> applyPartitioning(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            Optional<ConnectorPartitioningHandle> partitioningHandle,
+            List<ColumnHandle> columns)
     {
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without makeCompatiblePartitioning()");
+        return Optional.empty();
     }
 
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
+     * If a common partitioning handle is returned, {@link #applyPartitioning} must return a table handle for tables using either
+     * the {@code left} or {@code right} partitioning handle.
      */
     default Optional<ConnectorPartitioningHandle> getCommonPartitioningHandle(ConnectorSession session, ConnectorPartitioningHandle left, ConnectorPartitioningHandle right)
     {
@@ -572,9 +559,13 @@ public interface ConnectorMetadata
     /**
      * Add the specified column
      */
-    default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
-        throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
+        }
     }
 
     /**
@@ -878,22 +869,10 @@ public interface ConnectorMetadata
     /**
      * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
      * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
-     *
-     * @deprecated {Use {@link #beginMerge(ConnectorSession, ConnectorTableHandle, Map, RetryMode)}}
-     */
-    @Deprecated
-    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
-    {
-        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
-    }
-
-    /**
-     * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
-     * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
      */
     default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
     {
-        return beginMerge(session, tableHandle, retryMode);
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
     }
 
     /**

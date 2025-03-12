@@ -207,6 +207,9 @@ public class TestStatementBuilder
         printStatement("alter table a.b.c set properties a=true, b=123, c='x'");
         printStatement("alter table a.b.c set properties a=DEFAULT, b=123");
 
+        printStatement("alter table a.b.c add column x bigint first");
+        printStatement("alter table a.b.c add column x bigint after y");
+        printStatement("alter table a.b.c add column x bigint last");
         printStatement("alter table a.b.c add column x bigint");
 
         printStatement("alter table a.b.c add column x bigint comment 'large x'");

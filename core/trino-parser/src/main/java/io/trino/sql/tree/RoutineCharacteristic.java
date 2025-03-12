@@ -17,7 +17,7 @@ import java.util.Optional;
 
 public abstract sealed class RoutineCharacteristic
         extends Node
-        permits CommentCharacteristic, DeterministicCharacteristic, LanguageCharacteristic, NullInputCharacteristic, SecurityCharacteristic
+        permits CommentCharacteristic, DeterministicCharacteristic, LanguageCharacteristic, NullInputCharacteristic, PropertiesCharacteristic, SecurityCharacteristic
 {
     protected RoutineCharacteristic(NodeLocation location)
     {

@@ -96,26 +96,29 @@ using a REST API.
 
 Clients allow you to connect to Trino, submit SQL queries, and receive the
 results. Clients can access all configured data sources using
-[catalogs](trino-concept-catalog). Clients are full-featured applications or
-libraries and drivers that allow you to connect to any application supporting
-that driver, or even your own custom application or script.
+[catalogs](trino-concept-catalog). Clients are full-featured client applications
+or client drivers and libraries that allow you to connect with any application
+supporting that driver, or even your own custom application or script.
 
-Clients include command line tools, desktop applications, web-based
+Clients applications include command line tools, desktop applications, web-based
 applications, and software-as-a-service solutions with features such as
 interactive SQL query authoring with editors, or rich user interfaces for
 graphical query creation, query running and result rendering, visualizations
 with charts and graphs, reporting, and dashboard creation.
 
-[A comprehensive list with more details for each client is available on the
-Trino website](https://trino.io/ecosystem/client).
+Client application that support other query languages or user interface
+components to build a query, must translate each request to [SQL as supported by
+Trino](/language).
 
-Clients can process the returned data from Trino and be used for data pipelines
-across catalogs and from other data sources to Trino catalogs.
+More details are available in the [Trino client documentation](/client).
 
-From a technical perspective, clients only interact with the
-[coordinator](trino-concept-coordinator) of the Trino cluster and use the
-[](/develop/client-protocol).
+(trino-concept-plugin)=
+## Plugin
 
+Trino uses a plugin architecture to extend its capabilities and integrate with
+various data sources and other systems. Details about different types of
+plugins, installation, removal, and other aspects are available in the [Plugin
+documentation](/installation/plugins).
 
 (trino-concept-data-source)=
 ## Data source

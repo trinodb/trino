@@ -610,7 +610,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
     public void testExecuteDelete()
     {
         assertThatThrownBy(() -> assertUpdate("DELETE FROM " + TpchTable.REGION.getTableName()))
-                .hasMessageMatching("Failed to close manifest writer");
+                .hasMessageContaining("Failed to close manifest writer");
     }
 
     @Test

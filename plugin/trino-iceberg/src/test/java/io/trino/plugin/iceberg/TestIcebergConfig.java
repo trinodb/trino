@@ -37,7 +37,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestIcebergConfig
 {
@@ -47,11 +47,12 @@ public class TestIcebergConfig
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(ZSTD)
+                .setMaxCommitRetry(4)
                 .setUseFileSizeFromMetadata(true)
                 .setMaxPartitionsPerWriter(100)
                 .setUniqueTableLocation(true)
                 .setCatalogType(HIVE_METASTORE)
-                .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
+                .setDynamicFilteringWaitTimeout(new Duration(1, SECONDS))
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
                 .setCollectExtendedStatisticsOnWrite(true)
@@ -71,13 +72,15 @@ public class TestIcebergConfig
                 .setSortedWritingEnabled(true)
                 .setQueryPartitionFilterRequired(false)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
-                .setSplitManagerThreads(Runtime.getRuntime().availableProcessors() * 2)
+                .setSplitManagerThreads(Integer.toString(Runtime.getRuntime().availableProcessors() * 2))
                 .setAllowedExtraProperties(ImmutableList.of())
                 .setIncrementalRefreshEnabled(true)
                 .setMetadataCacheEnabled(true)
                 .setIncrementalRefreshEnabled(true)
-                .setObjectStoreEnabled(false)
-                .setMetadataParallelism(8));
+                .setObjectStoreLayoutEnabled(false)
+                .setMetadataParallelism(8)
+                .setBucketExecutionEnabled(true)
+                .setFileBasedConflictDetectionEnabled(true));
     }
 
     @Test
@@ -86,6 +89,7 @@ public class TestIcebergConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.file-format", "ORC")
                 .put("iceberg.compression-codec", "NONE")
+                .put("iceberg.max-commit-retry", "100")
                 .put("iceberg.use-file-size-from-metadata", "false")
                 .put("iceberg.max-partitions-per-writer", "222")
                 .put("iceberg.unique-table-location", "false")
@@ -114,13 +118,16 @@ public class TestIcebergConfig
                 .put("iceberg.allowed-extra-properties", "propX,propY")
                 .put("iceberg.incremental-refresh-enabled", "false")
                 .put("iceberg.metadata-cache.enabled", "false")
-                .put("iceberg.object-store.enabled", "true")
+                .put("iceberg.object-store-layout.enabled", "true")
                 .put("iceberg.metadata.parallelism", "10")
+                .put("iceberg.bucket-execution", "false")
+                .put("iceberg.file-based-conflict-detection", "false")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(ORC)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setMaxCommitRetry(100)
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
                 .setUniqueTableLocation(false)
@@ -145,13 +152,15 @@ public class TestIcebergConfig
                 .setSortedWritingEnabled(false)
                 .setQueryPartitionFilterRequired(true)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of("bronze", "silver"))
-                .setSplitManagerThreads(42)
+                .setSplitManagerThreads("42")
                 .setAllowedExtraProperties(ImmutableList.of("propX", "propY"))
                 .setIncrementalRefreshEnabled(false)
                 .setMetadataCacheEnabled(false)
                 .setIncrementalRefreshEnabled(false)
-                .setObjectStoreEnabled(true)
-                .setMetadataParallelism(10);
+                .setObjectStoreLayoutEnabled(true)
+                .setMetadataParallelism(10)
+                .setBucketExecutionEnabled(false)
+                .setFileBasedConflictDetectionEnabled(false);
 
         assertFullMapping(properties, expected);
     }

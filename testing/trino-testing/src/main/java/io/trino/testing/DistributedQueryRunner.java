@@ -325,9 +325,9 @@ public class DistributedQueryRunner
 
             // Use few threads in tests to preserve resources on CI
             propertiesBuilder.put("failure-detector.http-client.min-threads", "1"); // default 8
-            propertiesBuilder.put("memoryManager.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("memory-manager.http-client.min-threads", "1"); // default 8
             propertiesBuilder.put("scheduler.http-client.min-threads", "1"); // default 8
-            propertiesBuilder.put("workerInfo.http-client.min-threads", "1"); // default 8
+            propertiesBuilder.put("worker-info.http-client.min-threads", "1"); // default 8
         }
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.buildOrThrow());
         properties.putAll(extraProperties);
@@ -911,7 +911,7 @@ public class DistributedQueryRunner
                 addExtraProperty("protocol.spooling.enabled", "true");
                 // create smaller number of segments
                 addExtraProperty("protocol.spooling.initial-segment-size", "16MB");
-                addExtraProperty("protocol.spooling.maximum-segment-size", "32MB");
+                addExtraProperty("protocol.spooling.max-segment-size", "32MB");
                 addExtraProperty("protocol.spooling.shared-secret-key", randomAESKey());
                 // LocalSpoolingManager doesn't support direct storage access
                 addExtraProperty("protocol.spooling.retrieval-mode", "coordinator_proxy");

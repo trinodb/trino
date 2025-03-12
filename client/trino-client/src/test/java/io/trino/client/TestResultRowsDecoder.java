@@ -17,6 +17,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CountingInputStream;
+import io.trino.client.spooling.DataAttribute;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
 import io.trino.client.spooling.Segment;
@@ -25,17 +26,17 @@ import io.trino.client.spooling.SpooledSegment;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
-import java.io.FilterInputStream;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
-import static io.trino.client.JsonResultRows.createJsonFactory;
+import static io.trino.client.JsonIterators.createJsonFactory;
 import static io.trino.client.spooling.Segment.inlined;
 import static io.trino.client.spooling.Segment.spooled;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -117,7 +118,7 @@ class TestResultRowsDecoder
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
         try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
-            assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(spooledSegment(), spooledSegment()))))
+            assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))))
                     .hasSize(4)
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337), ImmutableList.of(2137), ImmutableList.of(1337));
         }
@@ -132,7 +133,7 @@ class TestResultRowsDecoder
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
         try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
-            assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(spooledSegment(), spooledSegment()))))
+            assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))))
                     .hasSize(4)
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337), ImmutableList.of(2137), ImmutableList.of(1337));
         }
@@ -148,7 +149,7 @@ class TestResultRowsDecoder
                 .reduce("[", (a, b) -> a + "[" + b + "],", String::concat) + "[1337]]";
         CountingInputStream stream = new CountingInputStream(new ByteArrayInputStream(data.getBytes(UTF_8)));
         try (ResultRowsDecoder decoder = new ResultRowsDecoder(loaderFromStream(stream))) {
-            Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment())).iterator();
+            Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment(2501))).iterator();
             assertThat(stream.getCount()).isEqualTo(0);
             iterator.next();
             assertThat(stream.getCount()).isEqualTo(8000); // Jackson reads data in 8K chunks
@@ -174,7 +175,7 @@ class TestResultRowsDecoder
         AtomicInteger loaded = new AtomicInteger();
         AtomicInteger acknowledged = new AtomicInteger();
         try (ResultRowsDecoder decoder = new ResultRowsDecoder(new StaticLoader(loaded, acknowledged))) {
-            Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment(), spooledSegment()))
+            Iterator<List<Object>> iterator = decoder.toRows(fromSegments(spooledSegment(2), spooledSegment(2)))
                     .iterator();
 
             assertThat(loaded.get()).isEqualTo(0);
@@ -216,14 +217,7 @@ class TestResultRowsDecoder
         public InputStream load(SpooledSegment segment)
         {
             loaded.incrementAndGet();
-
-            return new FilterInputStream(new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8))) {
-                @Override
-                public void close()
-                {
-                    acknowledge(segment);
-                }
-            };
+            return new ByteArrayInputStream("[[2137], [1337]]".getBytes(UTF_8));
         }
 
         @Override
@@ -281,7 +275,7 @@ class TestResultRowsDecoder
                 null,
                 ImmutableList.of(),
                 null,
-                0L);
+                OptionalLong.of(0L));
     }
 
     private static QueryResults fromSegments(Segment... segments)
@@ -292,8 +286,12 @@ class TestResultRowsDecoder
                 .build());
     }
 
-    private static Segment spooledSegment()
+    private static Segment spooledSegment(long rows)
     {
-        return spooled(URI.create("http://localhost"), URI.create("http://localhost"), DataAttributes.empty(), ImmutableMap.of());
+        DataAttributes attributes = DataAttributes.builder()
+                .set(DataAttribute.ROWS_COUNT, rows)
+                .build();
+
+        return spooled(URI.create("http://localhost"), URI.create("http://localhost"), attributes, ImmutableMap.of());
     }
 }

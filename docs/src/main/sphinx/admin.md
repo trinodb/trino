@@ -8,9 +8,12 @@ running, and managing Trino clusters.
 
 admin/web-interface
 admin/preview-web-interface
+admin/logging
 admin/tuning
 admin/jmx
 admin/opentelemetry
+admin/openmetrics
+admin/properties
 admin/spill
 admin/resource-groups
 admin/session-property-managers
@@ -63,6 +66,7 @@ admin/properties
 
 * [Properties reference overview](admin/properties)
 * [](admin/properties-general)
+* [](admin/properties-client-protocol)
 * [](admin/properties-http-server)
 * [](admin/properties-resource-management)
 * [](admin/properties-query-management)

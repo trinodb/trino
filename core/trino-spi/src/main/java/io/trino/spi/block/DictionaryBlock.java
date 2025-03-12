@@ -279,12 +279,6 @@ public final class DictionaryBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return DictionaryBlockEncoding.NAME;
-    }
-
-    @Override
     public Block copyPositions(int[] positions, int offset, int length)
     {
         checkArrayRange(positions, offset, length);
@@ -378,6 +372,12 @@ public final class DictionaryBlock
     public boolean mayHaveNull()
     {
         return mayHaveNull && dictionary.mayHaveNull();
+    }
+
+    @Override
+    public boolean hasNull()
+    {
+        return mayHaveNull && dictionary.hasNull();
     }
 
     @Override

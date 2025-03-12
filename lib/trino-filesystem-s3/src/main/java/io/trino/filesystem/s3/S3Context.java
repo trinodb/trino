@@ -15,6 +15,7 @@ package io.trino.filesystem.s3;
 
 import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
+import io.trino.filesystem.s3.S3FileSystemConfig.StorageClassType;
 import io.trino.spi.security.ConnectorIdentity;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
@@ -25,6 +26,7 @@ import software.amazon.awssdk.services.s3.model.RequestPayer;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
 import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.KMS;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
@@ -36,6 +38,7 @@ record S3Context(
         boolean requesterPays,
         S3SseContext s3SseContext,
         Optional<AwsCredentialsProvider> credentialsProviderOverride,
+        StorageClassType storageClass,
         ObjectCannedAcl cannedAcl,
         boolean exclusiveWriteSupported)
 {
@@ -55,7 +58,7 @@ record S3Context(
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, cannedAcl, exclusiveWriteSupported);
+        return new S3Context(partSize, requesterPays, S3SseContext.withKmsKeyId(kmsKeyId), credentialsProviderOverride, storageClass, cannedAcl, exclusiveWriteSupported);
     }
 
     public S3Context withCredentials(ConnectorIdentity identity)
@@ -70,6 +73,11 @@ record S3Context(
         return this;
     }
 
+    public S3Context withSseCustomerKey(String key)
+    {
+        return new S3Context(partSize, requesterPays, S3SseContext.withSseCustomerKey(key), credentialsProviderOverride, storageClass, cannedAcl, exclusiveWriteSupported);
+    }
+
     public S3Context withCredentialsProviderOverride(AwsCredentialsProvider credentialsProviderOverride)
     {
         return new S3Context(
@@ -77,6 +85,7 @@ record S3Context(
                 requesterPays,
                 s3SseContext,
                 Optional.of(credentialsProviderOverride),
+                storageClass,
                 cannedAcl,
                 exclusiveWriteSupported);
     }
@@ -108,6 +117,11 @@ record S3Context(
         public static S3SseContext withKmsKeyId(String kmsKeyId)
         {
             return new S3SseContext(KMS, Optional.ofNullable(kmsKeyId), Optional.empty());
+        }
+
+        public static S3SseContext withSseCustomerKey(String key)
+        {
+            return new S3SseContext(CUSTOMER, Optional.empty(), Optional.ofNullable(key).map(S3SseCustomerKey::onAes256));
         }
     }
 }

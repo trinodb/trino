@@ -17,6 +17,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.DatasetId;
 import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.ExternalTableDefinition;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
@@ -67,6 +68,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -118,6 +120,7 @@ import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.cloud.bigquery.storage.v1.WriteStream.Type.COMMITTED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -254,17 +257,9 @@ public class BigQueryMetadata
 
     private List<SchemaTableName> listTablesInRemoteSchema(BigQueryClient client, String projectId, String remoteSchemaName)
     {
-        ImmutableList.Builder<SchemaTableName> tableNames = ImmutableList.builder();
         try {
             Iterable<TableId> tableIds = client.listTableIds(DatasetId.of(projectId, remoteSchemaName));
-            for (TableId tableId : tableIds) {
-                // filter ambiguous tables
-                client.toRemoteTable(projectId, remoteSchemaName, tableId.getTable().toLowerCase(ENGLISH), tableIds)
-                        .filter(RemoteDatabaseObject::isAmbiguous)
-                        .ifPresentOrElse(
-                                remoteTable -> log.debug("Filtered out [%s.%s] from list of tables due to ambiguous name", remoteSchemaName, tableId.getTable()),
-                                () -> tableNames.add(new SchemaTableName(client.toSchemaName(DatasetId.of(projectId, tableId.getDataset())), tableId.getTable())));
-            }
+            return client.listNonAmbiguousSchemaTableNames(projectId, remoteSchemaName, tableIds);
         }
         catch (TrinoException e) {
             if (e.getErrorCode() == BIGQUERY_LISTING_TABLE_ERROR.toErrorCode() &&
@@ -273,12 +268,10 @@ public class BigQueryMetadata
                     bigQueryException.getMessage().contains("Not found: Dataset")) {
                 // Dataset not found error is ignored because listTables is used for metadata queries (SELECT FROM information_schema)
                 log.debug("Dataset disappeared during listing operation: %s", remoteSchemaName);
+                return ImmutableList.of();
             }
-            else {
-                throw e;
-            }
+            throw e;
         }
-        return tableNames.build();
     }
 
     @Override
@@ -340,7 +333,7 @@ public class BigQueryMetadata
             return null;
         }
 
-        boolean useStorageApi = useStorageApi(session, schemaTableName.getTableName(), tableInfo.get().getDefinition().getType());
+        boolean useStorageApi = useStorageApi(session, schemaTableName.getTableName(), tableInfo.get().getDefinition());
         ImmutableList.Builder<BigQueryColumnHandle> columns = ImmutableList.builder();
         columns.addAll(client.buildColumnHandles(tableInfo.get(), useStorageApi));
         Optional<BigQueryPartitionType> partitionType = getPartitionType(tableInfo.get().getDefinition());
@@ -356,24 +349,38 @@ public class BigQueryMetadata
                 Optional.ofNullable(tableInfo.get().getDescription()),
                 useStorageApi),
                 TupleDomain.all(),
-                Optional.empty())
+                Optional.empty(),
+                OptionalLong.empty())
                 .withProjectedColumns(columns.build());
     }
 
-    private static boolean useStorageApi(ConnectorSession session, String tableName, TableDefinition.Type type)
+    private static boolean useStorageApi(ConnectorSession session, String tableName, TableDefinition tableDefinition)
     {
+        TableDefinition.Type type = tableDefinition.getType();
         if (isWildcardTable(type, tableName)) {
             // Storage API doesn't support reading wildcard tables
             return false;
         }
-        if (type == EXTERNAL) {
-            // Storage API doesn't support reading external tables
+        if (type == EXTERNAL && !isBigLakeTable(tableDefinition)) {
+            // Storage API doesn't support reading external tables except BigLake tables
             return false;
         }
         if ((type == VIEW || type == MATERIALIZED_VIEW) && isSkipViewMaterialization(session)) {
             return false;
         }
         return true;
+    }
+
+    private static boolean isBigLakeTable(TableDefinition tableDefinition)
+    {
+        if (tableDefinition instanceof ExternalTableDefinition externalTableDefinition) {
+            //BigLake tables are external with connectionId that don't have objectMetadata (ObjectTable discriminator) and their uri starts with gs:// (OMNI table discriminator)
+            List<String> sourceUris = externalTableDefinition.getSourceUris();
+            return !isNullOrEmpty(externalTableDefinition.getConnectionId()) &&
+                   isNullOrEmpty(externalTableDefinition.getObjectMetadata()) &&
+                   (sourceUris != null && sourceUris.stream().allMatch(uri -> uri.startsWith("gs://")));
+        }
+        return false;
     }
 
     private Optional<TableInfo> getTableInfoIgnoringConflicts(ConnectorSession session, SchemaTableName schemaTableName)
@@ -470,7 +477,7 @@ public class BigQueryMetadata
         return tableInfos.stream()
                 .collect(toImmutableMap(
                         table -> new SchemaTableName(table.getTableId().getDataset(), table.getTableId().getTable()),
-                        table -> client.buildColumnHandles(table, useStorageApi(session, table.getTableId().getTable(), table.getDefinition().getType())).stream()
+                        table -> client.buildColumnHandles(table, useStorageApi(session, table.getTableId().getTable(), table.getDefinition())).stream()
                                 .map(BigQueryColumnHandle::getColumnMetadata)
                                 .collect(toImmutableList())));
     }
@@ -1082,6 +1089,29 @@ public class BigQueryMetadata
         BigQueryTableHandle updatedHandle = bigQueryTableHandle.withConstraint(newDomain);
 
         return Optional.of(new ConstraintApplicationResult<>(updatedHandle, remainingFilter, constraint.getExpression(), false));
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle handle, long limit)
+    {
+        BigQueryTableHandle table = (BigQueryTableHandle) handle;
+
+        if (table.limit().isPresent() && table.limit().getAsLong() <= limit) {
+            return Optional.empty();
+        }
+
+        if (!isLimitPushdownSupported(table)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new LimitApplicationResult<>(table.withLimit(limit), true, false));
+    }
+
+    private static boolean isLimitPushdownSupported(BigQueryTableHandle table)
+    {
+        return table.isQueryRelation()
+                // Storage API doesn't support limiting rows
+                || (table.isNamedRelation() && !table.getRequiredNamedRelation().isUseStorageApi());
     }
 
     @Override

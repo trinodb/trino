@@ -79,7 +79,7 @@ creates a catalog named `sales` using the configured connector.
 ### Log levels
 
 Kafka consumer logging can be verbose and pollute Trino logs. To lower the
-{ref}`log level <log-levels>`, simply add the following to `etc/log.properties`:
+[log level](logging-configuration), simply add the following to `etc/log.properties`:
 
 ```text
 org.apache.kafka=WARN

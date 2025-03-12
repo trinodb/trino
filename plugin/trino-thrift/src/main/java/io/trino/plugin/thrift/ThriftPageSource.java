@@ -24,6 +24,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -125,7 +126,7 @@ public class ThriftPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (future == null) {
             // no data request in progress
@@ -152,7 +153,10 @@ public class ThriftPageSource
             future = null;
         }
 
-        return result;
+        if (result == null) {
+            return null;
+        }
+        return SourcePage.create(result);
     }
 
     private static boolean canGetMoreData(TrinoThriftId nextToken)

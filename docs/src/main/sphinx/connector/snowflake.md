@@ -33,15 +33,13 @@ snowflake.role=role
 snowflake.warehouse=warehouse
 ```
 
-### Arrow serialization support
+The Snowflake connector uses Apache Arrow as the serialization format when
+reading from Snowflake. Add the following required, additional JVM argument
+to the [](jvm-config):
 
-This is an experimental feature which introduces support for using Apache Arrow
-as the serialization format when reading from Snowflake.  Please note there are
-a few caveats:
-
-- Using Apache Arrow serialization is disabled by default. In order to enable
-  it,  add `--add-opens=java.base/java.nio=ALL-UNNAMED` to the Trino
-  {ref}`jvm-config`.
+```none
+--add-opens=java.base/java.nio=ALL-UNNAMED
+```
 
 ### Multiple Snowflake databases or accounts
 
@@ -60,9 +58,6 @@ multiple instances of the Snowflake connector.
 ```
 
 ```{include} jdbc-case-insensitive-matching.fragment
-```
-
-```{include} non-transactional-insert.fragment
 ```
 
 % snowflake-type-mapping:
@@ -233,21 +228,28 @@ No other types are supported.
 (snowflake-sql-support)=
 ## SQL support
 
-The connector provides read access and write access to data and metadata in
-a Snowflake database.  In addition to the {ref}`globally available
-<sql-globally-available>` and {ref}`read operation <sql-read-operations>`
+The connector provides read access and write access to data and metadata in a
+Snowflake database. In addition to the [globally
+available](sql-globally-available) and [read operation](sql-read-operations)
 statements, the connector supports the following features:
 
-- {doc}`/sql/insert`
-- {doc}`/sql/delete`
-- {doc}`/sql/truncate`
-- {doc}`/sql/create-table`
-- {doc}`/sql/create-table-as`
-- {doc}`/sql/drop-table`
-- {doc}`/sql/alter-table`
-- {doc}`/sql/create-schema`
-- {doc}`/sql/drop-schema`
+- [](/sql/insert), see also [](snowflake-insert)
+- [](/sql/delete)
+- [](/sql/truncate)
+- [](/sql/create-table)
+- [](/sql/create-table-as)
+- [](/sql/drop-table)
+- [](/sql/alter-table)
+- [](/sql/create-schema)
+- [](/sql/drop-schema)
+- [](snowflake-procedures)
+- [](snowflake-table-functions)
 
+(snowflake-insert)=
+```{include} non-transactional-insert.fragment
+```
+
+(snowflake-procedures)=
 ### Procedures
 
 ```{include} jdbc-procedures-flush.fragment
@@ -255,6 +257,7 @@ statements, the connector supports the following features:
 ```{include} procedures-execute.fragment
 ```
 
+(snowflake-table-functions)=
 ### Table functions
 
 The connector provides specific [table functions](/functions/table) to

@@ -789,6 +789,7 @@ public final class ThriftMetastoreUtil
             case TIMESTAMPLOCALTZ:
             case INTERVAL_YEAR_MONTH:
             case INTERVAL_DAY_TIME:
+            case VARIANT:
                 // TODO support these, when we add support for these Hive types
             case VOID:
             case UNKNOWN:
@@ -973,5 +974,14 @@ public final class ThriftMetastoreUtil
             case MERGE -> DataOperationType.UPDATE;
             default -> throw new IllegalStateException("No metastore operation for ACID operation " + acidOperation);
         };
+    }
+
+    public static boolean isAvroTableWithSchemaSet(Table table)
+    {
+        return AVRO.getSerde().equals(table.getStorage().getStorageFormat().getSerDeNullable()) &&
+                ((table.getParameters().get(AVRO_SCHEMA_URL_KEY) != null ||
+                        (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_URL_KEY) != null)) ||
+                 (table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null ||
+                         (table.getStorage().getSerdeParameters().get(AVRO_SCHEMA_LITERAL_KEY) != null)));
     }
 }

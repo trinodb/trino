@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
+import io.airlift.units.ThreadCount;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -43,20 +44,25 @@ import static java.util.concurrent.TimeUnit.SECONDS;
         "delta.experimental.ignore-checkpoint-write-failures",
         "delta.legacy-create-table-with-existing-location.enabled",
         "delta.max-initial-splits",
-        "delta.max-initial-split-size"
+        "delta.max-initial-split-size",
+        "delta.metadata.cache-size",
 })
 public class DeltaLakeConfig
 {
     public static final String EXTENDED_STATISTICS_ENABLED = "delta.extended-statistics.enabled";
     public static final String VACUUM_MIN_RETENTION = "delta.vacuum.min-retention";
+    public static final DataSize DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE = DataSize.of(16, MEGABYTE);
 
     // Runtime.getRuntime().maxMemory() is not 100% stable and may return slightly different value over JVM lifetime. We use
     // constant so default configuration for cache size is stable.
     @VisibleForTesting
     static final DataSize DEFAULT_DATA_FILE_CACHE_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 10L));
+    @VisibleForTesting
+    static final DataSize DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE = DataSize.succinctBytes(Math.floorDiv(Runtime.getRuntime().maxMemory(), 20L));
 
-    private Duration metadataCacheTtl = new Duration(5, TimeUnit.MINUTES);
-    private long metadataCacheMaxSize = 1000;
+    private Duration metadataCacheTtl = new Duration(30, TimeUnit.MINUTES);
+    private DataSize metadataCacheMaxRetainedSize = DEFAULT_METADATA_CACHE_MAX_RETAINED_SIZE;
+    private DataSize transactionLogMaxCachedFileSize = DEFAULT_TRANSACTION_LOG_MAX_CACHED_SIZE;
     private DataSize dataFileCacheSize = DEFAULT_DATA_FILE_CACHE_SIZE;
     private Duration dataFileCacheTtl = new Duration(30, TimeUnit.MINUTES);
     private int domainCompactionThreshold = 1000;
@@ -75,7 +81,7 @@ public class DeltaLakeConfig
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
-    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.SNAPPY;
+    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.ZSTD;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean storeTableMetadataEnabled;
     private int storeTableMetadataThreads = 5;
@@ -105,16 +111,29 @@ public class DeltaLakeConfig
         return this;
     }
 
-    public long getMetadataCacheMaxSize()
+    public DataSize getMetadataCacheMaxRetainedSize()
     {
-        return metadataCacheMaxSize;
+        return metadataCacheMaxRetainedSize;
     }
 
-    @Config("delta.metadata.cache-size")
-    @ConfigDescription("Maximum number of Delta table metadata entries to cache")
-    public DeltaLakeConfig setMetadataCacheMaxSize(long metadataCacheMaxSize)
+    @Config("delta.metadata.cache-max-retained-size")
+    @ConfigDescription("Maximum retained size of Delta table metadata stored in cache")
+    public DeltaLakeConfig setMetadataCacheMaxRetainedSize(DataSize metadataCacheMaxRetainedSize)
     {
-        this.metadataCacheMaxSize = metadataCacheMaxSize;
+        this.metadataCacheMaxRetainedSize = metadataCacheMaxRetainedSize;
+        return this;
+    }
+
+    public DataSize getTransactionLogMaxCachedFileSize()
+    {
+        return transactionLogMaxCachedFileSize;
+    }
+
+    @Config("delta.transaction-log.max-cached-file-size")
+    @ConfigDescription("Maximum size of delta transaction log file that will be cached in memory")
+    public DeltaLakeConfig setTransactionLogMaxCachedFileSize(DataSize transactionLogMaxCachedFileSize)
+    {
+        this.transactionLogMaxCachedFileSize = transactionLogMaxCachedFileSize;
         return this;
     }
 
@@ -407,9 +426,9 @@ public class DeltaLakeConfig
 
     @Config("delta.metastore.store-table-metadata-threads")
     @ConfigDescription("Number of threads used for storing table metadata in metastore")
-    public DeltaLakeConfig setStoreTableMetadataThreads(int storeTableMetadataThreads)
+    public DeltaLakeConfig setStoreTableMetadataThreads(String storeTableMetadataThreads)
     {
-        this.storeTableMetadataThreads = storeTableMetadataThreads;
+        this.storeTableMetadataThreads = ThreadCount.valueOf(storeTableMetadataThreads).getThreadCount();
         return this;
     }
 

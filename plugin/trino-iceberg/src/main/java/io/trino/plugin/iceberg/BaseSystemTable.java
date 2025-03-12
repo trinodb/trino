@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
@@ -48,12 +50,14 @@ public abstract class BaseSystemTable
     private final Table icebergTable;
     private final ConnectorTableMetadata tableMetadata;
     private final MetadataTableType metadataTableType;
+    private final ExecutorService executor;
 
-    BaseSystemTable(Table icebergTable, ConnectorTableMetadata tableMetadata, MetadataTableType metadataTableType)
+    BaseSystemTable(Table icebergTable, ConnectorTableMetadata tableMetadata, MetadataTableType metadataTableType, ExecutorService executor)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
         this.metadataTableType = requireNonNull(metadataTableType, "metadataTableType is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -78,7 +82,7 @@ public abstract class BaseSystemTable
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
 
-        TableScan tableScan = createMetadataTableInstance(icebergTable, metadataTableType).newScan();
+        TableScan tableScan = createMetadataTableInstance(icebergTable, metadataTableType).newScan().planWith(executor);
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
 
         Map<String, Integer> columnNameToPosition = mapWithIndex(tableScan.schema().columns().stream(),
@@ -98,12 +102,26 @@ public abstract class BaseSystemTable
     private void addRows(DataTask dataTask, PageListBuilder pagesBuilder, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema)
     {
         try (CloseableIterable<StructLike> dataRows = dataTask.rows()) {
-            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, dataTaskRow, timeZoneKey, columnNameToPositionInSchema));
+            dataRows.forEach(dataTaskRow -> addRow(pagesBuilder, new Row(dataTaskRow, columnNameToPositionInSchema), timeZoneKey));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    protected abstract void addRow(PageListBuilder pagesBuilder, StructLike structLike, TimeZoneKey timeZoneKey, Map<String, Integer> columnNameToPositionInSchema);
+    protected abstract void addRow(PageListBuilder pagesBuilder, Row row, TimeZoneKey timeZoneKey);
+
+    public record Row(StructLike structLike, Map<String, Integer> columnNameToPositionInSchema)
+    {
+        public Row
+        {
+            requireNonNull(structLike, "structLike is null");
+            columnNameToPositionInSchema = ImmutableMap.copyOf(columnNameToPositionInSchema);
+        }
+
+        public <T> T get(String columnName, Class<T> javaClass)
+        {
+            return structLike.get(columnNameToPositionInSchema.get(columnName), javaClass);
+        }
+    }
 }

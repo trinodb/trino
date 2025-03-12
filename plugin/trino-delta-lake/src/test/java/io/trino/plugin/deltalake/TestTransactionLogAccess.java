@@ -23,15 +23,15 @@ import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.filesystem.tracing.TracingFileSystemFactory;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
-import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.connector.ColumnMetadata;
@@ -102,14 +102,6 @@ public class TestTransactionLogAccess
             "age=30/part-00000-37ccfcd3-b44b-4d04-a1e6-d2837da75f7a.c000.snappy.parquet",
             "age=28/part-00000-40dd1707-1d42-4328-a59a-21f5c945fe60.c000.snappy.parquet",
             "age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet");
-
-    private static final Set<RemoveFileEntry> EXPECTED_REMOVE_ENTRIES = ImmutableSet.of(
-            new RemoveFileEntry("age=30/part-00000-7e43a3c3-ea26-4ae7-8eac-8f60cbb4df03.c000.snappy.parquet", null, 1579190163932L, false, Optional.empty()),
-            new RemoveFileEntry("age=30/part-00000-72a56c23-01ba-483a-9062-dd0accc86599.c000.snappy.parquet", null, 1579190163932L, false, Optional.empty()),
-            new RemoveFileEntry("age=42/part-00000-951068bd-bcf4-4094-bb94-536f3c41d31f.c000.snappy.parquet", null, 1579190155406L, false, Optional.empty()),
-            new RemoveFileEntry("age=25/part-00000-609e34b1-5466-4dbc-a780-2708166e7adb.c000.snappy.parquet", null, 1579190163932L, false, Optional.empty()),
-            new RemoveFileEntry("age=42/part-00000-6aed618a-2beb-4edd-8466-653e67a9b380.c000.snappy.parquet", null, 1579190155406L, false, Optional.empty()),
-            new RemoveFileEntry("age=42/part-00000-b82d8859-84a0-4f05-872c-206b07dd54f0.c000.snappy.parquet", null, 1579190163932L, false, Optional.empty()));
 
     private final TestingTelemetry testingTelemetry = TestingTelemetry.create("transaction-log-access");
     private final TracingFileSystemFactory tracingFileSystemFactory = new TracingFileSystemFactory(testingTelemetry.getTracer(), new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS));
@@ -323,18 +315,6 @@ public class TestTransactionLogAccess
     }
 
     @Test
-    public void testGetRemoveEntries()
-            throws Exception
-    {
-        setupTransactionLogAccessFromResources("person", "databricks73/person");
-
-        try (Stream<RemoveFileEntry> removeEntries = transactionLogAccess.getRemoveEntries(SESSION, tableSnapshot)) {
-            Set<RemoveFileEntry> removedEntries = removeEntries.collect(Collectors.toSet());
-            assertThat(removedEntries).isEqualTo(EXPECTED_REMOVE_ENTRIES);
-        }
-    }
-
-    @Test
     public void testAllGetMetadataEntry()
             throws Exception
     {
@@ -360,6 +340,35 @@ public class TestTransactionLogAccess
     }
 
     @Test
+    void testGetMetadataAndProtocolEntry()
+            throws Exception
+    {
+        testGetMetadataAndProtocolEntry("person", "databricks73/person");
+        testGetMetadataAndProtocolEntry("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
+        testGetMetadataAndProtocolEntry("person_without_old_jsons", "databricks73/person_without_old_jsons");
+        testGetMetadataAndProtocolEntry("person_without_checkpoints", "databricks73/person_without_checkpoints");
+    }
+
+    private void testGetMetadataAndProtocolEntry(String tableName, String resourcePath)
+            throws Exception
+    {
+        setupTransactionLogAccessFromResources(tableName, resourcePath);
+
+        transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tableSnapshot);
+        MetadataAndProtocolEntries logEntries = transactionLogAccess.getMetadataAndProtocolEntry(SESSION, tableSnapshot);
+
+        MetadataEntry metadataEntry = logEntries.metadata().orElseThrow();
+        assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("age");
+        MetadataEntry.Format format = metadataEntry.getFormat();
+        assertThat(format.options().keySet()).isEmpty();
+        assertThat(format.provider()).isEqualTo("parquet");
+
+        ProtocolEntry protocolEntry = logEntries.protocol().orElseThrow();
+        assertThat(protocolEntry.minReaderVersion()).isEqualTo(1);
+        assertThat(protocolEntry.minWriterVersion()).isEqualTo(2);
+    }
+
+    @Test
     public void testAllGetActiveAddEntries()
             throws Exception
     {
@@ -381,29 +390,6 @@ public class TestTransactionLogAccess
                     .collect(Collectors.toSet());
 
             assertThat(paths).isEqualTo(EXPECTED_ADD_FILE_PATHS);
-        }
-    }
-
-    @Test
-    public void testAllGetRemoveEntries()
-            throws Exception
-    {
-        testAllGetRemoveEntries("person", "databricks73/person");
-        testAllGetRemoveEntries("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
-        testAllGetRemoveEntries("person_without_old_jsons", "databricks73/person_without_old_jsons");
-        testAllGetRemoveEntries("person_without_checkpoints", "databricks73/person_without_checkpoints");
-    }
-
-    private void testAllGetRemoveEntries(String tableName, String resourcePath)
-            throws Exception
-    {
-        setupTransactionLogAccessFromResources(tableName, resourcePath);
-
-        try (Stream<RemoveFileEntry> removeEntries = transactionLogAccess.getRemoveEntries(SESSION, tableSnapshot)) {
-            Set<String> removedPaths = removeEntries.map(RemoveFileEntry::path).collect(Collectors.toSet());
-            Set<String> expectedPaths = EXPECTED_REMOVE_ENTRIES.stream().map(RemoveFileEntry::path).collect(Collectors.toSet());
-
-            assertThat(removedPaths).isEqualTo(expectedPaths);
         }
     }
 
@@ -597,7 +583,8 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
                         .build());
 
         copyTransactionLogEntry(12, 14, resourceDir, transactionLogDir);
@@ -615,7 +602,9 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("_last_checkpoint", "InputFile.newStream"))
                         .addCopies(new FileOperation("00000000000000000012.json", "InputFile.newStream"), 2)
                         .addCopies(new FileOperation("00000000000000000013.json", "InputFile.newStream"), 2)
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .addCopies(new FileOperation("00000000000000000012.json", "InputFile.length"), 2)
+                        .addCopies(new FileOperation("00000000000000000013.json", "InputFile.length"), 2)
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .build());
     }
 
@@ -777,7 +766,10 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .build());
 
         // With the transaction log cache disabled, when loading the snapshot again, all the needed files will be opened again
@@ -790,7 +782,10 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .build());
     }
 
@@ -826,7 +821,10 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
@@ -866,7 +864,10 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
@@ -885,7 +886,10 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
@@ -916,7 +920,10 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000012.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000013.json", "InputFile.newStream"))
-                        .add(new FileOperation("00000000000000000014.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000012.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000013.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000014.json", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .build());
@@ -968,6 +975,16 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000007.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000008.json", "InputFile.newStream"))
                         .add(new FileOperation("00000000000000000009.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000000.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000001.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000002.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000003.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000004.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000005.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000006.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000007.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000008.json", "InputFile.length"))
+                        .add(new FileOperation("00000000000000000009.json", "InputFile.length"))
                         .build());
 
         setupTransactionLogAccess("person", getClass().getClassLoader().getResource("databricks73/person").toString(), new DeltaLakeConfig(), Optional.of(10L));
@@ -999,6 +1016,7 @@ public class TestTransactionLogAccess
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.length"))
                         .add(new FileOperation("00000000000000000010.checkpoint.parquet", "InputFile.newInput"))
                         .add(new FileOperation("00000000000000000011.json", "InputFile.newStream"))
+                        .add(new FileOperation("00000000000000000011.json", "InputFile.length"))
                         .build());
     }
 

@@ -14,7 +14,7 @@
 package io.trino.spooling.filesystem;
 
 import io.trino.spi.Plugin;
-import io.trino.spi.protocol.SpoolingManagerFactory;
+import io.trino.spi.spool.SpoolingManagerFactory;
 
 import java.util.List;
 

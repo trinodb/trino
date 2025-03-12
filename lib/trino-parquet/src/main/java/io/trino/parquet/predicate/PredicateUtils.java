@@ -27,6 +27,7 @@ import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
+import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.spi.predicate.TupleDomain;
@@ -183,7 +184,7 @@ public final class PredicateUtils
             long splitStart,
             long splitLength,
             ParquetDataSource dataSource,
-            List<BlockMetadata> blocksMetaData,
+            ParquetMetadata parquetMetadata,
             List<TupleDomain<ColumnDescriptor>> parquetTupleDomains,
             List<TupleDomainParquetPredicate> parquetPredicates,
             Map<List<String>, ColumnDescriptor> descriptorsByPath,
@@ -192,9 +193,8 @@ public final class PredicateUtils
             ParquetReaderOptions options)
             throws IOException
     {
-        long fileRowCount = 0;
         ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
-        for (BlockMetadata block : blocksMetaData) {
+        for (BlockMetadata block : parquetMetadata.getBlocks(splitStart, splitLength)) {
             long blockStart = block.getStartingPos();
             boolean splitContainsBlock = splitStart <= blockStart && blockStart < splitStart + splitLength;
             if (splitContainsBlock) {
@@ -214,12 +214,11 @@ public final class PredicateUtils
                             bloomFilterStore,
                             timeZone,
                             domainCompactionThreshold)) {
-                        rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, fileRowCount, columnIndex));
+                        rowGroupInfoBuilder.add(new RowGroupInfo(columnsMetadata, block.fileRowCountOffset(), columnIndex));
                         break;
                     }
                 }
             }
-            fileRowCount += block.rowCount();
         }
         return rowGroupInfoBuilder.build();
     }

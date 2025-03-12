@@ -23,7 +23,6 @@ import io.trino.testing.TestingNodeManager;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -47,8 +46,7 @@ class TestHdfsFileSystemManager
                 new TestingNodeManager(),
                 OpenTelemetry.noop());
 
-        Set<String> used = manager.configure();
-        assertThat(used).containsExactly("hive.dfs.verify-checksum", "hive.s3.region");
+        assertThat(manager.configure().keySet()).containsExactly("hive.dfs.verify-checksum", "hive.s3.region");
 
         TrinoFileSystemFactory factory = manager.create();
         TrinoFileSystem fileSystem = factory.create(ConnectorIdentity.ofUser("test"));

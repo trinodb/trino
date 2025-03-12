@@ -23,6 +23,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.metrics.Metrics;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
@@ -96,6 +97,7 @@ public class TestStageStats
             DataSize.ofBytes(36),
             37,
             38,
+            Metrics.EMPTY,
 
             new Duration(203, NANOSECONDS),
             new Duration(204, NANOSECONDS),

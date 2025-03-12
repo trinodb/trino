@@ -28,8 +28,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergS3AndGlueMetastoreTest
@@ -37,7 +37,7 @@ public class TestIcebergS3AndGlueMetastoreTest
 {
     public TestIcebergS3AndGlueMetastoreTest()
     {
-        super("partitioning", "location", requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set"));
+        super("partitioning", "location", requireEnv("S3_BUCKET"));
     }
 
     @Override
@@ -49,7 +49,6 @@ public class TestIcebergS3AndGlueMetastoreTest
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.catalog.type", "glue")
                         .put("hive.metastore.glue.default-warehouse-dir", schemaPath())
-                        .put("fs.hadoop.enabled", "false")
                         .put("fs.native-s3.enabled", "true")
                         .buildOrThrow())
                 .setSchemaInitializer(SchemaInitializer.builder()

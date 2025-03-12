@@ -22,10 +22,13 @@ import com.google.inject.TypeLiteral;
 import com.google.inject.multibindings.OptionalBinder;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.SystemSessionPropertiesProvider;
 import io.trino.server.ServerConfig;
+import io.trino.server.protocol.QueryDataProducerFactory;
 import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
-import io.trino.spi.protocol.SpoolingManager;
+import io.trino.spi.spool.SpoolingManager;
 
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.server.protocol.spooling.QueryDataEncoder.EncoderSelector.noEncoder;
@@ -41,6 +44,7 @@ public class SpoolingServerModule
         install(new QueryDataEncodingModule());
 
         binder.bind(SpoolingManagerRegistry.class).in(Scopes.SINGLETON);
+        binder.bind(QueryDataProducerFactory.class).in(Scopes.SINGLETON);
         OptionalBinder<SpoolingManager> spoolingManagerBinder = newOptionalBinder(binder, new TypeLiteral<>() {});
         newOptionalBinder(binder, SpoolingConfig.class);
         SpoolingEnabledConfig spoolingEnabledConfig = buildConfigObject(SpoolingEnabledConfig.class);
@@ -48,6 +52,8 @@ public class SpoolingServerModule
             binder.bind(QueryDataEncoder.EncoderSelector.class).toInstance(noEncoder());
             return;
         }
+
+        newSetBinder(binder, SystemSessionPropertiesProvider.class).addBinding().to(SpoolingSessionProperties.class).in(Scopes.SINGLETON);
 
         boolean isCoordinator = buildConfigObject(ServerConfig.class).isCoordinator();
         SpoolingConfig spoolingConfig = buildConfigObject(SpoolingConfig.class);

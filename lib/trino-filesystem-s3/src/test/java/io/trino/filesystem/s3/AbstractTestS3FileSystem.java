@@ -14,7 +14,6 @@
 package io.trino.filesystem.s3;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import io.airlift.log.Logging;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
@@ -42,6 +41,7 @@ import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.filesystem.encryption.EncryptionKey.randomAes256;
+import static io.trino.filesystem.s3.S3FileSystem.disableStrongIntegrityChecksums;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -157,6 +157,7 @@ public abstract class AbstractTestS3FileSystem
                             builder.sseCustomerKeyMD5(md5Checksum(randomEncryptionKey));
                         }
                     })
+                    .overrideConfiguration(disableStrongIntegrityChecksums())
                     .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(contents.clone()));
@@ -172,7 +173,7 @@ public abstract class AbstractTestS3FileSystem
                 TrinoInputFile inputFile = getFileSystem().newInputFile(fileEntry.location());
                 assertThat(inputFile.exists()).as("exists").isTrue();
                 try (TrinoInputStream inputStream = inputFile.newStream()) {
-                    byte[] bytes = ByteStreams.toByteArray(inputStream);
+                    byte[] bytes = inputStream.readAllBytes();
                     assertThat(bytes).isEqualTo(contents);
                 }
 
@@ -272,7 +273,9 @@ public abstract class AbstractTestS3FileSystem
 
         public void create()
         {
-            s3Client.putObject(request -> request.bucket(bucket()).key(path), RequestBody.empty());
+            s3Client.putObject(request -> request
+                    .overrideConfiguration(disableStrongIntegrityChecksums())
+                    .bucket(bucket()).key(path), RequestBody.empty());
         }
 
         @Override

@@ -2,39 +2,16 @@
     <!-- Target -->
     <archive name="${project.artifactId}-${project.version}.tar.gz" hardLinkIncludes="**/*.jar" />
 
-    <!-- Notices -->
-    <fileSet to="/">
-        <directory path="${basedir}">
-            <include>NOTICE</include>
-            <include>README.txt</include>
-        </directory>
-    </fileSet>
-
-    <!-- Launcher -->
-    <artifactSet to="bin">
-        <artifact id="io.airlift:launcher:tar.gz:bin:${dep.packaging.version}">
-            <unpack />
-        </artifact>
-        <artifact id="io.airlift:launcher:tar.gz:properties:${dep.packaging.version}">
-            <unpack filter="true" />
-        </artifact>
-    </artifactSet>
-
-    <!-- Server -->
-    <artifactSet to="lib">
-        <artifact id="${project.groupId}:trino-server-main:${project.version}" />
-    </artifactSet>
-
-    <!-- Configuration Plugins -->
-    <artifactSet to="secrets-plugin/keystore-secrets-plugin">
-        <artifact id="io.airlift:secrets-keystore-plugin:zip:${dep.packaging.version}">
+   <!-- Expand on top of trino-server-core -->
+    <artifactSet to="">
+        <artifact id="${project.groupId}:trino-server-core:tar.gz:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
 
     <!-- Plugins -->
-    <artifactSet to="plugin/apache-ranger">
-        <artifact id="${project.groupId}:trino-apache-ranger:zip:${project.version}">
+    <artifactSet to="plugin/ai-functions">
+        <artifact id="${project.groupId}:trino-ai-functions:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -78,6 +55,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/duckdb">
+        <artifact id="${project.groupId}:trino-duckdb:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/elasticsearch">
         <artifact id="${project.groupId}:trino-elasticsearch:zip:${project.version}">
             <unpack />
@@ -96,12 +79,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/exchange-filesystem">
-        <artifact id="${project.groupId}:trino-exchange-filesystem:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/exchange-hdfs">
         <artifact id="${project.groupId}:trino-exchange-hdfs:zip:${project.version}">
             <unpack />
@@ -110,12 +87,6 @@
 
     <artifactSet to="plugin/faker">
         <artifact id="${project.groupId}:trino-faker:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/geospatial">
-        <artifact id="${project.groupId}:trino-geospatial:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -189,14 +160,8 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/kinesis">
-        <artifact id="${project.groupId}:trino-kinesis:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/kudu">
-        <artifact id="${project.groupId}:trino-kudu:zip:${project.version}">
+    <artifactSet to="plugin/loki">
+        <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>
@@ -261,18 +226,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/password-authenticators">
-        <artifact id="${project.groupId}:trino-password-authenticators:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/phoenix5">
-        <artifact id="${project.groupId}:trino-phoenix5:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/pinot">
         <artifact id="${project.groupId}:trino-pinot:zip:${project.version}">
             <unpack />
@@ -291,6 +244,13 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/ranger">
+        <artifact id="${project.groupId}:trino-ranger:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+
     <artifactSet to="plugin/redis">
         <artifact id="${project.groupId}:trino-redis:zip:${project.version}">
             <unpack />
@@ -303,18 +263,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/resource-group-managers">
-        <artifact id="${project.groupId}:trino-resource-group-managers:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/session-property-managers">
-        <artifact id="${project.groupId}:trino-session-property-managers:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/singlestore">
         <artifact id="${project.groupId}:trino-singlestore:zip:${project.version}">
             <unpack />
@@ -323,12 +271,6 @@
 
     <artifactSet to="plugin/snowflake">
         <artifact id="${project.groupId}:trino-snowflake:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
-    <artifactSet to="plugin/spooling-filesystem">
-        <artifact id="${project.groupId}:trino-spooling-filesystem:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

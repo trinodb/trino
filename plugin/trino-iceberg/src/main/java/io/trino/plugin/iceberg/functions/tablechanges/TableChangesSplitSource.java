@@ -96,7 +96,7 @@ public class TableChangesSplitSource
     @Override
     public boolean isFinished()
     {
-        return changelogScanIterator != null && !changelogScanIterator.hasNext();
+        return changelogScanIterator != null && !changelogScanIterator.hasNext() && !fileTasksIterator.hasNext();
     }
 
     @Override
@@ -145,7 +145,7 @@ public class TableChangesSplitSource
                 task.commitSnapshotId(),
                 DateTimeEncoding.packDateTimeWithZone(icebergTable.snapshot(task.commitSnapshotId()).timestampMillis(), UTC_KEY),
                 task.changeOrdinal(),
-                task.file().path().toString(),
+                task.file().location(),
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),
@@ -164,7 +164,7 @@ public class TableChangesSplitSource
                 task.commitSnapshotId(),
                 DateTimeEncoding.packDateTimeWithZone(icebergTable.snapshot(task.commitSnapshotId()).timestampMillis(), UTC_KEY),
                 task.changeOrdinal(),
-                task.file().path().toString(),
+                task.file().location(),
                 task.start(),
                 task.length(),
                 task.file().fileSizeInBytes(),

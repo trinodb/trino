@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.faker;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.H2QueryRunner;
 import io.trino.testing.QueryAssertions;
@@ -21,10 +22,13 @@ import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.faker.ColumnInfo.ALLOWED_VALUES_PROPERTY;
 import static io.trino.plugin.faker.FakerSplitManager.MAX_ROWS_PER_SPLIT;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestFakerQueries
@@ -46,9 +50,24 @@ final class TestFakerQueries
     }
 
     @Test
+    void testTableComment()
+    {
+        try (TestTable table = newTrinoTable("table_comment", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS 'test comment'");
+            assertThat(getTableComment(table.getName())).isEqualTo("test comment");
+
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS ''");
+            assertThat(getTableComment(table.getName())).isEmpty();
+
+            assertUpdate("COMMENT ON TABLE " + table.getName() + " IS NULL");
+            assertThat(getTableComment(table.getName())).isNull();
+        }
+    }
+
+    @Test
     void testColumnComment()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "comment", "(id INTEGER, name VARCHAR)")) {
+        try (TestTable table = newTrinoTable("comment", "(id INTEGER, name VARCHAR)")) {
             assertUpdate("COMMENT ON COLUMN %s.name IS 'comment text'".formatted(table.getName()));
             assertQuery("SHOW COLUMNS FROM " + table.getName(), "VALUES ('id', 'integer', '', ''), ('name', 'varchar', '', 'comment text')");
         }
@@ -57,7 +76,7 @@ final class TestFakerQueries
     @Test
     void testCannotCommentRowId()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "cannot_comment", "(id INTEGER, name VARCHAR)")) {
+        try (TestTable table = newTrinoTable("cannot_comment", "(id INTEGER, name VARCHAR)")) {
             assertThat(query("COMMENT ON COLUMN \"%s\".\"$row_id\" IS 'comment text'".formatted(table.getName())))
                     .failure()
                     .hasErrorCode(INVALID_COLUMN_REFERENCE)
@@ -68,152 +87,65 @@ final class TestFakerQueries
     @Test
     void testSelectFromTable()
     {
-        @Language("SQL")
-        String tableQuery =
-                """
-                CREATE TABLE faker.default.all_types (
-                rnd_bigint bigint NOT NULL,
-                rnd_integer integer NOT NULL,
-                rnd_smallint smallint NOT NULL,
-                rnd_tinyint tinyint NOT NULL,
-                rnd_boolean boolean NOT NULL,
-                rnd_date date NOT NULL,
-                rnd_decimal1 decimal NOT NULL,
-                rnd_decimal2 decimal(18,5) NOT NULL,
-                rnd_decimal3 decimal(38,0) NOT NULL,
-                rnd_decimal4 decimal(38,38) NOT NULL,
-                rnd_decimal5 decimal(5,2) NOT NULL,
-                rnd_real real NOT NULL,
-                rnd_double double NOT NULL,
-                rnd_interval_day_time interval day to second NOT NULL,
-                rnd_interval_year interval year to month NOT NULL,
-                rnd_timestamp timestamp NOT NULL,
-                rnd_timestamp0 timestamp(0) NOT NULL,
-                rnd_timestamp6 timestamp(6) NOT NULL,
-                rnd_timestamp9 timestamp(9) NOT NULL,
-                rnd_timestamptz timestamp with time zone NOT NULL,
-                rnd_timestamptz0 timestamp(0) with time zone NOT NULL,
-                rnd_timestamptz6 timestamp(6) with time zone NOT NULL,
-                rnd_timestamptz9 timestamp(9) with time zone NOT NULL,
-                rnd_time time NOT NULL,
-                rnd_time0 time(0) NOT NULL,
-                rnd_time6 time(6) NOT NULL,
-                rnd_time9 time(9) NOT NULL,
-                rnd_timetz time with time zone NOT NULL,
-                rnd_timetz0 time(0) with time zone NOT NULL,
-                rnd_timetz6 time(6) with time zone NOT NULL,
-                rnd_timetz9 time(9) with time zone NOT NULL,
-                rnd_timetz12 time(12) with time zone NOT NULL,
-                rnd_varbinary varbinary NOT NULL,
-                rnd_varchar varchar NOT NULL,
-                rnd_nvarchar varchar(1000) NOT NULL,
-                rnd_char char NOT NULL,
-                rnd_nchar char(1000) NOT NULL,
-                rnd_ipaddress ipaddress NOT NULL,
-                rnd_uuid uuid NOT NULL)""";
-        assertUpdate(tableQuery);
+        List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", "count(distinct rnd_bigint)", "1000"))
+                .add(new TestDataType("rnd_integer", "integer", "count(distinct rnd_integer)", "1000"))
+                .add(new TestDataType("rnd_smallint", "smallint", "count(rnd_smallint)", "1000"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", "count(rnd_tinyint)", "1000"))
+                .add(new TestDataType("rnd_boolean", "boolean", "count(distinct rnd_boolean)", "2"))
+                .add(new TestDataType("rnd_date", "date", "count(distinct rnd_date)", "1000"))
+                .add(new TestDataType("rnd_decimal1", "decimal", "count(distinct rnd_decimal1)", "1000"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", "count(distinct rnd_decimal2)", "1000"))
+                .add(new TestDataType("rnd_decimal3", "decimal(38,0)", "count(distinct rnd_decimal3)", "1000"))
+                .add(new TestDataType("rnd_decimal4", "decimal(38,38)", "count(distinct rnd_decimal4)", "1000"))
+                .add(new TestDataType("rnd_decimal5", "decimal(5,2)", "count(rnd_decimal5)", "1000"))
+                .add(new TestDataType("rnd_real", "real", "count(rnd_real)", "1000"))
+                .add(new TestDataType("rnd_double", "double", "count(distinct rnd_double)", "1000"))
+                .add(new TestDataType("rnd_interval1", "interval day to second", "count(distinct rnd_interval1)", "1000"))
+                .add(new TestDataType("rnd_interval2", "interval year to month", "count(distinct rnd_interval2)", "1000"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", "count(distinct rnd_timestamp)", "1000"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", "count(distinct rnd_timestamp0)", "1000"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", "count(distinct rnd_timestamp6)", "1000"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", "count(distinct rnd_timestamp9)", "1000"))
+                .add(new TestDataType("rnd_timestamptz", "timestamp with time zone", "count(distinct rnd_timestamptz)", "1000"))
+                .add(new TestDataType("rnd_timestamptz0", "timestamp(0) with time zone", "count(distinct rnd_timestamptz0)", "1000"))
+                .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", "count(distinct rnd_timestamptz6)", "1000"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", "count(distinct rnd_timestamptz9)", "1000"))
+                .add(new TestDataType("rnd_time", "time", "count(rnd_time)", "1000"))
+                .add(new TestDataType("rnd_time0", "time(0)", "count(rnd_time0)", "1000"))
+                .add(new TestDataType("rnd_time6", "time(6)", "count(distinct rnd_time6)", "1000"))
+                .add(new TestDataType("rnd_time9", "time(9)", "count(distinct rnd_time9)", "1000"))
+                .add(new TestDataType("rnd_timetz", "time with time zone", "count(rnd_timetz)", "1000"))
+                .add(new TestDataType("rnd_timetz0", "time(0) with time zone", "count(rnd_timetz0)", "1000"))
+                .add(new TestDataType("rnd_timetz6", "time(6) with time zone", "count(distinct rnd_timetz6)", "1000"))
+                .add(new TestDataType("rnd_timetz9", "time(9) with time zone", "count(distinct rnd_timetz9)", "1000"))
+                .add(new TestDataType("rnd_timetz12", "time(12) with time zone", "count(distinct rnd_timetz12)", "1000"))
+                .add(new TestDataType("rnd_varbinary", "varbinary", "count(distinct rnd_varbinary)", "1000"))
+                .add(new TestDataType("rnd_varchar", "varchar", "count(rnd_varchar)", "1000"))
+                .add(new TestDataType("rnd_nvarchar", "varchar(1000)", "count(rnd_nvarchar)", "1000"))
+                .add(new TestDataType("rnd_char", "char", "count(distinct rnd_char)", "19"))
+                .add(new TestDataType("rnd_nchar", "char(1000)", "count(distinct rnd_nchar)", "1000"))
+                .add(new TestDataType("rnd_ipaddress", "ipaddress", "count(distinct rnd_ipaddress)", "1000"))
+                .add(new TestDataType("rnd_uuid", "uuid", "count(distinct rnd_uuid)", "1000"))
+                .add(new TestDataType("rnd_array_int", "array(integer)", "count(distinct rnd_array_int)", "1"))
+                .add(new TestDataType("rnd_array_varchar", "array(varchar)", "count(distinct rnd_array_varchar)", "1"))
+                .add(new TestDataType("rnd_map_int", "map(integer, integer)", "count(distinct rnd_map_int)", "1"))
+                .add(new TestDataType("rnd_map_varchar", "map(varchar, varchar)", "count(distinct rnd_map_varchar)", "1"))
+                .add(new TestDataType("rnd_row", "row(integer, varchar)", "count(distinct rnd_row)", "1000"))
+                .add(new TestDataType("rnd_json", "json", "count(distinct rnd_json)", "1"))
+                .build();
 
-        @Language("SQL")
-        String testQuery =
-                """
-                SELECT
-                count(distinct rnd_bigint),
-                count(distinct rnd_integer),
-                count(rnd_smallint),
-                count(rnd_tinyint),
-                count(distinct rnd_boolean),
-                count(distinct rnd_date),
-                count(distinct rnd_decimal1),
-                count(distinct rnd_decimal2),
-                count(distinct rnd_decimal3),
-                count(distinct rnd_decimal4),
-                count(rnd_decimal5),
-                count(rnd_real),
-                count(distinct rnd_double),
-                count(distinct rnd_interval_day_time),
-                count(distinct rnd_interval_year),
-                count(distinct rnd_timestamp),
-                count(distinct rnd_timestamp0),
-                count(distinct rnd_timestamp6),
-                count(distinct rnd_timestamp9),
-                count(distinct rnd_timestamptz),
-                count(distinct rnd_timestamptz0),
-                count(distinct rnd_timestamptz6),
-                count(distinct rnd_timestamptz9),
-                count(rnd_time),
-                count(rnd_time0),
-                count(distinct rnd_time6),
-                count(distinct rnd_time9),
-                count(rnd_timetz),
-                count(rnd_timetz0),
-                count(distinct rnd_timetz6),
-                count(distinct rnd_timetz9),
-                count(distinct rnd_varbinary),
-                count(rnd_varchar),
-                count(rnd_nvarchar),
-                count(distinct rnd_char),
-                count(distinct rnd_nchar),
-                count(distinct rnd_ipaddress),
-                count(distinct rnd_uuid)
-                FROM all_types""";
-        assertQuery(testQuery,
-                """
-                VALUES (
-                1000,
-                1000,
-                1000,
-                1000,
-                -- boolean, date
-                2,
-                1000,
-                -- decimal
-                1000,
-                1000,
-                1000,
-                1000,
-                1000,
-                -- real, double
-                1000,
-                1000,
-                -- intervals
-                1000,
-                1000,
-                -- timestamps
-                1000,
-                1000,
-                1000,
-                1000,
-                -- timestamps with time zone
-                1000,
-                1000,
-                1000,
-                1000,
-                -- time
-                1000,
-                1000,
-                1000,
-                1000,
-                -- time with time zone
-                1000,
-                1000,
-                1000,
-                1000,
-                -- varbinary, varchar, nvarchar, char, nchar
-                1000,
-                1000,
-                1000,
-                19,
-                1000,
-                -- ip address, uuid
-                1000,
-                1000)""");
-        assertUpdate("DROP TABLE faker.default.all_types");
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("types_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
     }
 
     @Test
     void testSelectLimit()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "single_column", "(rnd_bigint bigint NOT NULL)")) {
+        try (TestTable table = newTrinoTable("single_column", "(rnd_bigint bigint NOT NULL)")) {
             assertQuery("SELECT count(rnd_bigint) FROM (SELECT rnd_bigint FROM %s LIMIT 5) a".formatted(table.getName()),
                     "VALUES (5)");
 
@@ -250,7 +182,7 @@ final class TestFakerQueries
     @Test
     void testSelectDefaultTableLimit()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "default_table_limit", "(rnd_bigint bigint NOT NULL) WITH (default_limit = 100)")) {
+        try (TestTable table = newTrinoTable("default_table_limit", "(rnd_bigint bigint NOT NULL) WITH (default_limit = 100)")) {
             assertQuery("SELECT count(distinct rnd_bigint) FROM " + table.getName(), "VALUES (100)");
         }
     }
@@ -258,7 +190,7 @@ final class TestFakerQueries
     @Test
     public void selectOnlyNulls()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "only_nulls", "(rnd_bigint bigint) WITH (null_probability = 1.0)")) {
+        try (TestTable table = newTrinoTable("only_nulls", "(rnd_bigint bigint) WITH (null_probability = 1.0)")) {
             assertQuery("SELECT count(distinct rnd_bigint) FROM " + table.getName(), "VALUES (0)");
         }
     }
@@ -266,7 +198,7 @@ final class TestFakerQueries
     @Test
     void testSelectGenerator()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "generators",
+        try (TestTable table = newTrinoTable("generators",
                 """
                 (
                     name VARCHAR NOT NULL WITH (generator = '#{Name.first_name} #{Name.last_name}'),
@@ -311,543 +243,395 @@ final class TestFakerQueries
     }
 
     @Test
-    void testSelectRange()
+    void testSelectRangeProperties()
     {
-        @Language("SQL")
-        String tableQuery =
-                """
-                CREATE TABLE faker.default.all_types_range (
-                rnd_bigint bigint NOT NULL,
-                rnd_integer integer NOT NULL,
-                rnd_smallint smallint NOT NULL,
-                rnd_tinyint tinyint NOT NULL,
-                rnd_boolean boolean NOT NULL,
-                rnd_date date NOT NULL,
-                rnd_decimal1 decimal NOT NULL,
-                rnd_decimal2 decimal(18,5) NOT NULL,
-                rnd_decimal3 decimal(38,0) NOT NULL,
-                rnd_decimal4 decimal(38,38) NOT NULL,
-                rnd_decimal5 decimal(5,2) NOT NULL,
-                rnd_real real NOT NULL,
-                rnd_double double NOT NULL,
-                rnd_interval_day_time interval day to second NOT NULL,
-                rnd_interval_year interval year to month NOT NULL,
-                rnd_timestamp timestamp NOT NULL,
-                rnd_timestamp0 timestamp(0) NOT NULL,
-                rnd_timestamp6 timestamp(6) NOT NULL,
-                rnd_timestamp9 timestamp(9) NOT NULL,
-                rnd_timestamptz timestamp with time zone NOT NULL,
-                rnd_timestamptz0 timestamp(0) with time zone NOT NULL,
-                rnd_timestamptz6 timestamp(6) with time zone NOT NULL,
-                rnd_timestamptz9 timestamp(9) with time zone NOT NULL,
-                rnd_time time NOT NULL,
-                rnd_time0 time(0) NOT NULL,
-                rnd_time6 time(6) NOT NULL,
-                rnd_time9 time(9) NOT NULL,
-                rnd_timetz time with time zone NOT NULL,
-                rnd_timetz0 time(0) with time zone NOT NULL,
-                rnd_timetz6 time(6) with time zone NOT NULL,
-                rnd_timetz9 time(9) with time zone NOT NULL,
-                rnd_timetz12 time(12) with time zone NOT NULL,
-                rnd_varbinary varbinary NOT NULL,
-                rnd_varchar varchar NOT NULL,
-                rnd_nvarchar varchar(1000) NOT NULL,
-                rnd_char char NOT NULL,
-                rnd_nchar char(1000) NOT NULL,
-                rnd_ipaddress ipaddress NOT NULL,
-                rnd_uuid uuid NOT NULL)""";
-        assertUpdate(tableQuery);
+        // inclusive ranges that produce only 2 values
+        // high boundary float value obtained using `Math.nextUp((float) 0.0)`
+        List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "0", "max", "1"), "count(distinct rnd_bigint)", "2"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "0", "max", "1"), "count(distinct rnd_integer)", "2"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "0", "max", "1"), "count(distinct rnd_smallint)", "2"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "0", "max", "1"), "count(distinct rnd_tinyint)", "2"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "2022-03-01", "max", "2022-03-02"), "count(distinct rnd_date)", "2"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("min", "0", "max", "1"), "count(distinct rnd_decimal1)", "2"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("min", "0.00000", "max", "0.00001"), "count(distinct rnd_decimal2)", "2"))
+                .add(new TestDataType("rnd_decimal3", "decimal(38,0)", Map.of("min", "0", "max", "1"), "count(distinct rnd_decimal3)", "2"))
+                .add(new TestDataType("rnd_decimal4", "decimal(38,38)", Map.of("min", "0.00000000000000000000000000000000000000", "max", "0.00000000000000000000000000000000000001"), "count(distinct rnd_decimal4)", "2"))
+                .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "0.00", "max", "0.01"), "count(distinct rnd_decimal5)", "2"))
+                .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "1.4E-45"), "count(distinct rnd_real)", "2"))
+                .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "4.9E-324"), "count(distinct rnd_double)", "2"))
+                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("min", "0.000", "max", "0.001"), "count(distinct rnd_interval1)", "2"))
+                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("min", "0", "max", "1"), "count(distinct rnd_interval2)", "2"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2022-03-21 00:00:00.000", "max", "2022-03-21 00:00:00.001"), "count(distinct rnd_timestamp)", "2"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("min", "2022-03-21 00:00:00", "max", "2022-03-21 00:00:01"), "count(distinct rnd_timestamp0)", "2"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "2022-03-21 00:00:00.000000", "max", "2022-03-21 00:00:00.000001"), "count(distinct rnd_timestamp6)", "2"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "2022-03-21 00:00:00.000000000", "max", "2022-03-21 00:00:00.000000001"), "count(distinct rnd_timestamp9)", "2"))
+                .add(new TestDataType("rnd_timestamptz", "timestamp with time zone", Map.of("min", "2022-03-21 00:00:00.000 +01:00", "max", "2022-03-21 00:00:00.001 +01:00"), "count(distinct rnd_timestamptz)", "2"))
+                .add(new TestDataType("rnd_timestamptz0", "timestamp(0) with time zone", Map.of("min", "2022-03-21 00:00:00 +01:00", "max", "2022-03-21 00:00:01 +01:00"), "count(distinct rnd_timestamptz0)", "2"))
+                .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", Map.of("min", "2022-03-21 00:00:00.000000 +01:00", "max", "2022-03-21 00:00:00.000001 +01:00"), "count(distinct rnd_timestamptz6)", "2"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", Map.of("min", "2022-03-21 00:00:00.000000000 +01:00", "max", "2022-03-21 00:00:00.000000001 +01:00"), "count(distinct rnd_timestamptz9)", "2"))
+                .add(new TestDataType("rnd_time", "time", Map.of("min", "01:02:03.456", "max", "01:02:03.457"), "count(distinct rnd_time)", "2"))
+                .add(new TestDataType("rnd_time0", "time(0)", Map.of("min", "01:02:03", "max", "01:02:04"), "count(distinct rnd_time0)", "2"))
+                .add(new TestDataType("rnd_time6", "time(6)", Map.of("min", "01:02:03.000456", "max", "01:02:03.000457"), "count(distinct rnd_time6)", "2"))
+                .add(new TestDataType("rnd_time9", "time(9)", Map.of("min", "01:02:03.000000456", "max", "01:02:03.000000457"), "count(distinct rnd_time9)", "2"))
+                .add(new TestDataType("rnd_timetz", "time with time zone", Map.of("min", "01:02:03.456 +01:00", "max", "01:02:03.457 +01:00"), "count(distinct rnd_timetz)", "2"))
+                .add(new TestDataType("rnd_timetz0", "time(0) with time zone", Map.of("min", "01:02:03 +01:00", "max", "01:02:04 +01:00"), "count(distinct rnd_timetz0)", "2"))
+                .add(new TestDataType("rnd_timetz6", "time(6) with time zone", Map.of("min", "01:02:03.000456 +01:00", "max", "01:02:03.000457 +01:00"), "count(distinct rnd_timetz6)", "2"))
+                .add(new TestDataType("rnd_timetz9", "time(9) with time zone", Map.of("min", "01:02:03.000000456 +01:00", "max", "01:02:03.000000457 +01:00"), "count(distinct rnd_timetz9)", "2"))
+                .add(new TestDataType("rnd_timetz12", "time(12) with time zone", Map.of("min", "01:02:03.000000000456 +01:00", "max", "01:02:03.000000000457 +01:00"), "count(distinct rnd_timetz12)", "2"))
+                .build();
 
-        @Language("SQL")
-        String testQuery;
-
-        // inclusive ranges (BETWEEN) that produce only 2 values
-        // obtained using `Math.nextUp((float) 0.0)`
-        testQuery =
-                """
-                SELECT
-                count(distinct rnd_bigint),
-                count(distinct rnd_integer),
-                count(distinct rnd_smallint),
-                count(distinct rnd_tinyint),
-                count(distinct rnd_date),
-                count(distinct rnd_decimal1),
-                count(distinct rnd_decimal2),
-                count(distinct rnd_decimal3),
-                count(distinct rnd_decimal4),
-                count(distinct rnd_decimal5),
-                count(distinct rnd_real),
-                count(distinct rnd_double),
-                count(distinct rnd_interval_day_time),
-                count(distinct rnd_interval_year),
-                count(distinct rnd_timestamp),
-                count(distinct rnd_timestamp0),
-                count(distinct rnd_timestamp6),
-                count(distinct rnd_timestamp9),
-                count(distinct rnd_timestamptz),
-                count(distinct rnd_timestamptz0),
-                count(distinct rnd_timestamptz6),
-                count(distinct rnd_timestamptz9),
-                count(distinct rnd_time),
-                count(distinct rnd_time0),
-                count(distinct rnd_time6),
-                count(distinct rnd_time9),
-                count(distinct rnd_timetz),
-                count(distinct rnd_timetz0),
-                count(distinct rnd_timetz6),
-                count(distinct rnd_timetz9)
-                FROM all_types_range
-                WHERE 1=1
-                AND rnd_bigint BETWEEN 0 AND 1
-                AND rnd_integer BETWEEN 0 AND 1
-                AND rnd_smallint BETWEEN 0 AND 1
-                AND rnd_tinyint BETWEEN 0 AND 1
-                AND rnd_date BETWEEN DATE '2022-03-01' AND DATE '2022-03-02'
-                AND rnd_decimal1 BETWEEN 0 AND 1
-                AND rnd_decimal2 BETWEEN 0.00000 AND 0.00001
-                AND rnd_decimal3 BETWEEN 0 AND 1
-                AND rnd_decimal4 BETWEEN DECIMAL '0.00000000000000000000000000000000000000' AND  DECIMAL '0.00000000000000000000000000000000000001'
-                AND rnd_decimal5 BETWEEN 0.00 AND 0.01
-                AND rnd_real BETWEEN REAL '0.0' AND REAL '1.4E-45'
-                AND rnd_double BETWEEN DOUBLE '0.0' AND DOUBLE '4.9E-324'
-                AND rnd_interval_day_time BETWEEN INTERVAL '0.000' SECOND AND INTERVAL '0.001' SECOND
-                AND rnd_interval_year BETWEEN INTERVAL '0' MONTH AND INTERVAL '1' MONTH
-                AND rnd_timestamp BETWEEN TIMESTAMP '2022-03-21 00:00:00.000' AND  TIMESTAMP '2022-03-21 00:00:00.001'
-                AND rnd_timestamp0 BETWEEN TIMESTAMP '2022-03-21 00:00:00' AND  TIMESTAMP '2022-03-21 00:00:01'
-                AND rnd_timestamp6 BETWEEN TIMESTAMP '2022-03-21 00:00:00.000000' AND  TIMESTAMP '2022-03-21 00:00:00.000001'
-                AND rnd_timestamp9 BETWEEN TIMESTAMP '2022-03-21 00:00:00.000000000' AND  TIMESTAMP '2022-03-21 00:00:00.000000001'
-                AND rnd_timestamptz BETWEEN TIMESTAMP '2022-03-21 00:00:00.000 +01:00' AND  TIMESTAMP '2022-03-21 00:00:00.001 +01:00'
-                AND rnd_timestamptz0 BETWEEN TIMESTAMP '2022-03-21 00:00:00 +01:00' AND  TIMESTAMP '2022-03-21 00:00:01 +01:00'
-                AND rnd_timestamptz6 BETWEEN TIMESTAMP '2022-03-21 00:00:00.000000 +01:00' AND  TIMESTAMP '2022-03-21 00:00:00.000001 +01:00'
-                AND rnd_timestamptz9 BETWEEN TIMESTAMP '2022-03-21 00:00:00.000000000 +01:00' AND  TIMESTAMP '2022-03-21 00:00:00.000000001 +01:00'
-                AND rnd_time BETWEEN TIME '01:02:03.456' AND  TIME '01:02:03.457'
-                AND rnd_time0 BETWEEN TIME '01:02:03' AND  TIME '01:02:04'
-                AND rnd_time6 BETWEEN TIME '01:02:03.000456' AND  TIME '01:02:03.000457'
-                AND rnd_time9 BETWEEN TIME '01:02:03.000000456' AND  TIME '01:02:03.000000457'
-                AND rnd_timetz BETWEEN TIME '01:02:03.456 +01:00' AND  TIME '01:02:03.457 +01:00'
-                AND rnd_timetz0 BETWEEN TIME '01:02:03 +01:00' AND  TIME '01:02:04 +01:00'
-                AND rnd_timetz6 BETWEEN TIME '01:02:03.000456 +01:00' AND  TIME '01:02:03.000457 +01:00'
-                AND rnd_timetz9 BETWEEN TIME '01:02:03.000000456 +01:00' AND  TIME '01:02:03.000000457 +01:00'\s""";
-        assertQuery(testQuery,
-                """
-                VALUES (2,
-                2,
-                2,
-                2,
-                -- date
-                2,
-                -- decimal
-                2,
-                2,
-                2,
-                2,
-                2,
-                -- real, double
-                2,
-                2,
-                -- intervals
-                2,
-                2,
-                -- timestamps
-                2,
-                2,
-                2,
-                2,
-                -- timestamps with time zone
-                2,
-                2,
-                2,
-                2,
-                -- time
-                2,
-                2,
-                2,
-                2,
-                -- time with time zone
-                2,
-                2,
-                2,
-                2)
-                """);
-
-        // exclusive ranges that produce only 1 value
-        // obtained using `Math.nextUp((float) 0.0)`
-        testQuery =
-                """
-                SELECT
-                count(distinct rnd_bigint),
-                count(distinct rnd_integer),
-                count(distinct rnd_smallint),
-                count(distinct rnd_tinyint),
-                count(distinct rnd_date),
-                count(distinct rnd_decimal1),
-                count(distinct rnd_decimal2),
-                count(distinct rnd_decimal3),
-                count(distinct rnd_decimal4),
-                count(distinct rnd_decimal5),
-                count(distinct rnd_real),
-                count(distinct rnd_double),
-                count(distinct rnd_interval_day_time),
-                count(distinct rnd_interval_year),
-                count(distinct rnd_timestamp),
-                count(distinct rnd_timestamp0),
-                count(distinct rnd_timestamp6),
-                count(distinct rnd_timestamp9),
-                count(distinct rnd_timestamptz),
-                count(distinct rnd_timestamptz0),
-                count(distinct rnd_timestamptz6),
-                count(distinct rnd_timestamptz9),
-                count(distinct rnd_time),
-                count(distinct rnd_time0),
-                count(distinct rnd_time6),
-                count(distinct rnd_time9),
-                count(distinct rnd_timetz),
-                count(distinct rnd_timetz0),
-                count(distinct rnd_timetz6),
-                count(distinct rnd_timetz9)
-                FROM all_types_range
-                WHERE 1=1
-                AND rnd_bigint > 0 AND rnd_bigint  < 2
-                AND rnd_integer > 0 AND rnd_integer < 2
-                AND rnd_smallint > 0 AND rnd_smallint < 2
-                AND rnd_tinyint > 0 AND rnd_tinyint < 2
-                AND rnd_date > DATE '2022-03-01' AND rnd_date < DATE '2022-03-03'
-                AND rnd_decimal1 > 0 AND rnd_decimal1 < 2
-                AND rnd_decimal2 > 0.00000 AND rnd_decimal2 < 0.00002
-                AND rnd_decimal3 > 0 AND rnd_decimal3 < 2
-                AND rnd_decimal4 > DECIMAL '0.00000000000000000000000000000000000000' AND rnd_decimal4 <  DECIMAL '0.00000000000000000000000000000000000002'
-                AND rnd_decimal5 > 0.00 AND rnd_decimal5 < 0.02
-                AND rnd_real > REAL '0.0' AND rnd_real < REAL '2.8E-45'
-                AND rnd_double > DOUBLE '0.0' AND rnd_double < DOUBLE '1.0E-323'
-                AND rnd_interval_day_time > INTERVAL '0.000' SECOND AND rnd_interval_day_time < INTERVAL '0.002' SECOND
-                AND rnd_interval_year > INTERVAL '0' MONTH AND rnd_interval_year < INTERVAL '2' MONTH
-                AND rnd_timestamp > TIMESTAMP '2022-03-21 00:00:00.000' AND rnd_timestamp < TIMESTAMP '2022-03-21 00:00:00.002'
-                AND rnd_timestamp0 > TIMESTAMP '2022-03-21 00:00:00' AND rnd_timestamp0 < TIMESTAMP '2022-03-21 00:00:02'
-                AND rnd_timestamp6 > TIMESTAMP '2022-03-21 00:00:00.000000' AND rnd_timestamp6 < TIMESTAMP '2022-03-21 00:00:00.000002'
-                AND rnd_timestamp9 > TIMESTAMP '2022-03-21 00:00:00.000000000' AND rnd_timestamp9 < TIMESTAMP '2022-03-21 00:00:00.000000002'
-                AND rnd_timestamptz > TIMESTAMP '2022-03-21 00:00:00.000 +01:00' AND rnd_timestamptz < TIMESTAMP '2022-03-21 00:00:00.002 +01:00'
-                AND rnd_timestamptz0 > TIMESTAMP '2022-03-21 00:00:00 +01:00' AND rnd_timestamptz0 < TIMESTAMP '2022-03-21 00:00:02 +01:00'
-                AND rnd_timestamptz6 > TIMESTAMP '2022-03-21 00:00:00.000000 +01:00' AND rnd_timestamptz6 < TIMESTAMP '2022-03-21 00:00:00.000002 +01:00'
-                AND rnd_timestamptz9 > TIMESTAMP '2022-03-21 00:00:00.000000000 +01:00' AND rnd_timestamptz9 < TIMESTAMP '2022-03-21 00:00:00.000000002 +01:00'
-                AND rnd_time > TIME '01:02:03.456' AND rnd_time < TIME '01:02:03.458'
-                AND rnd_time0 > TIME '01:02:03' AND rnd_time0 < TIME '01:02:05'
-                AND rnd_time6 > TIME '01:02:03.000456' AND rnd_time6 < TIME '01:02:03.000458'
-                AND rnd_time9 > TIME '01:02:03.000000456' AND rnd_time9 < TIME '01:02:03.000000458'
-                AND rnd_timetz > TIME '01:02:03.456 +01:00' AND rnd_timetz < TIME '01:02:03.458 +01:00'
-                AND rnd_timetz0 > TIME '01:02:03 +01:00' AND rnd_timetz0 < TIME '01:02:05 +01:00'
-                AND rnd_timetz6 > TIME '01:02:03.000456 +01:00' AND rnd_timetz6 < TIME '01:02:03.000458 +01:00'
-                AND rnd_timetz9 > TIME '01:02:03.000000456 +01:00' AND rnd_timetz9 < TIME '01:02:03.000000458 +01:00'\s""";
-        assertQuery(testQuery,
-                """
-                VALUES (1,
-                1,
-                1,
-                1,
-                -- date
-                1,
-                -- decimal
-                1,
-                1,
-                1,
-                1,
-                1,
-                -- real, double
-                1,
-                1,
-                -- intervals
-                1,
-                1,
-                -- timestamps
-                1,
-                1,
-                1,
-                1,
-                -- timestamps with time zone
-                1,
-                1,
-                1,
-                1,
-                -- time
-                1,
-                1,
-                1,
-                1,
-                -- time with time zone
-                1,
-                1,
-                1,
-                1)
-                """);
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("range_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
 
         // inclusive range to get the min low bound
-        testQuery =
-                """
-                SELECT
-                count(distinct rnd_bigint),
-                count(distinct rnd_integer),
-                count(distinct rnd_smallint),
-                count(distinct rnd_tinyint),
-                count(distinct rnd_date),
-                count(distinct rnd_decimal1),
-                count(distinct rnd_decimal2),
-                count(distinct rnd_decimal3),
-                count(distinct rnd_decimal4),
-                count(distinct rnd_decimal5),
-                count(distinct rnd_real),
-                count(distinct rnd_double),
-                -- interval literals can't represent smallest possible values allowed by the engine
-                --count(distinct rnd_interval_day_time),
-                --count(distinct rnd_interval_year),
-                -- can't count timestamps because their extreme values cannot be expressed as literals
-                count(distinct rnd_time),
-                count(distinct rnd_time0),
-                count(distinct rnd_time6),
-                count(distinct rnd_time9),
-                count(distinct rnd_timetz),
-                count(distinct rnd_timetz0),
-                count(distinct rnd_timetz6),
-                count(distinct rnd_timetz9)
-                FROM all_types_range
-                WHERE 1=1
-                AND rnd_bigint <= -9223372036854775808
-                AND rnd_integer <= -2147483648
-                AND rnd_smallint <= -32768
-                AND rnd_tinyint <= -128
-                -- TODO it actually returns -5877641-06-23 - there's definitely some overflow happening in the engine
-                AND rnd_date <= DATE '-5877641-06-23'
-                AND rnd_decimal1 <= DECIMAL '-99999999999999999999999999999999999999'
-                AND rnd_decimal2 <= DECIMAL '-9999999999999.99999'
-                AND rnd_decimal3 <= DECIMAL '-99999999999999999999999999999999999999'
-                AND rnd_decimal4 <= DECIMAL '-0.99999999999999999999999999999999999999'
-                -- TODO it actually retdurns '-999.98'
-                AND rnd_decimal5 <= DECIMAL '-999.99'
-                AND rnd_real <= REAL '1.4E-45'
-                AND rnd_double <= DOUBLE '4.9E-324'
-                -- interval literals can't represent smallest possible values allowed by the engine
-                --AND rnd_interval_day_time <= INTERVAL '-2147483647' SECOND
-                --AND rnd_interval_year <= INTERVAL '-2147483647' MONTH
-                AND rnd_time <= TIME '00:00:00.000'
-                AND rnd_time0 <= TIME '00:00:00'
-                AND rnd_time6 <= TIME '00:00:00.000000'
-                AND rnd_time9 <= TIME '00:00:00.000000000'
-                AND rnd_timetz <= TIME '00:00:00.000 +01:00'
-                AND rnd_timetz0 <= TIME '00:00:00 +01:00'
-                AND rnd_timetz6 <= TIME '00:00:00.000000 +01:00'
-                AND rnd_timetz9 <= TIME '00:00:00.000000000 +01:00'
-                """;
-        assertQuery(testQuery,
-                """
-                VALUES (1,
-                1,
-                1,
-                1,
-                -- date
-                1,
-                -- decimal
-                1,
-                1,
-                1,
-                1,
-                1,
-                -- real, double
-                1,
-                1,
-                -- intervals
-                --1,
-                --1,
-                -- time
-                1,
-                1,
-                1,
-                1,
-                -- time with time zone
-                1,
-                1,
-                1,
-                1)
-                """);
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("max", "-9223372036854775808"), "count(distinct rnd_bigint)", "1"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("max", "-2147483648"), "count(distinct rnd_integer)", "1"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("max", "-32768"), "count(distinct rnd_smallint)", "1"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("max", "-128"), "count(distinct rnd_tinyint)", "1"))
+                .add(new TestDataType("rnd_date", "date", Map.of("max", "-5877641-06-23"), "count(distinct rnd_date)", "1"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("max", "-99999999999999999999999999999999999999"), "count(distinct rnd_decimal1)", "1"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("max", "-9999999999999.99999"), "count(distinct rnd_decimal2)", "1"))
+                .add(new TestDataType("rnd_decimal3", "decimal(38,0)", Map.of("max", "-99999999999999999999999999999999999999"), "count(distinct rnd_decimal3)", "1"))
+                .add(new TestDataType("rnd_decimal4", "decimal(38,38)", Map.of("max", "-0.99999999999999999999999999999999999999"), "count(distinct rnd_decimal4)", "1"))
+                .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("max", "-999.99"), "count(distinct rnd_decimal5)", "1"))
+                .add(new TestDataType("rnd_real", "real", Map.of("max", "1.4E-45"), "count(distinct rnd_real)", "1"))
+                .add(new TestDataType("rnd_double", "double", Map.of("max", "4.9E-324"), "count(distinct rnd_double)", "1"))
+                // interval literals can't represent smallest possible values allowed by the engine, so they're not included here
+                // can't test timestamps because their extreme values cannot be expressed as literals
+                .add(new TestDataType("rnd_time", "time", Map.of("max", "00:00:00.000"), "count(distinct rnd_time)", "1"))
+                .add(new TestDataType("rnd_time0", "time(0)", Map.of("max", "00:00:00"), "count(distinct rnd_time0)", "1"))
+                .add(new TestDataType("rnd_time6", "time(6)", Map.of("max", "00:00:00.000000"), "count(distinct rnd_time6)", "1"))
+                .add(new TestDataType("rnd_time9", "time(9)", Map.of("max", "00:00:00.000000000"), "count(distinct rnd_time9)", "1"))
+                .add(new TestDataType("rnd_timetz", "time with time zone", Map.of("max", "00:00:00.000 +01:00"), "count(distinct rnd_timetz)", "1"))
+                .add(new TestDataType("rnd_timetz0", "time(0) with time zone", Map.of("max", "00:00:00 +01:00"), "count(distinct rnd_timetz0)", "1"))
+                .add(new TestDataType("rnd_timetz6", "time(6) with time zone", Map.of("max", "00:00:00.000000 +01:00"), "count(distinct rnd_timetz6)", "1"))
+                .add(new TestDataType("rnd_timetz9", "time(9) with time zone", Map.of("max", "00:00:00.000000000 +01:00"), "count(distinct rnd_timetz9)", "1"))
+                .add(new TestDataType("rnd_timetz12", "time(12) with time zone", Map.of("max", "00:00:00.000000000000 +01:00"), "count(distinct rnd_timetz12)", "1"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("range_max_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
 
         // exclusive range to get the max high bound
+        testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "9223372036854775807"), "count(distinct rnd_bigint)", "1"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "2147483647"), "count(distinct rnd_integer)", "1"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "32767"), "count(distinct rnd_smallint)", "1"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "127"), "count(distinct rnd_tinyint)", "1"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "5881580-07-11"), "count(distinct rnd_date)", "1"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("min", "99999999999999999999999999999999999999"), "count(distinct rnd_decimal1)", "1"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("min", "9999999999999.99999"), "count(distinct rnd_decimal2)", "1"))
+                .add(new TestDataType("rnd_decimal3", "decimal(38,0)", Map.of("min", "99999999999999999999999999999999999999"), "count(distinct rnd_decimal3)", "1"))
+                .add(new TestDataType("rnd_decimal4", "decimal(38,38)", Map.of("min", "0.99999999999999999999999999999999999999"), "count(distinct rnd_decimal4)", "1"))
+                .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "999.99"), "count(distinct rnd_decimal5)", "1"))
+                .add(new TestDataType("rnd_real", "real", Map.of("min", "3.4028235E38"), "count(distinct rnd_real)", "1"))
+                .add(new TestDataType("rnd_double", "double", Map.of("min", "1.7976931348623157E308"), "count(distinct rnd_double)", "1"))
+                // interval literals can't represent smallest possible values allowed by the engine, so they're not included here
+                // can't test timestamps because their extreme values cannot be expressed as literals
+                .add(new TestDataType("rnd_time", "time", Map.of("min", "23:59:59.999"), "count(distinct rnd_time)", "1"))
+                .add(new TestDataType("rnd_time0", "time(0)", Map.of("min", "23:59:59"), "count(distinct rnd_time0)", "1"))
+                .add(new TestDataType("rnd_time6", "time(6)", Map.of("min", "23:59:59.999999"), "count(distinct rnd_time6)", "1"))
+                .add(new TestDataType("rnd_time9", "time(9)", Map.of("min", "23:59:59.999999999"), "count(distinct rnd_time9)", "1"))
+                .add(new TestDataType("rnd_timetz", "time with time zone", Map.of("min", "23:59:59.999 +01:00"), "count(distinct rnd_timetz)", "1"))
+                .add(new TestDataType("rnd_timetz0", "time(0) with time zone", Map.of("min", "23:59:59 +01:00"), "count(distinct rnd_timetz0)", "1"))
+                .add(new TestDataType("rnd_timetz6", "time(6) with time zone", Map.of("min", "23:59:59.999999 +01:00"), "count(distinct rnd_timetz6)", "1"))
+                .add(new TestDataType("rnd_timetz9", "time(9) with time zone", Map.of("min", "23:59:59.999999999 +01:00"), "count(distinct rnd_timetz9)", "1"))
+                .add(new TestDataType("rnd_timetz12", "time(12) with time zone", Map.of("min", "23:59:59.999999999999 +01:00"), "count(distinct rnd_timetz12)", "1"))
+                .build();
 
-        assertUpdate("DROP TABLE faker.default.all_types_range");
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("range_min_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
     }
 
     @Test
-    void testSelectIn()
+    void testSelectValuesProperty()
     {
-        @Language("SQL")
-        String tableQuery =
-                """
-                CREATE TABLE faker.default.all_types_in (
-                rnd_bigint bigint NOT NULL,
-                rnd_integer integer NOT NULL,
-                rnd_smallint smallint NOT NULL,
-                rnd_tinyint tinyint NOT NULL,
-                rnd_boolean boolean NOT NULL,
-                rnd_date date NOT NULL,
-                rnd_decimal1 decimal NOT NULL,
-                rnd_decimal2 decimal(18,5) NOT NULL,
-                rnd_decimal3 decimal(38,0) NOT NULL,
-                rnd_decimal4 decimal(38,38) NOT NULL,
-                rnd_decimal5 decimal(5,2) NOT NULL,
-                rnd_real real NOT NULL,
-                rnd_double double NOT NULL,
-                rnd_interval_day_time interval day to second NOT NULL,
-                rnd_interval_year interval year to month NOT NULL,
-                rnd_timestamp timestamp NOT NULL,
-                rnd_timestamp0 timestamp(0) NOT NULL,
-                rnd_timestamp6 timestamp(6) NOT NULL,
-                rnd_timestamp9 timestamp(9) NOT NULL,
-                rnd_timestamptz timestamp with time zone NOT NULL,
-                rnd_timestamptz0 timestamp(0) with time zone NOT NULL,
-                rnd_timestamptz6 timestamp(6) with time zone NOT NULL,
-                rnd_timestamptz9 timestamp(9) with time zone NOT NULL,
-                rnd_time time NOT NULL,
-                rnd_time0 time(0) NOT NULL,
-                rnd_time6 time(6) NOT NULL,
-                rnd_time9 time(9) NOT NULL,
-                rnd_timetz time with time zone NOT NULL,
-                rnd_timetz0 time(0) with time zone NOT NULL,
-                rnd_timetz6 time(6) with time zone NOT NULL,
-                rnd_timetz9 time(9) with time zone NOT NULL,
-                rnd_timetz12 time(12) with time zone NOT NULL,
-                rnd_varbinary varbinary NOT NULL,
-                rnd_varchar varchar NOT NULL,
-                rnd_nvarchar varchar(1000) NOT NULL,
-                rnd_ipaddress ipaddress NOT NULL,
-                rnd_uuid uuid NOT NULL)""";
-        assertUpdate(tableQuery);
-
-        @Language("SQL")
-        String testQuery;
-
-        // inclusive ranges (BETWEEN) that produce only 2 values
+        // inclusive ranges that produce only 2 values
         // obtained using `Math.nextUp((float) 0.0)`
-        testQuery =
-                """
-                SELECT
-                count(distinct rnd_bigint),
-                count(distinct rnd_integer),
-                count(distinct rnd_smallint),
-                count(distinct rnd_tinyint),
-                count(distinct rnd_date),
-                count(distinct rnd_decimal1),
-                count(distinct rnd_decimal2),
-                count(distinct rnd_decimal3),
-                count(distinct rnd_decimal4),
-                count(distinct rnd_decimal5),
-                count(distinct rnd_real),
-                count(distinct rnd_double),
-                count(distinct rnd_interval_day_time),
-                count(distinct rnd_interval_year),
-                count(distinct rnd_timestamp),
-                count(distinct rnd_timestamp0),
-                count(distinct rnd_timestamp6),
-                count(distinct rnd_timestamp9),
-                count(distinct rnd_timestamptz),
-                count(distinct rnd_timestamptz0),
-                count(distinct rnd_timestamptz6),
-                count(distinct rnd_timestamptz9),
-                count(distinct rnd_time),
-                count(distinct rnd_time0),
-                count(distinct rnd_time6),
-                count(distinct rnd_time9),
-                count(distinct rnd_timetz),
-                count(distinct rnd_timetz0),
-                count(distinct rnd_timetz6),
-                count(distinct rnd_timetz9),
-                count(distinct rnd_varbinary),
-                count(distinct rnd_varchar),
-                count(distinct rnd_nvarchar),
-                count(distinct rnd_ipaddress),
-                count(distinct rnd_uuid)
-                FROM all_types_in
-                WHERE 1=1
-                AND rnd_bigint IN (0, 1)
-                AND rnd_integer IN (0, 1)
-                AND rnd_smallint IN (0, 1)
-                AND rnd_tinyint IN (0, 1)
-                AND rnd_date IN (DATE '2022-03-01', DATE '2022-03-02')
-                AND rnd_decimal1 IN (0, 1)
-                AND rnd_decimal2 IN (0.00000, 0.00001)
-                AND rnd_decimal3 IN (0, 1)
-                AND rnd_decimal4 IN (DECIMAL '0.00000000000000000000000000000000000000',  DECIMAL '0.00000000000000000000000000000000000001')
-                AND rnd_decimal5 IN (0.00, 0.01)
-                AND rnd_real IN (REAL '0.0', REAL '1.4E-45')
-                AND rnd_double IN (DOUBLE '0.0', DOUBLE '4.9E-324')
-                AND rnd_interval_day_time IN (INTERVAL '0.000' SECOND, INTERVAL '0.001' SECOND)
-                AND rnd_interval_year IN (INTERVAL '0' MONTH, INTERVAL '1' MONTH)
-                AND rnd_timestamp IN (TIMESTAMP '2022-03-21 00:00:00.000',  TIMESTAMP '2022-03-21 00:00:00.001')
-                AND rnd_timestamp0 IN (TIMESTAMP '2022-03-21 00:00:00',  TIMESTAMP '2022-03-21 00:00:01')
-                AND rnd_timestamp6 IN (TIMESTAMP '2022-03-21 00:00:00.000000',  TIMESTAMP '2022-03-21 00:00:00.000001')
-                AND rnd_timestamp9 IN (TIMESTAMP '2022-03-21 00:00:00.000000000',  TIMESTAMP '2022-03-21 00:00:00.000000001')
-                AND rnd_timestamptz IN (TIMESTAMP '2022-03-21 00:00:00.000 +01:00',  TIMESTAMP '2022-03-21 00:00:00.001 +01:00')
-                AND rnd_timestamptz0 IN (TIMESTAMP '2022-03-21 00:00:00 +01:00',  TIMESTAMP '2022-03-21 00:00:01 +01:00')
-                AND rnd_timestamptz6 IN (TIMESTAMP '2022-03-21 00:00:00.000000 +01:00',  TIMESTAMP '2022-03-21 00:00:00.000001 +01:00')
-                AND rnd_timestamptz9 IN (TIMESTAMP '2022-03-21 00:00:00.000000000 +01:00',  TIMESTAMP '2022-03-21 00:00:00.000000001 +01:00')
-                AND rnd_time IN (TIME '01:02:03.456',  TIME '01:02:03.457')
-                AND rnd_time0 IN (TIME '01:02:03',  TIME '01:02:04')
-                AND rnd_time6 IN (TIME '01:02:03.000456',  TIME '01:02:03.000457')
-                AND rnd_time9 IN (TIME '01:02:03.000000456',  TIME '01:02:03.000000457')
-                AND rnd_timetz IN (TIME '01:02:03.456 +01:00',  TIME '01:02:03.457 +01:00')
-                AND rnd_timetz0 IN (TIME '01:02:03 +01:00',  TIME '01:02:04 +01:00')
-                AND rnd_timetz6 IN (TIME '01:02:03.000456 +01:00',  TIME '01:02:03.000457 +01:00')
-                AND rnd_timetz9 IN (TIME '01:02:03.000000456 +01:00',  TIME '01:02:03.000000457 +01:00')
-                AND rnd_varbinary IN (x'ff', x'00')
-                AND rnd_varchar IN ('aa', 'bb')
-                AND rnd_nvarchar IN ('aa', 'bb')
-                AND rnd_ipaddress IN (IPADDRESS '0.0.0.0', IPADDRESS '1.2.3.4')
-                AND rnd_uuid IN (UUID '1fc74d96-0216-449b-a145-455578a9eaa5', UUID '3ee49ede-0026-45e4-ba06-08404f794557')
-                """;
-        assertQuery(testQuery,
-                """
-                VALUES (2,
-                2,
-                2,
-                2,
-                -- date
-                2,
-                -- decimal
-                2,
-                2,
-                2,
-                2,
-                2,
-                -- real, double
-                2,
-                2,
-                -- intervals
-                2,
-                2,
-                -- timestamps
-                2,
-                2,
-                2,
-                2,
-                -- timestamps with time zone
-                2,
-                2,
-                2,
-                2,
-                -- time
-                2,
-                2,
-                2,
-                2,
-                -- time with time zone
-                2,
-                2,
-                2,
-                2,
-                -- character types
-                2,
-                2,
-                2,
-                -- ip, uuid
-                2,
-                2)
-                """);
+        List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_bigint)", "2"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_integer)", "2"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_smallint)", "2"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_tinyint)", "2"))
+                .add(new TestDataType("rnd_boolean", "boolean", Map.of("allowed_values", "ARRAY['true', 'false']"), "count(distinct rnd_boolean)", "2"))
+                .add(new TestDataType("rnd_date", "date", Map.of("allowed_values", "ARRAY['2022-03-01', '2022-03-02']"), "count(distinct rnd_date)", "2"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_decimal1)", "2"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("allowed_values", "ARRAY['0.00000', '0.00001']"), "count(distinct rnd_decimal2)", "2"))
+                .add(new TestDataType("rnd_decimal3", "decimal(38,0)", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_decimal3)", "2"))
+                .add(new TestDataType("rnd_decimal4", "decimal(38,38)", Map.of("allowed_values", "ARRAY['0.00000000000000000000000000000000000000', '0.00000000000000000000000000000000000001']"), "count(distinct rnd_decimal4)", "2"))
+                .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("allowed_values", "ARRAY['0.00', '0.01']"), "count(distinct rnd_decimal5)", "2"))
+                .add(new TestDataType("rnd_real", "real", Map.of("allowed_values", "ARRAY['0.0', '1.4E-45']"), "count(distinct rnd_real)", "2"))
+                .add(new TestDataType("rnd_double", "double", Map.of("allowed_values", "ARRAY['0.0', '4.9E-324']"), "count(distinct rnd_double)", "2"))
+                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("allowed_values", "ARRAY['0.000', '0.001']"), "count(distinct rnd_interval1)", "2"))
+                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("allowed_values", "ARRAY['0', '1']"), "count(distinct rnd_interval2)", "2"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00.000', '2022-03-21 00:00:00.001']"), "count(distinct rnd_timestamp)", "2"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00', '2022-03-21 00:00:01']"), "count(distinct rnd_timestamp0)", "2"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00.000000', '2022-03-21 00:00:00.000001']"), "count(distinct rnd_timestamp6)", "2"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00.000000000', '2022-03-21 00:00:00.000000001']"), "count(distinct rnd_timestamp9)", "2"))
+                .add(new TestDataType("rnd_timestamptz", "timestamp with time zone", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00.000 +01:00', '2022-03-21 00:00:00.001 +01:00']"), "count(distinct rnd_timestamptz)", "2"))
+                .add(new TestDataType("rnd_timestamptz0", "timestamp(0) with time zone", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00 +01:00', '2022-03-21 00:00:01 +01:00']"), "count(distinct rnd_timestamptz0)", "2"))
+                .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00.000000 +01:00', '2022-03-21 00:00:00.000001 +01:00']"), "count(distinct rnd_timestamptz6)", "2"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", Map.of("allowed_values", "ARRAY['2022-03-21 00:00:00.000000000 +01:00', '2022-03-21 00:00:00.000000001 +01:00']"), "count(distinct rnd_timestamptz9)", "2"))
+                .add(new TestDataType("rnd_time", "time", Map.of("allowed_values", "ARRAY['01:02:03.456', '01:02:03.457']"), "count(distinct rnd_time)", "2"))
+                .add(new TestDataType("rnd_time0", "time(0)", Map.of("allowed_values", "ARRAY['01:02:03', '01:02:04']"), "count(distinct rnd_time0)", "2"))
+                .add(new TestDataType("rnd_time6", "time(6)", Map.of("allowed_values", "ARRAY['01:02:03.000456', '01:02:03.000457']"), "count(distinct rnd_time6)", "2"))
+                .add(new TestDataType("rnd_time9", "time(9)", Map.of("allowed_values", "ARRAY['01:02:03.000000456', '01:02:03.000000457']"), "count(distinct rnd_time9)", "2"))
+                .add(new TestDataType("rnd_timetz", "time with time zone", Map.of("allowed_values", "ARRAY['01:02:03.456 +01:00', '01:02:03.457 +01:00']"), "count(distinct rnd_timetz)", "2"))
+                .add(new TestDataType("rnd_timetz0", "time(0) with time zone", Map.of("allowed_values", "ARRAY['01:02:03 +01:00', '01:02:04 +01:00']"), "count(distinct rnd_timetz0)", "2"))
+                .add(new TestDataType("rnd_timetz6", "time(6) with time zone", Map.of("allowed_values", "ARRAY['01:02:03.000456 +01:00', '01:02:03.000457 +01:00']"), "count(distinct rnd_timetz6)", "2"))
+                .add(new TestDataType("rnd_timetz9", "time(9) with time zone", Map.of("allowed_values", "ARRAY['01:02:03.000000456 +01:00', '01:02:03.000000457 +01:00']"), "count(distinct rnd_timetz9)", "2"))
+                .add(new TestDataType("rnd_timetz12", "time(12) with time zone", Map.of("allowed_values", "ARRAY['01:02:03.000000000456 +01:00', '01:02:03.000000000457 +01:00']"), "count(distinct rnd_timetz12)", "2"))
+                .add(new TestDataType("rnd_varbinary", "varbinary", Map.of("allowed_values", "ARRAY['ff', '00']"), "count(distinct rnd_varbinary)", "2"))
+                .add(new TestDataType("rnd_varchar", "varchar", Map.of("allowed_values", "ARRAY['aa', 'bb']"), "count(distinct rnd_varchar)", "2"))
+                .add(new TestDataType("rnd_nvarchar", "varchar(1000)", Map.of("allowed_values", "ARRAY['aa', 'bb']"), "count(distinct rnd_nvarchar)", "2"))
+                .add(new TestDataType("rnd_ipaddress", "ipaddress", Map.of("allowed_values", "ARRAY['0.0.0.0', '1.2.3.4']"), "count(distinct rnd_ipaddress)", "2"))
+                .add(new TestDataType("rnd_uuid", "uuid", Map.of("allowed_values", "ARRAY['1fc74d96-0216-449b-a145-455578a9eaa5', '3ee49ede-0026-45e4-ba06-08404f794557']"), "count(distinct rnd_uuid)", "2"))
+                .build();
 
-        assertUpdate("DROP TABLE faker.default.all_types_in");
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("values_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+    }
+
+    @Test
+    void testSelectStepProperties()
+    {
+        // small step in small ranges that produce only 10 unique values for 1000 rows
+        List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_bigint)", "10"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_integer)", "10"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_smallint)", "10"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_tinyint)", "10"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "2022-03-01", "max", "2022-03-10", "step", "1d"), "count(distinct rnd_date)", "10"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_decimal1)", "10"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("min", "0.00000", "max", "0.00009", "step", "0.00001"), "count(distinct rnd_decimal2)", "10"))
+                .add(new TestDataType("rnd_decimal3", "decimal(38,0)", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_decimal3)", "10"))
+                .add(new TestDataType("rnd_decimal4", "decimal(38,38)", Map.of("min", "0.00000000000000000000000000000000000000", "max", "0.00000000000000000000000000000000000009", "step", "0.00000000000000000000000000000000000001"), "count(distinct rnd_decimal4)", "10"))
+                .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "0.00", "max", "1.09", "step", "0.01"), "count(distinct rnd_decimal5)", "110"))
+                .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "1.3E-44", "step", "1.4E-45"), "count(distinct rnd_real)", "10"))
+                .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "4.4E-323", "step", "4.9E-324"), "count(distinct rnd_double)", "10"))
+                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("min", "0.000", "max", "0.009", "step", "0.001"), "count(distinct rnd_interval1)", "10"))
+                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("min", "0", "max", "9", "step", "1"), "count(distinct rnd_interval2)", "10"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2022-03-21 00:00:00.000", "max", "2022-03-21 00:00:00.009", "step", "1ms"), "count(distinct rnd_timestamp)", "10"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("min", "2022-03-21 00:00:00", "max", "2022-03-21 00:00:09", "step", "1s"), "count(distinct rnd_timestamp0)", "10"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "2022-03-21 00:00:00.000000", "max", "2022-03-21 00:00:00.000009", "step", "1us"), "count(distinct rnd_timestamp6)", "10"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "2022-03-21 00:00:00.000000000", "max", "2022-03-21 00:00:00.000009000", "step", "1us"), "count(distinct rnd_timestamp9)", "10"))
+                .add(new TestDataType("rnd_timestamptz", "timestamp with time zone", Map.of("min", "2022-03-21 00:00:00.000 +01:00", "max", "2022-03-21 00:00:00.009 +01:00", "step", "1ms"), "count(distinct rnd_timestamptz)", "10"))
+                .add(new TestDataType("rnd_timestamptz0", "timestamp(0) with time zone", Map.of("min", "2022-03-21 00:00:00 +01:00", "max", "2022-03-21 00:00:09 +01:00", "step", "1s"), "count(distinct rnd_timestamptz0)", "10"))
+                .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", Map.of("min", "2022-03-21 00:00:00.000000 +01:00", "max", "2022-03-21 00:00:00.009000 +01:00", "step", "1ms"), "count(distinct rnd_timestamptz6)", "10"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", Map.of("min", "2022-03-21 00:00:00.000000000 +01:00", "max", "2022-03-21 00:00:00.009000000 +01:00", "step", "1ms"), "count(distinct rnd_timestamptz9)", "10"))
+                .add(new TestDataType("rnd_time", "time", Map.of("min", "01:02:03.456", "max", "01:02:03.465", "step", "1ms"), "count(distinct rnd_time)", "10"))
+                .add(new TestDataType("rnd_time0", "time(0)", Map.of("min", "01:02:03", "max", "01:02:12", "step", "1s"), "count(distinct rnd_time0)", "10"))
+                .add(new TestDataType("rnd_time6", "time(6)", Map.of("min", "01:02:03.000456", "max", "01:02:03.000465", "step", "1us"), "count(distinct rnd_time6)", "10"))
+                .add(new TestDataType("rnd_time9", "time(9)", Map.of("min", "01:02:03.000000456", "max", "01:02:03.000000465", "step", "1ns"), "count(distinct rnd_time9)", "10"))
+                .add(new TestDataType("rnd_timetz", "time with time zone", Map.of("min", "01:02:03.456 +01:00", "max", "01:02:03.465 +01:00", "step", "1ms"), "count(distinct rnd_timetz)", "10"))
+                .add(new TestDataType("rnd_timetz0", "time(0) with time zone", Map.of("min", "01:02:03 +01:00", "max", "01:02:12 +01:00", "step", "1s"), "count(distinct rnd_timetz0)", "10"))
+                .add(new TestDataType("rnd_timetz6", "time(6) with time zone", Map.of("min", "01:02:03.000456 +01:00", "max", "01:02:03.000465 +01:00", "step", "1us"), "count(distinct rnd_timetz6)", "10"))
+                .add(new TestDataType("rnd_timetz9", "time(9) with time zone", Map.of("min", "01:02:03.000000456 +01:00", "max", "01:02:03.000000465 +01:00", "step", "1ns"), "count(distinct rnd_timetz9)", "10"))
+                .add(new TestDataType("rnd_timetz12", "time(12) with time zone", Map.of("min", "01:02:03.000000000456 +01:00", "max", "01:02:03.000000009456 +01:00", "step", "1ns"), "count(distinct rnd_timetz12)", "10"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable table = newTrinoTable("step_small_" + testCase.name(), "(%s)".formatted(testCase.columnSchema()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+    }
+
+    private record TestDataType(String name, String type, Map<String, String> properties, String queryExpression, String expectedValue)
+    {
+        public TestDataType(String name, String type, String queryExpression, String expectedValue)
+        {
+            this(name, type, Map.of(), queryExpression, expectedValue);
+        }
+
+        String columnSchema()
+        {
+            String propertiesSchema = properties.entrySet().stream()
+                    .map(entry -> "\"%s\" = %s".formatted(
+                            entry.getKey(),
+                            entry.getKey().equals(ALLOWED_VALUES_PROPERTY) ? entry.getValue() : "'%s'".formatted(entry.getValue())))
+                    .collect(joining(", "));
+            return "%s %s NOT NULL%s".formatted(name, type, propertiesSchema.isEmpty() ? "" : " WITH (%s)".formatted(propertiesSchema));
+        }
+    }
+
+    @Test
+    void testSetTableProperties()
+    {
+        try (TestTable table = newTrinoTable("set_table_properties", "(id INTEGER, name VARCHAR)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES default_limit = 100");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("default_limit = 100");
+        }
+    }
+
+    @Test
+    void testRenameTable()
+    {
+        assertUpdate("CREATE TABLE original_table(id INTEGER, name VARCHAR)");
+        assertUpdate("ALTER TABLE original_table RENAME TO renamed_table");
+        // original_table should not exist anymore after renaming.
+        assertQueryFails("DESC original_table", "line 1:1: Table 'faker.default.original_table' does not exist");
+        // should not allow renaming to an already existing table.
+        assertQueryFails("ALTER TABLE renamed_table RENAME TO renamed_table", "line 1:1: Target table 'faker.default.renamed_table' already exists");
+        assertUpdate("DROP TABLE renamed_table");
+    }
+
+    @Test
+    void testRenameTableAcrossSchema()
+    {
+        assertUpdate("CREATE SCHEMA new_schema");
+        assertUpdate("CREATE TABLE original_table_schema(id INTEGER, name VARCHAR)");
+        assertUpdate("ALTER TABLE original_table_schema RENAME TO new_schema.renamed_table");
+        assertQueryFails("DESC original_table_schema", "line 1:1: Table 'faker.default.original_table_schema' does not exist");
+        assertUpdate("DROP TABLE new_schema.renamed_table");
+        assertUpdate("DROP SCHEMA new_schema");
+    }
+
+    @Test
+    void testCreateTableAsSelect()
+    {
+        assertUpdate("CREATE TABLE faker.default.limited_range WITH (null_probability = 0, default_limit = 50, dictionary_detection_enabled = false) AS " +
+                "SELECT * FROM (VALUES -1, 3, 5) t(id)", 3);
+
+        assertQuery("SELECT count(id) FROM (SELECT id FROM limited_range) a",
+                "VALUES (50)");
+
+        assertQueryFails("INSERT INTO faker.default.limited_range(id) VALUES (10)", "This connector does not support inserts");
+
+        assertUpdate("DROP TABLE faker.default.limited_range");
+
+        List<TestDataType> testCases = ImmutableList.<TestDataType>builder()
+                .add(new TestDataType("rnd_bigint", "bigint", Map.of("min", "0", "max", "1"), "count(distinct rnd_bigint)", "2"))
+                .add(new TestDataType("rnd_integer", "integer", Map.of("min", "0", "max", "1"), "count(distinct rnd_integer)", "2"))
+                .add(new TestDataType("rnd_smallint", "smallint", Map.of("min", "0", "max", "1"), "count(distinct rnd_smallint)", "2"))
+                .add(new TestDataType("rnd_tinyint", "tinyint", Map.of("min", "0", "max", "1"), "count(distinct rnd_tinyint)", "2"))
+                .add(new TestDataType("rnd_date", "date", Map.of("min", "2022-03-01", "max", "2022-03-02"), "count(distinct rnd_date)", "2"))
+                .add(new TestDataType("rnd_decimal1", "decimal", Map.of("min", "0", "max", "1"), "count(distinct rnd_decimal1)", "2"))
+                .add(new TestDataType("rnd_decimal2", "decimal(18,5)", Map.of("min", "0.00000", "max", "0.00001"), "count(distinct rnd_decimal2)", "2"))
+                .add(new TestDataType("rnd_decimal3", "decimal(38,0)", Map.of("min", "0", "max", "1"), "count(distinct rnd_decimal3)", "2"))
+                .add(new TestDataType("rnd_decimal4", "decimal(38,38)", Map.of("min", "0.00000000000000000000000000000000000000", "max", "0.00000000000000000000000000000000000001"), "count(distinct rnd_decimal4)", "2"))
+                .add(new TestDataType("rnd_decimal5", "decimal(5,2)", Map.of("min", "0.00", "max", "0.01"), "count(distinct rnd_decimal5)", "2"))
+                .add(new TestDataType("rnd_real", "real", Map.of("min", "0.0", "max", "1.4E-45"), "count(distinct rnd_real)", "2"))
+                .add(new TestDataType("rnd_double", "double", Map.of("min", "0.0", "max", "4.9E-324"), "count(distinct rnd_double)", "2"))
+                .add(new TestDataType("rnd_interval1", "interval day to second", Map.of("min", "0.000", "max", "0.001"), "count(distinct rnd_interval1)", "2"))
+                .add(new TestDataType("rnd_interval2", "interval year to month", Map.of("min", "0", "max", "1"), "count(distinct rnd_interval2)", "2"))
+                .add(new TestDataType("rnd_timestamp", "timestamp", Map.of("min", "2022-03-21 00:00:00.000", "max", "2022-03-21 00:00:00.001"), "count(distinct rnd_timestamp)", "2"))
+                .add(new TestDataType("rnd_timestamp0", "timestamp(0)", Map.of("min", "2022-03-21 00:00:00", "max", "2022-03-21 00:00:01"), "count(distinct rnd_timestamp0)", "2"))
+                .add(new TestDataType("rnd_timestamp6", "timestamp(6)", Map.of("min", "2022-03-21 00:00:00.000000", "max", "2022-03-21 00:00:00.000001"), "count(distinct rnd_timestamp6)", "2"))
+                .add(new TestDataType("rnd_timestamp9", "timestamp(9)", Map.of("min", "2022-03-21 00:00:00.000000000", "max", "2022-03-21 00:00:00.000000001"), "count(distinct rnd_timestamp9)", "2"))
+                .add(new TestDataType("rnd_timestamptz", "timestamp with time zone", Map.of("min", "2022-03-21 00:00:00.000 +01:00", "max", "2022-03-21 00:00:00.001 +01:00"), "count(distinct rnd_timestamptz)", "2"))
+                .add(new TestDataType("rnd_timestamptz0", "timestamp(0) with time zone", Map.of("min", "2022-03-21 00:00:00 +01:00", "max", "2022-03-21 00:00:01 +01:00"), "count(distinct rnd_timestamptz0)", "2"))
+                .add(new TestDataType("rnd_timestamptz6", "timestamp(6) with time zone", Map.of("min", "2022-03-21 00:00:00.000000 +01:00", "max", "2022-03-21 00:00:00.000001 +01:00"), "count(distinct rnd_timestamptz6)", "2"))
+                .add(new TestDataType("rnd_timestamptz9", "timestamp(9) with time zone", Map.of("min", "2022-03-21 00:00:00.000000000 +01:00", "max", "2022-03-21 00:00:00.000000001 +01:00"), "count(distinct rnd_timestamptz9)", "2"))
+                .add(new TestDataType("rnd_time", "time", Map.of("min", "01:02:03.456", "max", "01:02:03.457"), "count(distinct rnd_time)", "2"))
+                .add(new TestDataType("rnd_time0", "time(0)", Map.of("min", "01:02:03", "max", "01:02:04"), "count(distinct rnd_time0)", "2"))
+                .add(new TestDataType("rnd_time6", "time(6)", Map.of("min", "01:02:03.000456", "max", "01:02:03.000457"), "count(distinct rnd_time6)", "2"))
+                .add(new TestDataType("rnd_time9", "time(9)", Map.of("min", "01:02:03.000000456", "max", "01:02:03.000000457"), "count(distinct rnd_time9)", "2"))
+                .add(new TestDataType("rnd_timetz", "time with time zone", Map.of("min", "01:02:03.456 +01:00", "max", "01:02:03.457 +01:00"), "count(distinct rnd_timetz)", "2"))
+                .add(new TestDataType("rnd_timetz0", "time(0) with time zone", Map.of("min", "01:02:03 +01:00", "max", "01:02:04 +01:00"), "count(distinct rnd_timetz0)", "2"))
+                .add(new TestDataType("rnd_timetz6", "time(6) with time zone", Map.of("min", "01:02:03.000456 +01:00", "max", "01:02:03.000457 +01:00"), "count(distinct rnd_timetz6)", "2"))
+                .add(new TestDataType("rnd_timetz9", "time(9) with time zone", Map.of("min", "01:02:03.000000456 +01:00", "max", "01:02:03.000000457 +01:00"), "count(distinct rnd_timetz9)", "2"))
+                .add(new TestDataType("rnd_timetz12", "time(12) with time zone", Map.of("min", "01:02:03.000000000456 +01:00", "max", "01:02:03.000000000457 +01:00"), "count(distinct rnd_timetz12)", "2"))
+                .build();
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "ctas_src_" + testCase.name(), "(%s) WITH (null_probability = 0, default_limit = 1000)".formatted(testCase.columnSchema()));
+                    TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, dictionary_detection_enabled = false, sequence_detection_enabled = false) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+
+        for (TestDataType testCase : testCases) {
+            try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "ctas_src_" + testCase.name(), "(%s %s) WITH (null_probability = 0, default_limit = 2)".formatted(testCase.name(), testCase.type()));
+                    TestTable table = new TestTable(getQueryRunner()::execute, "ctas_" + testCase.name(), "WITH (null_probability = 0, default_limit = 1000, sequence_detection_enabled = false) AS SELECT %s FROM %s".formatted(testCase.name(), sourceTable.getName()))) {
+                assertQuery("SELECT %s FROM %s".formatted(testCase.queryExpression(), table.getName()), "VALUES (%s)".formatted(testCase.expectedValue()));
+            }
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectSequence()
+    {
+        String source = """
+                        SELECT
+                          cast(greatest(least(sequential_number, 0x7f), -0x80) AS TINYINT) AS seq_tinyint,
+                          cast(sequential_number AS SMALLINT) AS seq_smallint,
+                          cast(sequential_number AS INTEGER) AS seq_integer,
+                          cast(sequential_number AS BIGINT) AS seq_bigint
+                        FROM TABLE(sequence(start => -500, stop => 500, step => 1))
+                        """;
+        try (TestTable sourceTable = new TestTable(getQueryRunner()::execute, "seq_src", "WITH (null_probability = 0, default_limit = 1000, dictionary_detection_enabled = false) AS " + source);
+                TestTable table = new TestTable(getQueryRunner()::execute, "seq", "WITH (null_probability = 0, default_limit = 1000, dictionary_detection_enabled = false) AS SELECT * FROM %s".formatted(sourceTable.getName()))) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("seq_tinyint tinyint WITH \\(max = '\\d+', min = '-\\d+'\\)");
+            assertThat(createTable).containsPattern("seq_smallint smallint WITH \\(max = '\\d+', min = '-\\d+', step = '1'\\)");
+            assertThat(createTable).containsPattern("seq_integer integer WITH \\(max = '\\d+', min = '-\\d+', step = '1'\\)");
+            assertThat(createTable).containsPattern("seq_bigint bigint WITH \\(max = '\\d+', min = '-\\d+', step = '1'\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectNulls()
+    {
+        String source = """
+                        SELECT
+                          cast(NULL AS INTEGER) AS nullable
+                        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+                        """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "only_nulls", "WITH (dictionary_detection_enabled = false) AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("nullable integer WITH \\(null_probability = 1E0\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectVarchar()
+    {
+        String source = """
+                        SELECT * FROM tpch.tiny.orders
+                        """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "varchars", "AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("orderkey bigint WITH \\(max = '60000', min = '1', null_probability = 0E0, step = '1'\\)");
+            assertThat(createTable).containsPattern("custkey bigint WITH \\(allowed_values = ARRAY\\['.*'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderstatus varchar\\(1\\)");
+            assertThat(createTable).containsPattern("totalprice double WITH \\(max = '.*', min = '.*', null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderdate date WITH \\(max = '1998-08-02', min = '1992-01-01', null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("orderpriority varchar\\(15\\)");
+            assertThat(createTable).containsPattern("clerk varchar\\(15\\)");
+            assertThat(createTable).containsPattern("shippriority integer WITH \\(allowed_values = ARRAY\\['0'], null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("comment varchar\\(79\\)");
+        }
+    }
+
+    @Test
+    void testCreateTableAsSelectBoolean()
+    {
+        String source = """
+                        SELECT
+                          sequential_number % 2 = 0 AS boolean,
+                          ARRAY[true, false, sequential_number % 2 = 0] AS boolean_array
+                        FROM TABLE(sequence(start => 0, stop => 1000, step => 1))
+                        """;
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "booleans", "AS " + source)) {
+            String createTable = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
+            assertThat(createTable).containsPattern("boolean boolean WITH \\(null_probability = 0E0\\)");
+            assertThat(createTable).containsPattern("boolean_array array\\(boolean\\) WITH \\(null_probability = 0E0\\)");
+        }
     }
 }

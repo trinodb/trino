@@ -24,6 +24,8 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.UriLocation;
 import io.trino.filesystem.encryption.EncryptionKey;
+import software.amazon.awssdk.auth.signer.AwsS3V4Signer;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CommonPrefix;
@@ -33,6 +35,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.OptionalObjectAttributes;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Error;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -196,6 +199,7 @@ final class S3FileSystem
                         .overrideConfiguration(context::applyCredentialProviderOverride)
                         .requestPayer(requestPayer)
                         .bucket(bucket)
+                        .overrideConfiguration(disableStrongIntegrityChecksums())
                         .delete(builder -> builder.objects(objects).quiet(true))
                         .build();
 
@@ -242,6 +246,8 @@ final class S3FileSystem
 
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
+                // Restore status will not be added to the response without requested
+                .optionalObjectAttributes(OptionalObjectAttributes.RESTORE_STATUS)
                 .requestPayer(requestPayer)
                 .bucket(s3Location.bucket())
                 .prefix(key)
@@ -387,5 +393,15 @@ final class S3FileSystem
     private static void validateS3Location(Location location)
     {
         new S3Location(location);
+    }
+
+    // TODO (https://github.com/trinodb/trino/issues/24955):
+    // remove me once all of the S3-compatible storage support strong integrity checks
+    @SuppressWarnings("deprecation")
+    static AwsRequestOverrideConfiguration disableStrongIntegrityChecksums()
+    {
+        return AwsRequestOverrideConfiguration.builder()
+            .signer(AwsS3V4Signer.create())
+            .build();
     }
 }

@@ -25,6 +25,13 @@ public class NoChannelGroupByHash
 
     private int groupCount;
 
+    public NoChannelGroupByHash() {}
+
+    private NoChannelGroupByHash(NoChannelGroupByHash other)
+    {
+        this.groupCount = other.groupCount;
+    }
+
     @Override
     public long getEstimatedSize()
     {
@@ -68,6 +75,12 @@ public class NoChannelGroupByHash
     public int getCapacity()
     {
         return 2;
+    }
+
+    @Override
+    public GroupByHash copy()
+    {
+        return new NoChannelGroupByHash(this);
     }
 
     private void updateGroupCount(Page page)

@@ -360,22 +360,10 @@ public class TestIcebergProcedureCalls
         Thread.sleep(1);
         onTrino().executeQuery(format("INSERT INTO %s VALUES 2", tableName));
         long snapshotId = getSecondOldestTableSnapshot(tableName);
-        onTrino().executeQuery(format("call system.rollback_to_snapshot('default', '%s', %d)", tableName, snapshotId));
+        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE rollback_to_snapshot(%d)", tableName, snapshotId));
         assertThat(onTrino().executeQuery(format("SELECT * FROM %s", tableName)))
                 .containsOnly(row(1));
         onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-    }
-
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testRollbackToSnapshotWithNullArgument()
-    {
-        onTrino().executeQuery("USE iceberg.default");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot(NULL, 'customer_orders', 8954597067493422955)"))
-                .hasMessageMatching(".*schema cannot be null.*");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot('testdb', NULL, 8954597067493422955)"))
-                .hasMessageMatching(".*table cannot be null.*");
-        assertQueryFailure(() -> onTrino().executeQuery("CALL system.rollback_to_snapshot('testdb', 'customer_orders', NULL)"))
-                .hasMessageMatching(".*snapshot_id cannot be null.*");
     }
 
     private long getSecondOldestTableSnapshot(String tableName)

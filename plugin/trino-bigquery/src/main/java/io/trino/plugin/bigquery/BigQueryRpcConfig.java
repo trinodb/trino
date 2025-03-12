@@ -14,7 +14,6 @@
 package io.trino.plugin.bigquery;
 
 import io.airlift.configuration.Config;
-import io.airlift.configuration.ConfigHidden;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
@@ -44,7 +43,6 @@ public class BigQueryRpcConfig
         return rpcInitialChannelCount;
     }
 
-    @ConfigHidden
     @Config("bigquery.channel-pool.initial-size")
     public BigQueryRpcConfig setRpcInitialChannelCount(int rpcInitialChannelCount)
     {
@@ -59,7 +57,6 @@ public class BigQueryRpcConfig
         return rpcMinChannelCount;
     }
 
-    @ConfigHidden
     @Config("bigquery.channel-pool.min-size")
     public BigQueryRpcConfig setRpcMinChannelCount(int rpcMinChannelCount)
     {
@@ -74,7 +71,6 @@ public class BigQueryRpcConfig
         return rpcMaxChannelCount;
     }
 
-    @ConfigHidden
     @Config("bigquery.channel-pool.max-size")
     public BigQueryRpcConfig setRpcMaxChannelCount(int rpcMaxChannelCount)
     {
@@ -88,7 +84,6 @@ public class BigQueryRpcConfig
         return minRpcPerChannel;
     }
 
-    @ConfigHidden
     @Config("bigquery.channel-pool.min-rpc-per-channel")
     public BigQueryRpcConfig setMinRpcPerChannel(int minRpcPerChannel)
     {
@@ -102,7 +97,6 @@ public class BigQueryRpcConfig
         return maxRpcPerChannel;
     }
 
-    @ConfigHidden
     @Config("bigquery.channel-pool.max-rpc-per-channel")
     public BigQueryRpcConfig setMaxRpcPerChannel(int maxRpcPerChannel)
     {
@@ -111,13 +105,12 @@ public class BigQueryRpcConfig
     }
 
     @Min(0)
-    @Max(1024)
+    @Max(16)
     public int getRetries()
     {
         return retries;
     }
 
-    @ConfigHidden
     @Config("bigquery.rpc-retries")
     public BigQueryRpcConfig setRetries(int maxRetries)
     {
@@ -126,13 +119,12 @@ public class BigQueryRpcConfig
     }
 
     @MinDuration("0s")
-    @MaxDuration("30m")
+    @MaxDuration("1m")
     public Duration getTimeout()
     {
         return timeout;
     }
 
-    @ConfigHidden
     @Config("bigquery.rpc-timeout")
     public BigQueryRpcConfig setTimeout(Duration timeout)
     {
@@ -141,13 +133,12 @@ public class BigQueryRpcConfig
     }
 
     @MinDuration("0s")
-    @MaxDuration("1m")
+    @MaxDuration("30s")
     public Duration getRetryDelay()
     {
         return retryDelay;
     }
 
-    @ConfigHidden
     @Config("bigquery.rpc-retry-delay")
     public BigQueryRpcConfig setRetryDelay(Duration retryDelay)
     {
@@ -155,7 +146,6 @@ public class BigQueryRpcConfig
         return this;
     }
 
-    @ConfigHidden
     @Config("bigquery.rpc-retry-delay-multiplier")
     public BigQueryRpcConfig setRetryMultiplier(double retryMultiplier)
     {

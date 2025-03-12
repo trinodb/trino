@@ -21,9 +21,9 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.SqlRow;
-import io.trino.spi.protocol.SpooledLocation;
-import io.trino.spi.protocol.SpooledLocation.CoordinatorLocation;
-import io.trino.spi.protocol.SpooledLocation.DirectLocation;
+import io.trino.spi.spool.SpooledLocation;
+import io.trino.spi.spool.SpooledLocation.CoordinatorLocation;
+import io.trino.spi.spool.SpooledLocation.DirectLocation;
 import io.trino.spi.type.RowType;
 import io.trino.sql.planner.Symbol;
 
@@ -62,15 +62,15 @@ public record SpooledBlock(Slice identifier, Optional<URI> directUri, Map<String
             return new SpooledBlock(
                     VARCHAR.getSlice(row.getRawFieldBlock(0), 0),
                     Optional.empty(), // Not a direct location
-                    HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).toStringUtf8()),
-                    ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()));
+                    HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).getInput()),
+                    ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).getInput()));
         }
 
         return new SpooledBlock(
                 VARCHAR.getSlice(row.getRawFieldBlock(0), 0),
                 Optional.of(URI.create(VARCHAR.getSlice(row.getRawFieldBlock(1), 0).toStringUtf8())),
-                HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).toStringUtf8()),
-                ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).toStringUtf8()));
+                HEADERS_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(2), 0).getInput()),
+                ATTRIBUTES_CODEC.fromJson(VARCHAR.getSlice(row.getRawFieldBlock(3), 0).getInput()));
     }
 
     public static SpooledBlock forLocation(SpooledLocation location, DataAttributes attributes)

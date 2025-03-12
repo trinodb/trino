@@ -15,6 +15,7 @@ package io.trino.client;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 
 import java.io.IOException;
@@ -31,20 +32,27 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.trino.client.ClientStandardTypes.ARRAY;
 import static io.trino.client.ClientStandardTypes.BIGINT;
+import static io.trino.client.ClientStandardTypes.BING_TILE;
 import static io.trino.client.ClientStandardTypes.BOOLEAN;
 import static io.trino.client.ClientStandardTypes.CHAR;
+import static io.trino.client.ClientStandardTypes.COLOR;
 import static io.trino.client.ClientStandardTypes.DATE;
 import static io.trino.client.ClientStandardTypes.DECIMAL;
 import static io.trino.client.ClientStandardTypes.DOUBLE;
 import static io.trino.client.ClientStandardTypes.GEOMETRY;
+import static io.trino.client.ClientStandardTypes.HYPER_LOG_LOG;
 import static io.trino.client.ClientStandardTypes.INTEGER;
 import static io.trino.client.ClientStandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.trino.client.ClientStandardTypes.INTERVAL_YEAR_TO_MONTH;
 import static io.trino.client.ClientStandardTypes.IPADDRESS;
 import static io.trino.client.ClientStandardTypes.JSON;
+import static io.trino.client.ClientStandardTypes.KDB_TREE;
 import static io.trino.client.ClientStandardTypes.MAP;
+import static io.trino.client.ClientStandardTypes.P4_HYPER_LOG_LOG;
+import static io.trino.client.ClientStandardTypes.QDIGEST;
 import static io.trino.client.ClientStandardTypes.REAL;
 import static io.trino.client.ClientStandardTypes.ROW;
+import static io.trino.client.ClientStandardTypes.SET_DIGEST;
 import static io.trino.client.ClientStandardTypes.SMALLINT;
 import static io.trino.client.ClientStandardTypes.SPHERICAL_GEOGRAPHY;
 import static io.trino.client.ClientStandardTypes.TIME;
@@ -53,6 +61,7 @@ import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.TINYINT;
 import static io.trino.client.ClientStandardTypes.UUID;
+import static io.trino.client.ClientStandardTypes.VARBINARY;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
@@ -72,6 +81,7 @@ public final class JsonDecodingUtils
     private static final BooleanDecoder BOOLEAN_DECODER = new BooleanDecoder();
     private static final StringDecoder STRING_DECODER = new StringDecoder();
     private static final Base64Decoder BASE_64_DECODER = new Base64Decoder();
+    private static final ObjectDecoder OBJECT_DECODER = new ObjectDecoder();
 
     public static TypeDecoder[] createTypeDecoders(List<Column> columns)
     {
@@ -127,7 +137,16 @@ public final class JsonDecodingUtils
             case CHAR:
             case GEOMETRY:
             case SPHERICAL_GEOGRAPHY:
+            case COLOR:
                 return STRING_DECODER;
+            case KDB_TREE:
+            case BING_TILE:
+                return OBJECT_DECODER;
+            case QDIGEST:
+            case P4_HYPER_LOG_LOG:
+            case HYPER_LOG_LOG:
+            case SET_DIGEST:
+            case VARBINARY:
             default:
                 return BASE_64_DECODER;
         }
@@ -387,6 +406,7 @@ public final class JsonDecodingUtils
                 case CHAR:
                 case GEOMETRY:
                 case SPHERICAL_GEOGRAPHY:
+                case BING_TILE:
                     return value;
                 default:
                     return Base64.getDecoder().decode(value);
@@ -444,6 +464,19 @@ public final class JsonDecodingUtils
             }
             verify(parser.nextToken() == END_ARRAY, "Expected end object, but got %s", parser.currentToken());
             return row.build();
+        }
+    }
+
+    private static class ObjectDecoder
+            implements TypeDecoder
+    {
+        private final ObjectMapper objectMapper = new ObjectMapper();
+
+        @Override
+        public Object decode(JsonParser parser)
+                throws IOException
+        {
+            return objectMapper.readValue(parser, Object.class);
         }
     }
 

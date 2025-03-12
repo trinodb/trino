@@ -24,6 +24,10 @@ Storage file system support:
     all other properties.
 * - `gcs.project-id`
   - Identifier for the project on Google Cloud Storage.
+* - `gcs.endpoint`
+  - Optional URL for the Google Cloud Storage endpoint. Configure this property
+    if your storage is accessed using a custom URL, for example
+    `http://storage.example.com:8000`.
 * - `gcs.client.max-retries`
   - Maximum number of RPC attempts. Defaults to 20.
 * - `gcs.client.backoff-scale-factor`
@@ -48,6 +52,9 @@ Storage file system support:
 * - `gcs.batch-size`
   - Number of blobs to delete per batch. Defaults to 100. [Recommended batch
     size](https://cloud.google.com/storage/docs/batch) is 100.
+* - `gcs.application-id`
+  - Specify the application identifier appended to the `User-Agent` header
+    for all requests sent to Google Cloud Storage. Defaults to `Trino`.
 :::
 
 ## Authentication
@@ -71,3 +78,34 @@ Cloud Storage:
   - Path to the JSON file on each node that contains your Google Cloud Platform
     service account key. Not to be set together with `gcs.json-key`.
 :::
+
+(fs-legacy-gcs-migration)=
+## Migration from legacy Google Cloud Storage file system
+
+Trino includes legacy Google Cloud Storage support to use with a catalog using
+the Delta Lake, Hive, Hudi, or Iceberg connectors. Upgrading existing
+deployments to the current native implementation is recommended. Legacy support
+is deprecated and will be removed.
+
+To migrate a catalog to use the native file system implementation for Google
+Cloud Storage, make the following edits to your catalog configuration:
+
+1. Add the `fs.native-gcs.enabled=true` catalog configuration property.
+2. Refer to the following table to rename your existing legacy catalog
+   configuration properties to the corresponding native configuration
+   properties. Supported configuration values are identical unless otherwise
+   noted.
+
+  :::{list-table}
+  :widths: 35, 35, 65
+  :header-rows: 1
+   * - Legacy property
+     - Native property
+     - Notes
+   * - `hive.gcs.use-access-token`
+     - `gcs.use-access-token`
+     -
+   * - `hive.gcs.json-key-file-path`
+     - `gcs.json-key-file-path`
+     - Also see `gcs.json-key` in preceding sections
+  :::

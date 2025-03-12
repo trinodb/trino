@@ -15,6 +15,7 @@
 package io.trino.plugin.iceberg.util;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
@@ -69,6 +70,7 @@ public final class ParquetUtil
     private ParquetUtil() {}
 
     public static Metrics footerMetrics(ParquetMetadata metadata, Stream<FieldMetrics<?>> fieldMetrics, MetricsConfig metricsConfig)
+            throws ParquetCorruptionException
     {
         return footerMetrics(metadata, fieldMetrics, metricsConfig, null);
     }
@@ -78,6 +80,7 @@ public final class ParquetUtil
             Stream<FieldMetrics<?>> fieldMetrics,
             MetricsConfig metricsConfig,
             NameMapping nameMapping)
+            throws ParquetCorruptionException
     {
         requireNonNull(fieldMetrics, "fieldMetrics should not be null");
 
@@ -156,9 +159,11 @@ public final class ParquetUtil
     }
 
     public static List<Long> getSplitOffsets(ParquetMetadata metadata)
+            throws ParquetCorruptionException
     {
-        List<Long> splitOffsets = new ArrayList<>(metadata.getBlocks().size());
-        for (BlockMetadata blockMetaData : metadata.getBlocks()) {
+        List<BlockMetadata> blocks = metadata.getBlocks();
+        List<Long> splitOffsets = new ArrayList<>(blocks.size());
+        for (BlockMetadata blockMetaData : blocks) {
             splitOffsets.add(blockMetaData.getStartingPos());
         }
         Collections.sort(splitOffsets);

@@ -14,7 +14,6 @@
 package io.trino.cli;
 
 import com.google.common.base.Splitter;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import io.trino.cli.ClientOptions.OutputFormat;
 import io.trino.client.ClientSelectedRole;
@@ -215,7 +214,7 @@ public class Query
 
     private boolean isInteractive(Optional<String> pager)
     {
-        return pager.map(name -> name.trim().length() != 0).orElse(true);
+        return pager.map(name -> !name.trim().isEmpty()).orElse(true);
     }
 
     private void processInitialStatusUpdates(WarningsPrinter warningsPrinter)
@@ -242,8 +241,8 @@ public class Query
     private void renderUpdate(Terminal terminal, PrintStream out, QueryStatusInfo results, OutputFormat outputFormat, Optional<String> pager)
     {
         String status = results.getUpdateType();
-        if (results.getUpdateCount() != null) {
-            long count = results.getUpdateCount();
+        if (results.getUpdateCount().isPresent()) {
+            long count = results.getUpdateCount().getAsLong();
             status += format(": %s row%s", count, (count != 1) ? "s" : "");
             out.println(status);
         }
@@ -424,7 +423,7 @@ public class Query
         }
         else {
             String prefix = format("LINE %s: ", location.getLineNumber());
-            String padding = Strings.repeat(" ", prefix.length() + (location.getColumnNumber() - 1));
+            String padding = " ".repeat(prefix.length() + (location.getColumnNumber() - 1));
             out.println(prefix + errorLine);
             out.println(padding + "^");
         }

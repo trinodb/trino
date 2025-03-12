@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.common.io.Closeables;
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
@@ -31,18 +32,18 @@ import okhttp3.RequestBody;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.io.UnsupportedEncodingException;
+import java.io.UncheckedIOException;
 import java.net.ProtocolException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,8 +58,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
-import static io.trino.client.JsonCodec.jsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
+import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -71,13 +72,12 @@ class StatementClientV1
         implements StatementClient
 {
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
     private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
-    private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
 
     private final Call.Factory httpCallFactory;
     private final String query;
@@ -135,7 +135,7 @@ class StatementClientV1
         Request request = buildQueryRequest(session, query, session.getEncoding());
         // Pass empty as materializedJsonSizeLimit to always materialize the first response
         // to avoid losing the response body if the initial response parsing fails
-        executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
+        executeRequest(request, "starting query", this::isTransient);
     }
 
     private Request buildQueryRequest(ClientSession session, String query, Optional<String> requestedEncoding)
@@ -386,10 +386,10 @@ class StatementClientV1
         }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
-        return executeRequest(request, "fetching next", OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE), (e) -> true);
+        return executeRequest(request, "fetching next", (e) -> true);
     }
 
-    private boolean executeRequest(Request request, String taskName, OptionalLong materializedJsonSizeLimit, Function<Exception, Boolean> isRetryable)
+    private boolean executeRequest(Request request, String taskName, Function<Exception, Boolean> isRetryable)
     {
         Exception cause = null;
         long start = System.nanoTime();
@@ -403,6 +403,7 @@ class StatementClientV1
             if (attempts > 0) {
                 Duration sinceStart = Duration.nanosSince(start);
                 if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
+                    close();
                     state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
                     throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
@@ -425,7 +426,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request, materializedJsonSizeLimit);
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request);
             }
             catch (RuntimeException e) {
                 if (!isRetryable.apply(e)) {
@@ -554,10 +555,21 @@ class StatementClientV1
     {
         // If the query is not done, abort the query.
         if (state.compareAndSet(State.RUNNING, State.CLIENT_ABORTED)) {
-            URI uri = currentResults.get().getNextUri();
-            if (uri != null) {
-                httpDelete(uri);
+            if (currentStatusInfo() != null) {
+                URI uri = currentStatusInfo().getNextUri();
+                if (uri != null) {
+                    httpDelete(uri);
+                }
             }
+        }
+
+        // Close rows - this will close the underlying iterators,
+        // releasing all resources and pruning remote segments
+        try {
+            Closeables.close(currentRows.get(), false);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 
@@ -578,22 +590,12 @@ class StatementClientV1
 
     private static String urlEncode(String value)
     {
-        try {
-            return URLEncoder.encode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private static String urlDecode(String value)
     {
-        try {
-            return URLDecoder.decode(value, "UTF-8");
-        }
-        catch (UnsupportedEncodingException e) {
-            throw new AssertionError(e);
-        }
+        return URLDecoder.decode(value, StandardCharsets.UTF_8);
     }
 
     private enum State

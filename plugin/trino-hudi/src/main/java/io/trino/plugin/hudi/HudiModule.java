@@ -20,12 +20,11 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import io.trino.metastore.HiveMetastore;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
-import io.trino.plugin.hive.metastore.thrift.TranslateHiveViews;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -54,8 +53,8 @@ public class HudiModule
         binder.bind(HudiTransactionManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(HudiConfig.class);
-        configBinder(binder).bindConfig(HiveMetastoreConfig.class);
-        binder.bind(Key.get(boolean.class, TranslateHiveViews.class)).toInstance(false);
+
+        binder.bind(boolean.class).annotatedWith(HideDeltaLakeTables.class).toInstance(false);
 
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(HudiSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(HudiTableProperties.class).in(Scopes.SINGLETON);

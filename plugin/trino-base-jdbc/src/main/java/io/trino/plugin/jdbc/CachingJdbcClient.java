@@ -31,6 +31,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -90,6 +91,7 @@ public class CachingJdbcClient
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final Cache<TableListingCacheKey, List<RelationCommentMetadata>> tableCommentsCache;
     private final Cache<JdbcTableHandle, TableStatistics> statisticsCache;
+    private final Cache<RemoteTableName, List<JdbcColumnHandle>> tablePrimaryKeysCache;
 
     @Inject
     public CachingJdbcClient(
@@ -138,6 +140,7 @@ public class CachingJdbcClient
         columnsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         tableCommentsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         statisticsCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
+        tablePrimaryKeysCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
     }
 
     private static <K, V> Cache<K, V> buildCache(Ticker ticker, long cacheSize, Duration cachingTtl)
@@ -353,6 +356,12 @@ public class CachingJdbcClient
     }
 
     @Override
+    public boolean supportsMerge()
+    {
+        return delegate.supportsMerge();
+    }
+
+    @Override
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
         TableHandlesByNameCacheKey key = new TableHandlesByNameCacheKey(getIdentityKey(session), schemaTableName);
@@ -504,9 +513,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column, ColumnPosition position)
     {
-        delegate.addColumn(session, handle, column);
+        delegate.addColumn(session, handle, column, position);
         invalidateTableCaches(handle.asPlainTable().getSchemaTableName());
     }
 
@@ -606,6 +615,12 @@ public class CachingJdbcClient
     public OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return delegate.getMaxColumnNameLength(session);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
+    {
+        return get(tablePrimaryKeysCache, remoteTableName, () -> delegate.getPrimaryKeys(session, remoteTableName));
     }
 
     public void onDataChanged(SchemaTableName table)

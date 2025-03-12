@@ -486,8 +486,7 @@ public class TestIcebergSparkCompatibility
                 sparkTableName));
 
         onSpark().executeQuery("UPDATE " + sparkTableName + " SET _string = 'a' WHERE _struct._field = 1");
-        assertThatThrownBy(() -> onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE _struct._another_field = 'y'"))
-                .hasMessageContaining("Cannot filter by nested column: 6: _another_field: optional string");
+        onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE _struct._another_field = 'y'");
         assertQueryFailure(() -> onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP COLUMN _struct._field"))
                 .hasMessageContaining("Cannot find source column for partition field: 1000: _struct._field: identity(5)");
 
@@ -737,7 +736,7 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(
                 "CREATE TABLE " + trinoTableName + " (doc_id VARCHAR)\n" +
                         " WITH (" +
-                        " object_store_enabled = true," +
+                        " object_store_layout_enabled = true," +
                         " data_location = 'local:///write-data-path'," +
                         " extra_properties = MAP(ARRAY['custom.table-property'], ARRAY['my_custom_value'])" +
                         " )");
@@ -1203,7 +1202,7 @@ public class TestIcebergSparkCompatibility
 
         onTrino().executeQuery(format(
                 "CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (" +
-                          "object_store_enabled = true," +
+                          "object_store_layout_enabled = true," +
                           "data_location = '%s'," +
                           "format = '%s'," +
                           "format_version = %s)",
@@ -1861,8 +1860,8 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(
                         row("col0", null, null, 0.0, null, "1", "1"),
                         row("col1", null, null, 0.0, null, "2", "2"),
-                        row("col2", 124.0, null, 0.0, null, null, null),
-                        row("col3", 58.0, null, 0.0, null, null, null),
+                        row("col2", 132.0, null, 0.0, null, null, null),
+                        row("col3", 62.0, null, 0.0, null, null, null),
                         row(null, null, null, null, 1.0, null, null));
 
         onSpark().executeQuery("ALTER TABLE " + sparkTableName + " SET TBLPROPERTIES (write.metadata.metrics.column.col1='none')");
@@ -1871,8 +1870,8 @@ public class TestIcebergSparkCompatibility
                 .containsOnly(
                         row("col0", null, null, 0.0, null, "1", "3"),
                         row("col1", null, null, null, null, null, null),
-                        row("col2", 248.0, null, 0.0, null, null, null),
-                        row("col3", 117.0, null, 0.0, null, null, null),
+                        row("col2", 264.0, null, 0.0, null, null, null),
+                        row("col3", 124.0, null, 0.0, null, null, null),
                         row(null, null, null, null, 2.0, null, null));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
@@ -2089,6 +2088,26 @@ public class TestIcebergSparkCompatibility
 
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
                 .containsOnly(row(1, 2), row(2, 2), row(3, 2), row(11, 12), row(12, 12), row(13, 12));
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testOptimizeManifests()
+    {
+        String tableName = "test_optimize_manifests_" + randomNameSuffix();
+        String sparkTableName = sparkTableName(tableName);
+        String trinoTableName = trinoTableName(tableName);
+
+        onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT) USING ICEBERG");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1)");
+        onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (2)");
+
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE optimize_manifests");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName))
+                .containsOnly(row(1), row(2));
+        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
+                .containsOnly(row(1), row(2));
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
@@ -3128,7 +3147,8 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    // TODO Spark with Iceberg 1.8 returns incorrect results for Parquet bloom filters Trino wrote
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, enabled = false)
     public void testSparkReadingTrinoParquetBloomFilters()
     {
         String baseTableName = "test_spark_reading_trino_bloom_filters";

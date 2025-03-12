@@ -22,7 +22,6 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
-import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.hive.FileWriter;
@@ -33,7 +32,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
@@ -139,9 +137,7 @@ public final class DeltaLakeWriter
                 Block originalBlock = originalPage.getBlock(index);
                 Function<Block, Block> coercer = coercers.get(index);
                 if (coercer != null) {
-                    translatedBlocks[index] = new LazyBlock(
-                            originalBlock.getPositionCount(),
-                            new CoercionLazyBlockLoader(originalBlock, coercer));
+                    translatedBlocks[index] = coercer.apply(originalBlock);
                 }
                 else {
                     translatedBlocks[index] = originalBlock;
@@ -171,7 +167,7 @@ public final class DeltaLakeWriter
     @Override
     public long getValidationCpuNanos()
     {
-        return 0;
+        return fileWriter.getValidationCpuNanos();
     }
 
     public long getRowCount()
@@ -184,7 +180,7 @@ public final class DeltaLakeWriter
     {
         Location path = rootTableLocation.appendPath(relativeFilePath);
         FileMetaData fileMetaData = fileWriter.getFileMetadata();
-        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
+        ParquetMetadata parquetMetadata = new ParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
 
         return new DataFileInfo(
                 relativeFilePath,

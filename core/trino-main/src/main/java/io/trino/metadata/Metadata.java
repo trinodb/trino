@@ -27,6 +27,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -122,13 +123,17 @@ public interface Metadata
     TableProperties getTableProperties(Session session, TableHandle handle);
 
     /**
-     * Return a table handle whose partitioning is converted to the provided partitioning handle,
-     * but otherwise identical to the provided table handle.
-     * The provided table handle must be one that the connector can transparently convert to from
-     * the original partitioning handle associated with the provided table handle,
-     * as promised by {@link #getCommonPartitioning}.
+     * Attempt to push down partitioning into the table. If a connector can provide
+     * data for the table using the specified partitioning, it should return a
+     * table handle that when passed to {@link #getTableProperties(Session, TableHandle)}
+     * will return TableProperties compatible with the specified partitioning.
+     * The returned table handle does not have to use the exact partitioning, but
+     * must be compatible with the specified partitioning, meaning that a table with
+     * specified partitioning can be repartitioned on the partitioning of the returned
+     * table handle. If the partitioning handle is not specified, any partitioning
+     * function can be applied as long as it uses the specified columns.
      */
-    TableHandle makeCompatiblePartitioning(Session session, TableHandle table, PartitioningHandle partitioningHandle);
+    Optional<TableHandle> applyPartitioning(Session session, TableHandle tableHandle, Optional<PartitioningHandle> partitioning, List<ColumnHandle> columns);
 
     /**
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
@@ -272,7 +277,7 @@ public interface Metadata
     /**
      * Add the specified column to the table.
      */
-    void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column);
+    void addColumn(Session session, TableHandle tableHandle, CatalogSchemaTableName table, ColumnMetadata column, ColumnPosition position);
 
     /**
      * Add the specified field to the column.

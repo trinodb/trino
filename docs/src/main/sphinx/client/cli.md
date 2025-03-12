@@ -5,13 +5,18 @@ queries. The CLI is a
 [self-executing](http://skife.org/java/unix/2011/06/20/really_executable_jars.html)
 JAR file, which means it acts like a normal UNIX executable.
 
+The CLI uses the [](/client/client-protocol) over HTTP/HTTPS to communicate with
+the coordinator on the cluster.
+
 ## Requirements
 
-The CLI requires a Java virtual machine available on the path.
-It can be used with Java version 8 and higher.
+The Trino CLI has the following requirements:
 
-The CLI uses the {doc}`Trino client REST API </develop/client-protocol>` over
-HTTP/HTTPS to communicate with the coordinator on the cluster.
+* Java version 8 or higher available on the path. Java 22 or higher is
+  recommended for improved decompression performance.
+* Network access over HTTP/HTTPS to the coordinator of the Trino cluster.
+* Network access to the configured object storage, if the
+  [](cli-spooling-protocol) is enabled.
 
 The CLI version should be identical to the version of the Trino cluster, or
 newer. Older versions typically work, but only a subset is regularly tested.
@@ -176,8 +181,7 @@ mode:
   - Do not show query processing progress.
 * - `--path`
   - Set the default [SQL path](/sql/set-path) for the session. Useful for
-    setting a catalog and schema location for [catalog
-    routines](routine-catalog).
+    setting a catalog and schema location for [](udf-catalog).
 * - `--password`
   - Prompts for a password. Use if your Trino server requires password
     authentication. You can set the `TRINO_PASSWORD` environment variable with
@@ -603,6 +607,20 @@ and displays an error message (which is unaffected by the output format):
 Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be resolved
 SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
 ```
+
+(cli-spooling-protocol)=
+## Spooling protocol
+
+The Trino CLI automatically uses the spooling protocol to improve throughput
+for client interactions with higher data transfer demands, if the
+[](protocol-spooling) is configured on the cluster.
+
+Optionally use the `--encoding` option to configure a different desired
+encoding, compared to the default on the cluster. The available values are
+`json+zstd` (recommended) for JSON with Zstandard compression, and `json+lz4`
+for JSON with LZ4 compression, and `json` for uncompressed JSON. 
+
+The CLI process must have network access to the spooling object storage.
 
 (cli-output-format)=
 ## Output formats

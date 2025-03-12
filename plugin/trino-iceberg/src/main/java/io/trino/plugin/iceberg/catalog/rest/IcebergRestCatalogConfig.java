@@ -15,16 +15,17 @@ package io.trino.plugin.iceberg.catalog.rest;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
-import org.apache.iceberg.catalog.Namespace;
 
 import java.net.URI;
 import java.util.Optional;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+@DefunctConfig("iceberg.rest-catalog.parent-namespace")
 public class IcebergRestCatalogConfig
 {
     public enum Security
@@ -42,11 +43,12 @@ public class IcebergRestCatalogConfig
     private URI restUri;
     private Optional<String> prefix = Optional.empty();
     private Optional<String> warehouse = Optional.empty();
-    private Namespace parentNamespace = Namespace.of();
     private boolean nestedNamespaceEnabled;
     private Security security = Security.NONE;
     private SessionType sessionType = SessionType.NONE;
     private boolean vendedCredentialsEnabled;
+    private boolean viewEndpointsEnabled = true;
+    private boolean sigV4Enabled;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
@@ -89,19 +91,6 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setWarehouse(String warehouse)
     {
         this.warehouse = Optional.ofNullable(warehouse);
-        return this;
-    }
-
-    public Namespace getParentNamespace()
-    {
-        return parentNamespace;
-    }
-
-    @Config("iceberg.rest-catalog.parent-namespace")
-    @ConfigDescription("The parent namespace to use with the REST catalog server")
-    public IcebergRestCatalogConfig setParentNamespace(String parentNamespace)
-    {
-        this.parentNamespace = parentNamespace == null ? Namespace.empty() : Namespace.of(parentNamespace);
         return this;
     }
 
@@ -156,6 +145,32 @@ public class IcebergRestCatalogConfig
     public IcebergRestCatalogConfig setVendedCredentialsEnabled(boolean vendedCredentialsEnabled)
     {
         this.vendedCredentialsEnabled = vendedCredentialsEnabled;
+        return this;
+    }
+
+    public boolean isViewEndpointsEnabled()
+    {
+        return viewEndpointsEnabled;
+    }
+
+    @Config("iceberg.rest-catalog.view-endpoints-enabled")
+    @ConfigDescription("Enable view endpoints")
+    public IcebergRestCatalogConfig setViewEndpointsEnabled(boolean viewEndpointsEnabled)
+    {
+        this.viewEndpointsEnabled = viewEndpointsEnabled;
+        return this;
+    }
+
+    public boolean isSigV4Enabled()
+    {
+        return sigV4Enabled;
+    }
+
+    @Config("iceberg.rest-catalog.sigv4-enabled")
+    @ConfigDescription("Enable AWS Signature version 4 (SigV4)")
+    public IcebergRestCatalogConfig setSigV4Enabled(boolean sigV4Enabled)
+    {
+        this.sigV4Enabled = sigV4Enabled;
         return this;
     }
 

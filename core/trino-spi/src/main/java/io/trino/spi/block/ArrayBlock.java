@@ -193,15 +193,23 @@ public final class ArrayBlock
     }
 
     @Override
-    public String getEncodingName()
-    {
-        return ArrayBlockEncoding.NAME;
-    }
-
-    @Override
     public boolean mayHaveNull()
     {
         return valueIsNull != null;
+    }
+
+    @Override
+    public boolean hasNull()
+    {
+        if (valueIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (valueIsNull[i + arrayOffset]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override

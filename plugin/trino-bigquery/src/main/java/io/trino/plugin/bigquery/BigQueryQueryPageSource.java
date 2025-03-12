@@ -28,6 +28,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -54,6 +55,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryClient.selectSql;
 import static io.trino.plugin.bigquery.BigQueryTypeManager.toTrinoTimestamp;
+import static io.trino.plugin.bigquery.BigQueryUtil.buildNativeQuery;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -125,13 +127,10 @@ public class BigQueryQueryPageSource
     {
         if (isQueryFunction) {
             BigQueryQueryRelationHandle queryRelationHandle = (BigQueryQueryRelationHandle) table.relationHandle();
-            if (filter.isEmpty()) {
-                return queryRelationHandle.getQuery();
-            }
-            return "SELECT * FROM (" + queryRelationHandle.getQuery() + " ) WHERE " + filter.get();
+            return buildNativeQuery(queryRelationHandle.getQuery(), filter, table.limit());
         }
         TableId tableId = TableId.of(projectId, table.asPlainTable().getRemoteTableName().datasetName(), table.asPlainTable().getRemoteTableName().tableName());
-        return selectSql(tableId, ImmutableList.copyOf(columns), filter);
+        return selectSql(tableId, ImmutableList.copyOf(columns), filter, table.limit());
     }
 
     @Override
@@ -159,7 +158,7 @@ public class BigQueryQueryPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());
         if (tableResult == null) {
@@ -192,7 +191,7 @@ public class BigQueryQueryPageSource
 
         Page page = pageBuilder.build();
         pageBuilder.reset();
-        return page;
+        return SourcePage.create(page);
     }
 
     private void appendTo(Type type, FieldValue value, BlockBuilder output)

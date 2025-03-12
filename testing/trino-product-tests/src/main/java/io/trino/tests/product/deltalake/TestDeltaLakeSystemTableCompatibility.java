@@ -24,7 +24,6 @@ import java.util.List;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
@@ -38,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestDeltaLakeSystemTableCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTablePropertiesCaseSensitivity()
     {
@@ -79,7 +78,7 @@ public class TestDeltaLakeSystemTableCompatibility
         List<Row> expectedRows = ImmutableList.of(
                 row("delta.columnMapping.mode", "id"),
                 row("delta.feature.columnMapping", "supported"),
-                row("delta.minReaderVersion", "3"),
+                row("delta.minReaderVersion", "2"), // https://github.com/delta-io/delta/issues/4024 Delta Lake 3.3.0 ignores minReaderVersion
                 row("delta.minWriterVersion", "7"));
         try {
             QueryResult deltaResult = onDelta().executeQuery("SHOW TBLPROPERTIES default." + tableName);

@@ -21,7 +21,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputStream;
 import io.trino.filesystem.memory.MemoryFileSystem;
 import io.trino.spi.QueryId;
-import io.trino.spi.protocol.SpoolingContext;
+import io.trino.spi.spool.SpoolingContext;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

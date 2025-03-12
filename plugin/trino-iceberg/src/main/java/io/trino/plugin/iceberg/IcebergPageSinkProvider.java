@@ -146,7 +146,9 @@ public class IcebergPageSinkProvider
                         sortingFileWriterMaxOpenFiles,
                         typeManager,
                         pageSorter);
+            case OPTIMIZE_MANIFESTS:
             case DROP_EXTENDED_STATS:
+            case ROLLBACK_TO_SNAPSHOT:
             case EXPIRE_SNAPSHOTS:
             case REMOVE_ORPHAN_FILES:
             case ADD_FILES:

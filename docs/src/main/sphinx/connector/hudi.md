@@ -96,6 +96,11 @@ Additionally, following configuration properties can be set depending on the use
     or `CAST(part_key AS INTEGER) % 2 = 0` are not recognized as partition filters,
     and queries using such expressions fail if the property is set to `true`.
   - `false`
+* - `hudi.ignore-absent-partitions`
+  - Ignore partitions when the file system location does not exist rather than
+    failing the query. This skips data that may be expected to be part of the
+    table.
+  - `false`
 
 :::
 

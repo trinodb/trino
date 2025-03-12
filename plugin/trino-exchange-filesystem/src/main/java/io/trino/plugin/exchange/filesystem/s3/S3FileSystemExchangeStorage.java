@@ -53,8 +53,12 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.signer.AwsS3V4Signer;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.awscore.endpoint.AwsClientEndpointProvider;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.core.internal.retry.SdkDefaultRetryStrategy;
 import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
@@ -360,7 +364,7 @@ public class S3FileSystemExchangeStorage
 
         ListObjectsV2Request request = ListObjectsV2Request.builder()
                 .bucket(getBucketName(dir))
-                .prefix(keyFromUri(dir))
+                .prefix(keyFromUri(dir) + PATH_SEPARATOR)
                 .build();
 
         return s3AsyncClient.listObjectsV2Paginator(request);
@@ -374,6 +378,7 @@ public class S3FileSystemExchangeStorage
             DeleteObjectsRequest request = DeleteObjectsRequest.builder()
                     .bucket(bucketName)
                     .delete(Delete.builder().objects(list.stream().map(key -> ObjectIdentifier.builder().key(key).build()).collect(toImmutableList())).build())
+                    .overrideConfiguration(disableStrongIntegrityChecksums())
                     .build();
             return toListenableFuture(s3AsyncClient.deleteObjects(request));
         }).collect(toImmutableList())));
@@ -480,6 +485,8 @@ public class S3FileSystemExchangeStorage
                 .serviceConfiguration(S3Configuration.builder()
                         .pathStyleAccessEnabled(isS3PathStyleAccess)
                         .build())
+                .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+                .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
                 .httpClientBuilder(NettyNioAsyncHttpClient.builder()
                         .maxConcurrency(maxConcurrency)
                         .maxPendingConnectionAcquires(maxPendingConnectionAcquires)
@@ -901,5 +908,15 @@ public class S3FileSystemExchangeStorage
                     .build();
             return stats.getAbortMultipartUpload().record(toListenableFuture(s3AsyncClient.abortMultipartUpload(abortMultipartUploadRequest)));
         }
+    }
+
+    // TODO (https://github.com/trinodb/trino/issues/24955):
+    // remove me once all of the S3-compatible storage support strong integrity checks
+    @SuppressWarnings("deprecation")
+    static AwsRequestOverrideConfiguration disableStrongIntegrityChecksums()
+    {
+        return AwsRequestOverrideConfiguration.builder()
+                .signer(AwsS3V4Signer.create())
+                .build();
     }
 }

@@ -30,6 +30,12 @@ public class DictionaryBlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return DictionaryBlock.class;
+    }
+
+    @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         // The down casts here are safe because it is the block itself the provides this encoding implementation.

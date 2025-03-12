@@ -1737,7 +1737,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
 
             // vacuum with low retention period
-            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            MILLISECONDS.sleep(2_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
             assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
             // table data shouldn't change
             assertThat(query("SELECT * FROM " + tableName))
@@ -1783,11 +1783,57 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
 
             // vacuum with low retention period
-            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            MILLISECONDS.sleep(2_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
             assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "', retention => '1s')");
             // table data shouldn't change
             assertThat(query("SELECT * FROM " + tableName))
                     .matches("SELECT nationkey + 100, CAST(name AS varchar), regionkey, CAST(comment AS varchar) FROM tpch.tiny.nation");
+            // active files shouldn't change
+            assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
+            // old files should be cleaned up
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(updatedFiles);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testVacuumWithWhiteSpace()
+            throws Exception
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String tableName = "test_vacuum_white_space_" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName) + "/";
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "vacuum_min_retention", "0s")
+                .build();
+
+        assertUpdate(format("CREATE TABLE %s (val int, col_white_space timestamp(6)) WITH (location = '%s', partitioned_by = ARRAY['col_white_space'])", tableName, tableLocation));
+
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, TIMESTAMP '2024-12-13 11:00:00.000000'), (2, TIMESTAMP '2024-12-13 12:00:00.000000')", 2);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(2);
+
+            computeActual("UPDATE " + tableName + " SET val = val + 100");
+            Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles).hasSize(2).doesNotContainAnyElementsOf(initialFiles);
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
+
+            // vacuum with high retention period, nothing should change
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '10m')");
+            assertQuery("SELECT * FROM " + tableName, "VALUES (101, TIMESTAMP '2024-12-13 11:00:00.000000'), (102, TIMESTAMP '2024-12-13 12:00:00.000000')");
+            assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
+            assertThat(getAllDataFilesFromTableDirectory(tableName)).isEqualTo(union(initialFiles, updatedFiles));
+
+            // vacuum with low retention period
+            MILLISECONDS.sleep(2_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(CURRENT_SCHEMA, '" + tableName + "', '1s')");
+            // table data shouldn't change
+            assertQuery("SELECT * FROM " + tableName, "VALUES (101, TIMESTAMP '2024-12-13 11:00:00.000000'), (102, TIMESTAMP '2024-12-13 12:00:00.000000')");
             // active files shouldn't change
             assertThat(getActiveFiles(tableName)).isEqualTo(updatedFiles);
             // old files should be cleaned up
@@ -2078,7 +2124,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testHistoryTable()
     {
         String tableName = "test_history_table_" + randomNameSuffix();
-        try (TestTable table = new TestTable(getQueryRunner()::execute, tableName, "(int_col INTEGER)")) {
+        try (TestTable table = newTrinoTable(tableName, "(int_col INTEGER)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 4, 5, 6", 3);
             assertUpdate("DELETE FROM " + table.getName() + " WHERE int_col = 1", 1);
@@ -2097,8 +2143,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testHistoryTableWithDeletedTransactionLog()
     {
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_history_table_with_deleted_transaction_log",
                 "(int_col INTEGER) WITH (checkpoint_interval = 3)")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 1, 2, 3", 3);
@@ -2323,8 +2368,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "query_partition_filter_required", "true")
                 .build();
 
-        try (TestTable table = new TestTable(
-                getQueryRunner()::execute,
+        try (TestTable table = newTrinoTable(
                 "test_no_partition_filter",
                 "(x varchar, part varchar) WITH (PARTITIONED_BY = ARRAY['part'])",
                 ImmutableList.of("'a', 'part_a'", "'b', 'part_b'"))) {
@@ -2336,7 +2380,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCreateOrReplaceTable()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+        try (TestTable table = newTrinoTable("test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', -385e-1)");
 
@@ -2351,7 +2395,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCreateOrReplaceTableAs()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+        try (TestTable table = newTrinoTable("test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', -385e-1)");
 
@@ -2367,7 +2411,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+        try (TestTable table = newTrinoTable("test_table", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '42', -385e-1)");
 
@@ -2391,7 +2435,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         CyclicBarrier barrier = new CyclicBarrier(threads + 1);
         ExecutorService executor = newFixedThreadPool(threads + 1);
         List<Future<?>> futures = new ArrayList<>();
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace", "(col integer)")) {
+        try (TestTable table = newTrinoTable("test_create_or_replace", "(col integer)")) {
             String tableName = table.getName();
 
             getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a");

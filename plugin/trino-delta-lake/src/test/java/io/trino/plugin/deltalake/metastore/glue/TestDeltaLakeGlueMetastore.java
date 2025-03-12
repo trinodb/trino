@@ -28,15 +28,16 @@ import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.DeltaLakeModule;
+import io.trino.plugin.deltalake.DeltaLakeSecurityModule;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.hive.NodeVersion;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
@@ -128,6 +129,7 @@ public class TestDeltaLakeGlueMetastore
                 // connector modules
                 new DeltaLakeMetastoreModule(),
                 new DeltaLakeModule(),
+                new DeltaLakeSecurityModule(),
                 // test setup
                 new FileSystemModule("test", context.getNodeManager(), context.getOpenTelemetry(), false));
 

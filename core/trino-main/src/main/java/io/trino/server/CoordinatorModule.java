@@ -58,6 +58,7 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPerformanceFetcher;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.RemoteTaskFactory;
+import io.trino.execution.SessionPropertyEvaluator;
 import io.trino.execution.SqlQueryManager;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
@@ -113,6 +114,7 @@ import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
 import io.trino.spi.VersionEmbedder;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
@@ -183,7 +185,7 @@ public class CoordinatorModule
         install(new FailureDetectorModule());
         jaxrsBinder(binder).bind(NodeResource.class);
         jaxrsBinder(binder).bind(WorkerResource.class);
-        install(internalHttpClientModule("workerInfo", ForWorkerInfo.class).build());
+        install(internalHttpClientModule("worker-info", ForWorkerInfo.class).build());
 
         // query monitor
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
@@ -211,6 +213,8 @@ public class CoordinatorModule
 
         // dispatcher
         binder.bind(DispatchManager.class).in(Scopes.SINGLETON);
+        // WITH SESSION interpreter
+        binder.bind(SessionPropertyResolver.class).in(Scopes.SINGLETON);
         // export under the old name, for backwards compatibility
         newExporter(binder).export(DispatchManager.class).as(generator -> generator.generatedNameOf(QueryManager.class));
         binder.bind(FailedDispatchQueryFactory.class).in(Scopes.SINGLETON);
@@ -221,7 +225,7 @@ public class CoordinatorModule
 
         // cluster memory manager
         binder.bind(ClusterMemoryManager.class).in(Scopes.SINGLETON);
-        install(internalHttpClientModule("memoryManager", ForMemoryManager.class)
+        install(internalHttpClientModule("memory-manager", ForMemoryManager.class)
                 .withConfigDefaults(config -> {
                     config.setIdleTimeout(new Duration(30, SECONDS));
                     config.setRequestTimeout(new Duration(10, SECONDS));
@@ -317,6 +321,9 @@ public class CoordinatorModule
 
         // explain analyze
         binder.bind(ExplainAnalyzeContext.class).in(Scopes.SINGLETON);
+
+        // session evaluator
+        binder.bind(SessionPropertyEvaluator.class).in(Scopes.SINGLETON);
 
         // execution scheduler
         jsonCodecBinder(binder).bindJsonCodec(TaskInfo.class);

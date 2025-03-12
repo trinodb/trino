@@ -36,6 +36,12 @@ public class VariableWidthBlockEncoding
     }
 
     @Override
+    public Class<? extends Block> getBlockClass()
+    {
+        return VariableWidthBlock.class;
+    }
+
+    @Override
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         VariableWidthBlock variableWidthBlock = (VariableWidthBlock) block;

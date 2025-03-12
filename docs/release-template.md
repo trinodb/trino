@@ -1,4 +1,4 @@
-# Release xyz (dd MMM 2024)
+# Release xyz (dd MMM 2025)
 
 ## General
 
@@ -7,8 +7,6 @@
 ## Web UI
 
 ## JDBC driver
-
-## Server RPM
 
 ## Docker image
 
@@ -25,6 +23,8 @@
 ## Delta Lake connector
 
 ## Druid connector
+
+## DuckDB connector
 
 ## Elasticsearch connector
 
@@ -46,9 +46,7 @@
 
 ## Kafka connector
 
-## Kinesis connector
-
-## Kudu connector
+## Loki connector
 
 ## MariaDB connector
 
@@ -61,8 +59,6 @@
 ## OpenSearch connector
 
 ## Oracle connector
-
-## Phoenix connector
 
 ## Pinot connector
 

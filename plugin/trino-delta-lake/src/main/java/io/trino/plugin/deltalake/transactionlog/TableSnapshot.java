@@ -16,16 +16,17 @@ package io.trino.plugin.deltalake.transactionlog;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
-import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -43,6 +44,9 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Streams.stream;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_FILESYSTEM_ERROR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
@@ -60,15 +64,19 @@ import static java.util.Objects.requireNonNull;
  */
 public class TableSnapshot
 {
+    private static final int INSTANCE_SIZE = instanceSize(TableSnapshot.class);
+
     private final Optional<LastCheckpoint> lastCheckpoint;
     private final SchemaTableName table;
     private final TransactionLogTail logTail;
     private final String tableLocation;
     private final ParquetReaderOptions parquetReaderOptions;
+    private final DataSize transactionLogMaxCachedFileSize;
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final int domainCompactionThreshold;
 
     private Optional<MetadataEntry> cachedMetadata = Optional.empty();
+    private Optional<ProtocolEntry> cachedProtocol = Optional.empty();
 
     private TableSnapshot(
             SchemaTableName table,
@@ -77,7 +85,8 @@ public class TableSnapshot
             String tableLocation,
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled,
-            int domainCompactionThreshold)
+            int domainCompactionThreshold,
+            DataSize transactionLogMaxCachedFileSize)
     {
         this.table = requireNonNull(table, "table is null");
         this.lastCheckpoint = requireNonNull(lastCheckpoint, "lastCheckpoint is null");
@@ -86,6 +95,7 @@ public class TableSnapshot
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
         this.domainCompactionThreshold = domainCompactionThreshold;
+        this.transactionLogMaxCachedFileSize = requireNonNull(transactionLogMaxCachedFileSize, "transactionLogMaxCachedFileSize is null");
     }
 
     public static TableSnapshot load(
@@ -96,11 +106,12 @@ public class TableSnapshot
             ParquetReaderOptions parquetReaderOptions,
             boolean checkpointRowStatisticsWritingEnabled,
             int domainCompactionThreshold,
+            DataSize transactionLogMaxCachedFileSize,
             Optional<Long> endVersion)
             throws IOException
     {
         Optional<Long> lastCheckpointVersion = lastCheckpoint.map(LastCheckpoint::version);
-        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, lastCheckpointVersion, endVersion);
+        TransactionLogTail transactionLogTail = TransactionLogTail.loadNewTail(fileSystem, tableLocation, lastCheckpointVersion, endVersion, transactionLogMaxCachedFileSize);
 
         return new TableSnapshot(
                 table,
@@ -109,7 +120,8 @@ public class TableSnapshot
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                transactionLogMaxCachedFileSize);
     }
 
     public Optional<TableSnapshot> getUpdatedSnapshot(TrinoFileSystem fileSystem, Optional<Long> toVersion)
@@ -131,12 +143,13 @@ public class TableSnapshot
                             parquetReaderOptions,
                             checkpointRowStatisticsWritingEnabled,
                             domainCompactionThreshold,
+                            transactionLogMaxCachedFileSize,
                             Optional.empty()));
                 }
             }
         }
 
-        Optional<TransactionLogTail> updatedLogTail = logTail.getUpdatedTail(fileSystem, tableLocation, toVersion);
+        Optional<TransactionLogTail> updatedLogTail = logTail.getUpdatedTail(fileSystem, tableLocation, toVersion, transactionLogMaxCachedFileSize);
         return updatedLogTail.map(transactionLogTail -> new TableSnapshot(
                 table,
                 lastCheckpoint,
@@ -144,7 +157,8 @@ public class TableSnapshot
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
-                domainCompactionThreshold));
+                domainCompactionThreshold,
+                transactionLogMaxCachedFileSize));
     }
 
     public long getVersion()
@@ -162,6 +176,11 @@ public class TableSnapshot
         return cachedMetadata;
     }
 
+    public Optional<ProtocolEntry> getCachedProtocol()
+    {
+        return cachedProtocol;
+    }
+
     public String getTableLocation()
     {
         return tableLocation;
@@ -172,14 +191,30 @@ public class TableSnapshot
         this.cachedMetadata = cachedMetadata;
     }
 
-    public List<DeltaLakeTransactionLogEntry> getJsonTransactionLogEntries()
+    public void setCachedProtocol(Optional<ProtocolEntry> cachedProtocol)
     {
-        return logTail.getFileEntries();
+        this.cachedProtocol = cachedProtocol;
+    }
+
+    public List<DeltaLakeTransactionLogEntry> getJsonTransactionLogEntries(TrinoFileSystem fileSystem)
+    {
+        return logTail.getFileEntries(fileSystem);
     }
 
     public List<Transaction> getTransactions()
     {
         return logTail.getTransactions();
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + sizeOf(lastCheckpoint, LastCheckpoint::getRetainedSizeInBytes)
+                + table.getRetainedSizeInBytes()
+                + logTail.getRetainedSizeInBytes()
+                + estimatedSizeOf(tableLocation)
+                + sizeOf(cachedMetadata, MetadataEntry::getRetainedSizeInBytes)
+                + sizeOf(cachedProtocol, ProtocolEntry::getRetainedSizeInBytes);
     }
 
     public Stream<DeltaLakeTransactionLogEntry> getCheckpointTransactionLogEntries(
@@ -312,7 +347,7 @@ public class TableSnapshot
                     CheckpointEntryIterator iterator = new CheckpointEntryIterator(
                             fileSystem.newInputFile(sidecar),
                             session,
-                            fileSize,
+                            entry.getSidecar().sizeInBytes(),
                             checkpointSchemaManager,
                             typeManager,
                             dataEntryTypes,
@@ -345,7 +380,9 @@ public class TableSnapshot
     {
         if (checkpointFile.location().fileName().endsWith(".json")) {
             try {
-                return getEntriesFromJson(checkpoint.version(), checkpointFile).stream().flatMap(List::stream);
+                return getEntriesFromJson(checkpoint.version(), checkpointFile, transactionLogMaxCachedFileSize)
+                        .stream()
+                        .flatMap(logEntries -> logEntries.getEntries(fileSystem));
             }
             catch (IOException e) {
                 throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Unexpected IO exception occurred while reading the entries of the file: %s for the table %s", checkpoint, table), e);

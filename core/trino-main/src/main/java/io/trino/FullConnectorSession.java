@@ -28,7 +28,6 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FullConnectorSession
@@ -118,7 +117,7 @@ public class FullConnectorSession
     public <T> T getProperty(String propertyName, Class<T> type)
     {
         if (properties == null) {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalogName, propertyName));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property '%s.%s' does not exist".formatted(catalogName, propertyName));
         }
 
         return sessionPropertyManager.decodeCatalogPropertyValue(catalogHandle, catalogName, propertyName, properties.get(propertyName), type);

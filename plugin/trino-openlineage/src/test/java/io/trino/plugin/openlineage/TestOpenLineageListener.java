@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.openlineage.client.OpenLineage.Job;
 import io.openlineage.client.OpenLineage.Run;
 import io.openlineage.client.OpenLineage.RunEvent;
+import io.trino.plugin.base.evenlistener.TestingEventListenerContext;
 import io.trino.spi.eventlistener.EventListener;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -94,6 +95,6 @@ final class TestOpenLineageListener
 
     private static EventListener createEventListener(Map<String, String> config)
     {
-        return new OpenLineageListenerFactory().create(ImmutableMap.copyOf(config));
+        return new OpenLineageListenerFactory().create(ImmutableMap.copyOf(config), new TestingEventListenerContext());
     }
 }

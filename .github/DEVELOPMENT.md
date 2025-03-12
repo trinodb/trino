@@ -80,6 +80,13 @@ only need to append something, consider using the `+` operator.  Please avoid
 
 Avoid using the ternary operator except for trivial expressions.
 
+ ### Avoid `get` in method names, unless an object must be a Java bean
+
+In most cases, replace `get` with a more specific verb that describes what is 
+happening in the method, like `find` or `fetch`. If there isn't a more specific 
+verb or the method is a getter, omit `get` because it isn't helpful to readers 
+and makes method names longer.
+
 ### Define class API for private inner classes too
 
 It is suggested to declare members in private inner classes as public if they
@@ -148,19 +155,19 @@ default inspections, with some modifications.
 
 Enable the following inspections:
 
-- ``Java | Internationalization | Implicit platform default charset``,
-- ``Java | Control flow issues | Redundant 'else'`` (including
-  ``Report when there are no more statements after the 'if' statement`` option),
 - ``Java | Class structure | Utility class is not 'final'``,
 - ``Java | Class structure | Utility class with 'public' constructor``,
-- ``Java | Class structure | Utility class without 'private' constructor``.
+- ``Java | Class structure | Utility class without 'private' constructor``,
+- ``Java | Control flow issues | Redundant 'else'`` (including
+  ``Report when there are no more statements after the 'if' statement`` option), 
+- ``Java | Internationalization | Implicit platform default charset``.
 
 Disable the following inspections:
 
-- ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``,
 - ``Java | Abstraction issues | 'Optional' used as field or parameter type``,
 - ``Java | Code style issues | Local variable or parameter can be 'final'``,
-- ``Java | Data flow | Boolean method is always inverted``.
+- ``Java | Data flow | Boolean method is always inverted``,
+- ``Java | Performance | Call to 'Arrays.asList()' with too few arguments``.
 
 Update the following inspections:
 

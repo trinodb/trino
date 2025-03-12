@@ -21,7 +21,6 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -32,7 +31,6 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -258,12 +256,10 @@ public class PinotConfig
         return this;
     }
 
-    @PostConstruct
-    public void validate()
+    @AssertTrue(message = "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled")
+    public boolean isValidConfiguration()
     {
-        checkState(
-                !countDistinctPushdownEnabled || aggregationPushdownEnabled,
-                "Invalid configuration: pinot.aggregation-pushdown.enabled must be enabled if pinot.count-distinct-pushdown.enabled");
+        return !countDistinctPushdownEnabled || aggregationPushdownEnabled;
     }
 
     @AssertTrue(message = "All controller URLs must have the same scheme")

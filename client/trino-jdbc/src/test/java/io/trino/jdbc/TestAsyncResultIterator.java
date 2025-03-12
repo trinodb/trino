@@ -29,10 +29,12 @@ import org.junit.jupiter.api.Timeout;
 
 import java.net.URI;
 import java.time.ZoneId;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -41,7 +43,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-import static io.trino.client.ResultRows.fromIterableRows;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -64,7 +65,7 @@ class TestAsyncResultIterator
                     catch (InterruptedException e) {
                         interruptedButSwallowedLatch.countDown();
                     }
-                    return fromIterableRows(ImmutableList.of(ImmutableList.of(new Object())));
+                    return fromList(ImmutableList.of(ImmutableList.of(new Object())));
                 }), ignored -> {},
                 new WarningsManager(),
                 Optional.of(new ArrayBlockingQueue<>(100)));
@@ -93,7 +94,7 @@ class TestAsyncResultIterator
         AsyncResultIterator iterator = new AsyncResultIterator(
                 new MockStatementClient(() -> {
                     thread.compareAndSet(null, Thread.currentThread());
-                    return fromIterableRows(ImmutableList.of(ImmutableList.of(new Object())));
+                    return fromList(ImmutableList.of(ImmutableList.of(new Object())));
                 }), ignored -> {},
                 new WarningsManager(),
                 Optional.of(queue));
@@ -333,6 +334,11 @@ class TestAsyncResultIterator
                         100,
                         100,
                         100,
+                        100,
+                        100,
+                        100,
+                        100,
+                        100,
                         StageStats.builder()
                                 .setStageId("id")
                                 .setDone(false)
@@ -360,9 +366,29 @@ class TestAsyncResultIterator
             }
 
             @Override
-            public Long getUpdateCount()
+            public OptionalLong getUpdateCount()
             {
                 throw new UnsupportedOperationException();
+            }
+        };
+    }
+
+    static ResultRows fromList(List<List<Object>> values)
+    {
+        return new ResultRows() {
+            @Override
+            public void close() {}
+
+            @Override
+            public Iterator<List<Object>> iterator()
+            {
+                return values.iterator();
+            }
+
+            @Override
+            public String toString()
+            {
+                return "ResultRows{values=" + values + "}";
             }
         };
     }

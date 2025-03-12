@@ -35,6 +35,7 @@ import io.trino.spi.connector.BeginTableExecuteResult;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -88,7 +89,6 @@ import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.connector.WriterScalingOptions;
-import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
@@ -174,7 +174,6 @@ public class MockConnector
     private final BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType;
     private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges;
-    private final Supplier<Iterable<EventListener>> eventListeners;
     private final Collection<FunctionMetadata> functions;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
     private final Optional<ConnectorNodePartitioningProvider> partitioningProvider;
@@ -229,7 +228,6 @@ public class MockConnector
             BiFunction<ConnectorSession, Type, Optional<Type>> getSupportedType,
             BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             BiFunction<ConnectorSession, SchemaTablePrefix, List<GrantInfo>> listTablePrivileges,
-            Supplier<Iterable<EventListener>> eventListeners,
             Collection<FunctionMetadata> functions,
             ListRoleGrants roleGrants,
             Optional<ConnectorNodePartitioningProvider> partitioningProvider,
@@ -282,7 +280,6 @@ public class MockConnector
         this.getSupportedType = requireNonNull(getSupportedType, "getSupportedType is null");
         this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.listTablePrivileges = requireNonNull(listTablePrivileges, "listTablePrivileges is null");
-        this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.functions = ImmutableList.copyOf(functions);
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
@@ -321,7 +318,7 @@ public class MockConnector
     @Override
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transaction)
     {
-        return metadataWrapper.apply(new MockConnectorMetadata(allowSplittingReadIntoMultipleSubQueries));
+        return metadataWrapper.apply(new MockConnectorMetadata());
     }
 
     @Override
@@ -365,12 +362,6 @@ public class MockConnector
     public ConnectorNodePartitioningProvider getNodePartitioningProvider()
     {
         return partitioningProvider.orElseThrow(UnsupportedOperationException::new);
-    }
-
-    @Override
-    public Iterable<EventListener> getEventListeners()
-    {
-        return eventListeners.get();
     }
 
     @Override
@@ -448,13 +439,6 @@ public class MockConnector
     private class MockConnectorMetadata
             implements ConnectorMetadata
     {
-        private final boolean allowSplittingReadIntoMultipleSubQueries;
-
-        public MockConnectorMetadata(boolean allowSplittingReadIntoMultipleSubQueries)
-        {
-            this.allowSplittingReadIntoMultipleSubQueries = allowSplittingReadIntoMultipleSubQueries;
-        }
-
         @Override
         public boolean schemaExists(ConnectorSession session, String schemaName)
         {
@@ -664,7 +648,7 @@ public class MockConnector
         public void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment) {}
 
         @Override
-        public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column) {}
+        public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position) {}
 
         @Override
         public void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type) {}
@@ -876,7 +860,7 @@ public class MockConnector
         }
 
         @Override
-        public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+        public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, Map<Integer, Collection<ColumnHandle>> updateCaseColumns, RetryMode retryMode)
         {
             return new MockConnectorMergeTableHandle((MockConnectorTableHandle) tableHandle);
         }

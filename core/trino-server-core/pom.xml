@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>473-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>trino-server-core</artifactId>
+    <packaging>provisio</packaging>
+    <description>Trino - Server core package</description>
+
+    <properties>
+        <air.check.skip-enforcer>false</air.check.skip-enforcer>
+        <air.check.skip-duplicate-finder>true</air.check.skip-duplicate-finder>
+        <air.check.skip-findbugs>true</air.check.skip-findbugs>
+        <air.check.skip-dependency>true</air.check.skip-dependency>
+
+        <!-- Launcher properties -->
+        <main-class>io.trino.server.TrinoServer</main-class>
+        <process-name>${project.artifactId}</process-name>
+
+        <!-- Special consideration for Takari Lifecycle -->
+        <!-- This works as trino-server have no sources (is just provisio packaged) -->
+        <takari.skip>false</takari.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.takari.maven.plugins</groupId>
+                <artifactId>takari-lifecycle-plugin</artifactId>
+                <version>${dep.takari.version}</version>
+                <configuration>
+                    <proc>none</proc>
+                    <skip>${takari.skip}</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

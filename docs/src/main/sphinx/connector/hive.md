@@ -283,7 +283,7 @@ Hive connector documentation.
   - `false`
 * - `hive.partition-projection-enabled`
   - Enables Athena partition projection support
-  - `false`
+  - `true`
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000
@@ -403,7 +403,7 @@ configured object storage system and metadata stores:
   - {ref}`sql-view-management`; see also
     {ref}`Hive-specific view management <hive-sql-view-management>`
 
-- [](sql-routine-management)
+- [](udf-management)
 - {ref}`sql-security-operations`: see also
   {ref}`SQL standard-based authorization for object storage <hive-sql-standard-based-authorization>`
 

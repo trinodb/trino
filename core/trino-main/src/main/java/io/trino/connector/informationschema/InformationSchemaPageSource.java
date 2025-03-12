@@ -22,12 +22,12 @@ import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.RoleGrant;
@@ -141,18 +141,12 @@ public class InformationSchemaPageSource
                 .boxed()
                 .collect(toImmutableMap(i -> columnMetadata.get(i).getName(), Function.identity()));
 
-        List<Integer> channels = columns.stream()
+        int[] channels = columns.stream()
                 .map(columnHandle -> (InformationSchemaColumnHandle) columnHandle)
-                .map(columnHandle -> columnNameToChannel.get(columnHandle.columnName()))
-                .collect(toImmutableList());
+                .mapToInt(columnHandle -> columnNameToChannel.get(columnHandle.columnName()))
+                .toArray();
 
-        projection = page -> {
-            Block[] blocks = new Block[channels.size()];
-            for (int i = 0; i < blocks.length; i++) {
-                blocks[i] = page.getBlock(channels.get(i));
-            }
-            return new Page(page.getPositionCount(), blocks);
-        };
+        projection = page -> page.getColumns(channels);
     }
 
     @Override
@@ -175,7 +169,7 @@ public class InformationSchemaPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         if (isFinished()) {
             return null;
@@ -194,7 +188,7 @@ public class InformationSchemaPageSource
         memoryUsageBytes -= page.getRetainedSizeInBytes();
         Page outputPage = projection.apply(page);
         completedBytes += outputPage.getSizeInBytes();
-        return outputPage;
+        return SourcePage.create(outputPage);
     }
 
     @Override

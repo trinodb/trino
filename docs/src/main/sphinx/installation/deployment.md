@@ -27,8 +27,6 @@
   trino hard nproc 128000
   ```
 
-% These values are used in core/trino-server-rpm/src/main/resources/dist/etc/init.d/trino
-
 (requirements-java)=
 ### Java runtime environment
 
@@ -41,12 +39,6 @@ We recommend using the Eclipse Temurin OpenJDK distribution from
 [Adoptium](https://adoptium.net/) as the JDK for Trino, as Trino is tested
 against that distribution. Eclipse Temurin is also the JDK used by the [Trino
 Docker image](https://hub.docker.com/r/trinodb/trino).
-
-(requirements-python)=
-### Python
-
-- version 2.6.x, 2.7.x, or 3.x
-- required by the `bin/launcher` script only
 
 ## Installing Trino
 
@@ -247,24 +239,9 @@ properties for topics such as {doc}`/admin/properties-general`,
 {doc}`/admin/properties-query-management`,
 {doc}`/admin/properties-web-interface`, and others.
 
-(log-levels)=
-### Log levels
-
-The optional log levels file, `etc/log.properties`, allows setting the
-minimum log level for named logger hierarchies. Every logger has a name,
-which is typically the fully qualified name of the class that uses the logger.
-Loggers have a hierarchy based on the dots in the name, like Java packages.
-For example, consider the following log levels file:
-
-```text
-io.trino=INFO
-```
-
-This would set the minimum level to `INFO` for both
-`io.trino.server` and `io.trino.plugin.hive`.
-The default minimum level is `INFO`,
-thus the above example does not actually change anything.
-There are four levels: `DEBUG`, `INFO`, `WARN` and `ERROR`.
+Further configuration can include [](/admin/logging), [](/admin/opentelemetry),
+[](/admin/jmx), [](/admin/openmetrics), and other functionality described in the
+[](/admin) section.
 
 (catalog-properties)=
 ### Catalog properties
@@ -293,9 +270,8 @@ See {doc}`/connector` for more information about configuring catalogs.
 (running-trino)=
 ## Running Trino
 
-The installation provides a `bin/launcher` script, which requires Python in
-the `PATH`. The script can be used manually or as a daemon startup script. It
-accepts the following commands:
+The installation provides a `bin/launcher` script that can be used manually 
+or as a daemon startup script. It accepts the following commands:
 
 :::{list-table} `launcher` commands
 :widths: 15, 85
@@ -354,11 +330,11 @@ configuration files in `etc`, the data directory identical to the installation
 directory, the pid file as `var/run/launcher.pid` and log files in the `var/log`
 directory.
 
-You can change these values to adjust your Trino usage to any
-requirements, such as using a directory outside the installation directory,
-specific mount points or locations, and even using other file names. For
-example, the Trino RPM adjusts the used directories to better follow the Linux
-Filesystem Hierarchy Standard (FHS).
+You can change these values to adjust your Trino usage to any requirements, such
+as using a directory outside the installation directory, specific mount points
+or locations, and even using other file names. For example, the [Trino
+RPM](https://github.com/trinodb/trino-packages) adjusts the used directories to
+better follow the Linux Filesystem Hierarchy Standard (FHS).
 
 After starting Trino, you can find log files in the `log` directory inside
 the data directory `var`:

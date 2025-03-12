@@ -13,12 +13,25 @@
  */
 package io.trino.plugin.deltalake.transactionlog;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public record TransactionEntry(String appId, long version, long lastUpdated)
 {
+    private static final int INSTANCE_SIZE = instanceSize(TransactionEntry.class);
+
     public TransactionEntry
     {
         requireNonNull(appId, "appId is null");
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE
+                + estimatedSizeOf(appId)
+                + SIZE_OF_LONG
+                + SIZE_OF_LONG;
     }
 }

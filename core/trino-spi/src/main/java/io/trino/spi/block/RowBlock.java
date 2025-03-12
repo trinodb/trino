@@ -152,6 +152,20 @@ public final class RowBlock
         return rowIsNull != null;
     }
 
+    @Override
+    public boolean hasNull()
+    {
+        if (rowIsNull == null) {
+            return false;
+        }
+        for (int i = 0; i < positionCount; i++) {
+            if (rowIsNull[i]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     boolean[] getRawRowIsNull()
     {
         return rowIsNull;
@@ -252,12 +266,6 @@ public final class RowBlock
             newBlocks[i] = fieldBlocks[i].copyWithAppendedNull();
         }
         return new RowBlock(positionCount + 1, newRowIsNull, newBlocks, fixedSizePerRow);
-    }
-
-    @Override
-    public String getEncodingName()
-    {
-        return RowBlockEncoding.NAME;
     }
 
     @Override

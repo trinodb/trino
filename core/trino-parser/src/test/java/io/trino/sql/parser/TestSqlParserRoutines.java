@@ -74,7 +74,8 @@ class TestSqlParserRoutines
                         ImmutableList.of(),
                         returns(type("bigint")),
                         ImmutableList.of(),
-                        new ReturnStatement(location(), literal(42))));
+                        Optional.of(new ReturnStatement(location(), literal(42))),
+                        Optional.empty()));
     }
 
     @Test
@@ -96,7 +97,8 @@ class TestSqlParserRoutines
                                 ImmutableList.of(),
                                 returns(type("BIGINT")),
                                 ImmutableList.of(),
-                                new ReturnStatement(location(), literal(42))),
+                                Optional.of(new ReturnStatement(location(), literal(42))),
+                                Optional.empty()),
                         selectList(new FunctionCall(QualifiedName.of("answer"), ImmutableList.of()))));
     }
 
@@ -128,11 +130,12 @@ class TestSqlParserRoutines
                                         calledOnNullInput(),
                                         new SecurityCharacteristic(location(), INVOKER),
                                         new CommentCharacteristic(new NodeLocation(1, 1), "hello world function")),
-                                new ReturnStatement(location(), functionCall(
+                                Optional.of(new ReturnStatement(location(), functionCall(
                                         "CONCAT",
                                         literal("Hello, "),
                                         identifier("s"),
                                         literal("!")))),
+                                Optional.empty()),
                         false));
     }
 
@@ -154,7 +157,8 @@ class TestSqlParserRoutines
                                 ImmutableList.of(),
                                 returns(type("bigint")),
                                 ImmutableList.of(),
-                                new ReturnStatement(location(), literal(42))),
+                                Optional.of(new ReturnStatement(location(), literal(42))),
+                                Optional.empty()),
                         true));
     }
 
@@ -190,7 +194,7 @@ class TestSqlParserRoutines
                                 ImmutableList.of(parameter("n", type("bigint"))),
                                 returns(type("bigint")),
                                 ImmutableList.of(),
-                                beginEnd(
+                                Optional.of(beginEnd(
                                         ImmutableList.of(
                                                 declare("a", type("bigint"), literal(1)),
                                                 declare("b", type("bigint"), literal(1)),
@@ -211,6 +215,7 @@ class TestSqlParserRoutines
                                                         assign("a", identifier("b")),
                                                         assign("b", identifier("c")))),
                                         new ReturnStatement(location(), identifier("c")))),
+                                Optional.empty()),
                         false));
     }
 
@@ -246,7 +251,7 @@ class TestSqlParserRoutines
                                 ImmutableList.of(
                                         returnsNullOnNullInput(),
                                         new SecurityCharacteristic(location(), DEFINER)),
-                                beginEnd(
+                                Optional.of(beginEnd(
                                         ImmutableList.of(declare("lvl", type("VarChar"))),
                                         new IfStatement(
                                                 location(),
@@ -261,6 +266,7 @@ class TestSqlParserRoutines
                                                                 assign("lvl", literal("SILVER")))),
                                                 Optional.empty()),
                                         new ReturnStatement(location(), identifier("lvl")))),
+                                Optional.empty()),
                         false));
     }
 
@@ -347,6 +353,7 @@ class TestSqlParserRoutines
     private static Query query(FunctionSpecification function, Select select)
     {
         return new Query(
+                ImmutableList.of(),
                 ImmutableList.of(function),
                 Optional.empty(),
                 new QuerySpecification(

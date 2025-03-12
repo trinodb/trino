@@ -25,9 +25,9 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.operator.FlatHashStrategyCompiler;
 import io.trino.operator.GroupByHashPageIndexerFactory;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -39,6 +39,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -249,9 +250,9 @@ public class TestHivePageSink
         List<Page> pages = new ArrayList<>();
         try (ConnectorPageSource pageSource = createPageSource(fileSystemFactory, transaction, config, fileEntry.location())) {
             while (!pageSource.isFinished()) {
-                Page nextPage = pageSource.getNextPage();
+                SourcePage nextPage = pageSource.getNextSourcePage();
                 if (nextPage != null) {
-                    pages.add(nextPage.getLoadedPage());
+                    pages.add(nextPage.getPage().getLoadedPage());
                 }
             }
         }

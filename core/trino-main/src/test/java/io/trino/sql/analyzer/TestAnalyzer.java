@@ -1691,6 +1691,24 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testOrderByOnlySupportedForAggregateWindowFunctions()
+    {
+        analyze("SELECT array_agg(a ORDER BY b) OVER () FROM t1");
+        assertFails("SELECT first_value(a ORDER  BY b) OVER () FROM t1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:8: Only aggregation window functions with ORDER BY are supported");
+    }
+
+    @Test
+    public void testDistinctOnlySupportedForAggregateWindowFunctions()
+    {
+        analyze("SELECT array_agg(DISTINCT a) OVER () FROM t1");
+        assertFails("SELECT first_value(DISTINCT a) OVER () FROM t1")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageStartingWith("line 1:1: Only aggregation window functions with DISTINCT are supported");
+    }
+
+    @Test
     public void testWindowFrameTypeRows()
     {
         assertFails("SELECT array_agg(x) OVER (ROWS UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
@@ -2257,13 +2275,6 @@ public class TestAnalyzer
                 "                           )")
                 .hasErrorCode(INVALID_WINDOW_MEASURE)
                 .hasMessage("line 1:8: Measure last_z is not defined in the corresponding window");
-    }
-
-    @Test
-    public void testDistinctInWindowFunctionParameter()
-    {
-        assertFails("SELECT a, count(DISTINCT b) OVER () FROM t1")
-                .hasErrorCode(NOT_SUPPORTED);
     }
 
     @Test

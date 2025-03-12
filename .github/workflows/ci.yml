@@ -23,7 +23,7 @@ env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError"
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError"
   MAVEN_FAST_INSTALL: "-B -V -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all"
-  MAVEN_COMPILE_COMMITS: "-B --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl '!:trino-server-rpm'"
+  MAVEN_COMPILE_COMMITS: "-B --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress"
   MAVEN_GIB: "-P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   MAVEN_TEST: "-B -Dmaven.source.skip=true -Dair.check.skip-all --fail-at-end -P gib -Dgib.referenceBranch=refs/remotes/origin/${{ github.event_name == 'pull_request' && github.event.pull_request.base.ref || github.event.repository.default_branch }}"
   # Testcontainers kills image pulls if they don't make progress for > 30s and retries for 2m before failing. This means
@@ -82,7 +82,7 @@ jobs:
       - name: Maven Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci -pl '!:trino-server-rpm'
+          $MAVEN clean verify -B --strict-checksums -V -T 1C -DskipTests -P ci
       - name: Remove Trino from local Maven repo to avoid caching it
         # Avoid caching artifacts built in this job, cache should only include dependencies
         if: steps.cache.outputs.cache-hit != 'true' && matrix.cache == 'true'
@@ -107,11 +107,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
-      - name: Test Server RPM
-        run: |
-          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN verify -B --strict-checksums -P ci -pl :trino-server-rpm
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
       - name: Test JDBC shading
         # Run only integration tests to verify JDBC driver shading
         run: |
@@ -119,7 +115,7 @@ jobs:
           $MAVEN failsafe:integration-test failsafe:verify -B --strict-checksums -P ci -pl :trino-jdbc
       - name: Clean Maven Output
         run: $MAVEN clean -pl '!:trino-server,!:trino-cli'
-      - uses: docker/setup-qemu-action@49b3bc8e6bdd4a60e6116a5414239cba5943d3cf # v3
+      - uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
         with:
           platforms: arm64,ppc64le
       - name: Build and Test Docker Image
@@ -196,13 +192,13 @@ jobs:
         run: |
           # build everything to make sure dependencies of impacted modules are present
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server'
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           # Skip checks, these are run in `maven-checks` job and e.g. checkstyle is expensive.
           $MAVEN ${MAVEN_TEST} -T 1C clean compile test-compile -DskipTests -Dair.check.skip-all=true ${MAVEN_GIB} -Dgib.buildUpstream=never -P errorprone-compiler \
-            -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+            -pl '!:trino-docs,!:trino-server'
 
   test-jdbc-compatibility:
     runs-on: ubuntu-latest
@@ -222,7 +218,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -pl '!:trino-docs,!:trino-server'
       - name: Test old JDBC vs current server
         id: tests-old
         run: |
@@ -328,7 +324,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -pl '!:trino-docs,!:trino-server'
       - name: Maven Tests
         id: tests
         run: |
@@ -340,46 +336,54 @@ jobs:
             !:trino-delta-lake,
             !:trino-docs,
             !:trino-druid,
+            !:trino-duckdb,
             !:trino-elasticsearch,
             !:trino-exasol,
+            !:trino-faker,
             !:trino-faulttolerant-tests,
             !:trino-filesystem,
+            !:trino-filesystem-alluxio,
+            !:trino-filesystem-cache-alluxio,
             !:trino-filesystem-azure,
             !:trino-filesystem-gcs,
             !:trino-filesystem-manager,
             !:trino-filesystem-s3,
+            !:trino-geospatial,
             !:trino-google-sheets,
             !:trino-hdfs,
             !:trino-hive,
+            !:trino-hive-formats,
             !:trino-hudi,
             !:trino-iceberg,
             !:trino-ignite,
             !:trino-jdbc,
             !:trino-kafka,
-            !:trino-kudu,
             !:trino-main,
             !:trino-mariadb,
             !:trino-memory,
             !:trino-mongodb,
             !:trino-mysql,
+            !:trino-openlineage,
             !:trino-opensearch,
             !:trino-oracle,
             !:trino-orc,
             !:trino-parquet,
-            !:trino-phoenix5,
             !:trino-pinot,
             !:trino-postgresql,
             !:trino-redis,
             !:trino-redshift,
             !:trino-resource-group-managers,
+            !:trino-server-core,            
             !:trino-server,
-            !:trino-server-rpm,
             !:trino-singlestore,
             !:trino-snowflake,
+            !:trino-spi,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
-            !:trino-thrift'
+            !:trino-thrift,
+            !:trino-vertica,
+            !:trino-web-ui'
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
@@ -425,8 +429,14 @@ jobs:
           include:
             - modules:
                 - client/trino-jdbc
+                - core/trino-spi
+                - core/trino-web-ui
+            - modules:
                 - plugin/trino-base-jdbc
+                - plugin/trino-faker
+                - plugin/trino-geospatial
                 - plugin/trino-memory
+                - plugin/trino-openlineage
                 - plugin/trino-thrift
             - modules:
                 - lib/trino-orc
@@ -434,9 +444,13 @@ jobs:
             - modules:
                 - lib/trino-filesystem
                 - lib/trino-filesystem-azure
+                - lib/trino-filesystem-alluxio
+                - lib/trino-filesystem-cache-alluxio
+                - lib/trino-filesystem-gcs
                 - lib/trino-filesystem-manager
                 - lib/trino-filesystem-s3
                 - lib/trino-hdfs
+                - lib/trino-hive-formats
             - { modules: core/trino-main }
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
@@ -450,6 +464,7 @@ jobs:
             - { modules: plugin/trino-delta-lake, profile: cloud-tests }
             - { modules: plugin/trino-delta-lake, profile: fte-tests }
             - { modules: plugin/trino-druid }
+            - { modules: plugin/trino-duckdb }
             - { modules: plugin/trino-elasticsearch }
             - { modules: plugin/trino-exasol }
             - { modules: plugin/trino-google-sheets }
@@ -463,14 +478,12 @@ jobs:
             - { modules: plugin/trino-iceberg, profile: minio-and-avro }
             - { modules: plugin/trino-ignite }
             - { modules: plugin/trino-kafka }
-            - { modules: plugin/trino-kudu }
             - { modules: plugin/trino-mariadb }
             - { modules: plugin/trino-mongodb }
             - { modules: plugin/trino-mysql }
             - { modules: plugin/trino-openlineage }
             - { modules: plugin/trino-opensearch }
             - { modules: plugin/trino-oracle }
-            - { modules: plugin/trino-phoenix5 }
             - { modules: plugin/trino-pinot }
             - { modules: plugin/trino-postgresql }
             - { modules: plugin/trino-redis }
@@ -482,6 +495,7 @@ jobs:
             - { modules: plugin/trino-snowflake }
             - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
+            - { modules: plugin/trino-vertica }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-hive }
@@ -636,13 +650,15 @@ jobs:
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
+          BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID: ${{ vars.BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID }}
           BIGQUERY_TESTING_PROJECT_ID: ${{ vars.BIGQUERY_TESTING_PROJECT_ID }}
           BIGQUERY_TESTING_PARENT_PROJECT_ID: ${{ vars.BIGQUERY_TESTING_PARENT_PROJECT_ID }}
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-1 \
-            -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
+            -Dtesting.bigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
+            -Dtesting.bigquery-connection-id="${BIGQUERY_TESTING_BIGLAKE_CONNECTION_ID}" \
             -Dtesting.bigquery-project-id="${BIGQUERY_TESTING_PROJECT_ID}" \
             -Dtesting.bigquery-parent-project-id="${BIGQUERY_TESTING_PARENT_PROJECT_ID}"
       - name: Cloud BigQuery Smoke Tests
@@ -653,7 +669,7 @@ jobs:
         if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-2 \
-            -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
+            -Dtesting.bigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate
       - name: Cloud BigQuery Case Insensitive Mapping Tests
@@ -662,7 +678,7 @@ jobs:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dtesting.bigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Cloud Snowflake Tests
         id: tests-snowflake
         env:
@@ -688,6 +704,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
+          S3_TABLES_BUCKET: ${{ vars.TRINO_S3_TABLES_BUCKET }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
           ABFS_CONTAINER: ${{ vars.AZURE_ABFS_HIERARCHICAL_CONTAINER }}
@@ -735,6 +752,7 @@ jobs:
           REDSHIFT_IAM_ROLES: ${{ vars.REDSHIFT_IAM_ROLES }}
           REDSHIFT_VPC_SECURITY_GROUP_IDS: ${{ vars.REDSHIFT_VPC_SECURITY_GROUP_IDS }}
           REDSHIFT_S3_TPCH_TABLES_ROOT: ${{ vars.REDSHIFT_S3_TPCH_TABLES_ROOT }}
+          REDSHIFT_S3_UNLOAD_ROOT: ${{ vars.REDSHIFT_S3_UNLOAD_ROOT }}
         if: >-
           contains(matrix.modules, 'trino-redshift') &&
           (contains(matrix.profile, 'cloud-tests') || contains(matrix.profile, 'fte-tests')) &&
@@ -747,6 +765,7 @@ jobs:
             -Dtest.redshift.jdbc.password="${REDSHIFT_PASSWORD}" \
             -Dtest.redshift.jdbc.endpoint="${REDSHIFT_ENDPOINT}:${REDSHIFT_PORT}/" \
             -Dtest.redshift.s3.tpch.tables.root="${REDSHIFT_S3_TPCH_TABLES_ROOT}" \
+            -Dtest.redshift.s3.unload.root="${REDSHIFT_S3_UNLOAD_ROOT}" \
             -Dtest.redshift.iam.role="${REDSHIFT_IAM_ROLES}" \
             -Dtest.redshift.aws.region="${AWS_REGION}" \
             -Dtest.redshift.aws.access-key="${AWS_ACCESS_KEY_ID}" \
@@ -836,7 +855,7 @@ jobs:
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs,!:trino-server-rpm'
+          $MAVEN clean install ${MAVEN_FAST_INSTALL} -pl '!:trino-docs'
       - name: Map impacted plugins to features
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
@@ -873,15 +892,13 @@ jobs:
             - suite-7-non-generic
             - suite-hive-transactional
             - suite-azure
-            - suite-delta-lake-databricks91
-            - suite-delta-lake-databricks104
             - suite-delta-lake-databricks113
             - suite-delta-lake-databricks122
             - suite-delta-lake-databricks133
             - suite-delta-lake-databricks143
             - suite-delta-lake-databricks154
             - suite-databricks-unity-http-hms
-            - suite-apache-ranger
+            - suite-ranger
             - suite-gcs
             - suite-clients
             - suite-functions
@@ -914,12 +931,6 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.GCP_CREDENTIALS_KEY != '' }}
 
-            - suite: suite-delta-lake-databricks91
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-delta-lake-databricks104
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks113
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
@@ -984,8 +995,6 @@ jobs:
           AWS_REGION: ""
           TRINO_AWS_ACCESS_KEY_ID: ""
           TRINO_AWS_SECRET_ACCESS_KEY: ""
-          DATABRICKS_91_JDBC_URL: ""
-          DATABRICKS_104_JDBC_URL: ""
           DATABRICKS_113_JDBC_URL: ""
           DATABRICKS_122_JDBC_URL: ""
           DATABRICKS_133_JDBC_URL: ""
@@ -1062,8 +1071,6 @@ jobs:
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           TRINO_AWS_ACCESS_KEY_ID: ${{ vars.TRINO_AWS_ACCESS_KEY_ID }}
           TRINO_AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          DATABRICKS_91_JDBC_URL: ${{ vars.DATABRICKS_91_JDBC_URL }}
-          DATABRICKS_104_JDBC_URL: ${{ vars.DATABRICKS_104_JDBC_URL }}
           DATABRICKS_113_JDBC_URL: ${{ vars.DATABRICKS_113_JDBC_URL }}
           DATABRICKS_122_JDBC_URL: ${{ vars.DATABRICKS_122_JDBC_URL }}
           DATABRICKS_133_JDBC_URL: ${{ vars.DATABRICKS_133_JDBC_URL }}

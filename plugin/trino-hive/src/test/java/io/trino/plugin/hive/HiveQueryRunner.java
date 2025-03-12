@@ -22,7 +22,7 @@ import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.DecimalTypeMapping;
@@ -222,7 +222,8 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.metastore", "file");
                     hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
                 }
-                if (!hiveProperties.buildOrThrow().containsKey("fs.hadoop.enabled")) {
+                if (hiveProperties.buildOrThrow().keySet().stream().noneMatch(key ->
+                        key.equals("fs.hadoop.enabled") || key.startsWith("fs.native-"))) {
                     hiveProperties.put("fs.hadoop.enabled", "true");
                 }
 

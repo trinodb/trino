@@ -28,6 +28,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -294,9 +295,13 @@ public class MongoMetadata
     }
 
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column, ColumnPosition position)
     {
-        mongoSession.addColumn(((MongoTableHandle) tableHandle), column);
+        switch (position) {
+            case ColumnPosition.First _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with FIRST clause");
+            case ColumnPosition.After _ -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns with AFTER clause");
+            case ColumnPosition.Last _ -> mongoSession.addColumn(((MongoTableHandle) tableHandle), column);
+        }
     }
 
     @Override
@@ -574,12 +579,12 @@ public class MongoMetadata
         Map<String, ColumnHandle> columns = getColumnHandles(session, tableHandle);
 
         for (MongoIndex index : tableInfo.indexes()) {
-            for (MongodbIndexKey key : index.getKeys()) {
-                if (key.getSortOrder().isEmpty()) {
+            for (MongodbIndexKey key : index.keys()) {
+                if (key.sortOrder().isEmpty()) {
                     continue;
                 }
-                if (columns.get(key.getName()) != null) {
-                    localProperties.add(new SortingProperty<>(columns.get(key.getName()), key.getSortOrder().get()));
+                if (columns.get(key.name()) != null) {
+                    localProperties.add(new SortingProperty<>(columns.get(key.name()), key.sortOrder().get()));
                 }
             }
         }

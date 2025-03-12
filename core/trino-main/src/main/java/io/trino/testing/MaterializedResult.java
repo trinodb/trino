@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.client.StatementStats;
 import io.trino.client.Warning;
@@ -23,6 +24,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.SqlTime;
@@ -64,6 +66,7 @@ public class MaterializedResult
 {
     public static final int DEFAULT_PRECISION = 5;
 
+    private final Optional<Session> session;
     private final List<MaterializedRow> rows;
     private final List<Type> types;
     private final List<String> columnNames;
@@ -75,17 +78,18 @@ public class MaterializedResult
     private final List<Warning> warnings;
     private final Optional<StatementStats> statementStats;
 
-    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types)
+    public MaterializedResult(Optional<Session> session, List<MaterializedRow> rows, List<? extends Type> types)
     {
-        this(rows, types, Optional.empty(), Optional.empty());
+        this(session, rows, types, Optional.empty(), Optional.empty());
     }
 
-    public MaterializedResult(List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames, Optional<String> queryDataEncoding)
+    public MaterializedResult(Optional<Session> session, List<MaterializedRow> rows, List<? extends Type> types, Optional<List<String>> columnNames, Optional<String> queryDataEncoding)
     {
-        this(rows, types, columnNames.orElse(ImmutableList.of()), queryDataEncoding, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(session, rows, types, columnNames.orElse(ImmutableList.of()), queryDataEncoding, ImmutableMap.of(), ImmutableSet.of(), Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public MaterializedResult(
+            Optional<Session> session,
             List<MaterializedRow> rows,
             List<? extends Type> types,
             List<String> columnNames,
@@ -97,6 +101,7 @@ public class MaterializedResult
             List<Warning> warnings,
             Optional<StatementStats> statementStats)
     {
+        this.session = requireNonNull(session, "session is null");
         this.rows = ImmutableList.copyOf(requireNonNull(rows, "rows is null"));
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
@@ -107,6 +112,11 @@ public class MaterializedResult
         this.updateCount = requireNonNull(updateCount, "updateCount is null");
         this.warnings = requireNonNull(warnings, "warnings is null");
         this.statementStats = requireNonNull(statementStats, "statementStats is null");
+    }
+
+    public Session getSession()
+    {
+        return session.orElseThrow(() -> new IllegalStateException("Effective session is not set"));
     }
 
     public int getRowCount()
@@ -244,6 +254,7 @@ public class MaterializedResult
         }
 
         return new MaterializedResult(
+                session,
                 getMaterializedRows().stream()
                         .map(row -> new MaterializedRow(
                                 row.getPrecision(),
@@ -283,6 +294,7 @@ public class MaterializedResult
     public MaterializedResult toTestTypes()
     {
         return new MaterializedResult(
+                session,
                 rows.stream()
                         .map(MaterializedResult::convertToTestTypes)
                         .collect(toImmutableList()),
@@ -302,30 +314,20 @@ public class MaterializedResult
         List<Object> convertedValues = new ArrayList<>();
         for (int field = 0; field < trinoRow.getFieldCount(); field++) {
             Object trinoValue = trinoRow.getField(field);
-            Object convertedValue;
-            if (trinoValue instanceof SqlDate) {
-                convertedValue = LocalDate.ofEpochDay(((SqlDate) trinoValue).getDays());
-            }
-            else if (trinoValue instanceof SqlTime) {
-                convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(trinoValue.toString(), LocalTime::from);
-            }
-            else if (trinoValue instanceof SqlTimeWithTimeZone) {
-                long nanos = roundDiv(((SqlTimeWithTimeZone) trinoValue).getPicos(), PICOSECONDS_PER_NANOSECOND);
-                int offsetMinutes = ((SqlTimeWithTimeZone) trinoValue).getOffsetMinutes();
-                convertedValue = OffsetTime.of(LocalTime.ofNanoOfDay(nanos), ZoneOffset.ofTotalSeconds(offsetMinutes * 60));
-            }
-            else if (trinoValue instanceof SqlTimestamp) {
-                convertedValue = ((SqlTimestamp) trinoValue).toLocalDateTime();
-            }
-            else if (trinoValue instanceof SqlTimestampWithTimeZone) {
-                convertedValue = ((SqlTimestampWithTimeZone) trinoValue).toZonedDateTime();
-            }
-            else if (trinoValue instanceof SqlDecimal) {
-                convertedValue = ((SqlDecimal) trinoValue).toBigDecimal();
-            }
-            else {
-                convertedValue = trinoValue;
-            }
+            Object convertedValue = switch (trinoValue) {
+                case null -> null;
+                case SqlDate sqlDate -> LocalDate.ofEpochDay(sqlDate.getDays());
+                case SqlTime _ -> DateTimeFormatter.ISO_LOCAL_TIME.parse(trinoValue.toString(), LocalTime::from);
+                case SqlTimeWithTimeZone sqlTimeWithTimeZone -> {
+                    long nanos = roundDiv(sqlTimeWithTimeZone.getPicos(), PICOSECONDS_PER_NANOSECOND);
+                    int offsetMinutes = sqlTimeWithTimeZone.getOffsetMinutes();
+                    yield OffsetTime.of(LocalTime.ofNanoOfDay(nanos), ZoneOffset.ofTotalSeconds(offsetMinutes * 60));
+                }
+                case SqlTimestamp sqlTimestamp -> sqlTimestamp.toLocalDateTime();
+                case SqlTimestampWithTimeZone sqlTimestampWithTimeZone -> sqlTimestampWithTimeZone.toZonedDateTime();
+                case SqlDecimal sqlDecimal -> sqlDecimal.toBigDecimal();
+                default -> trinoValue;
+            };
             convertedValues.add(convertedValue);
         }
         return new MaterializedRow(trinoRow.getPrecision(), convertedValues);
@@ -335,11 +337,11 @@ public class MaterializedResult
     {
         MaterializedResult.Builder builder = resultBuilder(session, types);
         while (!pageSource.isFinished()) {
-            Page outputPage = pageSource.getNextPage();
+            SourcePage outputPage = pageSource.getNextSourcePage();
             if (outputPage == null) {
                 continue;
             }
-            builder.page(outputPage);
+            builder.page(outputPage.getPage());
         }
         return builder.build();
     }
@@ -369,7 +371,6 @@ public class MaterializedResult
         private final ConnectorSession session;
         private final List<Type> types;
         private final ImmutableList.Builder<MaterializedRow> rows = ImmutableList.builder();
-        private Optional<String> queryDataEncoding = Optional.empty();
         private Optional<List<String>> columnNames = Optional.empty();
 
         Builder(ConnectorSession session, List<Type> types)
@@ -432,15 +433,14 @@ public class MaterializedResult
             return this;
         }
 
-        public synchronized Builder queryDataEncoding(String encoding)
-        {
-            this.queryDataEncoding = Optional.of(requireNonNull(encoding, "encoding is null"));
-            return this;
-        }
-
         public synchronized MaterializedResult build()
         {
-            return new MaterializedResult(rows.build(), types, columnNames, queryDataEncoding);
+            if ((session instanceof FullConnectorSession fullConnectorSession)) {
+                return new MaterializedResult(Optional.of(fullConnectorSession.getSession()), rows.build(), types, columnNames, Optional.empty());
+            }
+
+            // For TestingConnectorSession we are unable to retrieve full Session which makes the effective session empty in that case
+            return new MaterializedResult(Optional.empty(), rows.build(), types, columnNames, Optional.empty());
         }
     }
 }

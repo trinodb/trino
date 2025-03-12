@@ -224,9 +224,10 @@ public abstract class AbstractTestType
         int variableOffset = 0;
         for (int i = 0; i < expectedStackValues.size(); i++) {
             writeFlatMethod.invoke(expectedStackValues.get(i), fixed, i * flatFixedSize, variable, variableOffset);
+            assertThat(type.getFlatVariableWidthLength(fixed, i * flatFixedSize)).isEqualTo(variableLengths[i]);
             variableOffset += variableLengths[i];
         }
-        assertFlat(fixed, 0, variable);
+        assertFlat(fixed, 0, variable, 0);
 
         Arrays.fill(fixed, (byte) 0);
         Arrays.fill(variable, (byte) 0);
@@ -235,7 +236,7 @@ public abstract class AbstractTestType
             writeBlockToFlatMethod.invokeExact(testBlock, i, fixed, i * flatFixedSize, variable, variableOffset);
             variableOffset += variableLengths[i];
         }
-        assertFlat(fixed, 0, variable);
+        assertFlat(fixed, 0, variable, 0);
 
         // test relocation
         byte[] newFixed = new byte[fixed.length + 73];
@@ -245,16 +246,14 @@ public abstract class AbstractTestType
         Arrays.fill(fixed, (byte) 0);
         Arrays.fill(variable, (byte) 0);
 
-        variableOffset = 101;
         for (int i = 0; i < expectedStackValues.size(); i++) {
-            int variableSize = type.relocateFlatVariableWidthOffsets(newFixed, 73 + i * flatFixedSize, newVariable, variableOffset);
-            variableOffset += variableSize;
+            int variableSize = type.getFlatVariableWidthLength(newFixed, 73 + i * flatFixedSize);
             assertThat(variableSize).isEqualTo(variableLengths[i]);
         }
-        assertFlat(newFixed, 73, newVariable);
+        assertFlat(newFixed, 73, newVariable, 101);
     }
 
-    private void assertFlat(byte[] fixed, int fixedOffset, byte[] variable)
+    private void assertFlat(byte[] fixed, int fixedOffset, byte[] variable, int variableOffset)
             throws Throwable
     {
         int flatFixedSize = type.getFlatFixedSize();
@@ -262,47 +261,51 @@ public abstract class AbstractTestType
             Object expectedStackValue = expectedStackValues.get(i);
             int elementFixedOffset = fixedOffset + (i * flatFixedSize);
             if (type.getJavaType() == boolean.class) {
-                assertThat((boolean) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable)).isEqualTo(expectedStackValue);
+                assertThat((boolean) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable, variableOffset)).isEqualTo(expectedStackValue);
             }
             else if (type.getJavaType() == long.class) {
-                assertThat((long) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable)).isEqualTo(expectedStackValue);
+                assertThat((long) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable, variableOffset)).isEqualTo(expectedStackValue);
             }
             else if (type.getJavaType() == double.class) {
-                assertThat((double) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable)).isEqualTo(expectedStackValue);
+                assertThat((double) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable, variableOffset)).isEqualTo(expectedStackValue);
             }
             else if (type.getJavaType() == Slice.class) {
-                assertThat((Slice) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable)).isEqualTo(expectedStackValue);
+                assertThat((Slice) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable, variableOffset)).isEqualTo(expectedStackValue);
             }
             else if (type.getJavaType() == Block.class) {
-                assertBlockEquals((Block) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable), (Block) expectedStackValue);
+                assertBlockEquals((Block) readFlatMethod.invokeExact(fixed, elementFixedOffset, variable, variableOffset), (Block) expectedStackValue);
             }
             else if (stackStackEqualOperator != null) {
-                assertThat((Boolean) stackStackEqualOperator.invoke(readFlatMethod.invoke(fixed, elementFixedOffset, variable), expectedStackValue)).isTrue();
+                assertThat((Boolean) stackStackEqualOperator.invoke(readFlatMethod.invoke(fixed, elementFixedOffset, variable, variableOffset), expectedStackValue)).isTrue();
             }
             else {
-                assertThat(readFlatMethod.invoke(fixed, elementFixedOffset, variable)).isEqualTo(expectedStackValue);
+                assertThat(readFlatMethod.invoke(fixed, elementFixedOffset, variable, variableOffset)).isEqualTo(expectedStackValue);
             }
 
             BlockBuilder blockBuilder = type.createBlockBuilder(null, 1);
-            writeFlatToBlockMethod.invokeExact(fixed, elementFixedOffset, variable, blockBuilder);
+            writeFlatToBlockMethod.invokeExact(fixed, elementFixedOffset, variable, variableOffset, blockBuilder);
             assertPositionEquals(testBlock, i, expectedStackValue, expectedObjectValues.get(i));
 
             if (type.isComparable()) {
-                assertThat((Boolean) flatFlatEqualOperator.invokeExact(fixed, elementFixedOffset, variable, fixed, elementFixedOffset, variable)).isTrue();
-                assertThat((Boolean) flatBlockPositionEqualOperator.invokeExact(fixed, elementFixedOffset, variable, testBlock, i)).isTrue();
-                assertThat((Boolean) blockPositionFlatEqualOperator.invokeExact(testBlock, i, fixed, elementFixedOffset, variable)).isTrue();
+                assertThat((Boolean) flatFlatEqualOperator.invokeExact(fixed, elementFixedOffset, variable, variableOffset, fixed, elementFixedOffset, variable, variableOffset)).isTrue();
+                assertThat((Boolean) flatBlockPositionEqualOperator.invokeExact(fixed, elementFixedOffset, variable, variableOffset, testBlock, i)).isTrue();
+                assertThat((Boolean) blockPositionFlatEqualOperator.invokeExact(testBlock, i, fixed, elementFixedOffset, variable, variableOffset)).isTrue();
 
-                assertThat((long) flatHashCodeOperator.invokeExact(fixed, elementFixedOffset, variable)).isEqualTo(hashCodeOperator.hashCodeNullSafe(testBlock, i));
+                assertThat((long) flatHashCodeOperator.invokeExact(fixed, elementFixedOffset, variable, variableOffset)).isEqualTo(hashCodeOperator.hashCodeNullSafe(testBlock, i));
 
-                assertThat((long) flatXxHash64Operator.invokeExact(fixed, elementFixedOffset, variable)).isEqualTo(xxHash64Operator.xxHash64(testBlock, i));
+                assertThat((long) flatXxHash64Operator.invokeExact(fixed, elementFixedOffset, variable, variableOffset)).isEqualTo(xxHash64Operator.xxHash64(testBlock, i));
 
-                assertThat((boolean) flatFlatIdenticalOperator.invokeExact(fixed, elementFixedOffset, variable, fixed, elementFixedOffset, variable)).isTrue();
-                assertThat((boolean) flatBlockPositionIdenticalOperator.invokeExact(fixed, elementFixedOffset, variable, testBlock, i)).isTrue();
-                assertThat((boolean) blockPositionFlatIdenticalOperator.invokeExact(testBlock, i, fixed, elementFixedOffset, variable)).isTrue();
+                assertThat((boolean) flatFlatIdenticalOperator.invokeExact(fixed, elementFixedOffset, variable, variableOffset, fixed, elementFixedOffset, variable, variableOffset)).isTrue();
+                assertThat((boolean) flatBlockPositionIdenticalOperator.invokeExact(fixed, elementFixedOffset, variable, variableOffset, testBlock, i)).isTrue();
+                assertThat((boolean) blockPositionFlatIdenticalOperator.invokeExact(testBlock, i, fixed, elementFixedOffset, variable, variableOffset)).isTrue();
 
                 ValueBlock nullValue = type.createBlockBuilder(null, 1).appendNull().buildValueBlock();
-                assertThat((boolean) flatBlockPositionIdenticalOperator.invokeExact(fixed, elementFixedOffset, variable, nullValue, 0)).isFalse();
-                assertThat((boolean) blockPositionFlatIdenticalOperator.invokeExact(nullValue, 0, fixed, elementFixedOffset, variable)).isFalse();
+                assertThat((boolean) flatBlockPositionIdenticalOperator.invokeExact(fixed, elementFixedOffset, variable, variableOffset, nullValue, 0)).isFalse();
+                assertThat((boolean) blockPositionFlatIdenticalOperator.invokeExact(nullValue, 0, fixed, elementFixedOffset, variable, variableOffset)).isFalse();
+            }
+            // advance offset
+            if (type.isFlatVariableWidth()) {
+                variableOffset += type.getFlatVariableWidthLength(fixed, elementFixedOffset);
             }
         }
     }
@@ -646,25 +649,27 @@ public abstract class AbstractTestType
         if (type.getJavaType() == LongTimestampWithTimeZone.class) {
             return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(1, 0, UTC_KEY);
         }
-        if (type instanceof ArrayType arrayType) {
-            Type elementType = arrayType.getElementType();
-            Object elementNonNullValue = getNonNullValueForType(elementType);
-            return arrayBlockOf(elementType, elementNonNullValue);
+        switch (type) {
+            case ArrayType arrayType -> {
+                Type elementType = arrayType.getElementType();
+                Object elementNonNullValue = getNonNullValueForType(elementType);
+                return arrayBlockOf(elementType, elementNonNullValue);
+            }
+            case MapType mapType -> {
+                Type keyType = mapType.getKeyType();
+                Type valueType = mapType.getValueType();
+                Object keyNonNullValue = getNonNullValueForType(keyType);
+                Object valueNonNullValue = getNonNullValueForType(valueType);
+                Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
+                return sqlMapOf(keyType, valueType, map);
+            }
+            case RowType rowType -> {
+                List<Type> elementTypes = rowType.getTypeParameters();
+                Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
+                return toRow(elementTypes, elementNonNullValues);
+            }
+            default -> throw new IllegalStateException("Unsupported Java type " + type.getJavaType() + " (for type " + type + ")");
         }
-        if (type instanceof MapType mapType) {
-            Type keyType = mapType.getKeyType();
-            Type valueType = mapType.getValueType();
-            Object keyNonNullValue = getNonNullValueForType(keyType);
-            Object valueNonNullValue = getNonNullValueForType(valueType);
-            Map<?, ?> map = ImmutableMap.of(keyNonNullValue, valueNonNullValue);
-            return sqlMapOf(keyType, valueType, map);
-        }
-        if (type instanceof RowType rowType) {
-            List<Type> elementTypes = rowType.getTypeParameters();
-            Object[] elementNonNullValues = elementTypes.stream().map(AbstractTestType::getNonNullValueForType).toArray(Object[]::new);
-            return toRow(elementTypes, elementNonNullValues);
-        }
-        throw new IllegalStateException("Unsupported Java type " + type.getJavaType() + " (for type " + type + ")");
     }
 
     private Block toBlock(Object value)

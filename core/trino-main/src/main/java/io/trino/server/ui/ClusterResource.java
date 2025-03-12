@@ -30,6 +30,7 @@ import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static java.util.Objects.requireNonNull;
 
 @Path("/ui/api/cluster")
+@ResourceSecurity(WEB_UI)
 public class ClusterResource
 {
     private final NodeVersion version;
@@ -43,7 +44,6 @@ public class ClusterResource
         this.environment = nodeInfo.getEnvironment();
     }
 
-    @ResourceSecurity(WEB_UI)
     @GET
     @Produces(APPLICATION_JSON)
     public ClusterInfo getInfo()

@@ -40,6 +40,8 @@ import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.PrincipalType;
+import jakarta.annotation.Nullable;
+import org.gaul.modernizer_maven_annotations.SuppressModernizer;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.glue.model.BinaryColumnStatisticsData;
 import software.amazon.awssdk.services.glue.model.BooleanColumnStatisticsData;
@@ -88,6 +90,7 @@ import static io.trino.metastore.HiveColumnStatistics.createStringColumnStatisti
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.metastoreFunctionName;
@@ -98,7 +101,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static java.util.Objects.requireNonNull;
 
-final class GlueConverter
+public final class GlueConverter
 {
     static final String PUBLIC_OWNER = "PUBLIC";
     private static final Storage FAKE_PARQUET_STORAGE = new Storage(
@@ -116,6 +119,19 @@ final class GlueConverter
     private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = JsonCodec.jsonCodec(LanguageFunction.class);
 
     private GlueConverter() {}
+
+    public static String getTableType(software.amazon.awssdk.services.glue.model.Table glueTable)
+    {
+        // Athena treats a missing table type as EXTERNAL_TABLE.
+        return firstNonNull(getTableTypeNullable(glueTable), EXTERNAL_TABLE.name());
+    }
+
+    @Nullable
+    @SuppressModernizer // Usage of `Table.tableType` is not allowed. Only this method can call that.
+    public static String getTableTypeNullable(software.amazon.awssdk.services.glue.model.Table glueTable)
+    {
+        return glueTable.tableType();
+    }
 
     public static Database fromGlueDatabase(software.amazon.awssdk.services.glue.model.Database glueDb)
     {
@@ -140,8 +156,7 @@ final class GlueConverter
 
     public static Table fromGlueTable(software.amazon.awssdk.services.glue.model.Table glueTable, String databaseName)
     {
-        // Athena treats a missing table type as EXTERNAL_TABLE.
-        String tableType = firstNonNull(glueTable.tableType(), "EXTERNAL_TABLE");
+        String tableType = getTableType(glueTable);
 
         Map<String, String> tableParameters = glueTable.parameters();
         if (glueTable.description() != null) {

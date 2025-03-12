@@ -13,6 +13,7 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
@@ -137,6 +138,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -205,6 +207,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class EventDrivenFaultTolerantQueryScheduler
         implements QueryScheduler
 {
+    @VisibleForTesting
+    public static final Duration NO_FINAL_TASK_INFO_CHECK_INTERVAL = new Duration(1, MINUTES);
+
     private static final Logger log = Logger.get(EventDrivenFaultTolerantQueryScheduler.class);
 
     private final QueryStateMachine queryStateMachine;
@@ -1527,14 +1532,10 @@ public class EventDrivenFaultTolerantQueryScheduler
                 return true;
             }
 
-            if (!stage.getFragment().getRemoteSourceNodes().isEmpty()) {
-                // If coordinator stage is processing workers data we want to enable retries.
-                // Even if coordinator is working fine the task from coordinator stage may fail e.g. if
-                // upstream task fails while data it produces is speculatively processed by coordinator stage task.
-                return true;
-            }
-
-            return false;
+            // If coordinator stage is processing workers data we want to enable retries.
+            // Even if coordinator is working fine the task from coordinator stage may fail e.g. if
+            // upstream task fails while data it produces is speculatively processed by coordinator stage task.
+            return !stage.getFragment().getRemoteSourceNodes().isEmpty();
         }
 
         private StageId getStageId(PlanFragmentId fragmentId)
@@ -1663,6 +1664,34 @@ public class EventDrivenFaultTolerantQueryScheduler
                         nodeLease.release();
                     }
                 });
+
+                // we observed it may happen that final task info notification may be lost.
+                // in such case query progression will be blocked.
+                // the code below is a stop-gap to mitigate this issue and unblock or fail query
+                // until we find and fix the bug
+                AtomicBoolean finalTaskInfoReceived = new AtomicBoolean();
+                task.addStateChangeListener(taskStatus -> {
+                    if (!taskStatus.getState().isDone()) {
+                        return;
+                    }
+                    switch (taskStatus.getState()) {
+                        case FINISHED -> scheduledExecutorService.schedule(() -> {
+                            if (!finalTaskInfoReceived.get()) {
+                                log.error("Did not receive final task info for task %s after it FINISHED; internal inconsistency; failing query", task.getTaskId());
+                                queryStateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "Did not receive final task info for task after it finished; failing query"));
+                            }
+                        }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
+                        case CANCELED, ABORTED, FAILED -> scheduledExecutorService.schedule(() -> {
+                            if (!finalTaskInfoReceived.get()) {
+                                log.error("Did not receive final task info for task %s after it %s; internal inconsistency; marking task failed in scheduler to unblock query progression", taskStatus.getState(), task.getTaskId());
+                                eventQueue.add(new RemoteTaskCompletedEvent(taskStatus));
+                            }
+                        }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
+                        default -> throw new IllegalStateException("Unexpected task state: " + taskStatus.getState());
+                    }
+                });
+
+                task.addFinalTaskInfoListener(_ -> finalTaskInfoReceived.set(true));
                 task.addFinalTaskInfoListener(taskExecutionStats::update);
                 task.addFinalTaskInfoListener(taskInfo -> eventQueue.add(new RemoteTaskCompletedEvent(taskInfo.taskStatus())));
                 nodeLease.attachTaskId(task.getTaskId());

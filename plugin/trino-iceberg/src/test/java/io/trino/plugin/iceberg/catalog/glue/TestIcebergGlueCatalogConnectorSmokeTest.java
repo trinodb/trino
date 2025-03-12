@@ -13,14 +13,6 @@
  */
 package io.trino.plugin.iceberg.catalog.glue;
 
-import com.amazonaws.services.glue.AWSGlueAsync;
-import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
-import com.amazonaws.services.glue.model.DeleteTableRequest;
-import com.amazonaws.services.glue.model.EntityNotFoundException;
-import com.amazonaws.services.glue.model.GetTableRequest;
-import com.amazonaws.services.glue.model.Table;
-import com.amazonaws.services.glue.model.TableInput;
-import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
@@ -43,6 +35,10 @@ import org.apache.iceberg.FileFormat;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.StorageDescriptor;
+import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
@@ -53,10 +49,9 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getStorageDescriptor;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableParameters;
-import static io.trino.plugin.hive.metastore.glue.v1.converter.GlueToTrinoConverter.getTableType;
+import static io.trino.plugin.hive.metastore.glue.GlueConverter.getTableTypeNullable;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
+import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -76,15 +71,15 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
 {
     private final String bucketName;
     private final String schemaName;
-    private final AWSGlueAsync glueClient;
+    private final GlueClient glueClient;
     private final TrinoFileSystemFactory fileSystemFactory;
 
     public TestIcebergGlueCatalogConnectorSmokeTest()
     {
         super(FileFormat.PARQUET);
-        this.bucketName = requireNonNull(System.getenv("S3_BUCKET"), "Environment S3_BUCKET was not set");
+        this.bucketName = requireEnv("S3_BUCKET");
         this.schemaName = "test_iceberg_smoke_" + randomNameSuffix();
-        glueClient = AWSGlueAsyncClientBuilder.defaultClient();
+        glueClient = GlueClient.create();
 
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of());
         HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(initializer, ImmutableSet.of());
@@ -102,7 +97,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "iceberg.catalog.type", "glue",
                                 "hive.metastore.glue.default-warehouse-dir", schemaPath(),
                                 "iceberg.register-table-procedure.enabled", "true",
-                                "iceberg.writer-sort-buffer-size", "1MB"))
+                                "iceberg.writer-sort-buffer-size", "1MB",
+                                "iceberg.allowed-extra-properties", "write.metadata.delete-after-commit.enabled,write.metadata.previous-versions-max"))
                 .setSchemaInitializer(
                         SchemaInitializer.builder()
                                 .withClonedTpchTables(REQUIRED_TPCH_TABLES)
@@ -136,7 +132,8 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                                 "WITH (\n" +
                                 "   format = 'PARQUET',\n" +
                                 "   format_version = 2,\n" +
-                                "   location = '%2$s/%1$s.db/region-\\E.*\\Q'\n" +
+                                "   location = '%2$s/%1$s.db/region-\\E.*\\Q',\n" +
+                                "   max_commit_retry = 4\n" +
                                 ")\\E",
                         schemaName,
                         schemaPath()));
@@ -153,71 +150,58 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
     @Test
     void testGlueTableLocation()
     {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table_location", "AS SELECT 1 x")) {
-            String initialLocation = getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation();
-            assertThat(getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation())
+        try (TestTable table = newTrinoTable("test_table_location", "AS SELECT 1 x")) {
+            String initialLocation = getStorageDescriptor(getGlueTable(table.getName())).location();
+            assertThat(getStorageDescriptor(getGlueTable(table.getName())).location())
                     // Using startsWith because the location has UUID suffix
                     .startsWith("%s/%s.db/%s".formatted(schemaPath(), schemaName, table.getName()));
 
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             Table glueTable = getGlueTable(table.getName());
-            assertThat(getStorageDescriptor(glueTable).orElseThrow().getLocation())
+            assertThat(getStorageDescriptor(glueTable).location())
                     .isEqualTo(initialLocation);
 
             String newTableLocation = initialLocation + "_new";
             updateTableLocation(glueTable, newTableLocation);
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
-            assertThat(getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation())
+            assertThat(getStorageDescriptor(getGlueTable(table.getName())).location())
                     .isEqualTo(newTableLocation);
 
             assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + table.getName() + "')");
             assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '" + table.getName() + "', '" + initialLocation + "')");
-            assertThat(getStorageDescriptor(getGlueTable(table.getName())).orElseThrow().getLocation())
+            assertThat(getStorageDescriptor(getGlueTable(table.getName())).location())
                     .isEqualTo(initialLocation);
         }
     }
 
     private Table getGlueTable(String tableName)
     {
-        GetTableRequest request = new GetTableRequest().withDatabaseName(schemaName).withName(tableName);
-        return glueClient.getTable(request).getTable();
+        return glueClient.getTable(x -> x.databaseName(schemaName).name(tableName)).table();
     }
 
     private void updateTableLocation(Table table, String newLocation)
     {
-        TableInput tableInput = new TableInput()
-                .withName(table.getName())
-                .withTableType(getTableType(table))
-                .withStorageDescriptor(getStorageDescriptor(table).orElseThrow().withLocation(newLocation))
-                .withParameters(getTableParameters(table));
-        UpdateTableRequest updateTableRequest = new UpdateTableRequest()
-                .withDatabaseName(schemaName)
-                .withTableInput(tableInput);
-        glueClient.updateTable(updateTableRequest);
+        glueClient.updateTable(update -> update
+                .databaseName(schemaName)
+                .tableInput(input -> input
+                        .name(table.name())
+                        .tableType(getTableTypeNullable(table))
+                        .storageDescriptor(getStorageDescriptor(table).toBuilder().location(newLocation).build())
+                        .parameters(table.parameters())));
     }
 
     @Override
     protected void dropTableFromMetastore(String tableName)
     {
-        DeleteTableRequest deleteTableRequest = new DeleteTableRequest()
-                .withDatabaseName(schemaName)
-                .withName(tableName);
-        glueClient.deleteTable(deleteTableRequest);
-        GetTableRequest getTableRequest = new GetTableRequest()
-                .withDatabaseName(schemaName)
-                .withName(tableName);
-        assertThatThrownBy(() -> glueClient.getTable(getTableRequest))
+        glueClient.deleteTable(x -> x.databaseName(schemaName).name(tableName));
+        assertThatThrownBy(() -> getGlueTable(tableName))
                 .isInstanceOf(EntityNotFoundException.class);
     }
 
     @Override
     protected String getMetadataLocation(String tableName)
     {
-        GetTableRequest getTableRequest = new GetTableRequest()
-                .withDatabaseName(schemaName)
-                .withName(tableName);
-        return getTableParameters(glueClient.getTable(getTableRequest).getTable())
-                .get("metadata_location");
+        return getGlueTable(tableName).parameters().get("metadata_location");
     }
 
     @Override
@@ -270,5 +254,10 @@ public class TestIcebergGlueCatalogConnectorSmokeTest
                     .build();
             return !s3.listObjectsV2(request).contents().isEmpty();
         }
+    }
+
+    private static StorageDescriptor getStorageDescriptor(Table table)
+    {
+        return requireNonNull(table.storageDescriptor());
     }
 }

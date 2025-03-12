@@ -16,7 +16,6 @@ package io.trino.plugin.pinot;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
@@ -26,10 +25,10 @@ import io.airlift.http.client.StaticBodyGenerator;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.trino.plugin.pinot.auth.password.PinotPasswordAuthenticationProvider;
-import org.apache.http.Header;
-import org.apache.http.NameValuePair;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.message.BasicNameValuePair;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.NameValuePair;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.pinot.common.exception.HttpErrorStatusException;
 import org.apache.pinot.common.utils.FileUploadDownloadClient;
 import org.apache.pinot.common.utils.SimpleHttpResponse;
@@ -176,18 +175,20 @@ public class TestingPinotCluster
     public void createSchema(String resourceName, String tableName)
             throws Exception
     {
-        byte[] bytes = ByteStreams.toByteArray(getResource(resourceName).openStream());
-        Request request = Request.Builder.preparePost()
-                .setUri(getControllerUri("schemas"))
-                .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
-                .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
-                .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
-                .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
-                .build();
+        try (InputStream stream = getResource(resourceName).openStream()) {
+            byte[] bytes = stream.readAllBytes();
+            Request request = Request.Builder.preparePost()
+                    .setUri(getControllerUri("schemas"))
+                    .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
+                    .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
+                    .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
+                    .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
+                    .build();
 
-        PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
-        checkState(response.getStatus().equals(format("%s successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
-        verifySchema(tableName);
+            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
+            checkState(response.getStatus().equals(format("%s successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+            verifySchema(tableName);
+        }
     }
 
     private URI getControllerUri(String path)
@@ -212,33 +213,37 @@ public class TestingPinotCluster
     public void addRealTimeTable(String resourceName, String tableName)
             throws Exception
     {
-        byte[] bytes = ByteStreams.toByteArray(getResource(resourceName).openStream());
-        Request request = Request.Builder.preparePost()
-                .setUri(getControllerUri("tables"))
-                .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
-                .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
-                .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
-                .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
-                .build();
+        try (InputStream stream = getResource(resourceName).openStream()) {
+            byte[] bytes = stream.readAllBytes();
+            Request request = Request.Builder.preparePost()
+                    .setUri(getControllerUri("tables"))
+                    .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
+                    .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
+                    .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
+                    .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
+                    .build();
 
-        PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
-        checkState(response.getStatus().startsWith(format("Table %s_REALTIME successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
+            checkState(response.getStatus().startsWith(format("Table %s_REALTIME successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+        }
     }
 
     public void addOfflineTable(String resourceName, String tableName)
             throws Exception
     {
-        byte[] bytes = ByteStreams.toByteArray(getResource(resourceName).openStream());
-        Request request = Request.Builder.preparePost()
-                .setUri(getControllerUri("tables"))
-                .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
-                .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
-                .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
-                .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
-                .build();
+        try (InputStream stream = getResource(resourceName).openStream()) {
+            byte[] bytes = stream.readAllBytes();
+            Request request = Request.Builder.preparePost()
+                    .setUri(getControllerUri("tables"))
+                    .setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON)
+                    .setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON)
+                    .addHeader(HttpHeaders.AUTHORIZATION, secured ? controllerAuthToken() : "")
+                    .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(bytes))
+                    .build();
 
-        PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
-        checkState(response.getStatus().startsWith(format("Table %s_OFFLINE successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+            PinotSuccessResponse response = doWithRetries(() -> httpClient.execute(request, createJsonResponseHandler(PINOT_SUCCESS_RESPONSE_JSON_CODEC)), 10);
+            checkState(response.getStatus().startsWith(format("Table %s_OFFLINE successfully added", tableName)), "Unexpected response: '%s'", response.getStatus());
+        }
     }
 
     public void publishOfflineSegment(String tableName, Path segmentPath)

@@ -14,6 +14,7 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
 import io.trino.sql.relational.InputReferenceExpression;
@@ -63,9 +64,9 @@ public final class PageFieldsToInputParametersRewriter
             return ImmutableList.copyOf(inputChannels);
         }
 
-        public List<Integer> getEagerlyLoadedChannels()
+        public Set<Integer> getEagerlyLoadedChannels()
         {
-            return ImmutableList.copyOf(eagerlyLoadedChannels);
+            return ImmutableSet.copyOf(eagerlyLoadedChannels);
         }
 
         @Override

@@ -403,6 +403,17 @@ The connector provides [globally available](sql-globally-available) and [read
 operation](sql-read-operations) statements to access data and metadata in the
 Elasticsearch catalog.
 
+### Wildcard table
+
+The connector provides support to query multiple tables using a concise
+[wildcard table](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-multiple-indices.html)
+notation.
+
+```sql
+SELECT *
+FROM example.web."page_views_*";
+```
+
 ### Table functions
 
 The connector provides specific {doc}`table functions </functions/table>` to

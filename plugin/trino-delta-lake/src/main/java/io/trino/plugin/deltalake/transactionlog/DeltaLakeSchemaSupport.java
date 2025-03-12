@@ -21,8 +21,6 @@ import com.google.common.base.Enums;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
@@ -69,6 +67,15 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.APPEND_ONLY_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.CHANGE_DATA_FEED_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.CHECK_CONSTRAINTS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.COLUMN_MAPPING_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.DELETION_VECTORS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.ICEBERG_COMPATIBILITY_V1_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.ICEBERG_COMPATIBILITY_V2_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.IDENTITY_COLUMNS_FEATURE_NAME;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.INVARIANTS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -79,6 +86,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -105,46 +113,6 @@ public final class DeltaLakeSchemaSupport
     public static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
     // https://github.com/delta-io/delta/blob/master/docs/source/delta-uniform.md
     private static final String UNIVERSAL_FORMAT_CONFIGURATION_KEY = "delta.universalFormat.enabledFormats";
-
-    // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
-    private static final String APPEND_ONLY_FEATURE_NAME = "appendOnly";
-    public static final String CHANGE_DATA_FEED_FEATURE_NAME = "changeDataFeed";
-    private static final String CHECK_CONSTRAINTS_FEATURE_NAME = "checkConstraints";
-    public static final String COLUMN_MAPPING_FEATURE_NAME = "columnMapping";
-    public static final String DELETION_VECTORS_FEATURE_NAME = "deletionVectors";
-    private static final String ICEBERG_COMPATIBILITY_V1_FEATURE_NAME = "icebergCompatV1";
-    private static final String ICEBERG_COMPATIBILITY_V2_FEATURE_NAME = "icebergCompatV2";
-    private static final String IDENTITY_COLUMNS_FEATURE_NAME = "identityColumns";
-    private static final String INVARIANTS_FEATURE_NAME = "invariants";
-    public static final String TIMESTAMP_NTZ_FEATURE_NAME = "timestampNtz";
-    public static final String TYPE_WIDENING_FEATURE_NAME = "typeWidening";
-    public static final String TYPE_WIDENING_PREVIEW_FEATURE_NAME = "typeWidening-preview";
-    public static final String VACUUM_PROTOCOL_CHECK_FEATURE_NAME = "vacuumProtocolCheck";
-    public static final String VARIANT_TYPE_FEATURE_NAME = "variantType";
-    public static final String VARIANT_TYPE_PREVIEW_FEATURE_NAME = "variantType-preview";
-    public static final String V2_CHECKPOINT_FEATURE_NAME = "v2Checkpoint";
-
-    private static final Set<String> SUPPORTED_READER_FEATURES = ImmutableSet.<String>builder()
-            .add(COLUMN_MAPPING_FEATURE_NAME)
-            .add(TIMESTAMP_NTZ_FEATURE_NAME)
-            .add(TYPE_WIDENING_FEATURE_NAME)
-            .add(TYPE_WIDENING_PREVIEW_FEATURE_NAME)
-            .add(DELETION_VECTORS_FEATURE_NAME)
-            .add(VACUUM_PROTOCOL_CHECK_FEATURE_NAME)
-            .add(VARIANT_TYPE_FEATURE_NAME)
-            .add(VARIANT_TYPE_PREVIEW_FEATURE_NAME)
-            .add(V2_CHECKPOINT_FEATURE_NAME)
-            .build();
-    private static final Set<String> SUPPORTED_WRITER_FEATURES = ImmutableSet.<String>builder()
-            .add(APPEND_ONLY_FEATURE_NAME)
-            .add(DELETION_VECTORS_FEATURE_NAME)
-            .add(INVARIANTS_FEATURE_NAME)
-            .add(CHECK_CONSTRAINTS_FEATURE_NAME)
-            .add(CHANGE_DATA_FEED_FEATURE_NAME)
-            .add(COLUMN_MAPPING_FEATURE_NAME)
-            .add(TIMESTAMP_NTZ_FEATURE_NAME)
-            .add(VACUUM_PROTOCOL_CHECK_FEATURE_NAME)
-            .build();
 
     public enum ColumnMappingMode
     {
@@ -231,13 +199,15 @@ public final class DeltaLakeSchemaSupport
                 return ColumnMappingMode.NAME;
             }
 
-            boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
-            boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
-            checkArgument(
-                    supportsColumnMappingReader == supportsColumnMappingWriter,
-                    "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
-            if (!supportsColumnMappingReader) {
-                return ColumnMappingMode.NONE;
+            if (protocolEntry.supportsReaderFeatures() && protocolEntry.supportsWriterFeatures()) {
+                boolean supportsColumnMappingReader = protocolEntry.readerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
+                boolean supportsColumnMappingWriter = protocolEntry.writerFeaturesContains(COLUMN_MAPPING_FEATURE_NAME);
+                checkArgument(
+                        supportsColumnMappingReader == supportsColumnMappingWriter,
+                        "Both reader and writer features must have the same value for 'columnMapping'. reader: %s, writer: %s", supportsColumnMappingReader, supportsColumnMappingWriter);
+                if (!supportsColumnMappingReader) {
+                    return ColumnMappingMode.NONE;
+                }
             }
         }
         String columnMappingMode = metadata.getConfiguration().getOrDefault(COLUMN_MAPPING_MODE_CONFIGURATION_KEY, "none");
@@ -757,16 +727,6 @@ public final class DeltaLakeSchemaSupport
         }
     }
 
-    public static Set<String> unsupportedReaderFeatures(Set<String> features)
-    {
-        return Sets.difference(features, SUPPORTED_READER_FEATURES);
-    }
-
-    public static Set<String> unsupportedWriterFeatures(Set<String> features)
-    {
-        return Sets.difference(features, SUPPORTED_WRITER_FEATURES);
-    }
-
     public static Type deserializeType(TypeManager typeManager, Object type, boolean usePhysicalName)
             throws UnsupportedTypeException
     {
@@ -806,7 +766,7 @@ public final class DeltaLakeSchemaSupport
             // For more info, see https://delta-users.slack.com/archives/GKTUWT03T/p1585760533005400
             // and https://cwiki.apache.org/confluence/display/Hive/Different+TIMESTAMP+types
             case "timestamp" -> TIMESTAMP_TZ_MILLIS;
-            case "variant" -> throw new UnsupportedTypeException("variant");
+            case "variant" -> typeManager.getType(new TypeSignature(JSON));
             default -> throw new TypeNotFoundException(new TypeSignature(primitiveType));
         };
     }

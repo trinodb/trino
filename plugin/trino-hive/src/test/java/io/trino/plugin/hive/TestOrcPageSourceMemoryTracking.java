@@ -33,6 +33,7 @@ import io.trino.operator.TableScanOperator.TableScanOperatorFactory;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageProcessor;
 import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.orc.OrcPageSourceFactory;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -45,8 +46,10 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
+import io.trino.sql.gen.CursorProcessorCompiler;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
@@ -139,7 +142,7 @@ public class TestOrcPageSourceMemoryTracking
     private static final int STRIPE_ROWS = 20000;
     private static final FunctionManager functionManager = createTestingFunctionManager();
     private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(
-            functionManager,
+            new CursorProcessorCompiler(functionManager),
             new PageFunctionCompiler(functionManager, 0),
             new ColumnarFilterCompiler(functionManager, 0));
     private static final ConnectorSession UNCACHED_SESSION = HiveTestUtils.getHiveSession(new HiveConfig(), new OrcReaderConfig().setTinyStripeThreshold(DataSize.of(0, BYTE)));
@@ -204,7 +207,7 @@ public class TestOrcPageSourceMemoryTracking
         int totalRows = 0;
         while (totalRows < 20000) {
             assertThat(pageSource.isFinished()).isFalse();
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             assertThat(page).isNotNull();
             Block block = page.getBlock(1);
 
@@ -237,7 +240,7 @@ public class TestOrcPageSourceMemoryTracking
         memoryUsage = -1;
         while (totalRows < 40000) {
             assertThat(pageSource.isFinished()).isFalse();
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             assertThat(page).isNotNull();
             Block block = page.getBlock(1);
 
@@ -270,7 +273,7 @@ public class TestOrcPageSourceMemoryTracking
         memoryUsage = -1;
         while (totalRows < NUM_ROWS) {
             assertThat(pageSource.isFinished()).isFalse();
-            Page page = pageSource.getNextPage();
+            SourcePage page = pageSource.getNextSourcePage();
             assertThat(page).isNotNull();
             Block block = page.getBlock(1);
 
@@ -301,7 +304,7 @@ public class TestOrcPageSourceMemoryTracking
         }
 
         assertThat(pageSource.isFinished()).isFalse();
-        assertThat(pageSource.getNextPage()).isNull();
+        assertThat(pageSource.getNextSourcePage()).isNull();
         assertThat(pageSource.isFinished()).isTrue();
         if (useCache) {
             // file is fully cached
@@ -358,12 +361,13 @@ public class TestOrcPageSourceMemoryTracking
         try {
             int positionCount = 0;
             while (true) {
-                Page page = pageSource.getNextPage();
+                SourcePage page = pageSource.getNextSourcePage();
                 if (pageSource.isFinished()) {
                     break;
                 }
                 assertThat(page).isNotNull();
-                page = page.getLoadedPage();
+                // load all page data
+                page.getPage().getLoadedPage();
                 positionCount += page.getPositionCount();
                 // assert upper bound is tight
                 // ignore the first MAX_BATCH_SIZE rows given the sizes are set when loading the blocks
@@ -373,7 +377,7 @@ public class TestOrcPageSourceMemoryTracking
                     assertThat(page.getSizeInBytes() < (long) maxReadBytes * (MAX_BATCH_SIZE / step) || 1 == page.getPositionCount()).isTrue();
                 }
             }
-
+            pageSource.close();
             // verify the stats are correctly recorded
             Distribution distribution = stats.getMaxCombinedBytesPerRow().getAllTime();
             assertThat((int) distribution.getCount()).isEqualTo(1);

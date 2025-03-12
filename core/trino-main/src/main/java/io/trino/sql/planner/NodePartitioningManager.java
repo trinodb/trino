@@ -17,6 +17,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.slice.XxHash64;
 import io.trino.Session;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.scheduler.BucketNodeMap;
@@ -37,22 +38,19 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.split.EmptySplit;
 import io.trino.sql.planner.SystemPartitioningHandle.SystemPartitioning;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
-import static io.trino.SystemSessionProperties.getMaxHashPartitionCount;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.TaskManagerConfig.MAX_WRITER_COUNT;
 import static io.trino.operator.exchange.LocalExchange.SCALE_WRITERS_MAX_PARTITIONS_PER_WRITER;
@@ -137,12 +135,7 @@ public class NodePartitioningManager
         return bucketFunction;
     }
 
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
-    {
-        return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>(), Optional.empty());
-    }
-
-    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, Optional<Integer> partitionCount)
+    public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)
     {
         return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>(), partitionCount);
     }
@@ -156,13 +149,15 @@ public class NodePartitioningManager
             PartitioningHandle partitioningHandle,
             Map<Integer, List<InternalNode>> bucketToNodeCache,
             AtomicReference<List<InternalNode>> systemPartitioningCache,
-            Optional<Integer> partitionCount)
+            int partitionCount)
     {
         requireNonNull(session, "session is null");
         requireNonNull(partitioningHandle, "partitioningHandle is null");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return systemNodePartitionMap(session, partitioningHandle, systemPartitioningCache, partitionCount);
+            return new NodePartitionMap(systemBucketToNode(session, partitioningHandle, systemPartitioningCache, partitionCount), _ -> {
+                throw new UnsupportedOperationException("System distribution does not support source splits " + partitioningHandle);
+            });
         }
 
         if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle mergeHandle) {
@@ -170,27 +165,31 @@ public class NodePartitioningManager
                     getNodePartitioningMap(session, handle, bucketToNodeCache, systemPartitioningCache, partitionCount));
         }
 
+        List<InternalNode> bucketToNode;
         Optional<ConnectorBucketNodeMap> optionalMap = getConnectorBucketNodeMap(session, partitioningHandle);
         if (optionalMap.isEmpty()) {
-            return systemNodePartitionMap(session, FIXED_HASH_DISTRIBUTION, systemPartitioningCache, partitionCount);
-        }
-        ConnectorBucketNodeMap connectorBucketNodeMap = optionalMap.get();
-
-        // safety check for crazy partitioning
-        checkArgument(connectorBucketNodeMap.getBucketCount() < 1_000_000, "Too many buckets in partitioning: %s", connectorBucketNodeMap.getBucketCount());
-
-        List<InternalNode> bucketToNode;
-        if (connectorBucketNodeMap.hasFixedMapping()) {
-            bucketToNode = getFixedMapping(connectorBucketNodeMap);
+            bucketToNode = systemBucketToNode(session, FIXED_HASH_DISTRIBUTION, systemPartitioningCache, partitionCount);
         }
         else {
-            CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
-            bucketToNode = bucketToNodeCache.computeIfAbsent(
-                    connectorBucketNodeMap.getBucketCount(),
-                    bucketCount -> createArbitraryBucketToNode(getAllNodes(session, catalogHandle), bucketCount));
+            ConnectorBucketNodeMap connectorBucketNodeMap = optionalMap.get();
+
+            // safety check for crazy partitioning
+            checkArgument(connectorBucketNodeMap.getBucketCount() < 1_000_000, "Too many buckets in partitioning: %s", connectorBucketNodeMap.getBucketCount());
+
+            if (connectorBucketNodeMap.hasFixedMapping()) {
+                bucketToNode = getFixedMapping(connectorBucketNodeMap);
+                verify(bucketToNode.size() == connectorBucketNodeMap.getBucketCount(), "Fixed mapping size does not match bucket count");
+            }
+            else {
+                CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
+                List<InternalNode> allNodes = getAllNodes(session, catalogHandle);
+                bucketToNode = bucketToNodeCache.computeIfAbsent(
+                        connectorBucketNodeMap.getBucketCount(),
+                        bucketCount -> createArbitraryBucketToNode(connectorBucketNodeMap.getCacheKeyHint(), allNodes.subList(0, Math.min(allNodes.size(), partitionCount)), bucketCount));
+            }
         }
 
-        int[] bucketToPartition = new int[connectorBucketNodeMap.getBucketCount()];
+        int[] bucketToPartition = new int[bucketToNode.size()];
         BiMap<InternalNode, Integer> nodeToPartition = HashBiMap.create();
         int nextPartitionId = 0;
         for (int bucket = 0; bucket < bucketToNode.size(); bucket++) {
@@ -208,14 +207,10 @@ public class NodePartitioningManager
                 .mapToObj(partitionId -> nodeToPartition.inverse().get(partitionId))
                 .collect(toImmutableList());
 
-        return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle));
+        return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle, bucketToNode.size()));
     }
 
-    private NodePartitionMap systemNodePartitionMap(
-            Session session,
-            PartitioningHandle partitioningHandle,
-            AtomicReference<List<InternalNode>> nodesCache,
-            Optional<Integer> partitionCount)
+    private List<InternalNode> systemBucketToNode(Session session, PartitioningHandle partitioningHandle, AtomicReference<List<InternalNode>> nodesCache, int partitionCount)
     {
         SystemPartitioning partitioning = ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitioning();
 
@@ -227,7 +222,7 @@ public class NodePartitioningManager
             case FIXED -> {
                 List<InternalNode> value = nodesCache.get();
                 if (value == null) {
-                    value = nodeSelector.selectRandomNodes(partitionCount.orElse(getMaxHashPartitionCount(session)));
+                    value = nodeSelector.selectRandomNodes(partitionCount);
                     nodesCache.set(value);
                 }
                 yield value;
@@ -235,24 +230,29 @@ public class NodePartitioningManager
             default -> throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);
         };
         checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
-
-        return new NodePartitionMap(nodes, split -> {
-            throw new UnsupportedOperationException("System distribution does not support source splits");
-        });
+        return nodes;
     }
 
-    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle)
+    public int getBucketCount(Session session, PartitioningHandle partitioningHandle)
+    {
+        // we don't care about partition count at all, just bucket count
+        return getBucketNodeMap(session, partitioningHandle, 1000).getBucketCount();
+    }
+
+    public BucketNodeMap getBucketNodeMap(Session session, PartitioningHandle partitioningHandle, int partitionCount)
     {
         Optional<ConnectorBucketNodeMap> bucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
+        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
+        ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle, bucketCount);
 
-        ToIntFunction<Split> splitToBucket = getSplitToBucket(session, partitioningHandle);
         if (bucketNodeMap.map(ConnectorBucketNodeMap::hasFixedMapping).orElse(false)) {
             return new BucketNodeMap(splitToBucket, getFixedMapping(bucketNodeMap.get()));
         }
 
+        long seed = bucketNodeMap.map(ConnectorBucketNodeMap::getCacheKeyHint).orElse(ThreadLocalRandom.current().nextLong());
         List<InternalNode> nodes = getAllNodes(session, requiredCatalogHandle(partitioningHandle));
-        int bucketCount = bucketNodeMap.map(ConnectorBucketNodeMap::getBucketCount).orElseGet(() -> getDefaultBucketCount(session, partitioningHandle));
-        return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(nodes, bucketCount));
+        nodes = nodes.subList(0, Math.min(nodes.size(), partitionCount));
+        return new BucketNodeMap(splitToBucket, createArbitraryBucketToNode(seed, nodes, bucketCount));
     }
 
     /**
@@ -316,7 +316,7 @@ public class NodePartitioningManager
                 partitioningHandle.getConnectorHandle());
     }
 
-    public ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle)
+    public ToIntFunction<Split> getSplitToBucket(Session session, PartitioningHandle partitioningHandle, int bucketCount)
     {
         CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(catalogHandle);
@@ -324,7 +324,8 @@ public class NodePartitioningManager
         ToIntFunction<ConnectorSplit> splitBucketFunction = partitioningProvider.getSplitBucketFunction(
                 partitioningHandle.getTransactionHandle().orElseThrow(),
                 session.toConnectorSession(catalogHandle),
-                partitioningHandle.getConnectorHandle());
+                partitioningHandle.getConnectorHandle(),
+                bucketCount);
         checkArgument(splitBucketFunction != null, "No partitioning %s", partitioningHandle);
 
         return split -> {
@@ -350,17 +351,31 @@ public class NodePartitioningManager
                 new IllegalStateException("No catalog handle for partitioning handle: " + partitioningHandle));
     }
 
-    private static List<InternalNode> createArbitraryBucketToNode(List<InternalNode> nodes, int bucketCount)
+    private static List<InternalNode> createArbitraryBucketToNode(long seed, List<InternalNode> nodes, int bucketCount)
     {
-        return cyclingShuffledStream(nodes)
-                .limit(bucketCount)
-                .collect(toImmutableList());
-    }
+        requireNonNull(nodes, "nodes is null");
+        checkArgument(!nodes.isEmpty(), "nodes is empty");
+        checkArgument(bucketCount > 0, "bucketCount must be greater than zero");
 
-    private static <T> Stream<T> cyclingShuffledStream(Collection<T> collection)
-    {
-        List<T> list = new ArrayList<>(collection);
-        Collections.shuffle(list);
-        return Stream.generate(() -> list).flatMap(List::stream);
+        // Assign each bucket to the machine with the highest weight (hash)
+        // This is simple Rendezvous Hashing (Highest Random Weight) algorithm
+        ImmutableList.Builder<InternalNode> bucketAssignments = ImmutableList.builderWithExpectedSize(bucketCount);
+        for (int bucket = 0; bucket < bucketCount; bucket++) {
+            long bucketHash = XxHash64.hash(seed, bucket);
+
+            InternalNode bestNode = null;
+            long highestWeight = Long.MIN_VALUE;
+            for (InternalNode node : nodes) {
+                long weight = XxHash64.hash(node.longHashCode(), bucketHash);
+                if (weight >= highestWeight) {
+                    highestWeight = weight;
+                    bestNode = node;
+                }
+            }
+
+            bucketAssignments.add(requireNonNull(bestNode));
+        }
+
+        return bucketAssignments.build();
     }
 }

@@ -64,10 +64,10 @@ are also available. They are discussed later in this topic.
     missing to prevent future metastore calls.
   - `false`
 * - `hive.metastore-cache-ttl`
-  - Duration of how long cached metastore data is considered valid.
+  - [Duration](prop-type-duration) of how long cached metastore data is considered valid.
   - `0s`
 * - `hive.metastore-stats-cache-ttl`
-  - Duration of how long cached metastore statistics are considered valid.
+  - [Duration](prop-type-duration) of how long cached metastore statistics are considered valid.
   - `5m`
 * - `hive.metastore-cache-maximum-size`
   - Maximum number of metastore data objects in the Hive metastore cache.
@@ -80,6 +80,14 @@ are also available. They are discussed later in this topic.
 * - `hive.metastore-refresh-max-threads`
   - Maximum threads used to refresh cached metastore data.
   - `10`
+* - `hive.user-metastore-cache-ttl`
+  - [Duration](prop-type-duration) of how long cached metastore statistics, which are user specific
+    in user impersonation scenarios, are considered valid.
+  - `10s`
+* - `hive.user-metastore-cache-maximum-size`
+  - Maximum number of metastore data objects in the Hive metastore cache,
+    which are user specific in user impersonation scenarios.
+  - `1000`
 * - `hive.hide-delta-lake-tables`
   - Controls whether to hide Delta Lake tables in table listings. Currently
     applies only when using the AWS Glue metastore.
@@ -149,9 +157,6 @@ properties:
 * - `hive.metastore.thrift.client.ssl.trust-certificate-password`
   - Password for the trust store.
   -
-* - `hive.metastore.thrift.batch-fetch.enabled`
-  - Enable fetching tables and views from all schemas in a single request.
-  - `true`
 * - `hive.metastore.service.principal`
   - The Kerberos principal of the Hive metastore service.
   -
@@ -476,9 +481,6 @@ following properties:
 * - `iceberg.rest-catalog.warehouse`
   - Warehouse identifier/location for the catalog (optional). Example:
     `s3://my_bucket/warehouse_location`
-* - `iceberg.rest-catalog.parent-namespace`
-  - The namespace to use with the REST catalog server. Example:
-    `main`
 * - `iceberg.rest-catalog.security`
   - The type of security to use (default: `NONE`).  `OAUTH2` requires either a
     `token` or `credential`. Example: `OAUTH2`
@@ -529,7 +531,6 @@ iceberg.rest-catalog.uri=https://dbc-12345678-9999.cloud.databricks.com/api/2.1/
 iceberg.security=read_only
 iceberg.rest-catalog.security=OAUTH2
 iceberg.rest-catalog.oauth2.token=***
-iceberg.rest-catalog.parent-namespace=test_namespace
 ```
 
 The REST catalog supports [view management](sql-view-management) 

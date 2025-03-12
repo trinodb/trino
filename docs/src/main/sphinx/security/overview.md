@@ -116,7 +116,7 @@ To implement access control, use:
   the catalog, schema, or table level.
 - [](opa-access-control), where you use Open Policy Agent to make access control
   decisions on a fined-grained level.
-- [](apache-ranger-access-control), where you use Apache Ranger to make fine-grained
+- [](ranger-access-control), where you use Apache Ranger to make fine-grained
   access control decisions, apply dynamic row-filters and column-masking at
   query execution time, and generate audit logs.
 

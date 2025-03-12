@@ -33,11 +33,12 @@ public class TestIcebergRestCatalogConfig
                 .setBaseUri(null)
                 .setPrefix(null)
                 .setWarehouse(null)
-                .setParentNamespace(null)
                 .setNestedNamespaceEnabled(false)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.NONE)
                 .setSecurity(IcebergRestCatalogConfig.Security.NONE)
                 .setVendedCredentialsEnabled(false)
+                .setViewEndpointsEnabled(true)
+                .setSigV4Enabled(false)
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES)));
     }
@@ -49,11 +50,12 @@ public class TestIcebergRestCatalogConfig
                 .put("iceberg.rest-catalog.uri", "http://localhost:1234")
                 .put("iceberg.rest-catalog.prefix", "dev")
                 .put("iceberg.rest-catalog.warehouse", "test_warehouse_identifier")
-                .put("iceberg.rest-catalog.parent-namespace", "main")
                 .put("iceberg.rest-catalog.nested-namespace-enabled", "true")
                 .put("iceberg.rest-catalog.security", "OAUTH2")
                 .put("iceberg.rest-catalog.session", "USER")
                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
+                .put("iceberg.rest-catalog.view-endpoints-enabled", "false")
+                .put("iceberg.rest-catalog.sigv4-enabled", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching", "true")
                 .put("iceberg.rest-catalog.case-insensitive-name-matching.cache-ttl", "3m")
                 .buildOrThrow();
@@ -62,11 +64,12 @@ public class TestIcebergRestCatalogConfig
                 .setBaseUri("http://localhost:1234")
                 .setPrefix("dev")
                 .setWarehouse("test_warehouse_identifier")
-                .setParentNamespace("main")
                 .setNestedNamespaceEnabled(true)
                 .setSessionType(IcebergRestCatalogConfig.SessionType.USER)
                 .setSecurity(IcebergRestCatalogConfig.Security.OAUTH2)
                 .setVendedCredentialsEnabled(true)
+                .setViewEndpointsEnabled(false)
+                .setSigV4Enabled(true)
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(3, MINUTES));
 

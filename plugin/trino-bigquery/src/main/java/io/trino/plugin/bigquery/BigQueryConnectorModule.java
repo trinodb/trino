@@ -15,6 +15,7 @@ package io.trino.plugin.bigquery;
 
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.HeaderProvider;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -34,11 +35,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 
-import java.lang.management.ManagementFactory;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -47,10 +44,10 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static io.trino.plugin.bigquery.BigQueryConfig.ARROW_SERIALIZATION_ENABLED;
+import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.stream.Collectors.toSet;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class BigQueryConnectorModule
         extends AbstractConfigurationAwareModule
@@ -84,10 +81,11 @@ public class BigQueryConnectorModule
             binder.bind(ViewMaterializationCache.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(BigQueryConfig.class);
             configBinder(binder).bindConfig(BigQueryRpcConfig.class);
+            newOptionalBinder(binder, BigQueryArrowBufferAllocator.class);
             install(conditionalModule(
                     BigQueryConfig.class,
                     BigQueryConfig::isArrowSerializationEnabled,
-                    ClientModule::verifyPackageAccessAllowed));
+                    new ArrowSerializationModule()));
             newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
             newSetBinder(binder, Procedure.class).addBinding().toProvider(ExecuteProcedure.class).in(Scopes.SINGLETON);
             newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(BigQuerySessionProperties.class).in(Scopes.SINGLETON);
@@ -141,34 +139,6 @@ public class BigQueryConnectorModule
         {
             return newCachedThreadPool(daemonThreadsNamed("bigquery-" + catalogName + "-%s"));
         }
-
-        /**
-         * Apache Arrow requires reflective access to certain Java internals prohibited since Java 17.
-         * Adds an error to the {@code binder} if required --add-opens is not passed to the JVM.
-         */
-        private static void verifyPackageAccessAllowed(Binder binder)
-        {
-            // Match an --add-opens argument that opens a package to unnamed modules.
-            // The first group is the opened package.
-            Pattern argPattern = Pattern.compile(
-                    "^--add-opens=(.*)=([A-Za-z0-9_.]+,)*ALL-UNNAMED(,[A-Za-z0-9_.]+)*$");
-            // We don't need to check for values in separate arguments because
-            // they are joined with "=" before we get them.
-
-            Set<String> openedModules = ManagementFactory.getRuntimeMXBean()
-                    .getInputArguments()
-                    .stream()
-                    .map(argPattern::matcher)
-                    .filter(Matcher::matches)
-                    .map(matcher -> matcher.group(1))
-                    .collect(toSet());
-
-            if (!openedModules.contains("java.base/java.nio")) {
-                binder.addError(
-                        "BigQuery connector requires additional JVM arguments to run when '" + ARROW_SERIALIZATION_ENABLED + "' is enabled. " +
-                                "Please add '--add-opens=java.base/java.nio=ALL-UNNAMED' to the JVM configuration.");
-            }
-        }
     }
 
     public static class StaticCredentialsModule
@@ -198,6 +168,26 @@ public class BigQueryConnectorModule
                         .to(StaticBigQueryCredentialsSupplier.class)
                         .in(Scopes.SINGLETON);
             }
+        }
+    }
+
+    public static class ArrowSerializationModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            // Check reflective access allowed - required by Apache Arrow usage in BigQuery
+            verifyConnectorAccessOpened(
+                    binder,
+                    "bigquery",
+                    ImmutableMultimap.of("java.base", "java.nio"));
+
+            configBinder(binder).bindConfig(BigQueryArrowConfig.class);
+            binder.bind(BigQueryArrowBufferAllocator.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryArrowAllocatorStats.class).in(Scopes.SINGLETON);
+
+            newExporter(binder).export(BigQueryArrowBufferAllocator.class).withGeneratedName();
         }
     }
 }

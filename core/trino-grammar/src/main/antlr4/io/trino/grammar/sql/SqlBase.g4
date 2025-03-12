@@ -45,7 +45,7 @@ standaloneFunctionSpecification
     ;
 
 statement
-    : rootQuery                                                        #statementDefault
+    : rootQueryWithSession                                             #statementDefault
     | USE schema=identifier                                            #use
     | USE catalog=identifier '.' schema=identifier                     #use
     | CREATE CATALOG (IF NOT EXISTS)? catalog=identifier
@@ -80,7 +80,8 @@ statement
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition            #addColumn
+        ADD COLUMN (IF NOT EXISTS)? column=columnDefinition
+        (FIRST | LAST | AFTER after=identifier)?                       #addColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         RENAME COLUMN (IF EXISTS)? from=qualifiedName TO to=identifier #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
@@ -199,11 +200,17 @@ statement
     ;
 
 rootQuery
-    : withFunction? query
+    : (WITH functionSpecification (',' functionSpecification)*)?
+      query
     ;
 
-withFunction
-    : WITH functionSpecification (',' functionSpecification)*
+rootQueryWithSession
+    : (WITH SESSION sessionProperty (',' sessionProperty)*)?
+      rootQuery
+    ;
+
+sessionProperty
+    : qualifiedName EQ expression
     ;
 
 query
@@ -571,7 +578,7 @@ primaryExpression
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')
-        filter?                                                                           #listagg
+        filter? over?                                                                     #listagg
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
@@ -861,7 +868,12 @@ pathSpecification
     ;
 
 functionSpecification
-    : FUNCTION functionDeclaration returnsClause routineCharacteristic* controlStatement
+    : FUNCTION functionDeclaration returnsClause routineCharacteristic*
+        (controlStatement | AS functionDefinition)
+    ;
+
+functionDefinition
+    : DOLLAR_STRING
     ;
 
 functionDeclaration
@@ -883,6 +895,7 @@ routineCharacteristic
     | CALLED ON NULL INPUT              #calledOnNullInputCharacteristic
     | SECURITY (DEFINER | INVOKER)      #securityCharacteristic
     | COMMENT string                    #commentCharacteristic
+    | (WITH properties)                 #propertiesCharacteristic
     ;
 
 controlStatement
@@ -1330,6 +1343,10 @@ STRING
 
 UNICODE_STRING
     : 'U&\'' ( ~'\'' | '\'\'' )* '\''
+    ;
+
+DOLLAR_STRING
+    : '$$' .*? '$$'
     ;
 
 // Note: we allow any character inside the binary literal and validate

@@ -3,7 +3,8 @@
 ## Synopsis
 
 ```text
-[ WITH FUNCTION sql_routines ]
+[ WITH SESSION [ name = expression [, ...] ]
+[ WITH [ FUNCTION udf ] [, ...] ]
 [ WITH [ RECURSIVE ] with_query [, ...] ]
 SELECT [ ALL | DISTINCT ] select_expression [, ...]
 [ FROM from_item [, ...] ]
@@ -68,12 +69,37 @@ ROLLUP ( column [, ...] )
 
 Retrieve rows from zero or more tables.
 
+(select-with-session)=
+## WITH SESSION clause
+
+The `WITH SESSION` clause allows you to [set session and catalog session
+property values](/sql/set-session) applicable for the processing of the current
+SELECT statement only. The defined values override any other configuration and
+session property settings. Multiple properties are separated by commas.
+
+The following example overrides the global configuration property
+`query.max-execution-time` with the session property `query_max_execution_time`
+to reduce the time to `2h`. It also overrides the catalog property
+`iceberg.query-partition-filter-required` from the `example` catalog using
+[](/connector/iceberg) setting the catalog session property
+`query_partition_filter_required` to `true`:
+
+```sql
+WITH
+  SESSION
+    query_max_execution_time='2h',
+    example.query_partition_filter_required=true
+SELECT *
+FROM example.default.thetable
+LIMIT 100;
+```
+
 ## WITH FUNCTION clause
 
-The `WITH FUNCTION` clause allows you to define a list of inline SQL routines
-that are available for use in the rest of the query.
+The `WITH FUNCTION` clause allows you to define a list of [](udf-inline) that
+are available for use in the rest of the query.
 
-The following example declares and uses two inline routines:
+The following example declares and uses two inline UDFs:
 
 ```sql
 WITH 
@@ -87,8 +113,8 @@ SELECT hello('Finn') || ' and ' || bye('Joe');
 -- Hello Finn! and Bye Joe!
 ```
 
-Find further information about routines in general, inline routines, all
-supported statements, and examples in [](/routines).
+Find further information about UDFs in general, inline UDFs, all supported
+statements, and examples in [](/udf).
 
 ## WITH clause
 
@@ -1038,6 +1064,7 @@ ORDER BY regionkey FETCH FIRST ROW WITH TIES;
 (5 rows)
 ```
 
+(tablesample)=
 ## TABLESAMPLE
 
 There are multiple sample methods:
@@ -1276,6 +1303,13 @@ LEFT JOIN UNNEST(checkpoints) AS t(checkpoint) ON TRUE;
 ```
 
 Note that in case of using `LEFT JOIN` the only condition supported by the current implementation is `ON TRUE`.
+
+(select-json-table)=
+## JSON_TABLE
+
+`JSON_TABLE` transforms JSON data into a relational table format. Like `UNNEST`
+and `LATERAL`, use `JSON_TABLE` in the `FROM` clause of a `SELECT` statement.
+For more information, see [`JSON_TABLE`](json-table).
 
 ## Joins
 

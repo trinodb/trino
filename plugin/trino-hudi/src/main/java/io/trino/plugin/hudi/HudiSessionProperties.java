@@ -52,6 +52,7 @@ public class HudiSessionProperties
     private static final String MAX_OUTSTANDING_SPLITS = "max_outstanding_splits";
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -125,6 +126,11 @@ public class HudiSessionProperties
                         QUERY_PARTITION_FILTER_REQUIRED,
                         "Require a filter on at least one partition column",
                         hudiConfig.isQueryPartitionFilterRequired(),
+                        false),
+                booleanProperty(
+                        IGNORE_ABSENT_PARTITIONS,
+                        "Ignore absent partitions",
+                        hudiConfig.isIgnoreAbsentPartitions(),
                         false));
     }
 
@@ -188,5 +194,10 @@ public class HudiSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isIgnoreAbsentPartitions(ConnectorSession session)
+    {
+        return session.getProperty(IGNORE_ABSENT_PARTITIONS, Boolean.class);
     }
 }

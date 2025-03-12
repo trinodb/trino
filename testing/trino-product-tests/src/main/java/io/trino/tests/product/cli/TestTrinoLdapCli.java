@@ -313,16 +313,16 @@ public class TestTrinoLdapCli
         requireNonNull(ldapServerAddress, "ldapServerAddress is null");
         requireNonNull(ldapUserPassword, "ldapUserPassword is null");
 
-        ImmutableList.Builder<String> prestoClientOptions = ImmutableList.builder();
-        prestoClientOptions.add(
+        ImmutableList.Builder<String> trinoClientOptions = ImmutableList.builder();
+        trinoClientOptions.add(
                 "--server", ldapServerAddress,
                 "--truststore-path", ldapTruststorePath,
                 "--truststore-password", ldapTruststorePassword,
                 "--user", ldapUserName,
                 "--password");
 
-        prestoClientOptions.add(arguments);
-        ProcessBuilder processBuilder = getProcessBuilder(prestoClientOptions.build());
+        trinoClientOptions.add(arguments);
+        ProcessBuilder processBuilder = getProcessBuilder(trinoClientOptions.build());
         processBuilder.environment().put("TRINO_PASSWORD", ldapUserPassword);
         trino = new TrinoCliProcess(processBuilder.start());
     }

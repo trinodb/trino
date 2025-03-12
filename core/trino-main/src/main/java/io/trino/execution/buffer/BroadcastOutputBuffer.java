@@ -147,6 +147,7 @@ public class BroadcastOutputBuffer
                         .map(ClientBuffer::getInfo)
                         .collect(toImmutableList())),
                 Optional.of(new TDigestHistogram(memoryManager.getUtilizationHistogram())),
+                Optional.empty(),
                 Optional.empty());
     }
 

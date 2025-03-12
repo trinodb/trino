@@ -13,17 +13,15 @@
  */
 package io.trino.server.protocol;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.Session;
 import io.trino.client.Column;
 import io.trino.spi.Page;
-import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import jakarta.annotation.Nullable;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -33,20 +31,18 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class QueryResultRows
 {
-    private final Session session;
     private final Optional<List<OutputColumn>> columns;
     private final List<Page> pages;
     private final long totalRows;
 
-    private QueryResultRows(Session session, Optional<List<OutputColumn>> columns, List<Page> pages)
+    private QueryResultRows(Optional<List<OutputColumn>> columns, List<Page> pages)
     {
-        this.session = requireNonNull(session, "session is null");
-        this.columns = requireNonNull(columns, "columns is null").map(values -> values.stream()
+        this.columns = requireNonNull(columns, "columns is null")
+                .map(values -> values.stream()
                 .filter(column -> !isSpooledMetadataColumn(column))
                 .collect(toImmutableList()));
         this.pages = ImmutableList.copyOf(pages);
@@ -65,17 +61,18 @@ public class QueryResultRows
         return totalRows == 0;
     }
 
-    public Optional<List<OutputColumn>> getOutputColumns()
+    public List<OutputColumn> getOutputColumns()
     {
-        return this.columns;
+        return columns.orElseThrow(() -> new IllegalStateException("Columns are not present"));
     }
 
-    public Optional<List<Column>> getColumns()
+    public List<Column> getOptionalColumns()
     {
         return columns
                 .map(columns -> columns.stream()
-                .map(value -> createColumn(value.columnName(), value.type(), true))
-                .collect(toImmutableList()));
+                    .map(value -> createColumn(value.columnName(), value.type(), true))
+                    .collect(toImmutableList()))
+                .orElse(null);
     }
 
     public List<Page> getPages()
@@ -83,32 +80,24 @@ public class QueryResultRows
         return this.pages;
     }
 
-    /**
-     * Returns expected row count (we don't know yet if every row is serializable).
-     */
-    @VisibleForTesting
-    public long getTotalRowsCount()
-    {
-        return totalRows;
-    }
-
-    public Optional<Long> getUpdateCount()
+    public OptionalLong getUpdateCount()
     {
         // We should have exactly single bigint value as an update count.
         if (totalRows != 1 || columns.isEmpty()) {
-            return Optional.empty();
+            return OptionalLong.empty();
         }
 
-        List<OutputColumn> columns = this.columns.get();
-
-        if (columns.size() != 1 || !columns.getFirst().type().equals(BIGINT)) {
-            return Optional.empty();
+        List<OutputColumn> onlyColumn = columns.get();
+        if (onlyColumn.size() != 1 || !onlyColumn.getFirst().type().equals(BIGINT)) {
+            return OptionalLong.empty();
         }
 
         checkState(!pages.isEmpty(), "no data pages available");
-        Number value = (Number) columns.getFirst().type().getObjectValue(session.toConnectorSession(), pages.getFirst().getBlock(0), 0);
-
-        return Optional.ofNullable(value).map(Number::longValue);
+        Block block = pages.getFirst().getBlock(0);
+        if (block.isNull(0)) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(BIGINT.getLong(block, 0));
     }
 
     private static long countRows(List<Page> pages)
@@ -125,31 +114,25 @@ public class QueryResultRows
     {
         return toStringHelper(this)
                 .add("columns", columns)
-                .add("totalRowsCount", getTotalRowsCount())
-                .add("pagesCount", this.pages.size())
+                .add("totalRowsCount", totalRows)
+                .add("pagesCount", pages.size())
                 .toString();
     }
 
-    public static QueryResultRows empty(Session session)
+    public static QueryResultRows empty()
     {
-        return new QueryResultRows(session, Optional.empty(), ImmutableList.of());
+        return new QueryResultRows(Optional.empty(), ImmutableList.of());
     }
 
-    public static Builder queryResultRowsBuilder(Session session)
+    public static Builder queryResultRowsBuilder()
     {
-        return new Builder(session);
+        return new Builder();
     }
 
     public static class Builder
     {
-        private final Session session;
         private ImmutableList.Builder<Page> pages = ImmutableList.builder();
         private Optional<List<OutputColumn>> columns = Optional.empty();
-
-        public Builder(Session session)
-        {
-            this.session = requireNonNull(session, "session is null");
-        }
 
         public Builder addPage(Page page)
         {
@@ -163,35 +146,22 @@ public class QueryResultRows
             return this;
         }
 
-        public Builder withColumnsAndTypes(@Nullable List<Column> columns, @Nullable List<Type> types)
+        public Builder withColumnsAndTypes(List<Column> columns, List<Type> types)
         {
-            if (columns != null || types != null) {
-                this.columns = Optional.of(combine(columns, types));
-            }
-
-            return this;
-        }
-
-        public Builder withSingleBooleanValue(Column column, boolean value)
-        {
-            BlockBuilder blockBuilder = BOOLEAN.createFixedSizeBlockBuilder(1);
-            BOOLEAN.writeBoolean(blockBuilder, value);
-            pages = ImmutableList.<Page>builder().add(new Page(blockBuilder.build()));
-            columns = Optional.of(combine(ImmutableList.of(column), ImmutableList.of(BOOLEAN)));
-
+            this.columns = combine(columns, types);
             return this;
         }
 
         public QueryResultRows build()
         {
-            return new QueryResultRows(
-                    session,
-                    columns,
-                    pages.build());
+            return new QueryResultRows(columns, pages.build());
         }
 
-        private static List<OutputColumn> combine(@Nullable List<Column> columns, @Nullable List<Type> types)
+        private static Optional<List<OutputColumn>> combine(List<Column> columns, List<Type> types)
         {
+            if (columns == null && types == null) {
+                return Optional.empty();
+            }
             checkArgument(columns != null && types != null, "columns and types must be present at the same time");
             checkArgument(columns.size() == types.size(), "columns and types size mismatch");
 
@@ -201,7 +171,7 @@ public class QueryResultRows
                 builder.add(new OutputColumn(i, columns.get(i).getName(), types.get(i)));
             }
 
-            return builder.build();
+            return Optional.of(builder.build());
         }
     }
 }

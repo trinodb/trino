@@ -95,11 +95,6 @@ public sealed interface Block
     void retainedBytesForEachPart(ObjLongConsumer<Object> consumer);
 
     /**
-     * Get the encoding for this block.
-     */
-    String getEncodingName();
-
-    /**
      * Create a new block from the current block by keeping the same elements only with respect
      * to {@code positions} that starts at {@code offset} and has length of {@code length}. The
      * implementation may return a view over the data in this block or may return a copy, and the
@@ -152,6 +147,19 @@ public sealed interface Block
     default boolean mayHaveNull()
     {
         return true;
+    }
+
+    /**
+     * Does this block have a null value? This method is expected to be O(N).
+     */
+    default boolean hasNull()
+    {
+        for (int i = 0; i < getPositionCount(); i++) {
+            if (isNull(i)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

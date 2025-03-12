@@ -155,7 +155,7 @@ public class ParquetTestUtils
                 0,
                 input.getEstimatedSize(),
                 input,
-                parquetMetadata.getBlocks(),
+                parquetMetadata,
                 ImmutableList.of(parquetTupleDomain),
                 ImmutableList.of(parquetPredicate),
                 descriptorsByPath,
@@ -165,6 +165,7 @@ public class ParquetTestUtils
         return new ParquetReader(
                 Optional.ofNullable(fileMetaData.getCreatedBy()),
                 columnFields.build(),
+                false,
                 rowGroups,
                 input,
                 UTC,
