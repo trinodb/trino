@@ -2458,7 +2458,20 @@ class AstBuilder
     @Override
     public Node visitRowConstructor(SqlBaseParser.RowConstructorContext context)
     {
-        return new Row(getLocation(context), visit(context.expression(), Expression.class));
+        if (context.fieldConstructor().isEmpty()) {
+            return new Row(getLocation(context), visit(context.expression(), Expression.class).stream()
+                    .map(expression -> new Row.Field(expression.getLocation().orElseThrow(), Optional.empty(), expression))
+                    .toList());
+        }
+        return new Row(getLocation(context), visit(context.fieldConstructor(), Row.Field.class));
+    }
+
+    @Override
+    public Node visitFieldConstructor(SqlBaseParser.FieldConstructorContext context)
+    {
+        return new Row.Field(getLocation(context),
+                visitIfPresent(context.identifier(), Identifier.class),
+                (Expression) visit(context.expression()));
     }
 
     @Override

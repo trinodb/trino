@@ -1986,8 +1986,8 @@ public abstract class BaseConnectorTest
                         "FROM\n" +
                         "  (\n" +
                         " VALUES \n" +
-                        "     ROW (1, 'one')\n" +
-                        "   , ROW (2, 't')\n" +
+                        "     ROW(1, 'one')\n" +
+                        "   , ROW(2, 't')\n" +
                         ")  t (col1, col2)",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),

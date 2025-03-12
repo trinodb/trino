@@ -4047,18 +4047,18 @@ class StatementAnalyzer
         {
             checkState(!node.getRows().isEmpty());
 
-            List<Type> rowTypes = node.getRows().stream()
+            List<RowType> rowTypes = node.getRows().stream()
                     .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
                     .map(type -> {
-                        if (type instanceof RowType) {
-                            return type;
+                        if (type instanceof RowType rowType) {
+                            return rowType;
                         }
                         return RowType.anonymousRow(type);
                     })
                     .collect(toImmutableList());
 
             int fieldCount = rowTypes.getFirst().getTypeParameters().size();
-            Type commonSuperType = rowTypes.getFirst();
+            RowType commonSuperType = rowTypes.getFirst();
             for (Type rowType : rowTypes) {
                 // check field count consistency for rows
                 if (rowType.getTypeParameters().size() != fieldCount) {
@@ -4070,7 +4070,7 @@ class StatementAnalyzer
                 }
 
                 // determine common super type of the rows
-                commonSuperType = typeCoercion.getCommonSuperType(rowType, commonSuperType)
+                commonSuperType = (RowType) typeCoercion.getCommonSuperType(rowType, commonSuperType)
                         .orElseThrow(() -> semanticException(TYPE_MISMATCH,
                                 node,
                                 // TODO should the message quote first type and current, or commonSuperType and current?
@@ -4087,7 +4087,7 @@ class StatementAnalyzer
                     // TODO coerce the whole Row and add an Optimizer rule that converts CAST(ROW(...) AS ...) into ROW(CAST(...), CAST(...), ...).
                     //  The rule would also handle Row-type expressions that were specified as CAST(ROW). It should support multiple casts over a ROW.
                     for (int i = 0; i < actualType.getTypeParameters().size(); i++) {
-                        Expression item = value.getItems().get(i);
+                        Expression item = value.getFields().get(i).getExpression();
                         Type actualItemType = actualType.getTypeParameters().get(i);
                         Type expectedItemType = commonSuperType.getTypeParameters().get(i);
                         if (!actualItemType.equals(expectedItemType)) {
@@ -4110,8 +4110,8 @@ class StatementAnalyzer
                 }
             }
 
-            List<Field> fields = commonSuperType.getTypeParameters().stream()
-                    .map(valueType -> Field.newUnqualified(Optional.empty(), valueType))
+            List<Field> fields = commonSuperType.getFields().stream()
+                    .map(field -> Field.newUnqualified(field.getName(), field.getType()))
                     .collect(toImmutableList());
 
             return createAndAssignScope(node, scope, fields);
