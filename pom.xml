@@ -192,7 +192,7 @@
         <dep.drift.version>1.22</dep.drift.version>
         <dep.flyway.version>11.3.4</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
-        <dep.frontend-node.version>v22.13.1</dep.frontend-node.version>
+        <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.1.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
         <dep.google.http.client.version>1.46.3</dep.google.http.client.version>
