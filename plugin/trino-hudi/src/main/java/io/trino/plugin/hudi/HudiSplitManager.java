@@ -20,7 +20,6 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -29,14 +28,12 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TableNotFoundException;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -53,7 +50,7 @@ public class HudiSplitManager
         implements ConnectorSplitManager
 {
     private final TypeManager typeManager;
-    private final BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider;
+    private final HudiTransactionManager transactionManager;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ExecutorService executor;
     private final ScheduledExecutorService splitLoaderExecutorService;
@@ -61,13 +58,13 @@ public class HudiSplitManager
     @Inject
     public HudiSplitManager(
             TypeManager typeManager,
-            BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider,
+            HudiTransactionManager transactionManager,
             @ForHudiSplitManager ExecutorService executor,
             TrinoFileSystemFactory fileSystemFactory,
             @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.splitLoaderExecutorService = requireNonNull(splitLoaderExecutorService, "splitLoaderExecutorService is null");
@@ -82,7 +79,7 @@ public class HudiSplitManager
             Constraint constraint)
     {
         HudiTableHandle hudiTableHandle = (HudiTableHandle) tableHandle;
-        HiveMetastore metastore = metastoreProvider.apply(session.getIdentity(), (HiveTransactionHandle) transaction);
+        HiveMetastore metastore = transactionManager.get(transaction, session.getIdentity()).getMetastore();
         Table table = metastore.getTable(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())));
 
