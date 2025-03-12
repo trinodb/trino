@@ -1764,10 +1764,16 @@ class RelationPlanner
 
         ImmutableList.Builder<Expression> rows = ImmutableList.builder();
         for (io.trino.sql.tree.Expression row : node.getRows()) {
-            if (row instanceof io.trino.sql.tree.Row) {
-                rows.add(new Row(((io.trino.sql.tree.Row) row).getItems().stream()
-                        .map(item -> coerceIfNecessary(analysis, item, translationMap.rewrite(item)))
-                        .collect(toImmutableList())));
+            if (row instanceof io.trino.sql.tree.Row astRow) {
+                ImmutableList.Builder<Expression> fields = ImmutableList.builder();
+                ImmutableList.Builder<RowType.Field> typeFields = ImmutableList.builder();
+                for (int i = 0; i < astRow.getFields().size(); i++) {
+                    io.trino.sql.tree.Row.Field astField = astRow.getFields().get(i);
+                    Expression expression = coerceIfNecessary(analysis, astField.getExpression(), translationMap.rewrite(astField.getExpression()));
+                    fields.add(expression);
+                    typeFields.add(new RowType.Field(astField.getName().map(Identifier::getCanonicalValue), expression.type()));
+                }
+                rows.add(new Row(fields.build(), RowType.from(typeFields.build())));
             }
             else if (analysis.getType(row) instanceof RowType) {
                 rows.add(coerceIfNecessary(analysis, row, translationMap.rewrite(row)));

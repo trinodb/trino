@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Row(List<Expression> items)
+public record Row(List<Expression> items, Type type)
         implements Expression
 {
     public Row
@@ -33,10 +33,9 @@ public record Row(List<Expression> items)
         items = ImmutableList.copyOf(items);
     }
 
-    @Override
-    public Type type()
+    public Row(List<Expression> items)
     {
-        return RowType.anonymous(items.stream().map(Expression::type).collect(Collectors.toList()));
+        this(items, RowType.anonymous(items.stream().map(Expression::type).toList()));
     }
 
     @Override
