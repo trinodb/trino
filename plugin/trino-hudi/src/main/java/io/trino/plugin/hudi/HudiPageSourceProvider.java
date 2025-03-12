@@ -148,6 +148,7 @@ public class HudiPageSourceProvider
             start = hudiBaseFileOpt.get().getStart();
             length = hudiBaseFileOpt.get().getLength();
         }
+        // TODO: Move this into HudiTableHandle
         HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), hudiTableHandle.getBasePath());
         String latestCommitTime = metaClient.getCommitsTimeline().lastInstant().get().requestedTime();
         Schema dataSchema = null;

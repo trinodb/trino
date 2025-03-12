@@ -42,7 +42,7 @@ public class HudiSessionProperties
         implements SessionPropertiesProvider
 {
     private static final String COLUMNS_TO_HIDE = "columns_to_hide";
-    private static final String METADATA_TABLE_ENABLED = "metadata_enabled";
+    static final String METADATA_TABLE_ENABLED = "metadata_enabled";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
@@ -52,7 +52,7 @@ public class HudiSessionProperties
     private static final String MAX_SPLITS_PER_SECOND = "max_splits_per_second";
     private static final String MAX_OUTSTANDING_SPLITS = "max_outstanding_splits";
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
-    private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
 
     private final List<PropertyMetadata<?>> sessionProperties;

@@ -105,6 +105,8 @@ public class HudiSplitSource
                 createSplitWeightProvider(session),
                 partitions,
                 latestCommitTime,
+                enableMetadataTable,
+                metaClient,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
                             "Failed to generate splits for " + table.getSchemaTableName(), throwable));
@@ -140,7 +142,7 @@ public class HudiSplitSource
         return splitLoaderFuture.isDone() && queue.isFinished();
     }
 
-    private static HudiSplitWeightProvider createSplitWeightProvider(ConnectorSession session)
+    public static HudiSplitWeightProvider createSplitWeightProvider(ConnectorSession session)
     {
         if (isSizeBasedSplitWeightsEnabled(session)) {
             DataSize standardSplitWeightSize = getStandardSplitWeightSize(session);
@@ -149,4 +151,5 @@ public class HudiSplitSource
         }
         return HudiSplitWeightProvider.uniformStandardWeightProvider();
     }
+
 }

@@ -16,7 +16,6 @@ package io.trino.plugin.hudi.split;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HivePartitionKey;
-import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.file.HudiBaseFile;
@@ -28,8 +27,6 @@ import org.apache.hudi.common.util.Option;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -54,6 +51,11 @@ public class HudiSplitFactory
     }
 
     public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime)
+    {
+        return createHudiSplits(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider);
+    }
+
+    public static List<HudiSplit> createHudiSplits(HudiTableHandle hudiTableHandle, List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime, HudiSplitWeightProvider hudiSplitWeightProvider)
     {
         if (fileSlice.isEmpty()) {
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice.toString()));
@@ -100,18 +102,16 @@ public class HudiSplitFactory
                         partitionKeys,
                         hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining)));
             }
-            return splits.build();
         }
 
         // Base and log files
         Option<HoodieBaseFile> baseFileOption = fileSlice.getBaseFile();
-        return Collections.singletonList(
-                new HudiSplit(
-                        baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
-                        fileSlice.getLogFiles().map(HudiLogFile::of).toList(),
-                        commitTime,
-                        hudiTableHandle.getRegularPredicates(),
-                        partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(fileSlice.getTotalFileSize())));
+        return ImmutableList.of(new HudiSplit(
+                baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
+                fileSlice.getLogFiles().map(HudiLogFile::of).toList(),
+                commitTime,
+                hudiTableHandle.getRegularPredicates(),
+                partitionKeys,
+                hudiSplitWeightProvider.calculateSplitWeight(fileSlice.getTotalFileSize())));
     }
 }

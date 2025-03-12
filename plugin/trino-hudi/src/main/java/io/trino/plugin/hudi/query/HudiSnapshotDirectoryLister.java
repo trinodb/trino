@@ -59,6 +59,9 @@ public class HudiSnapshotDirectoryLister implements HudiDirectoryLister {
                 .build();
         this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(
                 new HoodieLocalEngineContext(new TrinoStorageConfiguration()), metaClient, metadataConfig);
+        if (enableMetadataTable) {
+            fileSystemView.loadAllPartitions();
+        }
         //new HoodieTableFileSystemView(metaClient, metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.allPartitionInfoMap = hivePartitionNames.stream()

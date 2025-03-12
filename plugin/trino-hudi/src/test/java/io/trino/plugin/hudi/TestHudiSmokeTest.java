@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.ZonedDateTime;
 
+import static io.trino.plugin.hudi.HudiSessionProperties.METADATA_TABLE_ENABLED;
+import static io.trino.plugin.hudi.HudiSessionProperties.QUERY_PARTITION_FILTER_REQUIRED;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
@@ -98,7 +100,7 @@ public class TestHudiSmokeTest
     }
 
     @Test
-    public void testReadMultiFgPartitionedMORTableVer8()
+    public void testPartitionPruningReadMultiFgPartitionedMORTableVer8()
     {
         // Stopgap to enable MDT
         Session session = withMdtEnabled(getSession());
@@ -108,13 +110,28 @@ public class TestHudiSmokeTest
         int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
         int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
         assertThat(prunedSplits).isLessThan(totalSplits);
+        // With Partition pruning, only 2 splits in the partition should be returned
         assertThat(prunedSplits).isEqualTo(2);
+    }
+
+    @Test
+    public void testColStatsFileSkipping()
+    {
+        // Stopgap to enable MDT
+        Session session = withMdtEnabled(getSession());
+        getQueryRunner().execute(session, "SET SESSION hudi.metadata_enabled=true");
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG' AND id=1");
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // With file skipping, only 1 split should be returned
+        assertThat(prunedSplits).isEqualTo(1);
     }
 
     @Test
     public void testReadPartitionedMORTables()
     {
-        System.out.println("test start");
         getQueryRunner().execute(getSession(), "SET SESSION hudi.metadata_enabled=true");
         String res = getQueryRunner().execute(getSession(), "SELECT * FROM " + HUDI_STOCK_TICKS_MOR).toString();
         System.out.println(res);
@@ -419,14 +436,14 @@ public class TestHudiSmokeTest
     private static Session withPartitionFilterRequired(Session session)
     {
         return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), QUERY_PARTITION_FILTER_REQUIRED, "true")
                 .build();
     }
 
     private static Session withMdtEnabled(Session session)
     {
         return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "metadata_enabled", "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), METADATA_TABLE_ENABLED, "true")
                 .build();
     }
 
