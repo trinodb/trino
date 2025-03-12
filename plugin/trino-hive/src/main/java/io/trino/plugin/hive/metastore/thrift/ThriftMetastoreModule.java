@@ -37,7 +37,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class ThriftMetastoreModule
+public final class ThriftMetastoreModule
         extends AbstractConfigurationAwareModule
 {
     @Override
@@ -93,6 +93,18 @@ public class ThriftMetastoreModule
 
         closingBinder(binder)
                 .registerExecutor(Key.get(ExecutorService.class, ThriftHiveWriteStatisticsExecutor.class));
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        return obj instanceof ThriftMetastoreModule;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 
     private static class ThriftHiveMetastoreStatisticExecutorProvider
