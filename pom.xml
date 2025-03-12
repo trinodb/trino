@@ -181,7 +181,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>315</dep.airlift.version>
+        <dep.airlift.version>316</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -646,18 +646,12 @@
                 <version>1.6</version>
             </dependency>
 
-            <!-- temporary until its included in the bom -->
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>configuration-testing</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
-
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>joni</artifactId>
                 <version>2.1.5.3</version>
             </dependency>
+
             <dependency>
                 <groupId>io.airlift</groupId>
                 <artifactId>junit-extensions</artifactId>
