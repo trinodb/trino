@@ -16,7 +16,6 @@ package io.trino.sql.ir;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.type.RowType;
-import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,24 +23,18 @@ import java.util.stream.Collectors;
 import static java.util.Objects.requireNonNull;
 
 @JsonSerialize
-public record Row(List<Expression> items, Type type)
+public record Row(List<Expression> items, RowType type)
         implements Expression
 {
     public Row(List<Expression> items)
     {
-        this(items, RowType.anonymous(items.stream().map(io.trino.sql.ir.Expression::type).collect(Collectors.toList())));
+        this(items, RowType.anonymous(items.stream().map(Expression::type).toList()));
     }
 
     public Row
     {
         requireNonNull(items, "items is null");
         items = ImmutableList.copyOf(items);
-    }
-
-    @Override
-    public Type type()
-    {
-        return type;
     }
 
     @Override
