@@ -14,11 +14,8 @@
 package io.trino.plugin.hudi;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Module;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.HideDeltaLakeTables;
@@ -29,15 +26,8 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
-
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HudiModule
@@ -67,25 +57,6 @@ public class HudiModule
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
-        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForHudiSplitManager.class));
-        closingBinder(binder).registerExecutor(Key.get(ScheduledExecutorService.class, ForHudiSplitSource.class));
-    }
-
-    @Provides
-    @Singleton
-    @ForHudiSplitManager
-    public ExecutorService createExecutorService()
-    {
-        return newCachedThreadPool(daemonThreadsNamed("hudi-split-manager-%s"));
-    }
-
-    @Provides
-    @Singleton
-    @ForHudiSplitSource
-    public ScheduledExecutorService createSplitLoaderExecutor(HudiConfig hudiConfig)
-    {
-        return newScheduledThreadPool(
-                hudiConfig.getSplitLoaderParallelism(),
-                daemonThreadsNamed("hudi-split-loader-%s"));
+        binder.install(new HudiExecutorModule());
     }
 }

@@ -88,7 +88,7 @@ public class DeltaLakeSplitManager
     public DeltaLakeSplitManager(
             TypeManager typeManager,
             TransactionLogAccess transactionLogAccess,
-            ExecutorService executor,
+            @ForDeltaLakeSplitManager ExecutorService executor,
             DeltaLakeConfig config,
             TrinoFileSystemFactory fileSystemFactory,
             DeltaLakeTransactionManager deltaLakeTransactionManager,
