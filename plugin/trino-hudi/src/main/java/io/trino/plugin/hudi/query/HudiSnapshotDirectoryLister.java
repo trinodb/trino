@@ -57,6 +57,9 @@ public class HudiSnapshotDirectoryLister
                 .build();
         this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(
                 new HoodieLocalEngineContext(new TrinoStorageConfiguration()), metaClient, metadataConfig);
+        if (enableMetadataTable) {
+            fileSystemView.loadAllPartitions();
+        }
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.allPartitionInfoMap = hivePartitionNames.stream()
                 .collect(Collectors.toMap(

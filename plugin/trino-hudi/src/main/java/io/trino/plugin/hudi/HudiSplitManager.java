@@ -13,19 +13,14 @@
  */
 package io.trino.plugin.hudi;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
-import io.trino.metastore.HivePartition;
 import io.trino.metastore.Table;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveTransactionHandle;
-import io.trino.plugin.hudi.query.HudiFileSkippingManager;
-import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -33,17 +28,12 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TypeManager;
-import org.apache.hudi.common.engine.HoodieLocalEngineContext;
-import org.apache.hudi.common.model.HoodieTableQueryType;
-import org.apache.hudi.common.table.HoodieTableMetaClient;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
@@ -54,7 +44,6 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFi
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxSplitsPerSecond;
-import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
 import static io.trino.plugin.hudi.partition.HiveHudiPartitionInfo.NON_PARTITION;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.util.Objects.requireNonNull;
@@ -100,6 +89,7 @@ public class HudiSplitManager
         Map<String, HiveColumnHandle> partitionColumnHandles = partitionColumns.stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
         List<String> partitions = getPartitions(metastore, hudiTableHandle, partitionColumns);
+        /*
         boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
 
         if (enableMetadataTable) {
@@ -129,7 +119,7 @@ public class HudiSplitManager
                     .forEach(splitsBuilder::add);
             List<HudiSplit> splitsList = splitsBuilder.build();
             return splitsList.isEmpty() ? new FixedSplitSource(ImmutableList.of()) : new FixedSplitSource(splitsList);
-        }
+        }*/
 
         HudiSplitSource splitSource = new HudiSplitSource(
                 session,
@@ -146,6 +136,7 @@ public class HudiSplitManager
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }
 
+    /*
     private Map<String, HivePartition> getHudiPartitions(Table table, HudiTableHandle tableHandle, List<String> partitions)
     {
         List<String> partitionColumnNames = table.getPartitionColumns().stream().map(f -> f.getName()).collect(Collectors.toList());
@@ -163,6 +154,7 @@ public class HudiSplitManager
         }).forEach(p -> builder.put(p.getName(), p));
         return builder.build();
     }
+    */
 
     private static List<String> getPartitions(HiveMetastore metastore, HudiTableHandle table, List<HiveColumnHandle> partitionColumns)
     {

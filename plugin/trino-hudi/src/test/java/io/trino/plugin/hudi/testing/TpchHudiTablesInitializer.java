@@ -241,7 +241,9 @@ public class TpchHudiTablesInitializer
                 .withMarkersType(MarkerType.DIRECT.name())
                 // Disabling Hudi metadata table (MDT) in tests as the support of
                 // reading MDT is broken after removal of Hudi dependencies from compile time
-                .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(true).build())
+                .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(true)
+                        .withMetadataIndexColumnStats(true)
+                        .withMetadataIndexColumnStatsFileGroupCount(2).build())
                 .build();
         return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(new HadoopStorageConfiguration(conf)), cfg);
     }

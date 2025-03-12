@@ -6,8 +6,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hudi.HudiPredicates;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -59,7 +57,7 @@ public class HudiFileSkippingManager
     private final HoodieTableMetaClient metaClient;
     private final HoodieTableMetadata metadataTable;
 
-    private final Map<String, List<FileSlice>> allInputFileSlices;
+    // private final Map<String, List<FileSlice>> allInputFileSlices;
 
     public HudiFileSkippingManager(
             List<String> partitions,
@@ -79,7 +77,7 @@ public class HudiFileSkippingManager
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
         this.metadataTable = HoodieTableMetadata.create(
                 engineContext, metaClient.getStorage(), metadataConfig, metaClient.getBasePathV2().toString(), true);
-        this.allInputFileSlices = prepareAllInputFileSlices(partitions, engineContext, metadataConfig, spillableDir);
+        // this.allInputFileSlices = prepareAllInputFileSlices(partitions, engineContext, metadataConfig, spillableDir);
     }
 
     private Map<String, List<FileSlice>> prepareAllInputFileSlices(
@@ -126,6 +124,7 @@ public class HudiFileSkippingManager
                 .collect(Collectors.toList());
     }
 
+    /*
     public Map<String, List<FileSlice>> listQueryFiles(TupleDomain<ColumnHandle> tupleDomain)
     {
         // do file skipping by MetadataTable
@@ -151,13 +150,15 @@ public class HudiFileSkippingManager
         }
         return candidateFileSlices;
     }
+    */
 
-    private Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
+    public static Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
+            HoodieTableMetadata metadataTable,
             Map<String, List<FileSlice>> inputFileSlices,
-            TupleDomain<ColumnHandle> tupleDomain)
+            TupleDomain<HiveColumnHandle> tupleDomain)
     {
         // split regular column predicates
-        TupleDomain<HiveColumnHandle> regularTupleDomain = HudiPredicates.from(tupleDomain).getRegularColumnPredicates();
+        TupleDomain<HiveColumnHandle> regularTupleDomain = tupleDomain;
         TupleDomain<String> regularColumnPredicates = regularTupleDomain.transformKeys(HiveColumnHandle::getName);
         if (regularColumnPredicates.isAll() || !regularColumnPredicates.getDomains().isPresent()) {
             return inputFileSlices;
@@ -189,7 +190,7 @@ public class HudiFileSkippingManager
                                 .collect(Collectors.toList())));
     }
 
-    private boolean pruneFiles(
+    private static boolean pruneFiles(
             FileSlice fileSlice,
             Map<String, List<HoodieMetadataColumnStats>> statsByFileName,
             TupleDomain<String> regularColumnPredicates,
@@ -204,7 +205,7 @@ public class HudiFileSkippingManager
         return evaluateStatisticPredicate(regularColumnPredicates, stats, regularColumns);
     }
 
-    private boolean evaluateStatisticPredicate(
+    private static boolean evaluateStatisticPredicate(
             TupleDomain<String> regularColumnPredicates,
             List<HoodieMetadataColumnStats> stats,
             List<String> regularColumns)

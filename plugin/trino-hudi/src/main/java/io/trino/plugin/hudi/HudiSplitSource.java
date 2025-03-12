@@ -102,7 +102,9 @@ public class HudiSplitSource
                 new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
                 partitions,
-                latestCommitTime);
+                latestCommitTime,
+                enableMetadataTable,
+                metaClient);
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
     }
 
