@@ -101,15 +101,17 @@ public final class RowBlock
         }
 
         requireNonNull(fieldBlocks, "fieldBlocks is null");
-        int firstFieldBlockPositionCount = fieldBlocks[0].getPositionCount();
-        for (int i = 1; i < fieldBlocks.length; i++) {
-            if (firstFieldBlockPositionCount != fieldBlocks[i].getPositionCount()) {
-                throw new IllegalArgumentException(format("length of field blocks differ: field 0: %s, block %s: %s", firstFieldBlockPositionCount, i, fieldBlocks[i].getPositionCount()));
+        if (fieldBlocks.length > 0) {
+            int firstFieldBlockPositionCount = fieldBlocks[0].getPositionCount();
+            for (int i = 1; i < fieldBlocks.length; i++) {
+                if (firstFieldBlockPositionCount != fieldBlocks[i].getPositionCount()) {
+                    throw new IllegalArgumentException(format("length of field blocks differ: field 0: %s, block %s: %s", firstFieldBlockPositionCount, i, fieldBlocks[i].getPositionCount()));
+                }
             }
-        }
 
-        if (firstFieldBlockPositionCount - startOffset < positionCount) {
-            throw new IllegalArgumentException("fieldBlock length is less than positionCount");
+            if (firstFieldBlockPositionCount - startOffset < positionCount) {
+                throw new IllegalArgumentException("fieldBlock length is less than positionCount");
+            }
         }
 
         this.startOffset = startOffset;

@@ -13,10 +13,13 @@
  */
 package io.trino.sql;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.IntervalLiteral;
+import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
@@ -108,6 +111,40 @@ public class TestExpressionFormatter
         assertFormattedExpression(
                 new IntervalLiteral("2", NEGATIVE, HOUR, Optional.of(SECOND)),
                 "INTERVAL -'2' HOUR TO SECOND");
+    }
+
+    @Test
+    public void testRowLiteral()
+    {
+        assertFormattedExpression(
+                createRow("a"),
+                "ROW('v0' AS a)");
+        assertFormattedExpression(
+                createRow((String) null),
+                "ROW('v0')");
+        assertFormattedExpression(
+                createRow("a", null, "b"),
+                "ROW('v0' AS a, 'v1', 'v2' AS b)");
+        assertFormattedExpression(
+                new Row(ImmutableList.of(createRowField("x", new Row(ImmutableList.of(createRowField("y", createRow("a", null, "b"))))))),
+                "ROW(ROW(ROW('v0' AS a, 'v1', 'v2' AS b) AS y) AS x)");
+        assertFormattedExpression(
+                new Row(ImmutableList.of(createRowField(null, new Row(ImmutableList.of(createRowField(null, createRow("a", null, "b"))))))),
+                "ROW(ROW(ROW('v0' AS a, 'v1', 'v2' AS b)))");
+    }
+
+    private static Row createRow(String... fieldNames)
+    {
+        ImmutableList.Builder<Row.Field> fields = ImmutableList.builder();
+        for (int i = 0; i < fieldNames.length; i++) {
+            fields.add(createRowField(fieldNames[i], new StringLiteral("v" + i)));
+        }
+        return new Row(fields.build());
+    }
+
+    private static Row.Field createRowField(String fieldName, Expression expression)
+    {
+        return new Row.Field(new NodeLocation(1, 1), Optional.ofNullable(fieldName).map(Identifier::new), expression);
     }
 
     private void assertFormattedExpression(Expression expression, String expected)

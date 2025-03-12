@@ -43,6 +43,7 @@ import io.trino.sql.tree.TableSubquery;
 import io.trino.sql.tree.Values;
 import io.trino.sql.tree.WindowDefinition;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -141,7 +142,7 @@ public final class QueryUtil
 
     public static Row row(Expression... values)
     {
-        return new Row(ImmutableList.copyOf(values));
+        return new Row(Arrays.stream(values).map(Row.Field::new).toList());
     }
 
     public static Relation aliased(Relation relation, String alias)

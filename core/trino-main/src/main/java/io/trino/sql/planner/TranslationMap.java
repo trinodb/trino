@@ -548,10 +548,11 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(Row expression)
     {
         return new io.trino.sql.ir.Row(
-                expression.getItems().stream()
-                .map(this::translateExpression)
-                .collect(toImmutableList()),
-                analysis.getType(expression));
+                expression.getFields().stream()
+                        .map(Row.Field::getExpression)
+                        .map(this::translateExpression)
+                        .collect(toImmutableList()),
+                (RowType) analysis.getType(expression));
     }
 
     private io.trino.sql.ir.Expression translate(ComparisonExpression expression)
