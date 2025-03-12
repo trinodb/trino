@@ -16,9 +16,12 @@ package io.trino.operator;
 public enum GroupByHashMode {
     // Hash values are pre-computed as input, and emitted as output
     PRECOMPUTED,
-    // Hash values are computed by the FlatGroupByHash instance and stored along with the entry
+    // Hash values are computed by the FlatGroupByHash instance and stored along with the entry. This consumes more
+    // memory, but makes re-hashing cheaper by avoiding the need to re-compute each hash code and also makes the
+    // valueIdentical check cheaper by avoiding a deep equality check when hashes don't match
     CACHED,
-    // Hash values are re-computed for each access on demand
+    // Hash values are re-computed for each access on demand. This avoids storing the hash value directly in the
+    // table which saves memory, but can be more expensive during rehash.
     ON_DEMAND;
 
     public boolean isHashPrecomputed()
