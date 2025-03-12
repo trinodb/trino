@@ -114,10 +114,6 @@ public final class RowBlock
         }
 
         requireNonNull(fieldBlocks, "fieldBlocks is null");
-        if (fieldBlocks.length == 0) {
-            throw new IllegalArgumentException("Row block must contain at least one field");
-        }
-
         for (int i = 0; i < fieldBlocks.length; i++) {
             if (positionCount != fieldBlocks[i].getPositionCount()) {
                 throw new IllegalArgumentException("Expected field %s to have %s positions but has %s positions".formatted(i, positionCount, fieldBlocks[i].getPositionCount()));
