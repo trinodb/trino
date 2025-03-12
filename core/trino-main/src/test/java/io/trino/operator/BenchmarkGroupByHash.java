@@ -201,7 +201,7 @@ public class BenchmarkGroupByHash
         private int groupCount = GROUP_COUNT;
 
         @Param({"PRECOMPUTED", "CACHED", "ON_DEMAND"})
-        private FlatGroupByHash.HashMode hashMode = FlatGroupByHash.HashMode.ON_DEMAND;
+        private GroupByHashMode hashMode = GroupByHashMode.ON_DEMAND;
 
         @Param({"VARCHAR", "BIGINT"})
         private String dataType = "VARCHAR";
@@ -245,7 +245,7 @@ public class BenchmarkGroupByHash
             return hashMode.isHashPrecomputed();
         }
 
-        public FlatGroupByHash.HashMode getFlatGroupByHashMode()
+        public GroupByHashMode getFlatGroupByHashMode()
         {
             return hashMode;
         }

@@ -46,29 +46,7 @@ public class FlatGroupByHash
     // Max (page value count / cumulative dictionary size) to trigger the low cardinality case
     private static final double SMALL_DICTIONARIES_MAX_CARDINALITY_RATIO = 0.25;
 
-    public enum HashMode {
-        // Hash values are pre-computed as input, and emitted as output
-        PRECOMPUTED,
-        // Hash values are computed by the FlatGroupByHash instance and stored along with the entry
-        CACHED,
-        // Hash values are re-computed for each access on demand
-        ON_DEMAND;
-
-        public boolean isHashPrecomputed()
-        {
-            return this == PRECOMPUTED;
-        }
-
-        public boolean isHashCached()
-        {
-            return switch (this) {
-                case PRECOMPUTED, CACHED -> true;
-                case ON_DEMAND -> false;
-            };
-        }
-    }
-
-    private final HashMode hashMode;
+    private final GroupByHashMode hashMode;
     private final FlatHash flatHash;
     private final int groupByChannelCount;
 
@@ -86,7 +64,7 @@ public class FlatGroupByHash
 
     public FlatGroupByHash(
             List<Type> hashTypes,
-            HashMode hashMode,
+            GroupByHashMode hashMode,
             int expectedSize,
             boolean processDictionary,
             FlatHashStrategyCompiler hashStrategyCompiler,

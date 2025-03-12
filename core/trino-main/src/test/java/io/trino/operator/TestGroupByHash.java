@@ -70,7 +70,7 @@ public class TestGroupByHash
                 case BIGINT -> new BigintGroupByHash(true, expectedSize, updateMemory);
                 case FLAT -> new FlatGroupByHash(
                         ImmutableList.of(BigintType.BIGINT),
-                        FlatGroupByHash.HashMode.PRECOMPUTED,
+                        GroupByHashMode.PRECOMPUTED,
                         expectedSize,
                         true,
                         new FlatHashStrategyCompiler(new TypeOperators()),

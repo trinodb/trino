@@ -53,15 +53,15 @@ public interface GroupByHash
         if (types.size() == 1 && types.get(0).equals(BIGINT)) {
             return new BigintGroupByHash(hasPrecomputedHash, expectedSize, updateMemory);
         }
-        FlatGroupByHash.HashMode hashMode;
+        GroupByHashMode hashMode;
         if (hasPrecomputedHash) {
-            hashMode = FlatGroupByHash.HashMode.PRECOMPUTED;
+            hashMode = GroupByHashMode.PRECOMPUTED;
         }
         else if (cacheHashValues) {
-            hashMode = FlatGroupByHash.HashMode.CACHED;
+            hashMode = GroupByHashMode.CACHED;
         }
         else {
-            hashMode = FlatGroupByHash.HashMode.ON_DEMAND;
+            hashMode = GroupByHashMode.ON_DEMAND;
         }
         return new FlatGroupByHash(
                 types,
