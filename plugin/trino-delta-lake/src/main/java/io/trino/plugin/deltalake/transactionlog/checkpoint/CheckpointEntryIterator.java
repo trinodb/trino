@@ -389,6 +389,8 @@ public class CheckpointEntryIterator
         if (block.isNull(pagePosition)) {
             return null;
         }
+
+        block = block.getLoadedBlock();
         RowType type = protocolType.orElseThrow();
         int minProtocolFields = 2;
         int maxProtocolFields = 4;
@@ -416,6 +418,8 @@ public class CheckpointEntryIterator
         if (block.isNull(pagePosition)) {
             return null;
         }
+
+        block = block.getLoadedBlock();
         RowType type = metadataType.orElseThrow();
         int metadataFields = 8;
         int formatFields = 2;
@@ -455,6 +459,8 @@ public class CheckpointEntryIterator
         if (block.isNull(pagePosition)) {
             return null;
         }
+
+        block = block.getLoadedBlock();
         RowType type = removeType.orElseThrow();
         int removeFields = 4;
         SqlRow removeEntryRow = getRow(block, pagePosition);
@@ -485,6 +491,8 @@ public class CheckpointEntryIterator
         if (block.isNull(pagePosition)) {
             return null;
         }
+
+        block = block.getLoadedBlock();
         int sidecarFields = 4;
         SqlRow sidecarEntryRow = getRow(block, pagePosition);
         if (sidecarEntryRow.getFieldCount() != sidecarFields) {
@@ -669,6 +677,8 @@ public class CheckpointEntryIterator
         if (block.isNull(pagePosition)) {
             return null;
         }
+
+        block = block.getLoadedBlock();
         RowType type = txnType.orElseThrow();
         int txnFields = 3;
         SqlRow txnEntryRow = getRow(block, pagePosition);
@@ -758,14 +768,8 @@ public class CheckpointEntryIterator
             // process page
             int blockIndex = 0;
             for (CheckpointFieldExtractor extractor : extractors) {
-                DeltaLakeTransactionLogEntry entry;
-                if (extractor instanceof AddFileEntryExtractor) {
-                    // Avoid unnecessary loading of the block in case there is a partition predicate mismatch for this add entry
-                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex));
-                }
-                else {
-                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex).getLoadedBlock());
-                }
+                // Avoid unnecessary loading of the block
+                DeltaLakeTransactionLogEntry entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex));
                 if (entry != null) {
                     nextEntries.add(entry);
                 }
