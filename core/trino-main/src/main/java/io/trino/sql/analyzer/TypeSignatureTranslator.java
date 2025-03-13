@@ -63,7 +63,7 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 
-public class TypeSignatureTranslator
+public final class TypeSignatureTranslator
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
 

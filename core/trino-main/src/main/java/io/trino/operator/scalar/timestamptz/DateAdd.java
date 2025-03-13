@@ -33,7 +33,7 @@ import static java.lang.Math.toIntExact;
 
 @Description("Add the specified amount of time to the given timestamp")
 @ScalarFunction("date_add")
-public class DateAdd
+public final class DateAdd
 {
     private DateAdd() {}
 

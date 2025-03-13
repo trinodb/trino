@@ -32,7 +32,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 
-public class OperatorFactories
+public final class OperatorFactories
 {
     private OperatorFactories() {}
 

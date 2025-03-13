@@ -66,7 +66,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
-public class JsonEncodingUtils
+public final class JsonEncodingUtils
 {
     private JsonEncodingUtils() {}
 

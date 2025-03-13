@@ -25,7 +25,7 @@ import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Millisecond of the second of the given timestamp")
 @ScalarFunction("millisecond")
-public class ExtractMillisecond
+public final class ExtractMillisecond
 {
     private ExtractMillisecond() {}
 
