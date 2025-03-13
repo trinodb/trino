@@ -378,17 +378,12 @@ public final class TestHiveFileFormats
                 .filter(tc -> !(tc.type instanceof MapType))
                 .collect(toList());
 
-        HiveConfig hiveConfig = new HiveConfig();
-        // enable Ion native trino integration for testing while the implementation is in progress
-        // TODO: In future this flag should change to `true` as default and then the following statement can be removed.
-        hiveConfig.setIonNativeTrinoEnabled(true);
-
         assertThatFileFormat(ION)
                 .withColumns(testColumns)
                 .withRowsCount(rowCount)
                 .withFileSizePadding(fileSizePadding)
-                .withFileWriterFactory(fileSystemFactory -> new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, hiveConfig))
-                .isReadableByPageSource(fileSystemFactory -> new IonPageSourceFactory(fileSystemFactory, hiveConfig));
+                .withFileWriterFactory(fileSystemFactory -> new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
+                .isReadableByPageSource(fileSystemFactory -> new IonPageSourceFactory(fileSystemFactory));
     }
 
     @Test(dataProvider = "validRowAndFileSizePadding")

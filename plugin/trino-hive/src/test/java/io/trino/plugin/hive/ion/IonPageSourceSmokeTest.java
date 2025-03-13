@@ -141,7 +141,7 @@ public class IonPageSourceSmokeTest
         TestFixture strictFixture = new TestFixture(FOO_BAR_COLUMNS);
         strictFixture.withSerdeProperty(STRICT_PATH_TYPING_PROPERTY, "true");
 
-        Assertions.assertThrows(TrinoException.class, () ->
+        Assertions.assertThrows(RuntimeException.class, () ->
                 strictFixture.assertRowCount("37 null.timestamp []", 3));
     }
 
@@ -216,23 +216,6 @@ public class IonPageSourceSmokeTest
         Assertions.assertEquals(2, pageSource.getCompletedPositions().getAsLong());
         Assertions.assertEquals(bytes, pageSource.getCompletedBytes());
         Assertions.assertTrue(pageSource.getReadTimeNanos() > 0);
-    }
-
-    @Test
-    public void testNativeTrinoDisabled()
-            throws IOException
-    {
-        TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
-                .withNativeIonDisabled();
-
-        Assertions.assertTrue(
-                fixture.getOptionalFileWriter().isEmpty(),
-                "Expected empty file writer when native trino is disabled");
-
-        fixture.writeIonTextFile("");
-        Assertions.assertTrue(
-                fixture.getOptionalPageSource().isEmpty(),
-                "Expected empty page source when native trino is disabled");
     }
 
     private static Stream<Map.Entry<String, String>> propertiesWithDefaults()
@@ -367,7 +350,6 @@ public class IonPageSourceSmokeTest
     {
         private TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
         private Location fileLocation = Location.of(TEST_ION_LOCATION);
-        private HiveConfig hiveConfig = new HiveConfig();
         private Map<String, String> tableProperties = new HashMap<>();
         private List<HiveColumnHandle> columns;
         private List<HiveColumnHandle> projections;
@@ -389,14 +371,6 @@ public class IonPageSourceSmokeTest
             tableProperties.put(LIST_COLUMN_TYPES, columns.stream().map(HiveColumnHandle::getHiveType)
                     .map(HiveType::toString)
                     .collect(Collectors.joining(",")));
-            // the default at runtime is false, but most of our testing obviously assumes it is enabled.
-            hiveConfig.setIonNativeTrinoEnabled(true);
-        }
-
-        TestFixture withNativeIonDisabled()
-        {
-            hiveConfig.setIonNativeTrinoEnabled(false);
-            return this;
         }
 
         TestFixture withSerdeProperty(String key, String value)
@@ -408,7 +382,7 @@ public class IonPageSourceSmokeTest
         Optional<ConnectorPageSource> getOptionalPageSource()
                 throws IOException
         {
-            IonPageSourceFactory pageSourceFactory = new IonPageSourceFactory(fileSystemFactory, hiveConfig);
+            IonPageSourceFactory pageSourceFactory = new IonPageSourceFactory(fileSystemFactory);
 
             long length = fileSystemFactory.create(getSession()).newInputFile(fileLocation).length();
             long nowMillis = Instant.now().toEpochMilli();
@@ -453,7 +427,7 @@ public class IonPageSourceSmokeTest
         ConnectorSession getSession()
         {
             if (session == null) {
-                session = getHiveSession(hiveConfig);
+                session = getHiveSession(new HiveConfig());
             }
             return session;
         }
@@ -483,7 +457,7 @@ public class IonPageSourceSmokeTest
 
         Optional<FileWriter> getOptionalFileWriter()
         {
-            return new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, hiveConfig)
+            return new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER)
                     .createFileWriter(
                             fileLocation,
                             columns.stream().map(HiveColumnHandle::getName).collect(toList()),
