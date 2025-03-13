@@ -243,7 +243,7 @@ public class CheckpointEntryIterator
             }
             catch (Exception _) {
             }
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initializing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()), e);
         }
     }
 
