@@ -431,6 +431,7 @@ public class SymbolMapper
                 map(node.getProperOutputs()),
                 Optional.of(source),
                 node.isPruneWhenEmpty(),
+                node.isPreferStreaming(),
                 newPassThroughSpecifications.build(),
                 newRequiredSymbols,
                 newMarkerSymbols,
