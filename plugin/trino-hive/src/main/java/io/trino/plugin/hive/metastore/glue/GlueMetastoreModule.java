@@ -38,7 +38,6 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.retries.api.BackoffStrategy;
@@ -173,9 +172,7 @@ public class GlueMetastoreModule
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
             glue.region(Region.of(config.getGlueRegion().get()));
-            httpClient.proxyConfiguration(ProxyConfiguration.builder()
-                    .endpoint(URI.create(config.getGlueEndpointUrl().get()))
-                    .build());
+            glue.endpointOverride(URI.create(config.getGlueEndpointUrl().get()));
         }
         else if (config.getGlueRegion().isPresent()) {
             glue.region(Region.of(config.getGlueRegion().get()));
