@@ -11,14 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution;
+package io.trino.testing.eventlistener;
 
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 
-class TestingEventListener
+public class TestingEventListener
         implements EventListener
 {
     private final EventsCollector eventsCollector;
