@@ -59,6 +59,8 @@ public final class ConcatWsFunction
     @ScalarFunction("concat_ws")
     public static final class ConcatArrayWs
     {
+        private ConcatArrayWs() {}
+
         @SqlType("varchar")
         public static Slice concatWsArray(@SqlType("varchar") Slice separator, @SqlType("array(varchar)") Block elements)
         {

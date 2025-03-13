@@ -462,6 +462,8 @@ public class IndexJoinOptimizer
      */
     public static final class IndexKeyTracer
     {
+        private IndexKeyTracer() {}
+
         public static Map<Symbol, Symbol> trace(PlanNode node, Set<Symbol> lookupSymbols)
         {
             return node.accept(new Visitor(), lookupSymbols);
