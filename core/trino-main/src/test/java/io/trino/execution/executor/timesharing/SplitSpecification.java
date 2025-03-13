@@ -83,7 +83,7 @@ abstract class SplitSpecification
         @Override
         public IntermediateSplit instantiate(SimulationTask task)
         {
-            return new IntermediateSplit(task, wallTimeNanos, numQuantas, super.getPerQuantaNanos(), betweenQuantaNanos, super.getScheduledTimeNanos(), wakeupExecutor);
+            return new IntermediateSplit(task, super.getScheduledTimeNanos(), wallTimeNanos, numQuantas, super.getPerQuantaNanos(), betweenQuantaNanos, wakeupExecutor);
         }
     }
 }
