@@ -170,9 +170,6 @@ public final class HiveTestUtils
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(TrinoFileSystemFactory fileSystemFactory, HiveConfig hiveConfig)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
-        // set IonNativeTrino as true in hiveConfig for testing
-        // TODO: In future this flag should change to `true` as default and then the following statement can be removed.
-        hiveConfig.setIonNativeTrinoEnabled(true);
         return ImmutableSet.<HivePageSourceFactory>builder()
                 .add(new CsvPageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new JsonPageSourceFactory(fileSystemFactory, hiveConfig))
@@ -184,7 +181,7 @@ public final class HiveTestUtils
                 .add(new RcFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
-                .add(new IonPageSourceFactory(fileSystemFactory, hiveConfig))
+                .add(new IonPageSourceFactory(fileSystemFactory))
                 .build();
     }
 
@@ -202,7 +199,7 @@ public final class HiveTestUtils
                 .add(new RcFileFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
                 .add(new OrcFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, new FileFormatDataSourceStats(), new OrcWriterConfig()))
                 .add(new ParquetFileWriterFactory(fileSystemFactory, nodeVersion, TESTING_TYPE_MANAGER, hiveConfig, new FileFormatDataSourceStats()))
-                .add(new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, hiveConfig))
+                .add(new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .build();
     }
 

@@ -111,12 +111,6 @@ public class HiveConfig
 
     private String orcLegacyTimeZone = TimeZone.getDefault().getID();
 
-    // This is a feature flag for Ion native trino integration.
-    // Default value is false and requires explicitly setting it to true to enable Ion native trino integration.
-    // TODO: This should change to default as true in future once we have a complete implementation of Ion native
-    //  trino integration supported.
-    private boolean ionNativeTrinoEnabled;
-
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private boolean useParquetColumnNames = true;
 
@@ -717,19 +711,6 @@ public class HiveConfig
     public HiveConfig setOrcLegacyTimeZone(String orcLegacyTimeZone)
     {
         this.orcLegacyTimeZone = orcLegacyTimeZone;
-        return this;
-    }
-
-    public boolean getIonNativeTrinoEnabled()
-    {
-        return ionNativeTrinoEnabled;
-    }
-
-    @Config("hive.ion.nativetrino")
-    @ConfigDescription("Feature flag to enable Ion native trino integration")
-    public HiveConfig setIonNativeTrinoEnabled(boolean ionNativeTrinoEnabled)
-    {
-        this.ionNativeTrinoEnabled = ionNativeTrinoEnabled;
         return this;
     }
 
