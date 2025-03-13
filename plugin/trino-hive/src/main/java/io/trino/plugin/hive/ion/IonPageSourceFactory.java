@@ -31,12 +31,11 @@ import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
-import io.trino.plugin.hive.ReaderColumns;
-import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
@@ -48,12 +47,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.formats.HiveClassNames.ION_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
-import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
-import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectColumnDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
 
 public class IonPageSourceFactory
@@ -70,7 +67,7 @@ public class IonPageSourceFactory
     }
 
     @Override
-    public Optional<ReaderPageSource> createPageSource(
+    public Optional<ConnectorPageSource> createPageSource(
             ConnectorSession session,
             Location path,
             long start,
@@ -98,20 +95,11 @@ public class IonPageSourceFactory
 
         // Skip empty inputs
         if (length == 0) {
-            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+            return Optional.of(new EmptyPageSource());
         }
 
         if (start != 0) {
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "Split start must be 0 for Ion files");
-        }
-
-        List<HiveColumnHandle> projectedReaderColumns = columns;
-        Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);
-
-        if (readerProjections.isPresent()) {
-            projectedReaderColumns = readerProjections.get().get().stream()
-                    .map(HiveColumnHandle.class::cast)
-                    .collect(toImmutableList());
         }
 
         TrinoFileSystem trinoFileSystem = trinoFileSystemFactory.create(session);
@@ -131,19 +119,20 @@ public class IonPageSourceFactory
                 inputStream = countingInputStream;
             }
 
-            PageBuilder pageBuilder = new PageBuilder(projectedReaderColumns.stream()
-                    .map(HiveColumnHandle::getType)
-                    .toList());
-            List<Column> decoderColumns = projectedReaderColumns.stream()
-                    .map(hc -> new Column(hc.getName(), hc.getType(), hc.getBaseHiveColumnIndex()))
-                    .toList();
-
             IonDecoderConfig decoderConfig = IonSerDeProperties.decoderConfigFor(schema.serdeProperties());
-            IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns, decoderConfig, pageBuilder);
-            IonReader ionReader = IonReaderBuilder.standard().build(inputStream);
-            IonPageSource pageSource = new IonPageSource(ionReader, countingInputStream::getCount, decoder, pageBuilder);
 
-            return Optional.of(new ReaderPageSource(pageSource, readerProjections));
+            return Optional.of(projectColumnDereferences(columns, baseColumns -> {
+                PageBuilder pageBuilder = new PageBuilder(baseColumns.stream()
+                        .map(HiveColumnHandle::getType)
+                        .toList());
+                List<Column> decoderColumns = baseColumns.stream()
+                        .map(hc -> new Column(hc.getName(), hc.getType(), hc.getBaseHiveColumnIndex()))
+                        .toList();
+
+                IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns, decoderConfig, pageBuilder);
+                IonReader ionReader = IonReaderBuilder.standard().build(inputStream);
+                return new IonPageSource(ionReader, countingInputStream::getCount, decoder, pageBuilder);
+            }));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
