@@ -23,7 +23,6 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.WriterKind;
 import io.trino.plugin.hive.acid.AcidTransaction;
@@ -52,17 +51,14 @@ public class IonFileWriterFactory
 {
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TypeManager typeManager;
-    private final boolean nativeTrinoEnabled;
 
     @Inject
     public IonFileWriterFactory(
             TrinoFileSystemFactory fileSystemFactory,
-            TypeManager typeManager,
-            HiveConfig hiveConfig)
+            TypeManager typeManager)
     {
         this.fileSystemFactory = fileSystemFactory;
         this.typeManager = typeManager;
-        this.nativeTrinoEnabled = hiveConfig.getIonNativeTrinoEnabled();
     }
 
     @Override
@@ -78,8 +74,7 @@ public class IonFileWriterFactory
             boolean useAcidSchema,
             WriterKind writerKind)
     {
-        if (!nativeTrinoEnabled
-                || !ION_OUTPUT_FORMAT.equals(storageFormat.getOutputFormat())) {
+        if (!ION_OUTPUT_FORMAT.equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
         }
 
