@@ -69,6 +69,7 @@ public class TrinoIcebergSnowflakeCatalogFactory
                 snowflakeCatalogConfig.getUri(),
                 snowflakeCatalogConfig.getUser(),
                 snowflakeCatalogConfig.getPassword(),
+                snowflakeCatalogConfig.getKey(),
                 snowflakeCatalogConfig.getRole());
         this.snowflakeDatabase = snowflakeCatalogConfig.getDatabase();
         this.snowflakeConnectionPool = new JdbcClientPool(snowflakeCatalogConfig.getUri().toString(), snowflakeDriverProperties);
@@ -94,7 +95,7 @@ public class TrinoIcebergSnowflakeCatalogFactory
         return new TrinoSnowflakeCatalog(icebergSnowflakeCatalog, catalogName, typeManager, fileSystemFactory, tableOperationsProvider, snowflakeDatabase);
     }
 
-    public static Map<String, String> getSnowflakeDriverProperties(URI snowflakeUri, String snowflakeUser, String snowflakePassword, Optional<String> snowflakeRole)
+    public static Map<String, String> getSnowflakeDriverProperties(URI snowflakeUri, String snowflakeUser, Optional<String> snowflakePassword, Optional<String> snowflakeKey, Optional<String> snowflakeRole)
     {
         // Below property values are copied from https://github.com/apache/iceberg/blob/apache-iceberg-1.5.0/snowflake/src/main/java/org/apache/iceberg/snowflake/SnowflakeCatalog.java#L122-L129
 
@@ -106,7 +107,6 @@ public class TrinoIcebergSnowflakeCatalogFactory
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties
                 .put(PROPERTY_PREFIX + "user", snowflakeUser)
-                .put(PROPERTY_PREFIX + "password", snowflakePassword)
                 .put("uri", snowflakeUri.toString())
                 .put(PROPERTY_PREFIX + "JDBC_QUERY_RESULT_FORMAT", "JSON")
                 // Populate application identifier in jdbc client
@@ -114,6 +114,8 @@ public class TrinoIcebergSnowflakeCatalogFactory
                 // Adds application identifier to the user agent header of the JDBC requests.
                 .put(PROPERTY_PREFIX + JDBC_USER_AGENT_SUFFIX_PROPERTY, userAgentSuffix);
         snowflakeRole.ifPresent(role -> properties.put(PROPERTY_PREFIX + "role", role));
+        snowflakePassword.ifPresent(password -> properties.put(PROPERTY_PREFIX + "password", password));
+        snowflakeKey.ifPresent(key -> properties.put(PROPERTY_PREFIX + "private_key_base64", key));
 
         return properties.buildOrThrow();
     }

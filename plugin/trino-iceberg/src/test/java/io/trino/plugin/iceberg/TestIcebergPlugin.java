@@ -374,7 +374,7 @@ public class TestIcebergPlugin
                                 "iceberg.catalog.type", "snowflake",
                                 "iceberg.snowflake-catalog.account-uri", "jdbc:snowflake://sample.url",
                                 "iceberg.snowflake-catalog.user", "user",
-                                "iceberg.snowflake-catalog.password", "password",
+                                "iceberg.snowflake-catalog.key", "key",
                                 "iceberg.snowflake-catalog.database", "database"),
                         new TestingConnectorContext())
                 .shutdown();
