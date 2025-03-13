@@ -26,7 +26,7 @@ import java.security.NoSuchAlgorithmException;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
-public class Ciphers
+public final class Ciphers
 {
     private static final int AES_ENCRYPTION_KEY_BITS = 256;
 

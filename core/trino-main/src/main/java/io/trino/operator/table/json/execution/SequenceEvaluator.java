@@ -28,7 +28,7 @@ import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getJsonNode;
 import static java.lang.String.format;
 
-public class SequenceEvaluator
+public final class SequenceEvaluator
 {
     private SequenceEvaluator() {}
 

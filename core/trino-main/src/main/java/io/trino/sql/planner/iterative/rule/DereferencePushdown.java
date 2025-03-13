@@ -34,7 +34,7 @@ import static io.trino.sql.planner.SymbolsExtractor.extractAll;
 /**
  * Provides helper methods to push down dereferences in the query plan.
  */
-class DereferencePushdown
+final class DereferencePushdown
 {
     private DereferencePushdown() {}
 

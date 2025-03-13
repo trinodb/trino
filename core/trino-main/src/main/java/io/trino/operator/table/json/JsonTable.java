@@ -51,7 +51,7 @@ import static java.util.Objects.requireNonNull;
  * Implements feature ISO/IEC 9075-2:2023(E) 7.11 'JSON table'
  * including features T824, T827, T838
  */
-public class JsonTable
+public final class JsonTable
 {
     private JsonTable() {}
 

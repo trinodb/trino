@@ -26,7 +26,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-class AggregationDecorrelation
+final class AggregationDecorrelation
 {
     private AggregationDecorrelation() {}
 

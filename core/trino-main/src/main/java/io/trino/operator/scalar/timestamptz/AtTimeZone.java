@@ -28,7 +28,7 @@ import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.lang.String.format;
 
 @ScalarFunction("at_timezone")
-public class AtTimeZone
+public final class AtTimeZone
 {
     private AtTimeZone() {}
 

@@ -28,7 +28,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Quarter of the year of the given timestamp")
 @ScalarFunction("quarter")
-public class ExtractQuarter
+public final class ExtractQuarter
 {
     private ExtractQuarter() {}
 

@@ -27,7 +27,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Month of the year of the given timestamp")
 @ScalarFunction("month")
-public class ExtractMonth
+public final class ExtractMonth
 {
     private ExtractMonth() {}
 
