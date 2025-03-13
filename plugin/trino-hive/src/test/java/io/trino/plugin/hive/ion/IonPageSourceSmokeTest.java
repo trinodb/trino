@@ -197,7 +197,7 @@ public class IonPageSourceSmokeTest
 
         ConnectorPageSource pageSource = fixture.getPageSource();
 
-        Assertions.assertNotNull(pageSource.getNextPage());
+        Assertions.assertNotNull(pageSource.getNextSourcePage());
         Assertions.assertEquals(2, pageSource.getCompletedPositions().getAsLong());
         Assertions.assertEquals(bytes, pageSource.getCompletedBytes());
         Assertions.assertTrue(pageSource.getReadTimeNanos() > 0);
@@ -212,7 +212,7 @@ public class IonPageSourceSmokeTest
 
         ConnectorPageSource pageSource = fixture.getPageSource();
 
-        Assertions.assertNotNull(pageSource.getNextPage());
+        Assertions.assertNotNull(pageSource.getNextSourcePage());
         Assertions.assertEquals(2, pageSource.getCompletedPositions().getAsLong());
         Assertions.assertEquals(bytes, pageSource.getCompletedBytes());
         Assertions.assertTrue(pageSource.getReadTimeNanos() > 0);
