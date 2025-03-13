@@ -293,4 +293,116 @@ public class TestSetOperations
                 .describedAs("INTERSECT DISTINCT with empty branches")
                 .returnsEmptyResult();
     }
+
+    @Test
+    void testExceptCorresponding()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT * FROM (VALUES (1, 'alice'), (1, 'alice')) t(x, y)
+                EXCEPT CORRESPONDING
+                SELECT * FROM (VALUES ('alice', 1)) t(y, x)
+                """))
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                """
+                SELECT * FROM (VALUES (1, 'alice'), (1, 'alice')) t(x, y)
+                EXCEPT ALL CORRESPONDING
+                SELECT * FROM (VALUES ('alice', 1)) t(y, x)
+                """))
+                .matches("VALUES (1, 'alice')");
+
+    }
+
+    @Test
+    void testUnionCorresponding()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT 1 AS x, 'alice' AS y
+                UNION CORRESPONDING
+                SELECT * FROM (VALUES ('alice', 1), ('bob', 2)) t(y, x)
+                """))
+                .matches("VALUES (1, 'alice'), (2, 'bob')");
+
+        assertThat(assertions.query(
+                """
+                SELECT 1 AS x, 'alice' AS y
+                UNION ALL CORRESPONDING
+                SELECT * FROM (VALUES ('alice', 1), ('bob', 2)) t(y, x)
+                """))
+                .matches("VALUES (1, 'alice'), (1, 'alice'), (2, 'bob')");
+    }
+
+    @Test
+    void testIntersectCorresponding()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT * FROM (VALUES (1, 'alice'), (1, 'alice')) t(x, y)
+                INTERSECT CORRESPONDING
+                SELECT * FROM (VALUES ('alice', 1), ('alice', 1)) t(y, x)
+                """))
+                .matches("VALUES (1, 'alice')");
+
+        assertThat(assertions.query(
+                """
+                SELECT * FROM (VALUES (1, 'alice'), (1, 'alice')) t(x, y)
+                INTERSECT ALL CORRESPONDING
+                SELECT * FROM (VALUES ('alice', 1), ('alice', 1)) t(y, x)
+                """))
+                .matches("VALUES (1, 'alice'), (1, 'alice')");
+    }
+
+    @Test
+    void testCorrespondingDuplicateNames()
+    {
+        assertThat(assertions.query("SELECT 1 AS x, 2 AS y EXCEPT CORRESPONDING SELECT 1 AS x, 2 AS x"))
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+        assertThat(assertions.query("SELECT 1 AS x, 2 AS x EXCEPT CORRESPONDING SELECT 1 AS y, 2 AS x"))
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+
+        assertThat(assertions.query("SELECT 1 AS x, 2 AS y UNION CORRESPONDING SELECT 1 AS x, 2 AS x"))
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+        assertThat(assertions.query("SELECT 1 AS x, 2 AS x UNION CORRESPONDING SELECT 1 AS x, 2 AS y"))
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+
+        assertThat(assertions.query("SELECT 1 AS x, 2 AS y INTERSECT CORRESPONDING SELECT 1 AS x, 2 AS x"))
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+        assertThat(assertions.query("SELECT 1 AS x, 2 AS x INTERSECT CORRESPONDING SELECT 1 AS x, 2 AS y"))
+                .failure().hasMessage("line 1:23: Duplicate columns found when using CORRESPONDING in set operations: x");
+    }
+
+    @Test
+    void testCorrespondingNameMismatch()
+    {
+        assertThat(assertions.query("SELECT 1 AS x EXCEPT CORRESPONDING SELECT 2 AS y"))
+                .failure().hasMessage("line 1:15: Column 'x' cannot be resolved");
+
+        assertThat(assertions.query("SELECT 1 AS x UNION CORRESPONDING SELECT 2 AS y"))
+                .failure().hasMessage("line 1:15: Column 'x' cannot be resolved");
+
+        assertThat(assertions.query("SELECT 1 AS x INTERSECT CORRESPONDING SELECT 2 AS y"))
+                .failure().hasMessage("line 1:15: Column 'x' cannot be resolved");
+    }
+
+    @Test
+    void testCorrespondingWithAnonymousColumn()
+    {
+        assertThat(assertions.query("SELECT 1 EXCEPT CORRESPONDING SELECT 2 AS x"))
+                .failure().hasMessage("line 1:10: Anonymous columns are not allowed in set operations with CORRESPONDING");
+        assertThat(assertions.query("SELECT 1 AS x EXCEPT CORRESPONDING SELECT 2"))
+                .failure().hasMessage("line 1:15: Anonymous columns are not allowed in set operations with CORRESPONDING");
+
+        assertThat(assertions.query("SELECT 1 UNION CORRESPONDING SELECT 2 AS x"))
+                .failure().hasMessage("line 1:10: Anonymous columns are not allowed in set operations with CORRESPONDING");
+        assertThat(assertions.query("SELECT 1 AS x UNION CORRESPONDING SELECT 2"))
+                .failure().hasMessage("line 1:15: Anonymous columns are not allowed in set operations with CORRESPONDING");
+
+        assertThat(assertions.query("SELECT 1 INTERSECT CORRESPONDING SELECT 2 AS x"))
+                .failure().hasMessage("line 1:10: Anonymous columns are not allowed in set operations with CORRESPONDING");
+        assertThat(assertions.query("SELECT 1 AS x INTERSECT CORRESPONDING SELECT 2"))
+                .failure().hasMessage("line 1:15: Anonymous columns are not allowed in set operations with CORRESPONDING");
+    }
 }

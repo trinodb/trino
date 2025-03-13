@@ -20,16 +20,23 @@ public abstract class SetOperation
         extends QueryBody
 {
     private final boolean distinct;
+    private final boolean corresponding;
 
-    protected SetOperation(Optional<NodeLocation> location, boolean distinct)
+    protected SetOperation(Optional<NodeLocation> location, boolean distinct, boolean corresponding)
     {
         super(location);
         this.distinct = distinct;
+        this.corresponding = corresponding;
     }
 
     public boolean isDistinct()
     {
         return distinct;
+    }
+
+    public boolean isCorresponding()
+    {
+        return corresponding;
     }
 
     @Override

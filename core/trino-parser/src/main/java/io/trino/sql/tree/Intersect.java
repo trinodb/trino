@@ -27,19 +27,19 @@ public class Intersect
 {
     private final List<Relation> relations;
 
-    public Intersect(List<Relation> relations, boolean distinct)
+    public Intersect(List<Relation> relations, boolean distinct, boolean corresponding)
     {
-        this(Optional.empty(), relations, distinct);
+        this(Optional.empty(), relations, distinct, corresponding);
     }
 
-    public Intersect(NodeLocation location, List<Relation> relations, boolean distinct)
+    public Intersect(NodeLocation location, List<Relation> relations, boolean distinct, boolean corresponding)
     {
-        this(Optional.of(location), relations, distinct);
+        this(Optional.of(location), relations, distinct, corresponding);
     }
 
-    private Intersect(Optional<NodeLocation> location, List<Relation> relations, boolean distinct)
+    private Intersect(Optional<NodeLocation> location, List<Relation> relations, boolean distinct, boolean corresponding)
     {
-        super(location, distinct);
+        super(location, distinct, corresponding);
         requireNonNull(relations, "relations is null");
 
         this.relations = ImmutableList.copyOf(relations);
@@ -69,6 +69,7 @@ public class Intersect
         return toStringHelper(this)
                 .add("relations", relations)
                 .add("distinct", isDistinct())
+                .add("corresponding", isCorresponding())
                 .toString();
     }
 
@@ -83,13 +84,14 @@ public class Intersect
         }
         Intersect o = (Intersect) obj;
         return Objects.equals(relations, o.relations) &&
-               isDistinct() == o.isDistinct();
+               isDistinct() == o.isDistinct() &&
+               isCorresponding() == o.isCorresponding();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relations, isDistinct());
+        return Objects.hash(relations, isDistinct(), isCorresponding());
     }
 
     @Override
@@ -99,6 +101,8 @@ public class Intersect
             return false;
         }
 
-        return this.isDistinct() == ((Intersect) other).isDistinct();
+        Intersect otherIntersect = (Intersect) other;
+        return this.isDistinct() == otherIntersect.isDistinct() &&
+                this.isCorresponding() == otherIntersect.isCorresponding();
     }
 }
