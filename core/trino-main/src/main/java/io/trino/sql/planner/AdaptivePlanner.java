@@ -91,6 +91,7 @@ public class AdaptivePlanner
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
     private final CachingTableStatsProvider tableStatsProvider;
+    private final Set<PlanNodeId> cummulativeChangedPlanNodes = new HashSet<>();
 
     public AdaptivePlanner(
             Session session,
@@ -152,8 +153,9 @@ public class AdaptivePlanner
             return root;
         }
 
+        this.cummulativeChangedPlanNodes.addAll(optimizationResult.changedPlanNodes());
         // Add the adaptive plan node recursively where initialPlan remain as it is and optimizedPlan as new currentPlan
-        PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), optimizationResult.changedPlanNodes());
+        PlanNode adaptivePlan = addAdaptivePlanNode(idAllocator, initialPlan, optimizationResult.plan(), cummulativeChangedPlanNodes);
         // validate the adaptive plan
         try (var _ = scopedSpan(plannerContext.getTracer(), "validate-adaptive-plan")) {
             planSanityChecker.validateAdaptivePlan(adaptivePlan, session, plannerContext, warningCollector);
