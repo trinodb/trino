@@ -508,6 +508,7 @@ public class TestCheckpointWriter
                 rowStatisticsEnabled,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 TupleDomain.all(),
+                TupleDomain.all(),
                 Optional.of(alwaysTrue()));
 
         CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
