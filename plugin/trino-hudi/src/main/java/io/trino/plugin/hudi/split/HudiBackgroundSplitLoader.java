@@ -121,8 +121,7 @@ public class HudiBackgroundSplitLoader
             prunedFiles.entrySet().stream()
                     .flatMap(entry -> entry.getValue().stream().flatMap(slice ->
                             hudiSplitFactory.createSplits(
-                                    partitionToPartitionKeyMap.get(entry.getKey()), slice, commitTime).stream()
-                    ))
+                                    partitionToPartitionKeyMap.get(entry.getKey()), slice, commitTime).stream()))
                     .map(asyncQueue::offer)
                     .forEachOrdered(MoreFutures::getFutureValue);
         }

@@ -179,7 +179,7 @@ public class HudiFileSkippingManager
                 .collect(Collectors.groupingBy(HoodieMetadataColumnStats::getFileName));
 
         // prune files.
-        return inputFileSlices
+        Map<String, List<FileSlice>> prunedFileSlices = inputFileSlices
                 .entrySet()
                 .stream()
                 .collect(Collectors
@@ -188,6 +188,16 @@ public class HudiFileSkippingManager
                                 .stream()
                                 .filter(fileSlice -> pruneFiles(fileSlice, statsByFileName, regularColumnPredicates, regularColumns))
                                 .collect(Collectors.toList())));
+        if (log.isInfoEnabled()) {
+            int candidateFileSize = prunedFileSlices.values().stream().mapToInt(List::size).sum();
+            int totalFiles = inputFileSlices.values().stream().mapToInt(List::size).sum();
+            double skippingPercent = totalFiles == 0 ? 0.0d : (totalFiles - candidateFileSize) / (totalFiles * 1.0d);
+            log.info("Total files: %s; files after data skipping: %s; skipping percent %s",
+                    totalFiles,
+                    candidateFileSize,
+                    skippingPercent);
+        }
+        return prunedFileSlices;
     }
 
     private static boolean pruneFiles(

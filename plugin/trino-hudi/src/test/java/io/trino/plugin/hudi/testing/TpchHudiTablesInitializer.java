@@ -243,7 +243,7 @@ public class TpchHudiTablesInitializer
                 // reading MDT is broken after removal of Hudi dependencies from compile time
                 .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(true)
                         .withMetadataIndexColumnStats(true)
-                        .withMetadataIndexColumnStatsFileGroupCount(2).build())
+                        .build())
                 .build();
         return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(new HadoopStorageConfiguration(conf)), cfg);
     }
