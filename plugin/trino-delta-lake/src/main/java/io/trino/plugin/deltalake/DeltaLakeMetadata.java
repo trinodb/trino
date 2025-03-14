@@ -1242,6 +1242,7 @@ public class DeltaLakeMetadata
                             tableHandle.getMetadataEntry(),
                             tableHandle.getProtocolEntry(),
                             tableHandle.getEnforcedPartitionConstraint(),
+                            tableHandle.getNonPartitionConstraint(),
                             tableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
                         Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
                         while (addFileEntryIterator.hasNext()) {
@@ -1640,6 +1641,7 @@ public class DeltaLakeMetadata
                         deltaLakeTableHandle.getMetadataEntry(),
                         deltaLakeTableHandle.getProtocolEntry(),
                         deltaLakeTableHandle.getEnforcedPartitionConstraint(),
+                        deltaLakeTableHandle.getNonPartitionConstraint(),
                         deltaLakeTableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
                     Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
                     while (addFileEntryIterator.hasNext()) {
@@ -2548,6 +2550,7 @@ public class DeltaLakeMetadata
                 handle.getMetadataEntry(),
                 handle.getProtocolEntry(),
                 handle.getEnforcedPartitionConstraint(),
+                handle.getNonPartitionConstraint(),
                 handle.getProjectedColumns().orElse(ImmutableSet.of()))) {
             Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
             while (addFileEntryIterator.hasNext()) {
@@ -4286,6 +4289,7 @@ public class DeltaLakeMetadata
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
                 tableHandle.getEnforcedPartitionConstraint(),
+                tableHandle.getNonPartitionConstraint(),
                 tableHandle.getProjectedColumns().orElse(ImmutableSet.of()));
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         if (enforcedPartitionConstraint.isAll()) {
@@ -4407,11 +4411,11 @@ public class DeltaLakeMetadata
     }
 
     public static TupleDomain<DeltaLakeColumnHandle> createStatisticsPredicate(
-            AddFileEntry addFileEntry,
+            Optional<? extends DeltaLakeFileStatistics> stats,
             List<DeltaLakeColumnMetadata> schema,
             List<String> canonicalPartitionColumns)
     {
-        return addFileEntry.getStats()
+        return stats
                 .map(deltaLakeFileStatistics -> withColumnDomains(
                         schema.stream()
                                 .filter(column -> canUseInPredicate(column.columnMetadata()))
