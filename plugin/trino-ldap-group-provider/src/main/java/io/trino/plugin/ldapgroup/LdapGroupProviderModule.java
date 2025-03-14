@@ -36,7 +36,7 @@ public class LdapGroupProviderModule
                     innerBinder.bind(GroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
                 },
                 innerBinder -> {
-                    configBinder(binder).bindConfig(LdapSingleQueryGroupProviderConfig.class);
+                    configBinder(innerBinder).bindConfig(LdapSingleQueryGroupProviderConfig.class);
                     innerBinder.bind(GroupProvider.class).to(LdapSingleQueryGroupProvider.class).in(Scopes.SINGLETON);
                 }));
     }
