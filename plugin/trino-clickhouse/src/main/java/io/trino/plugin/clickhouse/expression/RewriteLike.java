@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.clickhouse.expression;
 
+import com.clickhouse.data.ClickHouseDataType;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
@@ -29,6 +31,7 @@ import io.trino.spi.type.VarcharType;
 
 import java.util.Optional;
 
+import static com.clickhouse.data.ClickHouseDataType.FixedString;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.expression.ConnectorExpressionPatterns.argument;
@@ -59,7 +62,7 @@ public class RewriteLike
             .with(argumentCount().equalTo(2))
             .with(argument(0).matching(variable()
                     .with(type().matching(type -> type instanceof CharType || type instanceof VarcharType))
-                    .matching((Variable variable, RewriteContext<ParameterizedExpression> context) -> supportsPushdown(variable, context))
+                    .matching((Variable variable, RewriteContext<ParameterizedExpression> context) -> supportsPushdown(variable, context, ImmutableSet.of(FixedString, ClickHouseDataType.String)))
                     .capturedAs(LIKE_VALUE)))
             .with(argument(1).matching(constant()
                     .with(type().matching(type -> type instanceof CharType || type instanceof VarcharType))
