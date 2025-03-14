@@ -58,6 +58,18 @@ public interface CatalogManager
         }
 
         @Override
+        public void renameCatalog(CatalogName catalogName, CatalogName newCatalogName)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void alterCatalog(CatalogName catalogName, Map<String, Optional<String>> properties)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void dropCatalog(CatalogName catalogName, boolean exists)
         {
             throw new UnsupportedOperationException();
@@ -73,6 +85,10 @@ public interface CatalogManager
     Set<CatalogHandle> getActiveCatalogs();
 
     void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
+
+    void renameCatalog(CatalogName catalogName, CatalogName newCatalogName);
+
+    void alterCatalog(CatalogName catalogName, Map<String, Optional<String>> properties);
 
     void dropCatalog(CatalogName catalogName, boolean exists);
 }
