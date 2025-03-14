@@ -13,6 +13,15 @@
  */
 package io.trino.plugin.sybase;
 
+import com.google.common.collect.ImmutableMap;
+import org.testng.annotations.Test;
+
+import java.util.Map;
+
+import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
+import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
+import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+
 public class TestSybaseConfig
 {
     @Test
@@ -29,10 +38,10 @@ public class TestSybaseConfig
         int testVarcharLength = 30000;
         String testApiKey = "xyz";
 
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("sybase.varchar-max-length", String.valueOf(testVarcharLength))
                 .put("sybase.iam-api-key", testApiKey)
-                .build();
+                .buildOrThrow();
 
         SybaseConfig expected = new SybaseConfig()
                 .setVarcharMaxLength(testVarcharLength)
