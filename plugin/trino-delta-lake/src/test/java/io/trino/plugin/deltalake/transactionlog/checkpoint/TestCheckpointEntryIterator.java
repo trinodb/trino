@@ -1025,6 +1025,7 @@ public class TestCheckpointEntryIterator
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 partitionConstraint,
+                TupleDomain.all(),
                 addStatsMinMaxColumnFilter);
     }
 

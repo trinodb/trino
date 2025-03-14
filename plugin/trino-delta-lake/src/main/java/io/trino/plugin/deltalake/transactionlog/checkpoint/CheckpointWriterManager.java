@@ -106,6 +106,7 @@ public class CheckpointWriterManager
                     fileFormatDataSourceStats,
                     Optional.empty(),
                     TupleDomain.all(),
+                    TupleDomain.all(),
                     Optional.empty())) {
                 checkpointLogEntries = checkpointLogEntriesStream.filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
                         .collect(toImmutableList());
@@ -140,6 +141,7 @@ public class CheckpointWriterManager
                         fileSystem,
                         fileFormatDataSourceStats,
                         Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())),
+                        TupleDomain.all(),
                         TupleDomain.all(),
                         Optional.of(alwaysTrue()))) {
                     checkpointLogEntriesStream.forEach(checkpointBuilder::addLogEntry);
