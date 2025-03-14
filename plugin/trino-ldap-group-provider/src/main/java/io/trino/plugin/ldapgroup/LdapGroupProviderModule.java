@@ -16,6 +16,7 @@ package io.trino.plugin.ldapgroup;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.group.CachingGroupProviderModule.ForCachingGroupProvider;
 import io.trino.spi.security.GroupProvider;
 
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -33,11 +34,11 @@ public class LdapGroupProviderModule
                 LdapGroupProviderConfig::getLdapUseGroupFilter,
                 innerBinder -> {
                     configBinder(innerBinder).bindConfig(LdapFilteringGroupProviderConfig.class);
-                    innerBinder.bind(GroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(GroupProvider.class).annotatedWith(ForCachingGroupProvider.class).to(LdapFilteringGroupProvider.class).in(Scopes.SINGLETON);
                 },
                 innerBinder -> {
                     configBinder(innerBinder).bindConfig(LdapSingleQueryGroupProviderConfig.class);
-                    innerBinder.bind(GroupProvider.class).to(LdapSingleQueryGroupProvider.class).in(Scopes.SINGLETON);
+                    innerBinder.bind(GroupProvider.class).annotatedWith(ForCachingGroupProvider.class).to(LdapSingleQueryGroupProvider.class).in(Scopes.SINGLETON);
                 }));
     }
 }
