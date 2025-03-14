@@ -117,6 +117,7 @@ public class CheckpointWriterManager
                     fileFormatDataSourceStats,
                     Optional.empty(),
                     TupleDomain.all(),
+                    TupleDomain.all(),
                     Optional.empty(),
                     new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
                 checkpointLogEntries = checkpointLogEntriesStream.filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
@@ -152,6 +153,7 @@ public class CheckpointWriterManager
                         fileSystem,
                         fileFormatDataSourceStats,
                         Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())),
+                        TupleDomain.all(),
                         TupleDomain.all(),
                         Optional.of(alwaysTrue()),
                         new BoundedExecutor(executorService, checkpointProcessingParallelism))) {

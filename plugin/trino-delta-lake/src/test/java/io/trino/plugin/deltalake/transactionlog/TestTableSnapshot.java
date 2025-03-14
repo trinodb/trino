@@ -161,6 +161,7 @@ public class TestTableSnapshot
                 new FileFormatDataSourceStats(),
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 TupleDomain.all(),
+                TupleDomain.all(),
                 Optional.of(alwaysTrue()),
                 executorService)) {
             List<DeltaLakeTransactionLogEntry> entries = stream.collect(toImmutableList());
@@ -211,6 +212,7 @@ public class TestTableSnapshot
                 trackingFileSystem,
                 new FileFormatDataSourceStats(),
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
+                TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.of(alwaysTrue()),
                 executorService)) {
