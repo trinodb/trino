@@ -164,6 +164,7 @@ public class DeltaLakeSplitManager
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
                 tableHandle.getEnforcedPartitionConstraint(),
+                tableHandle.getNonPartitionConstraint(),
                 tableHandle.getProjectedColumns().orElse(ImmutableSet.of()));
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
@@ -232,7 +233,7 @@ public class DeltaLakeSplitManager
                     }
 
                     TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
-                            addAction,
+                            addAction.getStats(),
                             predicatedColumns,
                             metadataEntry.getLowercasePartitionColumns());
                     if (!nonPartitionConstraint.overlaps(statisticsPredicate)) {

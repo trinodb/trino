@@ -36,8 +36,12 @@ public final class DeltaLakeDomains
     {
         for (Map.Entry<DeltaLakeColumnHandle, Domain> enforcedDomainsEntry : domains.entrySet()) {
             DeltaLakeColumnHandle partitionColumn = enforcedDomainsEntry.getKey();
+            Optional<String> partitionValue = partitionKeys.get(partitionColumn.basePhysicalColumnName());
+            if (partitionValue == null) {
+                continue;
+            }
             Domain partitionDomain = enforcedDomainsEntry.getValue();
-            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.basePhysicalColumnName())))) {
+            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionValue))) {
                 return false;
             }
         }

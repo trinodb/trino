@@ -131,6 +131,7 @@ public class FileBasedTableStatisticsProvider
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
                 tableHandle.getEnforcedPartitionConstraint(),
+                tableHandle.getNonPartitionConstraint(),
                 tableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
             Iterator<AddFileEntry> addEntryIterator = addEntries.iterator();
             while (addEntryIterator.hasNext()) {
@@ -159,7 +160,7 @@ public class FileBasedTableStatisticsProvider
                 }
 
                 TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
-                        addEntry,
+                        addEntry.getStats(),
                         predicatedColumns,
                         tableHandle.getMetadataEntry().getLowercasePartitionColumns());
                 if (!tableHandle.getNonPartitionConstraint().overlaps(statisticsPredicate)) {

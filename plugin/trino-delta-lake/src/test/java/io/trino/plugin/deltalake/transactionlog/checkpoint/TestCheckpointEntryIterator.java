@@ -35,6 +35,7 @@ import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Int128;
@@ -391,6 +392,143 @@ public class TestCheckpointEntryIterator
                 .containsExactly(
                         "int_part=10/string_part=part1/part-00000-383afb1a-87de-4e70-86ab-c21ae44c7f3f.c000.snappy.parquet",
                         "int_part=20/string_part=part2/part-00000-e0b4887e-95f6-4ce1-b96c-32c5cf472476.c000.snappy.parquet");
+    }
+
+    @Test
+    public void testReadAddEntriesStatisticPruning()
+            throws Exception
+    {
+        String checkpoint = "deltalake/stats_with_minmax_nulls/_delta_log/00000000000000000002.checkpoint.parquet";
+        URI checkpointUri = getResource(checkpoint).toURI();
+        CheckpointEntryIterator checkpointEntryIterator = createCheckpointEntryIterator(
+                checkpointUri,
+                ImmutableSet.of(ADD),
+                Optional.of(readMetadataEntry(checkpointUri)),
+                Optional.of(readProtocolEntry(checkpointUri)),
+                TupleDomain.all(),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()));
+        List<DeltaLakeTransactionLogEntry> entries = ImmutableList.copyOf(checkpointEntryIterator);
+        assertThat(checkpointEntryIterator.getCompletedPositions().orElseThrow()).isEqualTo(5);
+        assertThat(entries).hasSize(3);
+
+        DeltaLakeColumnHandle idField = new DeltaLakeColumnHandle(
+                "id",
+                INTEGER,
+                OptionalInt.empty(),
+                "id",
+                INTEGER,
+                REGULAR,
+                Optional.empty());
+
+        DeltaLakeColumnHandle id2Field = new DeltaLakeColumnHandle(
+                "id2",
+                INTEGER,
+                OptionalInt.empty(),
+                "id2",
+                INTEGER,
+                REGULAR,
+                Optional.empty());
+
+        // "{"numRecords":1,"minValues":{"id":3,"id2":7},"maxValues":{"id":3,"id2":7},"nullCount":{"id":0,"id2":0}}"
+        String addFilePath1 = "part-00000-0199254b-146e-48bb-afe8-a7e9be067d2c-c000.snappy.parquet";
+        // "{"numRecords":1,"minValues":{"id":null,"id2":null},"maxValues":{"id":null,"id2":null},"nullCount":{"id":1,"id2":1}}"
+        String addFilePath2 = "part-00000-c5c7f285-c008-4bc9-897e-5e6296ca92fa-c000.snappy.parquet";
+        // "{"numRecords":3,"minValues":{"id":0,"id2":1},"maxValues":{"id":3,"id2":4},"nullCount":{"id":0,"id2":0}}"
+        String addFilePath3 = "part-00000-6951e6ec-f8d3-4d17-9154-621a959a63d1-c000.snappy.parquet";
+
+        CheckpointEntryIterator maxValueConstraintIterator = createCheckpointEntryIterator(
+                checkpointUri,
+                ImmutableSet.of(ADD),
+                Optional.of(readMetadataEntry(checkpointUri)),
+                Optional.of(readProtocolEntry(checkpointUri)),
+                TupleDomain.all(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        idField, Domain.create(ValueSet.ofRanges(Range.lessThan(INTEGER, 3L)), true))),
+                Optional.of(alwaysTrue()));
+        List<DeltaLakeTransactionLogEntry> maxValueConstraintLogEntries = ImmutableList.copyOf(maxValueConstraintIterator);
+        assertThat(maxValueConstraintLogEntries).hasSize(2);
+        assertThat(maxValueConstraintLogEntries)
+                .extracting(entry -> entry.getAdd().getPath())
+                .containsExactly(addFilePath2, addFilePath3);
+
+        CheckpointEntryIterator minValueConstraintIterator = createCheckpointEntryIterator(
+                checkpointUri,
+                ImmutableSet.of(ADD),
+                Optional.of(readMetadataEntry(checkpointUri)),
+                Optional.of(readProtocolEntry(checkpointUri)),
+                TupleDomain.all(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        id2Field, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 4L)), true))),
+                Optional.of(alwaysTrue()));
+        List<DeltaLakeTransactionLogEntry> minValueConstraintLogEntries = ImmutableList.copyOf(minValueConstraintIterator);
+        assertThat(minValueConstraintLogEntries).hasSize(2);
+        assertThat(minValueConstraintLogEntries)
+                .extracting(entry -> entry.getAdd().getPath())
+                .containsExactly(addFilePath1, addFilePath2);
+
+        CheckpointEntryIterator singleValueConstraintIterator = createCheckpointEntryIterator(
+                checkpointUri,
+                ImmutableSet.of(ADD),
+                Optional.of(readMetadataEntry(checkpointUri)),
+                Optional.of(readProtocolEntry(checkpointUri)),
+                TupleDomain.all(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        idField, Domain.singleValue(INTEGER, 3L))),
+                Optional.of(alwaysTrue()));
+        List<DeltaLakeTransactionLogEntry> singleValueConstraintLogEntries = ImmutableList.copyOf(singleValueConstraintIterator);
+        assertThat(singleValueConstraintLogEntries).hasSize(2);
+        assertThat(singleValueConstraintLogEntries)
+                .extracting(entry -> entry.getAdd().getPath())
+                .containsExactly(addFilePath1, addFilePath3);
+
+        CheckpointEntryIterator nullableSingleValueConstraintIterator = createCheckpointEntryIterator(
+                checkpointUri,
+                ImmutableSet.of(ADD),
+                Optional.of(readMetadataEntry(checkpointUri)),
+                Optional.of(readProtocolEntry(checkpointUri)),
+                TupleDomain.all(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        idField, Domain.singleValue(INTEGER, 3L),
+                        id2Field, Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 5L)), false))),
+                Optional.of(alwaysTrue()));
+        List<DeltaLakeTransactionLogEntry> nullableSingleValueConstraintLogEntries = ImmutableList.copyOf(nullableSingleValueConstraintIterator);
+        assertThat(nullableSingleValueConstraintLogEntries).hasSize(1);
+        assertThat(nullableSingleValueConstraintLogEntries)
+                .extracting(entry -> entry.getAdd().getPath())
+                .containsExactly(addFilePath1);
+
+        CheckpointEntryIterator isNullIterator = createCheckpointEntryIterator(
+                checkpointUri,
+                ImmutableSet.of(ADD),
+                Optional.of(readMetadataEntry(checkpointUri)),
+                Optional.of(readProtocolEntry(checkpointUri)),
+                TupleDomain.all(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        idField, Domain.onlyNull(INTEGER),
+                        id2Field, Domain.onlyNull(INTEGER))),
+                Optional.of(alwaysTrue()));
+        List<DeltaLakeTransactionLogEntry> isNullLogEntries = ImmutableList.copyOf(isNullIterator);
+        assertThat(isNullLogEntries).hasSize(1);
+        assertThat(isNullLogEntries)
+                .extracting(entry -> entry.getAdd().getPath())
+                .containsExactly(addFilePath2);
+
+        CheckpointEntryIterator notNullIterator = createCheckpointEntryIterator(
+                checkpointUri,
+                ImmutableSet.of(ADD),
+                Optional.of(readMetadataEntry(checkpointUri)),
+                Optional.of(readProtocolEntry(checkpointUri)),
+                TupleDomain.all(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        idField, Domain.notNull(INTEGER),
+                        id2Field, Domain.notNull(INTEGER))),
+                Optional.of(alwaysTrue()));
+        List<DeltaLakeTransactionLogEntry> notNullLogEntries = ImmutableList.copyOf(notNullIterator);
+        assertThat(notNullLogEntries).hasSize(2);
+        assertThat(notNullLogEntries)
+                .extracting(entry -> entry.getAdd().getPath())
+                .containsExactly(addFilePath1, addFilePath3);
     }
 
     @Test
@@ -1005,6 +1143,26 @@ public class TestCheckpointEntryIterator
             Optional<Predicate<String>> addStatsMinMaxColumnFilter)
             throws IOException
     {
+        return createCheckpointEntryIterator(
+                checkpointUri,
+                entryTypes,
+                metadataEntry,
+                protocolEntry,
+                partitionConstraint,
+                TupleDomain.all(),
+                addStatsMinMaxColumnFilter);
+    }
+
+    private CheckpointEntryIterator createCheckpointEntryIterator(
+            URI checkpointUri,
+            Set<CheckpointEntryIterator.EntryType> entryTypes,
+            Optional<MetadataEntry> metadataEntry,
+            Optional<ProtocolEntry> protocolEntry,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
+            throws IOException
+    {
         TrinoFileSystem fileSystem = new HdfsFileSystemFactory(HDFS_ENVIRONMENT, HDFS_FILE_SYSTEM_STATS).create(SESSION);
         TrinoInputFile checkpointFile = fileSystem.newInputFile(Location.of(checkpointUri.toString()));
 
@@ -1024,7 +1182,7 @@ public class TestCheckpointEntryIterator
                         .toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
-                partitionConstraint,
+                partitionConstraint.intersect(nonPartitionConstraint),
                 addStatsMinMaxColumnFilter);
     }
 

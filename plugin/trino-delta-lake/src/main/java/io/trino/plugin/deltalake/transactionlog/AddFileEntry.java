@@ -96,6 +96,11 @@ public class AddFileEntry
         this.tags = tags;
         this.deletionVector = requireNonNull(deletionVector, "deletionVector is null");
 
+        this.parsedStats = getDeltaLakeFileStatistics(stats, parsedStats);
+    }
+
+    public static Optional<? extends DeltaLakeFileStatistics> getDeltaLakeFileStatistics(Optional<String> stats, Optional<DeltaLakeParquetFileStatistics> parsedStats)
+    {
         Optional<? extends DeltaLakeFileStatistics> resultParsedStats = Optional.empty();
         if (parsedStats.isPresent()) {
             resultParsedStats = parsedStats;
@@ -111,7 +116,7 @@ public class AddFileEntry
                         stats.get());
             }
         }
-        this.parsedStats = resultParsedStats;
+        return resultParsedStats;
     }
 
     /**
