@@ -886,12 +886,24 @@ class StatementAnalyzer
 
             analysis.setAnalyzeMetadata(metadata.getStatisticsCollectionMetadata(session, tableHandle, analyzeProperties));
 
+            Set<Field> fields = metadata.getTableSchema(session, tableHandle)
+                    .columns().stream()
+                    .map(column -> Field.newQualified(
+                            node.getTableName(),
+                            Optional.of(column.getName()),
+                            column.getType(),
+                            column.isHidden(),
+                            Optional.of(tableName),
+                            Optional.of(column.getName()),
+                            false))
+                    .collect(Collectors.toSet());
+
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
                     accessControl,
                     session.getIdentity(),
-                    ImmutableMultimap.<QualifiedObjectName, String>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
+                    ImmutableMultimap.<QualifiedObjectName, Field>builder()
+                            .putAll(tableName, fields)
                             .build());
             try {
                 accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
@@ -3856,7 +3868,7 @@ class StatementAnalyzer
                 analysis.addTableColumnReferences(
                         accessControl,
                         session.getIdentity(),
-                        ImmutableMultimap.of(field.getOriginTable().get(), field.getOriginColumnName().get()));
+                        ImmutableMultimap.of(field.getOriginTable().get(), field));
             }
         }
 
