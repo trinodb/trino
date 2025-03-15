@@ -300,18 +300,20 @@ public class ExpressionRewriteRuleSet
 
             boolean anyRewritten = false;
             ImmutableList.Builder<Expression> rows = ImmutableList.builder();
-            for (Expression row : valuesNode.getRows().get()) {
+            for (Expression original : valuesNode.getRows().get()) {
                 Expression rewritten;
-                if (row instanceof Row) {
+                if (original instanceof Row row) {
                     // preserve the structure of row
-                    rewritten = new Row(((Row) row).items().stream()
-                            .map(item -> rewriter.rewrite(item, context))
-                            .collect(toImmutableList()));
+                    rewritten = new Row(
+                            row.items().stream()
+                                    .map(item -> rewriter.rewrite(item, context))
+                                    .collect(toImmutableList()),
+                            row.type());
                 }
                 else {
-                    rewritten = rewriter.rewrite(row, context);
+                    rewritten = rewriter.rewrite(original, context);
                 }
-                if (!row.equals(rewritten)) {
+                if (!original.equals(rewritten)) {
                     anyRewritten = true;
                 }
                 rows.add(rewritten);
