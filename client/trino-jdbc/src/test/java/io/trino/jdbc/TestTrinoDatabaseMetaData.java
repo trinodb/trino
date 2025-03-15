@@ -1329,10 +1329,10 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                             .add("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
-                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                             .build());
 
@@ -1436,10 +1436,10 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .build());
 
@@ -1575,10 +1575,10 @@ public class TestTrinoDatabaseMetaData
                             .mapToObj(columnIndex -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + columnIndex, "varchar"))
                             .collect(toImmutableList()),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                             .build());
@@ -1591,10 +1591,10 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_1", "varchar")),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                             .build());
@@ -1609,10 +1609,10 @@ public class TestTrinoDatabaseMetaData
                     ImmutableMultiset.<String>builder()
                             .add("ConnectorMetadata.listSchemaNames")
                             .add("ConnectorMetadata.listTables(schema=test_schema1)")
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                             .build());
@@ -1650,17 +1650,17 @@ public class TestTrinoDatabaseMetaData
                             .add("ConnectorMetadata.listTables(schema=test_schema2)")
                             .add("ConnectorMetadata.listTables(schema=test_schema3_empty)")
                             .add("ConnectorMetadata.listTables(schema=test_schema4_empty)")
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 20)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 25)
                             .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 5)
                             .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 1)
                             .addCopies("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)", 4)
-                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 5)
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 10)
                             .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)", 5)
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 20)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 25)
                             .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table1)", 5)
                             .addCopies("ConnectorMetadata.getView(schema=test_schema2, table=test_table1)", 1)
                             .addCopies("ConnectorMetadata.isView(schema=test_schema2, table=test_table1)", 4)
-                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)", 5)
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)", 10)
                             .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table1)", 5)
                             .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                             .add("ConnectorMetadata.getTableMetadata(handle=test_schema2.test_table1)")
@@ -1707,10 +1707,10 @@ public class TestTrinoDatabaseMetaData
                         .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                         .collect(toImmutableList()),
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .build());
@@ -1723,10 +1723,10 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .build());
@@ -1741,10 +1741,10 @@ public class TestTrinoDatabaseMetaData
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
                         .add("ConnectorMetadata.listTables(schema=test_schema1)")
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .build());
@@ -1764,10 +1764,10 @@ public class TestTrinoDatabaseMetaData
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
                         .add("ConnectorMetadata.listTables(schema=test_schema1)")
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .build());
@@ -1811,17 +1811,17 @@ public class TestTrinoDatabaseMetaData
                         .add("ConnectorMetadata.listTables(schema=test_schema2)")
                         .add("ConnectorMetadata.listTables(schema=test_schema3_empty)")
                         .add("ConnectorMetadata.listTables(schema=test_schema4_empty)")
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 20)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 25)
                         .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 5)
                         .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 1)
                         .addCopies("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 10)
                         .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)", 5)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 20)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 25)
                         .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table1)", 5)
                         .addCopies("ConnectorMetadata.getView(schema=test_schema2, table=test_table1)", 1)
                         .addCopies("ConnectorMetadata.isView(schema=test_schema2, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)", 10)
                         .addCopies("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table1)", 5)
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema2.test_table1)")
@@ -1840,10 +1840,10 @@ public class TestTrinoDatabaseMetaData
                                 .mapToObj(columnIndex -> list("blackhole", "test_schema1", "test_table1", "column_" + columnIndex, "varchar")))
                         .collect(toImmutableList()),
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .build());
@@ -1874,10 +1874,10 @@ public class TestTrinoDatabaseMetaData
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                 list(),
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=wrong_schema1, table=test_table1)")
                         .build());
 
@@ -1957,10 +1957,10 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                             .add("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
-                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                             .build());
 
@@ -1985,10 +1985,10 @@ public class TestTrinoDatabaseMetaData
                             .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
                             .collect(toImmutableList()),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                             .build());
@@ -2001,10 +2001,10 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                             .build());
@@ -2017,10 +2017,10 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
                     list(),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table_)", 4)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table_)", 5)
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table_)")
                             .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table_)")
-                            .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table_)")
+                            .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table_)", 2)
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table_)")
                             .build());
         }
