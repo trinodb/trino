@@ -276,16 +276,6 @@ jobs:
           if [ "${AWS_ACCESS_KEY_ID}" != "" ] && ( [ ! -f gib-impacted.log ] || grep -q plugin/trino-hive gib-impacted.log ); then
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests
           fi
-      - name: Run Hive Unity Tests
-        id: test-unity
-        env:
-          DATABRICKS_HOST: ${{ vars.TRINO_DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.TRINO_DATABRICKS_TOKEN }}
-          DATABRICKS_UNITY_CATALOG_NAME: ${{ vars.TRINO_DATABRICKS_UNITY_CATALOG_NAME }}
-        run: |
-          if [ "${DATABRICKS_TOKEN}" != "" ] && ( [ ! -f gib-impacted.log ] || grep -q plugin/trino-hive gib-impacted.log ); then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P unity-tests
-          fi
       - name: Upload test results
         uses: ./.github/actions/process-test-results
         if: always()
@@ -897,7 +887,6 @@ jobs:
             - suite-delta-lake-databricks133
             - suite-delta-lake-databricks143
             - suite-delta-lake-databricks154
-            - suite-databricks-unity-http-hms
             - suite-ranger
             - suite-gcs
             - suite-clients
@@ -944,11 +933,6 @@ jobs:
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-delta-lake-databricks154
-              ignore exclusion if: >-
-                ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
-            - suite: suite-databricks-unity-http-hms
-              config: hdp3
-            - suite: suite-databricks-unity-http-hms
               ignore exclusion if: >-
                 ${{ env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || secrets.DATABRICKS_TOKEN != '' }}
             - suite: suite-snowflake
@@ -1000,10 +984,6 @@ jobs:
           DATABRICKS_133_JDBC_URL: ""
           DATABRICKS_143_JDBC_URL: ""
           DATABRICKS_154_JDBC_URL: ""
-          DATABRICKS_UNITY_JDBC_URL: ""
-          DATABRICKS_UNITY_CATALOG_NAME: ""
-          DATABRICKS_UNITY_EXTERNAL_LOCATION: ""
-          DATABRICKS_HOST: ""
           DATABRICKS_LOGIN: ""
           DATABRICKS_TOKEN: ""
           GCP_CREDENTIALS_KEY: ""
@@ -1076,10 +1056,6 @@ jobs:
           DATABRICKS_133_JDBC_URL: ${{ vars.DATABRICKS_133_JDBC_URL }}
           DATABRICKS_143_JDBC_URL: ${{ vars.DATABRICKS_143_JDBC_URL }}
           DATABRICKS_154_JDBC_URL: ${{ vars.DATABRICKS_154_JDBC_URL }}
-          DATABRICKS_UNITY_JDBC_URL: ${{ vars.DATABRICKS_UNITY_JDBC_URL }}
-          DATABRICKS_UNITY_CATALOG_NAME: ${{ vars.DATABRICKS_UNITY_CATALOG_NAME }}
-          DATABRICKS_UNITY_EXTERNAL_LOCATION: ${{ vars.DATABRICKS_UNITY_EXTERNAL_LOCATION }}
-          DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
           DATABRICKS_LOGIN: token
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
