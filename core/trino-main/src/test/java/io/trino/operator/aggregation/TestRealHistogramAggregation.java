@@ -22,7 +22,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
-import io.trino.sql.planner.plan.AggregationNode.Step;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -34,9 +33,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
-import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,15 +52,15 @@ public class TestRealHistogramAggregation
     @Test
     public void test()
     {
-        Aggregator singleStep = createAggregator(SINGLE);
+        Aggregator singleStep = function.createSingleAggregatorFactory(ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         singleStep.processPage(input);
         Block expected = getFinalBlock(function.getFinalType(), singleStep);
 
-        Aggregator partialStep = createAggregator(PARTIAL);
+        Aggregator partialStep = function.createPartialAggregatorFactory(ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         partialStep.processPage(input);
         Block partialBlock = getIntermediateBlock(function.getIntermediateType(), partialStep);
 
-        Aggregator finalStep = createAggregator(FINAL);
+        Aggregator finalStep = function.createFinalAggregatorFactory(0, OptionalInt.empty()).createAggregator(new AggregationMetrics());
         finalStep.processPage(new Page(partialBlock));
         Block actual = getFinalBlock(function.getFinalType(), finalStep);
 
@@ -74,15 +70,15 @@ public class TestRealHistogramAggregation
     @Test
     public void testMerge()
     {
-        Aggregator singleStep = createAggregator(SINGLE);
+        Aggregator singleStep = function.createSingleAggregatorFactory(ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         singleStep.processPage(input);
         Block singleStepResult = getFinalBlock(function.getFinalType(), singleStep);
 
-        Aggregator partialStep = createAggregator(PARTIAL);
+        Aggregator partialStep = function.createPartialAggregatorFactory(ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         partialStep.processPage(input);
         Block intermediate = getIntermediateBlock(function.getIntermediateType(), partialStep);
 
-        Aggregator finalStep = createAggregator(FINAL);
+        Aggregator finalStep = function.createFinalAggregatorFactory(0, OptionalInt.empty()).createAggregator(new AggregationMetrics());
 
         finalStep.processPage(new Page(intermediate));
         finalStep.processPage(new Page(intermediate));
@@ -93,16 +89,10 @@ public class TestRealHistogramAggregation
         assertThat(extractSingleValue(actual)).isEqualTo(expected);
     }
 
-    private Aggregator createAggregator(Step step)
-    {
-        return function.createAggregatorFactory(step, step.isInputRaw() ? ImmutableList.of(0, 1, 2) : ImmutableList.of(0), OptionalInt.empty())
-                .createAggregator(new AggregationMetrics());
-    }
-
     @Test
     public void testNull()
     {
-        Aggregator aggregator = createAggregator(SINGLE);
+        Aggregator aggregator = function.createSingleAggregatorFactory(ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         Block result = getFinalBlock(function.getFinalType(), aggregator);
 
         assertThat(result.getPositionCount()).isEqualTo(1);
@@ -112,7 +102,7 @@ public class TestRealHistogramAggregation
     @Test
     public void testBadNumberOfBuckets()
     {
-        Aggregator singleStep = createAggregator(SINGLE);
+        Aggregator singleStep = function.createSingleAggregatorFactory(ImmutableList.of(0, 1, 2), OptionalInt.empty()).createAggregator(new AggregationMetrics());
         assertThatThrownBy(() -> singleStep.processPage(makeInput(0)))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("numeric_histogram bucket count must be greater than one");

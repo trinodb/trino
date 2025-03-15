@@ -40,7 +40,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
@@ -76,8 +75,8 @@ public class TestStreamingAggregationOperator
                 ImmutableList.of(BOOLEAN, VARCHAR, BIGINT),
                 ImmutableList.of(VARCHAR),
                 ImmutableList.of(1),
-                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
-                        LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty())),
+                ImmutableList.of(COUNT.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty()),
+                        LONG_SUM.createSingleAggregatorFactory(ImmutableList.of(2), OptionalInt.empty())),
                 new JoinCompiler(new TypeOperators()));
     }
 
@@ -97,8 +96,8 @@ public class TestStreamingAggregationOperator
                 ImmutableList.of(BOOLEAN, DOUBLE, BIGINT),
                 ImmutableList.of(DOUBLE),
                 ImmutableList.of(1),
-                ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty()),
-                        LONG_SUM.createAggregatorFactory(SINGLE, ImmutableList.of(2), OptionalInt.empty())),
+                ImmutableList.of(COUNT.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty()),
+                        LONG_SUM.createSingleAggregatorFactory(ImmutableList.of(2), OptionalInt.empty())),
                 new JoinCompiler(new TypeOperators()));
 
         RowPagesBuilder rowPagesBuilder = RowPagesBuilder.rowPagesBuilder(BOOLEAN, DOUBLE, BIGINT);

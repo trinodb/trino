@@ -182,7 +182,8 @@ public class AddIntermediateAggregations
                             false,
                             Optional.empty(),
                             Optional.empty(),
-                            Optional.empty()));  // No mask for INTERMEDIATE
+                            Optional.empty(), // No mask for INTERMEDIATE
+                            aggregation.isLegacyDecomposition()));
         }
         return builder.buildOrThrow();
     }

@@ -30,6 +30,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateAccumulatorFactory;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static java.util.Objects.requireNonNull;
 
 public class TestingAggregationFunction
@@ -43,7 +46,17 @@ public class TestingAggregationFunction
     private final AccumulatorFactory factory;
     private final DistinctAccumulatorFactory distinctFactory;
 
-    public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationImplementation aggregationImplementation)
+    private final AccumulatorFactory partialFactory;
+    private final AccumulatorFactory outputFactory;
+
+    public TestingAggregationFunction(
+            BoundSignature signature,
+            FunctionNullability functionNullability,
+            AggregationImplementation aggregationImplementation,
+            AggregationImplementation partialAggregationImplementation,
+            FunctionNullability partialNullability,
+            AggregationImplementation outputAggregationImplementation,
+            FunctionNullability outputNullability)
     {
         this.parameterTypes = signature.getArgumentTypes();
         List<Type> intermediateTypes = aggregationImplementation.getAccumulatorStateDescriptors().stream()
@@ -57,6 +70,9 @@ public class TestingAggregationFunction
                 parameterTypes,
                 new FlatHashStrategyCompiler(TYPE_OPERATORS),
                 TEST_SESSION);
+
+        this.partialFactory = generateAccumulatorFactory(signature, partialAggregationImplementation, partialNullability, true);
+        this.outputFactory = generateAccumulatorFactory(signature, outputAggregationImplementation, outputNullability, true);
     }
 
     public TestingAggregationFunction(List<Type> parameterTypes, List<Type> intermediateTypes, Type finalType, AccumulatorFactory factory)
@@ -71,6 +87,8 @@ public class TestingAggregationFunction
                 parameterTypes,
                 new FlatHashStrategyCompiler(TYPE_OPERATORS),
                 TEST_SESSION);
+        this.partialFactory = factory;
+        this.outputFactory = factory;
     }
 
     public int getParameterCount()
@@ -93,21 +111,31 @@ public class TestingAggregationFunction
         return finalType;
     }
 
-    public AggregatorFactory createAggregatorFactory(Step step, List<Integer> inputChannels, OptionalInt maskChannel)
+    public AggregatorFactory createSingleAggregatorFactory(List<Integer> inputChannels, OptionalInt maskChannel)
     {
-        return createAggregatorFactory(step, inputChannels, maskChannel, factory);
+        return createAggregatorFactory(SINGLE, inputChannels, maskChannel, factory);
     }
 
-    public AggregatorFactory createDistinctAggregatorFactory(Step step, List<Integer> inputChannels, OptionalInt maskChannel)
+    public AggregatorFactory createSingleDistinctAggregatorFactory(List<Integer> inputChannels, OptionalInt maskChannel)
     {
-        return createAggregatorFactory(step, inputChannels, maskChannel, distinctFactory);
+        return createAggregatorFactory(SINGLE, inputChannels, maskChannel, distinctFactory);
     }
 
-    private AggregatorFactory createAggregatorFactory(Step step, List<Integer> inputChannels, OptionalInt maskChannel, AccumulatorFactory distinctFactory)
+    public AggregatorFactory createPartialAggregatorFactory(List<Integer> inputChannels, OptionalInt maskChannel)
+    {
+        return createAggregatorFactory(PARTIAL, inputChannels, maskChannel, partialFactory);
+    }
+
+    public AggregatorFactory createFinalAggregatorFactory(int inputChannel, OptionalInt maskChannel)
+    {
+        return createAggregatorFactory(FINAL, List.of(inputChannel), maskChannel, outputFactory);
+    }
+
+    private AggregatorFactory createAggregatorFactory(Step step, List<Integer> inputChannels, OptionalInt maskChannel, AccumulatorFactory aggregatorFactory)
     {
         return new AggregatorFactory(
-                distinctFactory,
-                step,
+                aggregatorFactory,
+                aggregatorFactory.isLegacyDecomposition() ? step : SINGLE,
                 intermediateType,
                 finalType,
                 inputChannels,
