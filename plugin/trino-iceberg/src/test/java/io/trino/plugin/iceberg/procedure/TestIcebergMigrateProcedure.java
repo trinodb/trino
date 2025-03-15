@@ -313,6 +313,33 @@ public class TestIcebergMigrateProcedure
     }
 
     @Test
+    public void testMigratePartitionedTableWithSpecialChar()
+    {
+        String tableName = "test_migrate_partitioned_" + randomNameSuffix();
+        String hiveTableName = "hive.tpch." + tableName;
+        String icebergTableName = "iceberg.tpch." + tableName;
+
+        assertUpdate("CREATE TABLE " + hiveTableName + " " +
+                "WITH (partitioned_by = ARRAY['special@col']) " +
+                "AS SELECT 1 id, 'special1' \"special@col\"", 1);
+        assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");
+
+        assertUpdate("CALL iceberg.system.migrate('tpch', '" + tableName + "')");
+
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'special1')");
+
+        // Make sure partition column is preserved
+        assertThat(query("SELECT partition FROM iceberg.tpch.\"" + tableName + "$partitions\""))
+                .skippingTypesCheck()
+                .matches("SELECT CAST(row('special1') AS row(\"special@col\" varchar))");
+
+        assertUpdate("INSERT INTO " + icebergTableName + " VALUES (2, 'special2')", 1);
+        assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'special1'), (2, 'special2')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testMigrateBucketedTable()
     {
         String tableName = "test_migrate_bucketed_table_" + randomNameSuffix();
