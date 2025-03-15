@@ -575,6 +575,7 @@ primaryExpression
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
+    | '{' (mapEntry (',' mapEntry)*)? '}'                                                    #mapConstructor
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
         (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')
@@ -645,6 +646,10 @@ primaryExpression
         )?
         (RETURNING type (FORMAT jsonRepresentation)?)?
      ')'                                                                                  #jsonArray
+    ;
+
+mapEntry
+    : key=expression ':' value=expression
     ;
 
 jsonPathInvocation
