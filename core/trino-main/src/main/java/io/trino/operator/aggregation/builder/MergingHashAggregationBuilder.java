@@ -151,6 +151,7 @@ public class MergingHashAggregationBuilder
                 groupByTypes,
                 groupByPartialChannels,
                 hashChannel,
+                false, // spillable
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 Optional.of(overwriteIntermediateChannelOffset),

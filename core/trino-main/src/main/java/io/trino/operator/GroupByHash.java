@@ -18,6 +18,9 @@ import io.trino.Session;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -32,36 +35,64 @@ public interface GroupByHash
             Session session,
             List<Type> types,
             boolean hasPrecomputedHash,
-            boolean cacheHashValues,
+            boolean spillable,
             int expectedSize,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory updateMemory)
     {
         boolean dictionaryAggregationEnabled = isDictionaryAggregationEnabled(session);
-        return createGroupByHash(types, hasPrecomputedHash, cacheHashValues, expectedSize, dictionaryAggregationEnabled, hashStrategyCompiler, updateMemory);
+        return createGroupByHash(
+                types,
+                selectGroupByHashMode(hasPrecomputedHash, spillable, types),
+                expectedSize,
+                dictionaryAggregationEnabled,
+                hashStrategyCompiler,
+                updateMemory);
+    }
+
+    static GroupByHashMode selectGroupByHashMode(boolean hasPrecomputedHash, boolean spillable, List<Type> types)
+    {
+        if (hasPrecomputedHash) {
+            return GroupByHashMode.PRECOMPUTED;
+        }
+        // Spillable aggregations should always cache hash values since spilling requires sorting by the hash value
+        if (spillable) {
+            return GroupByHashMode.CACHED;
+        }
+        // When 3 or more columns are present, always cache the hash value
+        if (types.size() >= 3) {
+            return GroupByHashMode.CACHED;
+        }
+
+        int variableWidthTypes = 0;
+        for (Type type : types) {
+            // The presence of any container types should trigger hash value caching since computing the hash and
+            // checking valueIdentical is so much more expensive for these values
+            if (type instanceof MapType || type instanceof ArrayType || type instanceof RowType) {
+                return GroupByHashMode.CACHED;
+            }
+            // Cache hash values when more than 2 or more variable width types are present
+            if (type.isFlatVariableWidth()) {
+                variableWidthTypes++;
+                if (variableWidthTypes >= 2) {
+                    return GroupByHashMode.CACHED;
+                }
+            }
+        }
+        // All remaining scenarios will use on-demand hashing
+        return GroupByHashMode.ON_DEMAND;
     }
 
     static GroupByHash createGroupByHash(
             List<Type> types,
-            boolean hasPrecomputedHash,
-            boolean cacheHashValues,
+            GroupByHashMode hashMode,
             int expectedSize,
             boolean dictionaryAggregationEnabled,
             FlatHashStrategyCompiler hashStrategyCompiler,
             UpdateMemory updateMemory)
     {
         if (types.size() == 1 && types.get(0).equals(BIGINT)) {
-            return new BigintGroupByHash(hasPrecomputedHash, expectedSize, updateMemory);
-        }
-        FlatGroupByHash.HashMode hashMode;
-        if (hasPrecomputedHash) {
-            hashMode = FlatGroupByHash.HashMode.PRECOMPUTED;
-        }
-        else if (cacheHashValues) {
-            hashMode = FlatGroupByHash.HashMode.CACHED;
-        }
-        else {
-            hashMode = FlatGroupByHash.HashMode.ON_DEMAND;
+            return new BigintGroupByHash(hashMode.isHashPrecomputed(), expectedSize, updateMemory);
         }
         return new FlatGroupByHash(
                 types,

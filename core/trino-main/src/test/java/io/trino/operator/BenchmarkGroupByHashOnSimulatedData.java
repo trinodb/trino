@@ -87,8 +87,7 @@ public class BenchmarkGroupByHashOnSimulatedData
     {
         GroupByHash groupByHash = GroupByHash.createGroupByHash(
                 data.getTypes(),
-                false,
-                false,
+                data.getHashMode(),
                 EXPECTED_GROUP_COUNT,
                 false,
                 hashStrategyCompiler,
@@ -105,7 +104,9 @@ public class BenchmarkGroupByHashOnSimulatedData
                 pageBuilder.reset();
             }
         }
-        pages.add(pageBuilder.build());
+        if (!pageBuilder.isEmpty()) {
+            pages.add(pageBuilder.build());
+        }
         return ImmutableList.of(pages, results); // all the things that might get erased by the compiler
     }
 
@@ -231,6 +232,8 @@ public class BenchmarkGroupByHashOnSimulatedData
         @Param({"0", ".1", ".5", ".9"})
         private double nullChance;
 
+        private GroupByHashMode hashMode;
+
         private final int positions;
         private List<Page> pages;
         private List<Type> types;
@@ -255,6 +258,7 @@ public class BenchmarkGroupByHashOnSimulatedData
                     .map(channel -> channel.columnType.type)
                     .collect(toImmutableList());
             pages = createPages(query);
+            hashMode = GroupByHash.selectGroupByHashMode(false, false, types);
         }
 
         private List<Page> createPages(AggregationDefinition definition)
@@ -294,6 +298,11 @@ public class BenchmarkGroupByHashOnSimulatedData
         public WorkType getWorkType()
         {
             return workType;
+        }
+
+        public GroupByHashMode getHashMode()
+        {
+            return hashMode;
         }
     }
 

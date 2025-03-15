@@ -80,7 +80,7 @@ public final class FlatHash
     private int nextGroupId;
     private int maxFill;
 
-    public FlatHash(FlatHashStrategy flatHashStrategy, FlatGroupByHash.HashMode hashMode, int expectedSize, UpdateMemory checkMemoryReservation)
+    public FlatHash(FlatHashStrategy flatHashStrategy, GroupByHashMode hashMode, int expectedSize, UpdateMemory checkMemoryReservation)
     {
         this.flatHashStrategy = requireNonNull(flatHashStrategy, "flatHashStrategy is null");
         this.checkMemoryReservation = requireNonNull(checkMemoryReservation, "checkMemoryReservation is null");
