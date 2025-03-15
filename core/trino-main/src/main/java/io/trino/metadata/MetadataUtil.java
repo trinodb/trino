@@ -34,10 +34,13 @@ import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SystemSessionProperties.isLegacyCatalogRoles;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_ENTITY_KIND;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -108,6 +111,55 @@ public final class MetadataUtil
     {
         return metadata.getCatalogHandle(session, catalogName)
                 .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' not found", catalogName));
+    }
+
+    /**
+     * If necessary, fill in missing catalog and schema names from the session catalog and schema
+     * in the supplied entity name, and throw an exception if they don't exist.
+     */
+    public static List<String> fillInNameParts(Session session, Node node, String entityKind, List<String> name)
+    {
+        switch (entityKind) {
+            case "SCHEMA":
+                switch (name.size()) {
+                    case 1:
+                        if (session.getCatalog().isPresent()) {
+                            return ImmutableList.of(session.getCatalog().get(), name.get(0));
+                        }
+                        throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+                    case 2:
+                        break;
+                    default:
+                        throw new TrinoException(GENERIC_USER_ERROR, "Invalid entity %s for entity kind %s".formatted(joinName(name), entityKind));
+                }
+                break;
+            case "TABLE", "VIEW":
+                switch (name.size()) {
+                    case 1:
+                        if (session.getCatalog().isPresent() && session.getSchema().isPresent()) {
+                            return ImmutableList.of(session.getCatalog().get(), session.getSchema().get(), name.get(0));
+                        }
+                        throw semanticException(MISSING_CATALOG_NAME, node, "Catalog and schema name must be specified when session catalog and schema are not set");
+                    case 2:
+                        if (session.getCatalog().isPresent()) {
+                            return ImmutableList.of(session.getCatalog().get(), name.get(0), name.get(1));
+                        }
+                        throw semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set");
+                    case 3:
+                        break;
+                    default:
+                        throw semanticException(INVALID_ENTITY_KIND, node, "Invalid entity %s for entity kind %s", joinName(name), entityKind);
+                }
+                break;
+            default:
+                break;
+        }
+        return name;
+    }
+
+    private static String joinName(List<String> name)
+    {
+        return name.stream().collect(Collectors.joining("."));
     }
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
