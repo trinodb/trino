@@ -22,6 +22,7 @@ import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.schema.MessageType;
@@ -75,6 +76,18 @@ public final class IcebergParquetFileWriter
                 Optional.empty());
         this.location = outputFile.location();
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
+    }
+
+    @Override
+    public FileFormat getFileFormat()
+    {
+        return FileFormat.PARQUET;
+    }
+
+    @Override
+    public String location()
+    {
+        return location.toString();
     }
 
     @Override
