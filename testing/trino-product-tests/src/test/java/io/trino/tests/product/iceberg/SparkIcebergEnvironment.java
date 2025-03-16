@@ -63,7 +63,7 @@ public class SparkIcebergEnvironment
     private static final String FLOCI_HOST_NAME = "floci";
     private static final String FLOCI_ENDPOINT = "http://" + FLOCI_HOST_NAME + ":" + Floci.FLOCI_PORT;
     // Must be kept in sync with dep.iceberg.version in the root pom.xml.
-    private static final String ICEBERG_VERSION = "1.11.0";
+    private static final String ICEBERG_VERSION = "1.12.0";
 
     static {
         // Ensure the Hive JDBC driver is loaded for Spark Thrift Server connections
@@ -106,7 +106,7 @@ public class SparkIcebergEnvironment
         spark = new SparkIcebergContainer()
                 .withNetwork(network)
                 .withNetworkAliases(SparkIcebergContainer.HOST_NAME)
-                .withIcebergSparkRuntime(findIcebergSparkRuntimeJar(), ICEBERG_VERSION)
+                .withIcebergSparkRuntime(findIcebergSparkRuntimeJar(), findIcebergAwsBundleJar(), ICEBERG_VERSION)
                 .withAwsKmsEncryption(FLOCI_ENDPOINT);
         spark.dependsOn(hadoop, floci);
         spark.start();
@@ -364,15 +364,25 @@ public class SparkIcebergEnvironment
 
     private static Path findIcebergSparkRuntimeJar()
     {
+        return findGeneratedJar("iceberg-spark-runtime.jar");
+    }
+
+    private static Path findIcebergAwsBundleJar()
+    {
+        return findGeneratedJar("iceberg-aws-bundle.jar");
+    }
+
+    private static Path findGeneratedJar(String fileName)
+    {
         Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath();
         while (current != null) {
-            Path jar = current.resolve("testing/trino-product-tests/target/iceberg-spark-runtime.jar");
+            Path jar = current.resolve("testing/trino-product-tests/target/" + fileName);
             if (Files.isRegularFile(jar)) {
                 return jar;
             }
             current = current.getParent();
         }
-        throw new IllegalStateException("iceberg-spark-runtime.jar was not generated");
+        throw new IllegalStateException(fileName + " was not generated");
     }
 
     /**
