@@ -14,25 +14,13 @@
 package io.trino.plugin.iceberg.catalog.file;
 
 import com.google.inject.Binder;
-import com.google.inject.Key;
 import com.google.inject.Scopes;
-import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.units.Duration;
-import io.trino.metastore.cache.CachingHiveMetastoreConfig;
-import io.trino.plugin.hive.HideDeltaLakeTables;
-import io.trino.plugin.hive.metastore.CachingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
+import io.trino.plugin.iceberg.catalog.IcebergHiveMetastoreModule;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
-import io.trino.plugin.iceberg.procedure.MigrateProcedure;
-import io.trino.spi.procedure.Procedure;
-
-import java.util.concurrent.TimeUnit;
-
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class IcebergFileMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
@@ -40,17 +28,10 @@ public class IcebergFileMetastoreCatalogModule
     @Override
     protected void setup(Binder binder)
     {
-        install(new FileMetastoreModule());
         binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
-        binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
-        install(new CachingHiveMetastoreModule());
 
-        configBinder(binder).bindConfigDefaults(CachingHiveMetastoreConfig.class, config -> {
-            // ensure caching metastore wrapper isn't created, as it's not leveraged by Iceberg
-            config.setStatsCacheTtl(new Duration(0, TimeUnit.SECONDS));
-        });
-        Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
-        procedures.addBinding().toProvider(MigrateProcedure.class).in(Scopes.SINGLETON);
+        install(new IcebergHiveMetastoreModule());
+        install(new FileMetastoreModule());
     }
 }
