@@ -199,7 +199,7 @@
         <dep.frontend-bun.version>v1.4.0</dep.frontend-bun.version>
         <dep.geoapi.version>3.0.2</dep.geoapi.version>
         <dep.httpcore5.version>5.4.3</dep.httpcore5.version>
-        <dep.iceberg.version>1.11.0</dep.iceberg.version>
+        <dep.iceberg.version>1.12.0-SNAPSHOT</dep.iceberg.version>
         <dep.jna.version>5.19.1</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
@@ -1924,6 +1924,12 @@
                         <artifactId>slf4j-api</artifactId>
                     </exclusion>
                 </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.iceberg</groupId>
+                <artifactId>iceberg-data</artifactId>
+                <version>${dep.iceberg.version}</version>
             </dependency>
 
             <dependency>
