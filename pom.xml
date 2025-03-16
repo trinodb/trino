@@ -460,7 +460,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.7.0</version>
+                <version>6.7.1</version>
             </dependency>
 
             <dependency>
