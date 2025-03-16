@@ -75,7 +75,9 @@ public final class GlueMetastoreModule
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(GlueContext.class).in(Scopes.SINGLETON);
+        binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
+        newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
         newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
                 .setDefault()
                 .to(GlueHiveMetastoreFactory.class)
