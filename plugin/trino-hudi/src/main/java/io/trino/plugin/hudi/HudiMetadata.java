@@ -142,7 +142,11 @@ public class HudiMetadata
 
     private Optional<SystemTable> getRawSystemTable(SchemaTableName tableName, ConnectorSession session)
     {
-        HudiTableName name = HudiTableName.from(tableName.getTableName());
+        Optional<HudiTableName> nameOptional = HudiTableName.from(tableName.getTableName());
+        if (nameOptional.isEmpty()) {
+            return Optional.empty();
+        }
+        HudiTableName name = nameOptional.get();
         if (name.tableType() == TableType.DATA) {
             return Optional.empty();
         }
@@ -155,9 +159,7 @@ public class HudiMetadata
             return Optional.empty();
         }
         return switch (name.tableType()) {
-            case DATA ->
-                // TODO (https://github.com/trinodb/trino/issues/17973) remove DATA table type
-                    Optional.empty();
+            case DATA -> throw new AssertionError();
             case TIMELINE -> {
                 SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.tableNameWithType());
                 yield Optional.of(new TimelineTable(fileSystemFactory.create(session), systemTableName, tableOptional.get()));
