@@ -64,7 +64,7 @@ import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class GlueMetastoreModule
+public final class GlueMetastoreModule
         extends AbstractConfigurationAwareModule
 {
     @Override
@@ -87,6 +87,18 @@ public class GlueMetastoreModule
         executionInterceptorMultibinder.addBinding().to(GlueHiveExecutionInterceptor.class).in(Scopes.SINGLETON);
 
         closingBinder(binder).registerCloseable(GlueClient.class);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        return obj instanceof GlueMetastoreModule;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 
     @ProvidesIntoOptional(DEFAULT)
