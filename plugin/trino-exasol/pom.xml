@@ -111,7 +111,7 @@
         <dependency>
             <groupId>com.exasol</groupId>
             <artifactId>exasol-testcontainers</artifactId>
-            <version>7.1.3</version>
+            <version>7.1.4</version>
             <scope>test</scope>
         </dependency>
 
