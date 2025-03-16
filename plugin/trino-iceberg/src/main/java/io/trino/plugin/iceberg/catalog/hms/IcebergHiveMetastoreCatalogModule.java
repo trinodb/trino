@@ -36,15 +36,13 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 public class IcebergHiveMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
 {
-    public static final boolean HIDE_DELTA_LAKE_TABLES_IN_ICEBERG = false;
-
     @Override
     protected void setup(Binder binder)
     {
         install(new ThriftMetastoreModule());
         binder.bind(IcebergTableOperationsProvider.class).to(HiveMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
-        binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(HIDE_DELTA_LAKE_TABLES_IN_ICEBERG);
+        binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
         install(new CachingHiveMetastoreModule());
 
         configBinder(binder).bindConfigDefaults(CachingHiveMetastoreConfig.class, config -> {

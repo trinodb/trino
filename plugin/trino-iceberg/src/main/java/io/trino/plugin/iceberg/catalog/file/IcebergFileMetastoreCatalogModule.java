@@ -33,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.trino.plugin.iceberg.catalog.hms.IcebergHiveMetastoreCatalogModule.HIDE_DELTA_LAKE_TABLES_IN_ICEBERG;
 
 public class IcebergFileMetastoreCatalogModule
         extends AbstractConfigurationAwareModule
@@ -44,7 +43,7 @@ public class IcebergFileMetastoreCatalogModule
         install(new FileMetastoreModule());
         binder.bind(IcebergTableOperationsProvider.class).to(FileMetastoreTableOperationsProvider.class).in(Scopes.SINGLETON);
         binder.bind(TrinoCatalogFactory.class).to(TrinoHiveCatalogFactory.class).in(Scopes.SINGLETON);
-        binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(HIDE_DELTA_LAKE_TABLES_IN_ICEBERG);
+        binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
         install(new CachingHiveMetastoreModule());
 
         configBinder(binder).bindConfigDefaults(CachingHiveMetastoreConfig.class, config -> {
