@@ -57,7 +57,7 @@ public class SigV4AwsProperties
     public SigV4AwsProperties(IcebergRestCatalogSigV4Config sigV4Config, S3FileSystemConfig s3Config)
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.<String, String>builder()
-                .put("rest.sigv4-enabled", "true")
+                .put("rest.auth.type", "sigv4")
                 .put(REST_SIGNING_NAME, sigV4Config.getSigningName())
                 .put(REST_SIGNER_REGION, requireNonNull(s3Config.getRegion(), "s3.region is null"))
                 .put("rest-metrics-reporting-enabled", "false");
