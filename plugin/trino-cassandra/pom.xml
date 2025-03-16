@@ -14,7 +14,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.native-protocol.version>1.5.1</dep.native-protocol.version>
+        <dep.native-protocol.version>1.5.2</dep.native-protocol.version>
     </properties>
 
     <dependencies>
