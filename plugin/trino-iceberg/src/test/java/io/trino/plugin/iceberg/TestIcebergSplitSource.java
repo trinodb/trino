@@ -479,7 +479,7 @@ public class TestIcebergSplitSource
                     .copy(file)
                     .withMetrics(new Metrics(file.recordCount(), file.columnSizes(), file.valueCounts(), file.nullValueCounts(), ImmutableMap.of(fieldId, 1L), bounds, bounds))
                     .build();
-            table.newRewrite().rewriteFiles(ImmutableSet.of(file), ImmutableSet.of(fileWithFiniteBounds)).commit();
+            table.newRewrite().deleteFile(file).addFile(fileWithFiniteBounds).commit();
 
             for (String predicate : ImmutableList.of("x <> 1.0e0", "NOT (x < 2.0e0)", "x IS DISTINCT FROM 1.0e0")) {
                 assertQuery("SELECT count(*) FROM " + tableName + " WHERE " + predicate, "VALUES 1");

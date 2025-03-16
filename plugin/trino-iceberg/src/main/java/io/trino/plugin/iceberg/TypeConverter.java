@@ -137,6 +137,7 @@ public final class TypeConverter
                 yield getSphericalGeographyType(typeManager);
             }
             case UNKNOWN -> typeManager.getType(UNKNOWN_TYPE);
+            case FILE -> throw new TrinoException(NOT_SUPPORTED, "Cannot convert from Iceberg type '%s' (%s) to Trino type".formatted(type, type.typeId()));
         };
     }
 
