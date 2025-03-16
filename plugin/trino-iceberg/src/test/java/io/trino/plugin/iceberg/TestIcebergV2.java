@@ -65,10 +65,12 @@ import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.data.parquet.InternalWriter;
 import org.apache.iceberg.deletes.PositionDelete;
 import org.apache.iceberg.deletes.PositionDeleteWriter;
+import org.apache.iceberg.encryption.EncryptedOutputFile;
+import org.apache.iceberg.encryption.EncryptionKeyMetadata;
+import org.apache.iceberg.formats.FileWriterBuilder;
 import org.apache.iceberg.io.FileAppender;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.OutputFile;
@@ -133,6 +135,8 @@ import static org.apache.iceberg.TableProperties.METADATA_DELETE_AFTER_COMMIT_EN
 import static org.apache.iceberg.TableProperties.METADATA_PREVIOUS_VERSIONS_MAX;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.apache.iceberg.TableUtil.formatVersion;
+import static org.apache.iceberg.encryption.EncryptedFiles.encryptedOutput;
+import static org.apache.iceberg.formats.FormatModelRegistry.positionDeleteWriteBuilder;
 import static org.apache.iceberg.mapping.NameMappingParser.toJson;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -272,16 +276,11 @@ public class TestIcebergV2
 
             FileIO fileIo = FILE_IO_FACTORY.create(fileSystemFactory.create(SESSION));
 
-            PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
-                    .createWriterFunc(GenericParquetWriter::create)
-                    .forTable(icebergTable)
-                    .overwrite()
-                    .rowSchema(icebergTable.schema())
-                    .withSpec(PartitionSpec.unpartitioned())
-                    .buildPositionWriter();
+            EncryptedOutputFile encryptedFile = encryptedOutput(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()), EncryptionKeyMetadata.EMPTY);
+            FileWriterBuilder<PositionDeleteWriter<Object>, ?> writerBuilder = positionDeleteWriteBuilder(FileFormat.PARQUET, encryptedFile);
+            PositionDeleteWriter<Object> writer = writerBuilder.spec(PartitionSpec.unpartitioned()).build();
+            PositionDelete<Object> record = PositionDelete.create().set(dataFilePath, 0L);
 
-            PositionDelete<Record> positionDelete = PositionDelete.create();
-            PositionDelete<Record> record = positionDelete.set(dataFilePath, 0, GenericRecord.create(icebergTable.schema()));
             try (Closeable ignored = writer) {
                 writer.write(record);
             }
