@@ -48,6 +48,8 @@ public final class HiveSchemaUtil
             case FIXED, BINARY -> "binary";
             case DECIMAL -> "decimal(%s,%s)".formatted(((DecimalType) type).precision(), ((DecimalType) type).scale());
             case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: UNKNOWN");
+            case GEOMETRY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOMETRY");
+            case GEOGRAPHY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOGRAPHY");
             // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
             case VARIANT -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: VARIANT");
             case LIST -> "array<%s>".formatted(convert(type.asListType().elementType()));

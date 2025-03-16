@@ -86,6 +86,8 @@ public final class OrcTypeConverter
                 yield ImmutableList.of(new OrcType(OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             }
             case VARIANT -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: VARIANT");
+            case GEOMETRY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOMETRY");
+            case GEOGRAPHY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOGRAPHY");
             case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: UNKNOWN");
             case STRUCT -> toOrcStructType(nextFieldTypeIndex, (StructType) type, attributes);
             case LIST -> toOrcListType(nextFieldTypeIndex, (ListType) type, attributes);

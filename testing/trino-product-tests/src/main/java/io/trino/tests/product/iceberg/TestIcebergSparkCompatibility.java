@@ -2131,7 +2131,14 @@ public class TestIcebergSparkCompatibility
                 "USING ICEBERG PARTITIONED BY (b) " +
                 "TBLPROPERTIES ('format-version'='" + formatVersion + "', 'write.delete.mode'='merge-on-read')");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
-        onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
+        if (formatVersion == 2) {
+            onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
+        }
+        else {
+            assertQueryFailure(() -> onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName)))
+                    .hasMessageContaining("Error processing metadata")
+                    .hasStackTraceContaining("Cannot parse missing long: next-row-id");
+        }
 
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName))
                 .containsOnly(row(1, 2), row(2, 2), row(3, 2), row(11, 12), row(12, 12), row(13, 12));

@@ -196,7 +196,7 @@
         <dep.gib.version>4.5.4</dep.gib.version>
         <dep.google.http.client.version>1.46.3</dep.google.http.client.version>
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
-        <dep.iceberg.version>1.8.1</dep.iceberg.version>
+        <dep.iceberg.version>1.9.0</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
@@ -2404,6 +2404,14 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>iceberg-release-candidate</id>
+            <name>Iceberg Release Candidate</name>
+            <url>https://repository.apache.org/content/repositories/orgapacheiceberg-1188/</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>

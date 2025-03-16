@@ -407,7 +407,7 @@ public class TestIcebergSplitSource
         // Write position delete file
         FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
         PositionDeleteWriter<org.apache.iceberg.data.Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
-                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .createWriterFunc(GenericParquetWriter::create)
                 .forTable(nationTable)
                 .overwrite()
                 .rowSchema(nationTable.schema())

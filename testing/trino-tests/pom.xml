@@ -426,6 +426,13 @@
                         <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
                         <ignoredResourcePattern>mime.types</ignoredResourcePattern>
                     </ignoredResourcePatterns>
+                    <ignoredDependencies>
+                        <dependency>
+                            <!-- duplicate and different classes in org.jspecify:jspecify-->
+                            <groupId>org.apache.iceberg</groupId>
+                            <artifactId>iceberg-bundled-guava</artifactId>
+                        </dependency>
+                    </ignoredDependencies>
                 </configuration>
             </plugin>
         </plugins>
