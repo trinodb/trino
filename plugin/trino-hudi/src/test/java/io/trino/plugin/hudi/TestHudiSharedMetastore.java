@@ -87,7 +87,7 @@ final class TestHudiSharedMetastore
         assertQueryFails("SELECT * FROM hudi.default." + tableName, "Not a Hudi table: default." + tableName);
         assertQueryFails("SELECT * FROM hudi.default.\"" + tableName + "$data\"", ".* Table .* does not exist");
         assertQueryFails("SELECT * FROM hudi.default.\"" + tableName + "$timeline\"", ".* Table .* does not exist");
-        assertQueryFails("SELECT * FROM hudi.default.\"" + tableName + "$files\"", "Invalid Hudi table name \\(unknown type 'files'\\): .*");
+        assertQueryFails("SELECT * FROM hudi.default.\"" + tableName + "$files\"", ".* Table .* does not exist");
 
         assertUpdate("DROP TABLE hive.default." + tableName);
     }
