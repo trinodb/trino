@@ -44,6 +44,7 @@ import io.trino.plugin.hive.HivePartitionManager;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -93,7 +94,6 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
@@ -170,8 +170,6 @@ public class GlueHiveMetastore
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS = 100;
 
-    private static final AtomicInteger poolCounter = new AtomicInteger();
-
     private final GlueClient glueClient;
     private final GlueContext glueContext;
     private final GlueCache glueCache;
@@ -191,6 +189,7 @@ public class GlueHiveMetastore
             GlueMetastoreStats glueStats,
             TrinoFileSystemFactory fileSystemFactory,
             GlueHiveMetastoreConfig config,
+            CatalogName catalogName,
             Set<TableKind> visibleTableKinds)
     {
         this(
@@ -203,7 +202,7 @@ public class GlueHiveMetastore
                 config.getPartitionSegments(),
                 config.isAssumeCanonicalPartitionKeys(),
                 visibleTableKinds,
-                newFixedThreadPool(config.getThreads(), daemonThreadsNamed("glue-%s-%%s".formatted(poolCounter.getAndIncrement()))));
+                newFixedThreadPool(config.getThreads(), daemonThreadsNamed("glue-" + catalogName + "-%s")));
     }
 
     private GlueHiveMetastore(
