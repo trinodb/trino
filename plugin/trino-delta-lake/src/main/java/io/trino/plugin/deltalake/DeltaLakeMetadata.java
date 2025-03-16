@@ -3204,17 +3204,6 @@ public class DeltaLakeMetadata
         return trinoViewHiveMetastore.getView(viewName);
     }
 
-    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
-    {
-        if (prefix.getTable().isEmpty()) {
-            return listTables(session, prefix.getSchema());
-        }
-        SchemaTableName tableName = prefix.toSchemaTableName();
-        return metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
-                .map(table -> ImmutableList.of(tableName))
-                .orElse(ImmutableList.of());
-    }
-
     private void setRollback(Runnable action)
     {
         checkState(rollbackAction.compareAndSet(null, action), "rollback action is already set");

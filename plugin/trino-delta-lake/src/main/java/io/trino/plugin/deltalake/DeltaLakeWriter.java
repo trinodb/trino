@@ -32,7 +32,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -55,7 +54,6 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -421,31 +419,6 @@ public final class DeltaLakeWriter
                 values[position] = MILLISECONDS.toMicros(unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, position)));
             }
             return new LongArrayBlock(positionCount, Optional.ofNullable(valueIsNull), values);
-        }
-    }
-
-    private static final class CoercionLazyBlockLoader
-            implements LazyBlockLoader
-    {
-        private final Function<Block, Block> coercer;
-        private Block block;
-
-        public CoercionLazyBlockLoader(Block block, Function<Block, Block> coercer)
-        {
-            this.block = requireNonNull(block, "block is null");
-            this.coercer = requireNonNull(coercer, "coercer is null");
-        }
-
-        @Override
-        public Block load()
-        {
-            checkState(block != null, "Already loaded");
-
-            Block loaded = coercer.apply(block.getLoadedBlock());
-            // clear reference to loader to free resources, since load was successful
-            block = null;
-
-            return loaded;
         }
     }
 }

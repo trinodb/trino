@@ -826,11 +826,6 @@ public final class DeltaLakeSchemaSupport
     public static class UnsupportedTypeException
             extends Exception
     {
-        public UnsupportedTypeException(String type)
-        {
-            super("Unsupported type: %s".formatted(requireNonNull(type, "type is null")));
-        }
-
         public UnsupportedTypeException(String fromType, String toType)
         {
             super("Type change from '%s' to '%s' is not supported".formatted(requireNonNull(fromType, "fromType is null"), requireNonNull(toType, "toType is null")));
