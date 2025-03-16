@@ -32,9 +32,7 @@ import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.encryption.EncryptedKey;
 import org.apache.iceberg.encryption.EncryptingFileIO;
 import org.apache.iceberg.encryption.EncryptionManager;
-import org.apache.iceberg.encryption.EncryptionUtil;
 import org.apache.iceberg.encryption.PlaintextEncryptionManager;
-import org.apache.iceberg.encryption.StandardEncryptionManager;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
@@ -169,15 +167,6 @@ public abstract class AbstractIcebergTableOperations
         // if the metadata is not changed, return early
         if (Objects.equals(base, metadata)) {
             return;
-        }
-
-        // Persist any in-memory encryption keys generated during this commit (e.g. by ManifestListWriter
-        // for encrypted manifest lists) into TableMetadata.encryptionKeys() so they survive read.
-        // Mirrors upstream HiveTableOperations.doCommit().
-        if (encryptionManager instanceof StandardEncryptionManager) {
-            TableMetadata.Builder builder = TableMetadata.buildFrom(metadata);
-            EncryptionUtil.encryptionKeys(encryptionManager).values().forEach(builder::addEncryptionKey);
-            metadata = builder.build();
         }
 
         if (isMaterializedViewStorage(tableName)) {
