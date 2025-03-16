@@ -647,7 +647,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("INSERT INTO test_insert VALUES (1, 10), (2, 10), (11, 20), (12, 20), (23, 30)",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLE, 4)
+                        .addCopies(GET_TABLE, 3)
                         .add(REPLACE_TABLE)
                         .build());
     }
@@ -659,7 +659,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("DELETE FROM test_delete WHERE regionkey < 2",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLE, 4)
+                        .addCopies(GET_TABLE, 3)
                         .add(REPLACE_TABLE)
                         .build());
     }
@@ -672,7 +672,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("UPDATE test_update SET data = data + 1",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLE, 4)
+                        .addCopies(GET_TABLE, 3)
                         .add(REPLACE_TABLE)
                         .build());
     }
@@ -684,7 +684,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("MERGE INTO test_merge USING (VALUES 42) t(dummy) ON false WHEN NOT MATCHED THEN INSERT VALUES (1)",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLE, 4)
+                        .addCopies(GET_TABLE, 3)
                         .add(REPLACE_TABLE)
                         .build());
     }
@@ -698,7 +698,7 @@ public class TestIcebergMetastoreAccessOperations
 
         assertMetastoreInvocations("ALTER TABLE test_optimize EXECUTE optimize",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_TABLE, 4)
+                        .addCopies(GET_TABLE, 3)
                         .add(REPLACE_TABLE)
                         .build());
     }
