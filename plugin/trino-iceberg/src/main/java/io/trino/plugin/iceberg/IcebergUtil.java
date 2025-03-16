@@ -472,11 +472,6 @@ public final class IcebergUtil
         return columns.buildOrThrow();
     }
 
-    public static String getPartition(StructLike partition, PartitionSpec partitionSpec)
-    {
-        return partitionSpec.partitionToPath(partition);
-    }
-
     public static List<Types.NestedField> primitiveFields(Schema schema)
     {
         return primitiveFields(schema.columns())
