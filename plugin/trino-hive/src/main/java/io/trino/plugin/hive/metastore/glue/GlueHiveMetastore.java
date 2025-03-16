@@ -175,11 +175,11 @@ public class GlueHiveMetastore
     private final GlueClient glueClient;
     private final GlueContext glueContext;
     private final GlueCache glueCache;
+    private final GlueMetastoreStats stats;
     private final TrinoFileSystem fileSystem;
     private final Optional<String> defaultDir;
     private final int partitionSegments;
     private final boolean assumeCanonicalPartitionKeys;
-    private final GlueMetastoreStats stats = new GlueMetastoreStats();
     private final Predicate<software.amazon.awssdk.services.glue.model.Table> tableVisibilityFilter;
     private final ExecutorService executor;
 
@@ -188,6 +188,7 @@ public class GlueHiveMetastore
             GlueClient glueClient,
             GlueContext glueContext,
             GlueCache glueCache,
+            GlueMetastoreStats glueStats,
             TrinoFileSystemFactory fileSystemFactory,
             GlueHiveMetastoreConfig config,
             Set<TableKind> visibleTableKinds)
@@ -196,6 +197,7 @@ public class GlueHiveMetastore
                 glueClient,
                 glueContext,
                 glueCache,
+                glueStats,
                 fileSystemFactory.create(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)),
                 config.getDefaultWarehouseDir(),
                 config.getPartitionSegments(),
@@ -207,7 +209,9 @@ public class GlueHiveMetastore
     private GlueHiveMetastore(
             GlueClient glueClient,
             GlueContext glueContext,
-            GlueCache glueCache, TrinoFileSystem fileSystem,
+            GlueCache glueCache,
+            GlueMetastoreStats glueStats,
+            TrinoFileSystem fileSystem,
             Optional<String> defaultDir,
             int partitionSegments,
             boolean assumeCanonicalPartitionKeys,
@@ -217,6 +221,7 @@ public class GlueHiveMetastore
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.glueContext = requireNonNull(glueContext, "glueContext is null");
         this.glueCache = glueCache;
+        this.stats = requireNonNull(glueStats, "glueStats is null");
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
         this.defaultDir = requireNonNull(defaultDir, "defaultDir is null");
         this.partitionSegments = partitionSegments;

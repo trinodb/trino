@@ -58,6 +58,7 @@ public final class TestingGlueHiveMetastore
                 glueClient,
                 new GlueContext(glueConfig),
                 GlueCache.NOOP,
+                new GlueMetastoreStats(),
                 HDFS_FILE_SYSTEM_FACTORY,
                 glueConfig,
                 EnumSet.allOf(TableKind.class));
