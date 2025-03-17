@@ -44,6 +44,7 @@ import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
@@ -96,6 +97,8 @@ public class IcebergConfig
     private int fileDeleteThreads = Runtime.getRuntime().availableProcessors() * 2;
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
+    private int materializedViewRefreshMaxSnapshotsToExpire = 200;
+    private Duration materializedViewRefreshSnapshotRetentionPeriod = new Duration(4, HOURS);
     private boolean metadataCacheEnabled = true;
     private boolean objectStoreLayoutEnabled;
     private int metadataParallelism = 8;
@@ -590,6 +593,34 @@ public class IcebergConfig
     public IcebergConfig setIncrementalRefreshEnabled(boolean incrementalRefreshEnabled)
     {
         this.incrementalRefreshEnabled = incrementalRefreshEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaterializedViewRefreshMaxSnapshotsToExpire()
+    {
+        return materializedViewRefreshMaxSnapshotsToExpire;
+    }
+
+    @Config("iceberg.materialized-views.refresh-max-snapshots-to-expire")
+    @ConfigDescription("Maximum number of snapshots to remove during materialized view refresh")
+    public IcebergConfig setMaterializedViewRefreshMaxSnapshotsToExpire(int materializedViewRefreshMaxSnapshotsToExpire)
+    {
+        this.materializedViewRefreshMaxSnapshotsToExpire = materializedViewRefreshMaxSnapshotsToExpire;
+        return this;
+    }
+
+    @NotNull
+    public Duration getMaterializedViewRefreshSnapshotRetentionPeriod()
+    {
+        return materializedViewRefreshSnapshotRetentionPeriod;
+    }
+
+    @Config("iceberg.materialized-views.refresh-snapshot-retention-period")
+    @ConfigDescription("Retention threshold to use when expiring snapshots during materialized view refresh")
+    public IcebergConfig setMaterializedViewRefreshSnapshotRetentionPeriod(Duration materializedViewRefreshSnapshotRetentionPeriod)
+    {
+        this.materializedViewRefreshSnapshotRetentionPeriod = materializedViewRefreshSnapshotRetentionPeriod;
         return this;
     }
 
