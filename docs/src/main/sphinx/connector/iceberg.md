@@ -184,6 +184,21 @@ implementation is used:
     creation of more data files, since it uses the append operation to insert
     the new records.
   - `true`
+* - `iceberg.materialized-views.refresh-max-snapshots-to-expire`
+  - Maximum number of materialized view snapshots to expire when performing a
+    refresh. A value of `0` will result in no snapshots being removed. Higher
+    values may increase the time taken to execute materialized view refreshes
+    when there are a large number of snapshots in the materialized view. Any
+    snapshots within the duration of the
+    `iceberg.materialized-views.refresh-snapshot-retention-period` configuration
+    property will be retained.
+  - `200`
+* - `iceberg.materialized-views.refresh-snapshot-retention-period`
+  - The duration for which materialized view snapshots will be retained. Any
+    snapshots older than this value will be removed during a materialized view
+    refresh, up to a cap defined by the configuration property
+    `iceberg.materialized-views.refresh-max-snapshots-to-expire`.
+  - `4h`
 * - `iceberg.metadata-cache.enabled`
   - Set to `false` to disable in-memory caching of metadata files on the
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
