@@ -933,8 +933,8 @@ public class TestIcebergFileOperations
                         .add(new FileOperationUtils.FileOperation(MANIFEST, "OutputFile.create"))
                         .add(new FileOperationUtils.FileOperation(MANIFEST, "InputFile.newStream"))
                         .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "OutputFile.create"), 2)
-                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"), 2)
-                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"), 2)
+                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"), 4)
+                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"), 4)
                         .build());
 
         assertUpdate(session, "DELETE FROM test_table WHERE a = 1", 1);
@@ -943,10 +943,10 @@ public class TestIcebergFileOperations
                         .add(new FileOperationUtils.FileOperation(METADATA_JSON, "OutputFile.create"))
                         .addCopies(new FileOperationUtils.FileOperation(METADATA_JSON, "InputFile.newStream"), 2)
                         .addCopies(new FileOperationUtils.FileOperation(MANIFEST, "OutputFile.create"), 2)
-                        .addCopies(new FileOperationUtils.FileOperation(MANIFEST, "InputFile.newStream"), 4)
+                        .addCopies(new FileOperationUtils.FileOperation(MANIFEST, "InputFile.newStream"), 6)
                         .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "OutputFile.create"), 2)
-                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"), 3)
-                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"), 3)
+                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.newStream"), 10)
+                        .addCopies(new FileOperationUtils.FileOperation(SNAPSHOT, "InputFile.length"), 6)
                         .add(new FileOperationUtils.FileOperation(PUFFIN, "InputFile.newInput"))
                         .build());
 
