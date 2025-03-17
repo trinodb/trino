@@ -220,6 +220,7 @@ import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
+import io.trino.sql.planner.iterative.rule.RewriteExcludeColumnsFunctionToProjection;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
 import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
@@ -645,6 +646,7 @@ public class PlanOptimizers
                 .add(new PushDistinctLimitIntoTableScan(plannerContext))
                 .add(new PushTopNIntoTableScan(metadata))
                 .add(new RewriteTableFunctionToTableScan(plannerContext)) // must run after ImplementTableFunctionSource
+                .add(new RewriteExcludeColumnsFunctionToProjection()) // must run after ImplementTableFunctionSource
                 .build();
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
                 plannerContext,
