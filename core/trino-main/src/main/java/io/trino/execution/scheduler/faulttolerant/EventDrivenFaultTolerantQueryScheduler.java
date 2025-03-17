@@ -1683,7 +1683,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
                         case CANCELED, ABORTED, FAILED -> scheduledExecutorService.schedule(() -> {
                             if (!finalTaskInfoReceived.get()) {
-                                log.error("Did not receive final task info for task %s after it %s; internal inconsistency; marking task failed in scheduler to unblock query progression", taskStatus.getState(), task.getTaskId());
+                                log.error("Did not receive final task info for task %s after it %s; internal inconsistency; marking task failed in scheduler to unblock query progression", task.getTaskId(), taskStatus.getState());
                                 eventQueue.add(new RemoteTaskCompletedEvent(taskStatus));
                             }
                         }, NO_FINAL_TASK_INFO_CHECK_INTERVAL.toMillis(), MILLISECONDS);
