@@ -30,6 +30,9 @@ public class GrokDeserializerFactory
 {
     static final String INPUT_FORMAT = "input.format";
     static final String INPUT_GROK_CUSTOM_PATTERNS = "input.grokCustomPatterns";
+    static final String GROK_STRICT_MODE = "grok.strictMode";
+    static final String GROK_NAMED_ONLY_MODE = "grok.namedOnlyMode";
+    static final String GROK_NULL_ON_PARSE_ERROR = "grok.nullOnParseError";
 
     @Override
     public Set<String> getHiveSerDeClassNames()
@@ -43,6 +46,9 @@ public class GrokDeserializerFactory
         String inputFormat = serdeProperties.get(INPUT_FORMAT);
         checkArgument(inputFormat != null, "Schema does not have required '%s' property", INPUT_FORMAT);
         String inputGrokCustomPatterns = serdeProperties.get(INPUT_GROK_CUSTOM_PATTERNS);
-        return new GrokDeserializer(columns, inputFormat, inputGrokCustomPatterns);
+        boolean grokStrictMode = Boolean.parseBoolean(serdeProperties.getOrDefault(GROK_STRICT_MODE, "true"));
+        boolean grokNamedOnlyMode = Boolean.parseBoolean(serdeProperties.getOrDefault(GROK_NAMED_ONLY_MODE, "true"));
+        boolean grokNullOnParseError = Boolean.parseBoolean(serdeProperties.getOrDefault(GROK_NULL_ON_PARSE_ERROR, "false"));
+        return new GrokDeserializer(columns, inputFormat, inputGrokCustomPatterns, grokStrictMode, grokNamedOnlyMode, grokNullOnParseError);
     }
 }

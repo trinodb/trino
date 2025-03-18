@@ -62,38 +62,6 @@ public class Garbage
     }
 
     /**
-     * Set a field to be removed when exporting the final output.
-     *
-     * @param name of the field to remove
-     */
-    public void addToRemove(String name)
-    {
-        if (name == null) {
-            return;
-        }
-
-        if (!name.isEmpty()) {
-            toRemove.add(name);
-        }
-    }
-
-    /**
-     * Set a list of field name to be removed when exporting the final output.
-     *
-     * @param lst list of elem to remove
-     */
-    public void addToRemove(List<String> lst)
-    {
-        if (lst == null) {
-            return;
-        }
-
-        if (!lst.isEmpty()) {
-            toRemove.addAll(lst);
-        }
-    }
-
-    /**
      * Remove from the map the unwilling items.
      *
      * @param map to clean

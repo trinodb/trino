@@ -28,14 +28,14 @@ class DateConverter
     {
         return DateFormat.getDateTimeInstance(DateFormat.SHORT,
                 DateFormat.SHORT,
-                Converter.locale).parse(value);
+                Converter.LOCALE).parse(value);
     }
 
     @Override
     public Date convert(String value, String informat)
             throws Exception
     {
-        SimpleDateFormat formatter = new SimpleDateFormat(informat, Converter.locale);
+        SimpleDateFormat formatter = new SimpleDateFormat(informat, Converter.LOCALE);
         return formatter.parse(value);
     }
 }
