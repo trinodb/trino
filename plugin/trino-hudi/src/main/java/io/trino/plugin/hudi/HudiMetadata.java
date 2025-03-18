@@ -325,7 +325,7 @@ public class HudiMetadata
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
         // Location property
-        String location = table.getStorage().getLocation();
+        String location = table.getStorage().getOptionalLocation().orElse(null);
         if (!isNullOrEmpty(location)) {
             properties.put(LOCATION_PROPERTY, location);
         }
