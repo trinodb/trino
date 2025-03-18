@@ -262,8 +262,8 @@ to the following table:
   - ClickHouse type
   - Notes
 * - `BOOLEAN`
-  - `UInt8`
-  -
+  - `Bool`
+  - 
 * - `TINYINT`
   - `Int8`
   - `TINYINT`, `BOOL`, `BOOLEAN`, and `INT1` are aliases of `Int8`
