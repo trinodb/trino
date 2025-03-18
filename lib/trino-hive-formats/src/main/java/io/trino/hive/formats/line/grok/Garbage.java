@@ -30,8 +30,8 @@ import java.util.TreeMap;
 // Copyright 2014 Anthony Corbacho, and contributors.
 public class Garbage
 {
-    private List<String> toRemove;
-    private Map<String, Object> toRename;
+    private final List<String> toRemove;
+    private final Map<String, Object> toRename;
 
     /**
      * Create a new {@code Garbage} object.
@@ -42,55 +42,6 @@ public class Garbage
         toRename = new TreeMap<String, Object>();
         // this is a default value to remove
         toRemove.add("UNWANTED");
-    }
-
-    /**
-     * Set a new name to be change when exporting the final output.
-     *
-     * @param origin : original field name
-     * @param value : New field name to apply
-     */
-    public void addToRename(String origin, Object value)
-    {
-        if (origin == null || value == null) {
-            return;
-        }
-
-        if (!origin.isEmpty() && !value.toString().isEmpty()) {
-            toRename.put(origin, value);
-        }
-    }
-
-    /**
-     * Set a field to be removed when exporting the final output.
-     *
-     * @param name of the field to remove
-     */
-    public void addToRemove(String name)
-    {
-        if (name == null) {
-            return;
-        }
-
-        if (!name.isEmpty()) {
-            toRemove.add(name);
-        }
-    }
-
-    /**
-     * Set a list of field name to be removed when exporting the final output.
-     *
-     * @param lst list of elem to remove
-     */
-    public void addToRemove(List<String> lst)
-    {
-        if (lst == null) {
-            return;
-        }
-
-        if (!lst.isEmpty()) {
-            toRemove.addAll(lst);
-        }
     }
 
     /**

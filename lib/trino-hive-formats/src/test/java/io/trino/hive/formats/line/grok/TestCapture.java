@@ -29,7 +29,7 @@ public class TestCapture
     public static void setUp()
             throws GrokException
     {
-        grok = Grok.create(ResourceManager.PATTERNS, null);
+        grok = Grok.create(null);
     }
 
     @Test

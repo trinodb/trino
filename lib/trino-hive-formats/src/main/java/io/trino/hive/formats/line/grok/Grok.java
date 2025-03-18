@@ -13,8 +13,8 @@
  */
 package io.trino.hive.formats.line.grok;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.trino.hive.formats.line.grok.exception.GrokException;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -26,7 +26,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
@@ -63,7 +62,7 @@ public class Grok
      * Map of the named regex of the originalGrokPattern
      * with id = namedregexid and value = namedregex.
      */
-    private Map<String, String> namedRegexCollection;
+    private final Map<String, String> namedRegexCollection;
     /**
      * Original {@code Grok} pattern (expl: %{IP}).
      */
@@ -72,10 +71,6 @@ public class Grok
      * Pattern of the namedRegex.
      */
     private Pattern compiledNamedRegex;
-    /**
-     * {@code Grok} discovery.
-     */
-    private Discovery disco;
     /**
      * {@code Grok} patterns definition.
      */
@@ -89,7 +84,7 @@ public class Grok
     /**
      * {@code Grok} actual patterns of each field.
      */
-    private Map<String, String> grokPatternPatterns;
+    private final Map<String, String> grokPatternPatterns;
 
     /**
      * {@code Grok} date formats.
@@ -105,6 +100,22 @@ public class Grok
     private static final String PATTERNCONFIG = "grokPatternDefinition";
     private static final String DATATYPECONFIG = "grokPatternDefaultDatatype";
     private static final String DATEFORMATCONFIG = "grokDateFormats";
+
+    private static final Map<String, String> DEFAULT_PATTERNS = new TreeMap<>();
+    private static final Map<String, String> DEFAULT_DATA_TYPES = new HashMap<>();
+    private static final Map<String, ArrayList<String>> DEFAULT_DATE_FORMATS = new HashMap<>();
+
+    static {
+        try {
+            // Load configurations statically without creating an instance
+            addConfFromReader(getFileFromResouces("grok/patterns"), PATTERNCONFIG);
+            addConfFromReader(getFileFromResouces("grok/datatype"), DATATYPECONFIG);
+            addConfFromReader(getFileFromResouces("grok/dateformat"), DATEFORMATCONFIG);
+        }
+        catch (Exception e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     /**
      * Create Empty {@code Grok}.
@@ -123,16 +134,15 @@ public class Grok
      */
     public Grok()
     {
-        originalGrokPattern = StringUtils.EMPTY;
-        disco = null;
-        namedRegex = StringUtils.EMPTY;
+        originalGrokPattern = "";
+        namedRegex = "";
         compiledNamedRegex = null;
-        grokPatternDefinition = new TreeMap();
-        grokPatternDefaultDatatype = new HashMap();
-        grokPatternPatterns = new HashMap();
-        grokDateFormats = new HashMap();
-        namedRegexCollection = new TreeMap();
-        savedPattern = StringUtils.EMPTY;
+        grokPatternDefinition = new TreeMap<>();
+        grokPatternDefaultDatatype = new HashMap<>();
+        grokPatternPatterns = new HashMap<>();
+        grokDateFormats = new HashMap<>();
+        namedRegexCollection = new TreeMap<>();
+        savedPattern = "";
         strictMode = false;
     }
 
@@ -159,79 +169,14 @@ public class Grok
             throws GrokException
     {
         Grok g = new Grok();
-        // loading default config files
-        g.addConfFromReader(getFileFromResouces("grok/patterns"), PATTERNCONFIG);
-        g.addConfFromReader(getFileFromResouces("grok/datatype"), DATATYPECONFIG);
-        g.addConfFromReader(getFileFromResouces("grok/dateformat"), DATEFORMATCONFIG);
+        g.grokPatternDefinition = DEFAULT_PATTERNS;
+        g.grokPatternDefaultDatatype = DEFAULT_DATA_TYPES;
+        g.grokDateFormats = DEFAULT_DATE_FORMATS;
         // compile the log format if not null
-        if (StringUtils.isNotBlank(grokExpression)) {
+        if (grokExpression != null && !grokExpression.isEmpty()) {
             g.compile(grokExpression, false);
         }
         return g;
-    }
-
-    /**
-     * Create a {@code Grok} instance with the given patterns file and a {@code Grok} pattern.
-     * Maintained for less modifications on original Grok tests.
-     *
-     * @param grokPatternPath Path to the pattern file
-     * @param grokExpression  - <b>OPTIONAL</b> - Grok pattern to compile ex: %{APACHELOG}
-     * @return {@code Grok} instance
-     * @throws GrokException runtime expt
-     */
-    public static Grok create(String grokPatternPath, String grokExpression)
-            throws GrokException
-    {
-        if (StringUtils.isBlank(grokPatternPath)) {
-            throw new GrokException("{grokPatternPath} should not be empty or null");
-        }
-        Grok g = new Grok();
-        g.addPatternFromFile(grokPatternPath);
-        g.addConfFromReader(getFileFromResouces("grok/datatype"), DATATYPECONFIG);
-        g.addConfFromReader(getFileFromResouces("grok/dateformat"), DATEFORMATCONFIG);
-        if (StringUtils.isNotBlank(grokExpression)) {
-            g.compile(grokExpression, false);
-        }
-        return g;
-    }
-
-    /**
-     * Create a {@code Grok} instance with the given patterns file, datatype file, dateformat file and
-     * a {@code Grok} pattern.
-     *
-     * @param grokPatternPath Path to the pattern file
-     * @param grokDatatypePath Path to the datatype file
-     * @param grokDateformatPath Path to the dateformat file
-     * @param grokExpression  - <b>OPTIONAL</b> - Grok pattern to compile ex: %{APACHELOG}
-     * @return {@code Grok} instance
-     * @throws GrokException runtime expt
-     */
-    public static Grok create(String grokPatternPath, String grokDatatypePath, String grokDateformatPath, String grokExpression)
-            throws GrokException
-    {
-        Grok g = new Grok();
-        g.addPatternFromFile(grokPatternPath);
-        g.addDefaultDatatypeFromFile(grokDatatypePath);
-        g.addDateFormatFromFile(grokDateformatPath);
-        if (StringUtils.isNotBlank(grokExpression)) {
-            g.compile(grokExpression, false);
-        }
-        return g;
-    }
-
-    /**
-     * Create a {@code Grok} instance with the given grok patterns file, datatype file and dateformat file.
-     *
-     * @param  grokPatternPath Path to the pattern file
-     * @param grokDatatypePath Path to the data type file
-     * @param grokDateformatPath Path to the data format file
-     * @return Grok {@code Grok} instance
-     * @throws GrokException runtime expt
-     */
-    public static Grok create(String grokPatternPath, String grokDatatypePath, String grokDateformatPath)
-            throws GrokException
-    {
-        return create(grokPatternPath, grokDatatypePath, grokDateformatPath, null);
     }
 
     /**
@@ -259,29 +204,29 @@ public class Grok
      * @param destination which config file is currently operated
      * @throws GrokException grok runtime exception
      */
-    private void addConf(String name, String conf, String destination)
+    private static void addConf(String name, String conf, String destination)
             throws GrokException
     {
-        if (StringUtils.isBlank(name)) {
+        if (name == null || name.isBlank()) {
             throw new GrokException("Invalid pattern name when loading config file");
         }
-        if (StringUtils.isBlank(conf)) {
+        if (conf == null || conf.isBlank()) {
             throw new GrokException("Invalid value when loading config file");
         }
         if (destination.equals(PATTERNCONFIG)) {
-            grokPatternDefinition.put(name, conf);
+            DEFAULT_PATTERNS.put(name, conf);
         }
         else if (destination.equals(DATATYPECONFIG)) {
-            grokPatternDefaultDatatype.put(name, conf);
+            DEFAULT_DATA_TYPES.put(name, conf);
         }
         else {
-            if (grokDateFormats.containsKey(name)) {
-                grokDateFormats.get(name).add(conf);
+            if (DEFAULT_DATE_FORMATS.containsKey(name)) {
+                DEFAULT_DATE_FORMATS.get(name).add(conf);
             }
             else {
-                ArrayList<String> formatContainer = new ArrayList();
+                ArrayList<String> formatContainer = new ArrayList<>();
                 formatContainer.add(conf);
-                grokDateFormats.put(name, formatContainer);
+                DEFAULT_DATE_FORMATS.put(name, formatContainer);
             }
         }
     }
@@ -300,32 +245,6 @@ public class Grok
     }
 
     /**
-     * Add default datatype to grok in the runtime.
-     *
-     * @param name : Pattern Name
-     * @param datatype : Default datatype
-     * @throws GrokException runtime expt
-     **/
-    public void addDefaultDatatype(String name, String datatype)
-            throws GrokException
-    {
-        addConf(name, datatype, DATATYPECONFIG);
-    }
-
-    /**
-     * Add default date format to grok in the runtime.
-     *
-     * @param name the date pattern name
-     * @param dateformat the date format
-     * @throws GrokException grok runtime exception
-     */
-    public void addDateFormat(String name, String dateformat)
-            throws GrokException
-    {
-        addConf(name, dateformat, DATEFORMATCONFIG);
-    }
-
-    /**
      * read config info from the given file
      *
      * @param file config file path
@@ -335,7 +254,7 @@ public class Grok
     private void addConfFromFile(String file, String destination)
             throws GrokException
     {
-        if (StringUtils.isBlank(file)) {
+        if (file == null || file.isBlank()) {
             throw new GrokException("Config file name should not be empty or null");
         }
         File f = new File(file);
@@ -378,42 +297,17 @@ public class Grok
     }
 
     /**
-     * Add datatypes to {@code Grok} from the given file.
-     *
-     * @param file : Path of the grok default data types
-     * @throws GrokException runtime expt
-     */
-    public void addDefaultDatatypeFromFile(String file)
-            throws GrokException
-    {
-        addConfFromFile(file, DATATYPECONFIG);
-    }
-
-    /**
-     * Add default date format to {@code Grok} from the given file
-     *
-     * @param file path to date format file
-     * @throws GrokException grok runtime exception
-     */
-    public void addDateFormatFromFile(String file)
-            throws GrokException
-    {
-        addConfFromFile(file, DATEFORMATCONFIG);
-    }
-
-    /**
      * read config info from the given reader
      *
      * @param reader reader that contains config info
      * @param destination config name
      * @throws GrokException grok runtime exception
      */
-    private void addConfFromReader(Reader reader, String destination)
+    private static void addConfFromReader(Reader reader, String destination)
             throws GrokException
     {
-        BufferedReader br = new BufferedReader(reader);
-        String line;
-        try {
+        try (BufferedReader br = new BufferedReader(reader)) {
+            String line;
             Pattern pattern = Pattern.compile("^([A-z0-9_]+)\\s+(.*)$");
             String key = null;
             while ((line = br.readLine()) != null) {
@@ -425,7 +319,7 @@ public class Grok
                     }
                 }
                 else {
-                    if (line.equals("")) {
+                    if (line.isEmpty()) {
                         key = null;
                     }
                     else if (key == null) {
@@ -436,7 +330,6 @@ public class Grok
                     }
                 }
             }
-            br.close();
         }
         catch (IOException e) {
             throw new GrokException(e.getMessage());
@@ -455,30 +348,6 @@ public class Grok
         addConfFromReader(r, PATTERNCONFIG);
     }
 
-    /**
-     * Add datatypes to {@code Grok} from a Reader.
-     *
-     * @param r : Reader with {@code Grok} data types
-     * @throws GrokException runtime expt
-     */
-    public void addDefaultDatatypeFromReader(Reader r)
-            throws GrokException
-    {
-        addConfFromReader(r, DATATYPECONFIG);
-    }
-
-    /**
-     * Add date formats to {@code Grok} from a Reader
-     *
-     * @param r : Reader with {@code Grok} date formats
-     * @throws GrokException runtime expt
-     */
-    public void addDateFormatFromReader(Reader r)
-            throws GrokException
-    {
-        addConfFromReader(r, DATEFORMATCONFIG);
-    }
-
     // match log with regex and capture results
     /**
      * Match the given <var>log</var> with the named regex.
@@ -488,36 +357,11 @@ public class Grok
      * @return json representation og the log
      */
     public String capture(String log)
-            throws GrokException
+            throws GrokException, JsonProcessingException
     {
         Match match = match(log);
         match.captures();
         return match.toJson();
-    }
-
-    /**
-     * Match the given list of <var>log</var> with the named regex
-     * and return the list of json representation of the matched elements.
-     *
-     * @param logs : list of log
-     * @return list of json representation of the log
-     */
-    public List<String> captures(List<String> logs)
-    {
-        List<String> matched = new ArrayList<String>();
-        for (String log : logs) {
-            Match match = match(log);
-            try {
-                match.captures();
-            }
-            catch (GrokException ge) {
-                // Prevent error record from interrupting parsing further records when matching a list of logs.
-                // If outer error control is required, iterate log records manually and use match.captures()
-                // for every record instead of parsing a list of logs in this function.
-            }
-            matched.add(match.toJson());
-        }
-        return matched;
     }
 
     /**
@@ -529,7 +373,7 @@ public class Grok
      */
     public Match match(String text)
     {
-        if (compiledNamedRegex == null || StringUtils.isBlank(text)) {
+        if (compiledNamedRegex == null || text == null || text.isBlank()) {
             return Match.EMPTY;
         }
 
@@ -568,16 +412,16 @@ public class Grok
     public void compile(String pattern, boolean namedOnly)
             throws GrokException
     {
-        if (StringUtils.isBlank(pattern)) {
+        if (pattern == null || pattern.isBlank()) {
             throw new GrokException("{pattern} should not be empty");
         }
         namedRegexCollection.clear(); // when the grok object compiles the second format, named patterns in last format should not influence the current one.
-        namedRegex = removeUnderscores(pattern);
+        namedRegex = renameNamedCaptureGroups(pattern);
         originalGrokPattern = pattern;
         int index = 0;
         // flag for infinite recursion
         int iterationLeft = 1000;
-        Boolean continueIteration = true;
+        boolean continueIteration = true;
 
         // Replace %{foo} with the regex (mostly groupname regex)
         // and then compile the regex
@@ -613,8 +457,7 @@ public class Grok
                 }
                 namedRegexCollection.put("name" + index,
                         (group.get("subname") != null ? group.get("subname") : group.get("name")));
-                namedRegex =
-                        StringUtils.replace(namedRegex, "%{" + group.get("name") + "}", replacement);
+                namedRegex = namedRegex.replace("%{" + group.get("name") + "}", replacement);
                 // use grokPatternPatterns map to store the actual pattern of each field in order to check its default data type when doing conversion.
                 grokPatternPatterns.put(group.get("subname") != null ? group.get("subname") : group.get("name"), group.get("pattern"));
                 index++;
@@ -628,41 +471,24 @@ public class Grok
         compiledNamedRegex = Pattern.compile(namedRegex);
     }
 
-    public String removeUnderscores(String namedRegex)
+    private static String renameNamedCaptureGroups(String namedRegex)
     {
         // Pattern.compile() does not support underscores in named regex groups so need to remove all of them
         Pattern groupPattern = Pattern.compile("\\(\\?<([^>]+)>");
         Matcher groupMatcher = groupPattern.matcher(namedRegex);
         StringBuilder result = new StringBuilder();
-
+        int i = 0;
         while (groupMatcher.find()) {
-            String groupName = groupMatcher.group(1);
-            String cleanName = groupName.replaceAll("_", "");
-            groupMatcher.appendReplacement(result, "(?<" + cleanName + ">");
+            groupMatcher.appendReplacement(result, "(?<" + "name" + i + ">");
+            i++;
         }
         groupMatcher.appendTail(result);
         return result.toString();
     }
 
     /**
-     * {@code Grok} will try to find the best expression that will match your input.
-     * {@link Discovery}
-     *
-     * @param input : Single line of log
-     * @return the Grok pattern
-     */
-    public String discover(String input)
-            throws GrokException
-    {
-        if (disco == null) {
-            disco = new Discovery(this);
-        }
-        return disco.discover(input);
-    }
-
-    /**
      * Copy the given Map of patterns (pattern name, regular expression) to {@code Grok},
-     * duplicate element will be override.
+     * duplicate element will be overridden.
      *
      * @param cpy : Map to copy
      * @throws GrokException runtime expt
@@ -742,16 +568,6 @@ public class Grok
     public String getNamedRegexCollectionById(String id)
     {
         return namedRegexCollection.get(id);
-    }
-
-    /**
-     * Get the full collection of the named regex.
-     *
-     * @return named RegexCollection
-     */
-    public Map<String, String> getNamedRegexCollection()
-    {
-        return namedRegexCollection;
     }
 
     /**

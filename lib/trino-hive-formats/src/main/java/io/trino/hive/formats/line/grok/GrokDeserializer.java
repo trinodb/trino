@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -43,6 +44,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class GrokDeserializer
         implements LineDeserializer
@@ -50,13 +52,15 @@ public class GrokDeserializer
     private final List<Column> columns;
     private final Grok grokPattern;
     private final List<Type> types;
+    private final boolean grokNullOnParseError;
 
-    public GrokDeserializer(List<Column> columns, String inputFormat, String inputGrokCustomPatterns)
+    public GrokDeserializer(List<Column> columns, String inputFormat, String inputGrokCustomPatterns, boolean grokStrictMode, boolean grokNamedOnlyMode, boolean grokNullOnParseError)
     {
         this.columns = ImmutableList.copyOf(columns);
         this.types = columns.stream()
                 .map(Column::type)
                 .collect(toImmutableList());
+        this.grokNullOnParseError = grokNullOnParseError;
 
         // Create a new grok instance using update create() method
         try {
@@ -68,13 +72,13 @@ public class GrokDeserializer
 
         try {
             // Capture named expressions only and do not use auto conversion.
-            grokPattern.setStrictMode(true);
+            grokPattern.setStrictMode(grokStrictMode);
 
             if (inputGrokCustomPatterns != null) {
                 grokPattern.addPatternFromReader(new StringReader(inputGrokCustomPatterns));
             }
 
-            grokPattern.compile(inputFormat, true);
+            grokPattern.compile(inputFormat, grokNamedOnlyMode);
         }
         catch (GrokException e) {
             throw new RuntimeException(String.format("Grok compilation failure: %s", e.getMessage()), e);
@@ -92,7 +96,7 @@ public class GrokDeserializer
     {
         builder.declarePosition();
 
-        Match match = grokPattern.match(new String(lineBuffer.getBuffer(), 0, lineBuffer.getLength(), java.nio.charset.StandardCharsets.UTF_8));
+        Match match = grokPattern.match(new String(lineBuffer.getBuffer(), 0, lineBuffer.getLength(), UTF_8));
 
         // If line does not match grok pattern, return a row of nulls
         if (match.getMatch() == null) {
@@ -115,16 +119,16 @@ public class GrokDeserializer
         for (int i = 0; i < columns.size(); i++) {
             Column column = columns.get(i);
             BlockBuilder blockBuilder = builder.getBlockBuilder(i);
-            String value = String.valueOf(row.get(i));
+            String value = i < row.size() ? String.valueOf(row.get(i)) : null;
             if (value == null) {
                 blockBuilder.appendNull();
                 continue;
             }
-            serializeValue(value, column, blockBuilder);
+            serializeValue(value, column, blockBuilder, this.grokNullOnParseError);
         }
     }
 
-    private static void serializeValue(String value, Column column, BlockBuilder builder)
+    private static void serializeValue(String value, Column column, BlockBuilder builder, boolean grokNullOnParseError)
     {
         try {
             Type type = column.type();
@@ -163,7 +167,12 @@ public class GrokDeserializer
             throw e;
         }
         catch (RuntimeException e) {
-            builder.appendNull();
+            if (grokNullOnParseError) {
+                builder.appendNull();
+            }
+            else {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Error Parsing a column in the table: " + e.getMessage(), e);
+            }
         }
     }
 }

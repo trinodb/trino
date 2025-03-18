@@ -13,8 +13,9 @@
  */
 package io.trino.hive.formats.line.grok;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import io.trino.hive.formats.line.grok.exception.GrokException;
 
 import java.util.Iterator;
@@ -22,6 +23,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.regex.Matcher;
+
+import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
+import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 
 /**
  * {@code Match} is a representation in {@code Grok} world of your log.
@@ -33,12 +37,10 @@ import java.util.regex.Matcher;
 // Copyright 2014 Anthony Corbacho, and contributors.
 public class Match
 {
-    private static final Gson PRETTY_GSON =
-            new GsonBuilder().setPrettyPrinting().create();
-    private static final Gson GSON = new GsonBuilder().create();
-    private String subject; // texte
-    private LinkedHashMap<String, Object> capture; // to maintain the order of fields
-    private Garbage garbage;
+    private static final ObjectMapper objectMapper = new ObjectMapper(jsonFactoryBuilder().disable(INTERN_FIELD_NAMES).build());
+    private String subject; // text
+    private final LinkedHashMap<String, Object> capture; // to maintain the order of fields
+    private final Garbage garbage;
     private Grok grok;
     private Matcher match;
     private int start;
@@ -47,7 +49,7 @@ public class Match
     /**
      * For thread safety.
      */
-    private static ThreadLocal<Match> matchHolder = new ThreadLocal<Match>()
+    private static final ThreadLocal<Match> matchHolder = new ThreadLocal<Match>()
     {
         @Override
         protected Match initialValue()
@@ -64,7 +66,7 @@ public class Match
         subject = "Nothing";
         grok = null;
         match = null;
-        capture = new LinkedHashMap();
+        capture = new LinkedHashMap<>();
         garbage = new Garbage();
         start = 0;
         end = 0;
@@ -174,24 +176,17 @@ public class Match
                 key = this.grok.getNamedRegexCollectionById(pairs.getKey().toString());
             }
             if (pairs.getValue() != null) {
-                value = pairs.getValue().toString();
+                value = pairs.getValue();
 
-                KeyValue keyValue = Converter.convert(key, value, grok);
-
-                // get validated key
-                key = keyValue.getKey();
+                ImmutableMap<String, Object> keyValue = ConverterFactory.convert(key, value, grok);
+                key = keyValue.keySet().iterator().next();
 
                 // resolve value
-                if (keyValue.getValue() instanceof String) {
-                    value = cleanString((String) keyValue.getValue());
+                if (keyValue.get(key) instanceof String) {
+                    value = cleanString((String) keyValue.get(key));
                 }
                 else {
-                    value = keyValue.getValue();
-                }
-
-                // set if grok failure
-                if (keyValue.hasGrokFailure()) {
-                    capture.put(key + "_grokfailure", keyValue.getGrokFailure());
+                    value = keyValue.get(key);
                 }
             }
             if (value != null) {
@@ -236,6 +231,7 @@ public class Match
      * @return Json of the matched element in the text
      */
     public String toJson(Boolean pretty)
+            throws JsonProcessingException
     {
         if (capture == null) {
             return "{}";
@@ -245,14 +241,10 @@ public class Match
         }
 
         this.cleanMap();
-        Gson gs;
         if (pretty) {
-            gs = PRETTY_GSON;
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(capture);
         }
-        else {
-            gs = GSON;
-        }
-        return gs.toJson(/* cleanMap( */capture/* ) */);
+        return objectMapper.writeValueAsString(capture);
     }
 
     /**
@@ -264,6 +256,7 @@ public class Match
      * @return Json of the matched element in the text
      */
     public String toJson()
+            throws JsonProcessingException
     {
         return toJson(false);
     }

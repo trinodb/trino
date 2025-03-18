@@ -16,10 +16,6 @@ package io.trino.hive.formats.line.grok;
 import io.trino.hive.formats.line.grok.exception.GrokException;
 import org.junit.jupiter.api.Test;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.PatternSyntaxException;
@@ -34,7 +30,7 @@ public class TestBasic
     public void test001_compileFailOnInvalidExpression()
             throws GrokException
     {
-        Grok g = Grok.create(ResourceManager.PATTERNS, null);
+        Grok g = Grok.create(null);
 
         List<String> badRegxp = new ArrayList<String>();
         badRegxp.add("[");
@@ -95,20 +91,5 @@ public class TestBasic
         g.addPattern("test", "hello world");
         g.compile("%{test}");
         assertThat(g.getNamedRegex()).isEqualTo("(?<name0>hello world)");
-    }
-
-    @Test
-    public void test005_testLoadPatternFromFile()
-            throws IOException, GrokException
-    {
-        File temp = File.createTempFile("grok-tmp-pattern", ".tmp");
-        BufferedWriter bw = Files.newBufferedWriter(temp.toPath());
-        bw.write("TEST \\d+");
-        bw.close();
-
-        Grok grok = Grok.create(temp.getAbsolutePath(), ResourceManager.DEFAULTDATATYPE, ResourceManager.DATEFORMAT);
-        grok.compile("%{TEST}");
-        assertThat(grok.getNamedRegex()).isEqualTo("(?<name0>\\d+)");
-        temp.delete();
     }
 }
