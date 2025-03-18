@@ -52,25 +52,29 @@ public class TestGrokTable
     public void testCreateExternalTableWithData()
             throws IOException
     {
-        URL resourceLocation = Resources.getResource("grok/commonapachelog_test");
+        URL resourceLocation = Resources.getResource("grok/simple_log");
         TrinoFileSystem fileSystem = getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(ConnectorIdentity.ofUser("test"));
 
         // Create a temporary directory for the table data
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
         fileSystem.createDirectory(tempDir);
-        Location dataFile = tempDir.appendPath("commonapachelog_test");
+        Location dataFile = tempDir.appendPath("simple_log");
 
         try (OutputStream out = fileSystem.newOutputFile(dataFile).create()) {
             Resources.copy(resourceLocation, out);
         }
 
-        String inputFormat = "%{COMMONAPACHELOG:access_log}";
+        String inputFormat = "%{IP:client} %{WORD:method} %{URIPATHPARAM:request} %{NUMBER:bytes} %{NUMBER:duration}";
 
         // GROK format is read-only, so create data files using the text file format
         @Language("SQL") String createTableSql =
                 """
                 CREATE TABLE test_grok_table (
-                    access_log VARCHAR)
+                    client VARCHAR,
+                    method VARCHAR,
+                    request VARCHAR,
+                    bytes BIGINT,
+                    duration BIGINT)
                 WITH (
                     format = 'grok',
                     grok_input_format = '%s',
@@ -81,13 +85,100 @@ public class TestGrokTable
        MaterializedResult result = computeActual("SELECT * FROM test_grok_table");
         List<MaterializedRow> expected = List.of(
                 new MaterializedRow(Arrays.asList(
-                        "64.242.88.10 - - [07/Mar/2004:16:05:49 -0800] \"GET /twiki/bin/edit/Main/Double_bounce_sender?topicparent=Main.ConfigurationVariables HTTP/1.1\" 401 12846"
+                        "55.3.244.1",
+                        "GET",
+                        "/index.html",
+                        15824L,
+                        10L
+                )),
+                new MaterializedRow(Arrays.asList(
+                        "10.0.0.15",
+                        "POST",
+                        "/login.php",
+                        2341L,
+                        15L
+                )),
+                new MaterializedRow(Arrays.asList(
+                        "144.76.92.155",
+                        "GET",
+                        "/downloads/file.zip",
+                        234567L,
+                        45L
+                )),
+                new MaterializedRow(Arrays.asList(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null
+                )),
+                new MaterializedRow(Arrays.asList(
+                        "209.85.231.104",
+                        "POST",
+                        "/checkout",
+                        12345L,
+                        22L
                 ))
         );
         assertEqualsIgnoreOrder(result.getMaterializedRows(), expected);
-        assertQueryFails("INSERT INTO test_grok_table VALUES ('grok fails writes')", "GROK format is read-only");
+        assertQueryFails("INSERT INTO test_grok_table VALUES ('a', 'b', 'c', 0, 0)", "GROK format is read-only");
 
         assertUpdate("DROP TABLE test_grok_table");
+    }
+
+    @Test
+    public void testGrokSupportedDataTypes()
+            throws IOException
+    {
+        URL resourceLocation = Resources.getResource("grok/supported_datatypes_log");
+        TrinoFileSystem fileSystem = getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(ConnectorIdentity.ofUser("test"));
+
+        // Create a temporary directory for the table data
+        Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());
+        fileSystem.createDirectory(tempDir);
+        Location dataFile = tempDir.appendPath("supported_datatypes_log");
+
+        try (OutputStream out = fileSystem.newOutputFile(dataFile).create()) {
+            Resources.copy(resourceLocation, out);
+        }
+
+        String inputFormat = "%{WORD:a} %{NUMBER:b} %{BASE10NUM:c} %{POSINT:d} %{NONNEGINT:e} %{BASE10NUM:f} %{GREEDYDATA:g} %{WORD:h} %{NOTSPACE:i}";
+
+        // GROK format is read-only, so create data files using the text file format
+        @Language("SQL") String createTableSql =
+                """
+                CREATE TABLE test_grok_supported_datatypes (
+                    a BOOLEAN,
+                    b BIGINT,
+                    c INTEGER,
+                    d SMALLINT,
+                    e TINYINT,
+                    f REAL,
+                    g DOUBLE,
+                    h VARCHAR,
+                    i CHAR(4))
+                WITH (
+                    format = 'grok',
+                    grok_input_format = '%s',
+                    external_location = '%s')
+                """.formatted(inputFormat, dataFile.parentDirectory());
+
+        assertUpdate(createTableSql);
+        MaterializedResult result = computeActual("SELECT * FROM test_grok_supported_datatypes");
+        List<MaterializedRow> expected = List.of(
+                new MaterializedRow(Arrays.asList(
+                        true,
+                        123456789L,
+                        1000,
+                        (short) 1,
+                        (byte) 0,
+                        3.14159f,
+                        1.23,
+                        "Hello",
+                        "abc " // test that null padding for char type works
+                ))
+        );
+        assertEqualsIgnoreOrder(result.getMaterializedRows(), expected);
     }
 
     @Test

@@ -21,7 +21,7 @@ public final class HiveClassNames
     public static final String COLUMNAR_SERDE_CLASS = "org.apache.hadoop.hive.serde2.columnar.ColumnarSerDe";
     public static final String FILE_INPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.FileInputFormat";
     public static final String FILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.mapred.FileOutputFormat";
-    public static final String GROK_SERDE_CLASS = "com.amazonaws.serde.GrokSerDe";
+    public static final String GROK_SERDE_CLASS = "com.amazonaws.glue.serde.GrokSerDe";
     public static final String HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
     public static final String HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat";
     public static final String HUDI_PARQUET_INPUT_FORMAT = "org.apache.hudi.hadoop.HoodieParquetInputFormat";

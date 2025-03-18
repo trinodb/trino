@@ -72,6 +72,9 @@ public class HiveTableProperties
     public static final String REGEX_CASE_INSENSITIVE = "regex_case_insensitive";
     public static final String GROK_INPUT_FORMAT = "grok_input_format";
     public static final String GROK_CUSTOM_PATTERNS = "grok_custom_patterns";
+    public static final String GROK_STRICT_MODE = "grok_strict_mode";
+    public static final String GROK_NAMED_ONLY_MODE = "grok_named_only_mode";
+    public static final String GROK_NULL_ON_PARSE_ERROR = "grok_null_on_parse_error";
     public static final String TRANSACTIONAL = "transactional";
     public static final String AUTO_PURGE = "auto_purge";
     public static final String EXTRA_PROPERTIES = "extra_properties";
@@ -178,6 +181,9 @@ public class HiveTableProperties
                 booleanProperty(REGEX_CASE_INSENSITIVE, "REGEX pattern is case insensitive", null, false),
                 stringProperty(GROK_INPUT_FORMAT, "GROK input format", null, false),
                 stringProperty(GROK_CUSTOM_PATTERNS, "GROK custom patterns", null, false),
+                booleanProperty(GROK_STRICT_MODE, "GROK strict mode", null, false),
+                booleanProperty(GROK_NAMED_ONLY_MODE, "GROK named only mode", null, false),
+                booleanProperty(GROK_NULL_ON_PARSE_ERROR, "GROK null on parse error", null, false),
                 booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
                 booleanProperty(AUTO_PURGE, "Skip trash when table or partition is deleted", config.isAutoPurge(), false),
                 booleanProperty(
@@ -355,6 +361,21 @@ public class HiveTableProperties
     public static Optional<String> getGrokCustomPatterns(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((String) tableProperties.get(GROK_CUSTOM_PATTERNS));
+    }
+
+    public static Optional<Boolean> isGrokStrictMode(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(GROK_STRICT_MODE));
+    }
+
+    public static Optional<Boolean> isGrokNamedOnlyMode(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(GROK_NAMED_ONLY_MODE));
+    }
+
+    public static Optional<Boolean> isGrokNullOnParseError(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(GROK_NULL_ON_PARSE_ERROR));
     }
 
     public static Optional<Boolean> isTransactional(Map<String, Object> tableProperties)
