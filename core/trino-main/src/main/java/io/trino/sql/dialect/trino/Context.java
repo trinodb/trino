@@ -38,7 +38,7 @@ public record Context(Block.Builder block, Map<Symbol, RowField> symbolMapping)
         this.symbolMapping = ImmutableMap.copyOf(requireNonNull(symbolMapping, "symbolMapping is null"));
     }
 
-    public static Map<Symbol, RowField> argumentMapping(Block.Parameter parameter, Map<Symbol, String> symbolMapping)
+    public static Map<Symbol, RowField> argumentMapping(Block.Parameter parameter, Map<Symbol, Integer> symbolMapping)
     {
         return symbolMapping.entrySet().stream()
                 .collect(toImmutableMap(
@@ -66,12 +66,11 @@ public record Context(Block.Builder block, Map<Symbol, RowField> symbolMapping)
         return composed;
     }
 
-    public record RowField(Block.Parameter row, String field)
+    public record RowField(Block.Parameter row, int field)
     {
         public RowField
         {
             requireNonNull(row, "row is null");
-            requireNonNull(field, "field is null");
         }
     }
 }

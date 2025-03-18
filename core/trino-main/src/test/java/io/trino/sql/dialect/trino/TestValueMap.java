@@ -20,7 +20,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.dialect.trino.operation.Comparison;
 import io.trino.sql.dialect.trino.operation.Constant;
-import io.trino.sql.dialect.trino.operation.FieldSelection;
+import io.trino.sql.dialect.trino.operation.FieldReference;
 import io.trino.sql.dialect.trino.operation.Filter;
 import io.trino.sql.dialect.trino.operation.Output;
 import io.trino.sql.dialect.trino.operation.Query;
@@ -120,20 +120,20 @@ final class TestValueMap
         Block.Parameter predicateParameter = new Block.Parameter(
                 "%11",
                 irType(relationRowType(trinoType(valuesOperation.result().type()))));
-        FieldSelection fieldSelectionOperationPredicate = new FieldSelection("%12", predicateParameter, "f_1", ImmutableMap.of());
+        FieldReference fieldReferenceOperationPredicate = new FieldReference("%12", predicateParameter, 0, ImmutableMap.of());
         Constant constantOperationPredicate = new Constant("%13", BIGINT, 5L);
         Comparison comparisonOperationPredicate = new Comparison(
                 "%14",
-                fieldSelectionOperationPredicate.result(),
+                fieldReferenceOperationPredicate.result(),
                 constantOperationPredicate.result(),
                 GREATER_THAN,
-                ImmutableList.of(fieldSelectionOperationPredicate.attributes(), constantOperationPredicate.attributes()));
+                ImmutableList.of(fieldReferenceOperationPredicate.attributes(), constantOperationPredicate.attributes()));
         Return returnOperationPredicate = new Return("%15", comparisonOperationPredicate.result(), comparisonOperationPredicate.attributes());
         Block predicateBlock = new Block(
                 Optional.of("^predicate"),
                 ImmutableList.of(predicateParameter),
                 ImmutableList.of(
-                        fieldSelectionOperationPredicate,
+                        fieldReferenceOperationPredicate,
                         constantOperationPredicate,
                         comparisonOperationPredicate,
                         returnOperationPredicate));
@@ -144,22 +144,22 @@ final class TestValueMap
                 predicateBlock,
                 valuesOperation.attributes());
 
-        Block.Parameter fieldSelectionParameter = new Block.Parameter(
+        Block.Parameter fieldReferenceParameter = new Block.Parameter(
                 "%17",
                 irType(relationRowType(trinoType(filterOperation.result().type()))));
-        FieldSelection fieldSelectionOperationB = new FieldSelection("%18", fieldSelectionParameter, "f_2", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationA = new FieldSelection("%19", fieldSelectionParameter, "f_1", ImmutableMap.of());
+        FieldReference fieldReferenceOperationB = new FieldReference("%18", fieldReferenceParameter, 1, ImmutableMap.of());
+        FieldReference fieldReferenceOperationA = new FieldReference("%19", fieldReferenceParameter, 0, ImmutableMap.of());
         Row rowOperationFieldSelector = new Row(
                 "%20",
-                ImmutableList.of(fieldSelectionOperationB.result(), fieldSelectionOperationA.result()),
-                ImmutableList.of(fieldSelectionOperationB.attributes(), fieldSelectionOperationA.attributes()));
+                ImmutableList.of(fieldReferenceOperationB.result(), fieldReferenceOperationA.result()),
+                ImmutableList.of(fieldReferenceOperationB.attributes(), fieldReferenceOperationA.attributes()));
         Return returnOperationFieldSelector = new Return("%21", rowOperationFieldSelector.result(), rowOperationFieldSelector.attributes());
         Block fieldSelectorBlock = new Block(
                 Optional.of("^outputFieldSelector"),
-                ImmutableList.of(fieldSelectionParameter),
+                ImmutableList.of(fieldReferenceParameter),
                 ImmutableList.of(
-                        fieldSelectionOperationB,
-                        fieldSelectionOperationA,
+                        fieldReferenceOperationB,
+                        fieldReferenceOperationA,
                         rowOperationFieldSelector,
                         returnOperationFieldSelector));
 
@@ -181,7 +181,7 @@ final class TestValueMap
 
         Map<Value, SourceNode> expectedValueMap = ImmutableMap.<Value, SourceNode>builder()
                 .put(new Operation.Result("%0", irType(BOOLEAN)), queryOperation)
-                .put(new Operation.Result("%1", irType(new MultisetType(rowType("f_1", BIGINT, "f_2", BOOLEAN)))), valuesOperation)
+                .put(new Operation.Result("%1", irType(new MultisetType(anonymousRow(BIGINT, BOOLEAN)))), valuesOperation)
                 .put(new Operation.Result("%2", irType(BIGINT)), constantOperation1Row1)
                 .put(new Operation.Result("%3", irType(BOOLEAN)), constantOperation2Row1)
                 .put(new Operation.Result("%4", irType(anonymousRow(BIGINT, BOOLEAN))), rowOperation1)
@@ -190,16 +190,16 @@ final class TestValueMap
                 .put(new Operation.Result("%7", irType(BOOLEAN)), constantOperation2Row2)
                 .put(new Operation.Result("%8", irType(anonymousRow(BIGINT, BOOLEAN))), rowOperation2)
                 .put(new Operation.Result("%9", irType(anonymousRow(BIGINT, BOOLEAN))), returnOperationRow2)
-                .put(new Operation.Result("%10", irType(new MultisetType(rowType("f_1", BIGINT, "f_2", BOOLEAN)))), filterOperation)
-                .put(new Block.Parameter("%11", irType(rowType("f_1", BIGINT, "f_2", BOOLEAN))), predicateBlock)
-                .put(new Operation.Result("%12", irType(BIGINT)), fieldSelectionOperationPredicate)
+                .put(new Operation.Result("%10", irType(new MultisetType(anonymousRow(BIGINT, BOOLEAN)))), filterOperation)
+                .put(new Block.Parameter("%11", irType(anonymousRow(BIGINT, BOOLEAN))), predicateBlock)
+                .put(new Operation.Result("%12", irType(BIGINT)), fieldReferenceOperationPredicate)
                 .put(new Operation.Result("%13", irType(BIGINT)), constantOperationPredicate)
                 .put(new Operation.Result("%14", irType(BOOLEAN)), comparisonOperationPredicate)
                 .put(new Operation.Result("%15", irType(BOOLEAN)), returnOperationPredicate)
                 .put(new Operation.Result("%16", irType(BOOLEAN)), outputOperation)
-                .put(new Block.Parameter("%17", irType(rowType("f_1", BIGINT, "f_2", BOOLEAN))), fieldSelectorBlock)
-                .put(new Operation.Result("%18", irType(BOOLEAN)), fieldSelectionOperationB)
-                .put(new Operation.Result("%19", irType(BIGINT)), fieldSelectionOperationA)
+                .put(new Block.Parameter("%17", irType(anonymousRow(BIGINT, BOOLEAN))), fieldSelectorBlock)
+                .put(new Operation.Result("%18", irType(BOOLEAN)), fieldReferenceOperationB)
+                .put(new Operation.Result("%19", irType(BIGINT)), fieldReferenceOperationA)
                 .put(new Operation.Result("%20", irType(anonymousRow(BOOLEAN, BIGINT))), rowOperationFieldSelector)
                 .put(new Operation.Result("%21", irType(anonymousRow(BOOLEAN, BIGINT))), returnOperationFieldSelector)
                 .buildOrThrow();
@@ -217,7 +217,7 @@ final class TestValueMap
                         IR version = 1
                         %0 = query() : () -> "boolean" ({
                             ^query
-                                %1 = values() : () -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
+                                %1 = values() : () -> "multiset(row(bigint,boolean))" ({
                                     ^row
                                         %2 = constant() : () -> "bigint" ()
                                             {constant_result = "{""type"":""bigint"",""value"":1}"}
@@ -237,10 +237,10 @@ final class TestValueMap
                                             {ir.terminal = "true"}
                                     })
                                     {cardinality = "2"}
-                                %10 = filter(%1) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
-                                    ^predicate (%11 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %12 = field_selection(%11) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
+                                %10 = filter(%1) : ("multiset(row(bigint,boolean))") -> "multiset(row(bigint,boolean))" ({
+                                    ^predicate (%11 : "row(bigint,boolean)")
+                                        %12 = field_reference(%11) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
                                         %13 = constant() : () -> "bigint" ()
                                             {constant_result = "{""type"":""bigint"",""value"":5}"}
                                         %14 = comparison(%12, %13) : ("bigint", "bigint") -> "boolean" ()
@@ -248,12 +248,12 @@ final class TestValueMap
                                         %15 = return(%14) : ("boolean") -> "boolean" ()
                                             {ir.terminal = "true"}
                                     })
-                                %16 = output(%10) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "boolean" ({
-                                    ^outputFieldSelector (%17 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %18 = field_selection(%17) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
-                                        %19 = field_selection(%17) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
+                                %16 = output(%10) : ("multiset(row(bigint,boolean))") -> "boolean" ({
+                                    ^outputFieldSelector (%17 : "row(bigint,boolean)")
+                                        %18 = field_reference(%17) : ("row(bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
+                                        %19 = field_reference(%17) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
                                         %20 = row(%18, %19) : ("boolean", "bigint") -> "row(boolean,bigint)" ()
                                         %21 = return(%20) : ("row(boolean,bigint)") -> "row(boolean,bigint)" ()
                                             {ir.terminal = "true"}

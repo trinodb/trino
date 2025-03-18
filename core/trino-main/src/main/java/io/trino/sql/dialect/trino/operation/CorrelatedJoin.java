@@ -33,7 +33,6 @@ import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
 import static io.trino.sql.dialect.trino.Attributes.JOIN_TYPE;
-import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
@@ -89,7 +88,7 @@ public final class CorrelatedJoin
             this.result = new Result(resultName, irType(new MultisetType(EMPTY_ROW)));
         }
         else {
-            this.result = new Result(resultName, irType(new MultisetType(assignRelationRowTypeFieldNames(RowType.anonymous(outputTypes)))));
+            this.result = new Result(resultName, irType(new MultisetType(RowType.anonymous(outputTypes))));
         }
 
         this.input = input;

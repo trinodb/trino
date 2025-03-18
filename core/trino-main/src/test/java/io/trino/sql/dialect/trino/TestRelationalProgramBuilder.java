@@ -41,7 +41,7 @@ import io.trino.sql.dialect.trino.operation.Comparison;
 import io.trino.sql.dialect.trino.operation.Constant;
 import io.trino.sql.dialect.trino.operation.CorrelatedJoin;
 import io.trino.sql.dialect.trino.operation.Exchange;
-import io.trino.sql.dialect.trino.operation.FieldSelection;
+import io.trino.sql.dialect.trino.operation.FieldReference;
 import io.trino.sql.dialect.trino.operation.Filter;
 import io.trino.sql.dialect.trino.operation.Join;
 import io.trino.sql.dialect.trino.operation.Limit;
@@ -106,7 +106,6 @@ import static io.trino.sql.dialect.trino.Attributes.ExchangeScope.REMOTE;
 import static io.trino.sql.dialect.trino.Attributes.ExchangeType.GATHER;
 import static io.trino.sql.dialect.trino.Attributes.JoinType.LEFT;
 import static io.trino.sql.dialect.trino.Attributes.TopNStep.FINAL;
-import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.deriveOutputMapping;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.mapStatistics;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
@@ -160,16 +159,16 @@ final class TestRelationalProgramBuilder
         Block.Parameter argumentsParameter = new Block.Parameter(
                 "%12",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationArgument = new FieldSelection("%13", argumentsParameter, "f_1", ImmutableMap.of());
-        Row rowOperationArgument = new Row("%14", ImmutableList.of(fieldSelectionOperationArgument.result()), ImmutableList.of(fieldSelectionOperationArgument.attributes()));
+        FieldReference fieldReferenceOperationArgument = new FieldReference("%13", argumentsParameter, 0, ImmutableMap.of());
+        Row rowOperationArgument = new Row("%14", ImmutableList.of(fieldReferenceOperationArgument.result()), ImmutableList.of(fieldReferenceOperationArgument.attributes()));
         Return returnOperationArgument = new Return("%15", rowOperationArgument.result(), rowOperationArgument.attributes());
 
         // aggregate filter
         Block.Parameter filterParameter = new Block.Parameter(
                 "%16",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationFilter = new FieldSelection("%17", filterParameter, "f_2", ImmutableMap.of());
-        Row rowOperationFilter = new Row("%18", ImmutableList.of(fieldSelectionOperationFilter.result()), ImmutableList.of(fieldSelectionOperationFilter.attributes()));
+        FieldReference fieldReferenceOperationFilter = new FieldReference("%17", filterParameter, 1, ImmutableMap.of());
+        Row rowOperationFilter = new Row("%18", ImmutableList.of(fieldReferenceOperationFilter.result()), ImmutableList.of(fieldReferenceOperationFilter.attributes()));
         Return returnOperationFilter = new Return("%19", rowOperationFilter.result(), rowOperationFilter.attributes());
 
         // aggregate mask
@@ -183,12 +182,12 @@ final class TestRelationalProgramBuilder
         Block.Parameter orderingParameter = new Block.Parameter(
                 "%23",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationOrderingA = new FieldSelection("%24", orderingParameter, "f_1", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationOrderingB = new FieldSelection("%25", orderingParameter, "f_2", ImmutableMap.of());
+        FieldReference fieldReferenceOperationOrderingA = new FieldReference("%24", orderingParameter, 0, ImmutableMap.of());
+        FieldReference fieldReferenceOperationOrderingB = new FieldReference("%25", orderingParameter, 1, ImmutableMap.of());
         Row rowOperationOrdering = new Row(
                 "%26",
-                ImmutableList.of(fieldSelectionOperationOrderingA.result(), fieldSelectionOperationOrderingB.result()),
-                ImmutableList.of(fieldSelectionOperationOrderingA.attributes(), fieldSelectionOperationOrderingB.attributes()));
+                ImmutableList.of(fieldReferenceOperationOrderingA.result(), fieldReferenceOperationOrderingB.result()),
+                ImmutableList.of(fieldReferenceOperationOrderingA.attributes(), fieldReferenceOperationOrderingB.attributes()));
         Return returnOperationOrdering = new Return("%27", rowOperationOrdering.result(), rowOperationOrdering.attributes());
 
         AggregateCall aggregateCallOperation = new AggregateCall(
@@ -199,14 +198,14 @@ final class TestRelationalProgramBuilder
                         Optional.of("^arguments"),
                         ImmutableList.of(argumentsParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationArgument,
+                                fieldReferenceOperationArgument,
                                 rowOperationArgument,
                                 returnOperationArgument)),
                 new Block(
                         Optional.of("^filterSelector"),
                         ImmutableList.of(filterParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationFilter,
+                                fieldReferenceOperationFilter,
                                 rowOperationFilter,
                                 returnOperationFilter)),
                 new Block(
@@ -219,8 +218,8 @@ final class TestRelationalProgramBuilder
                         Optional.of("^orderingSelector"),
                         ImmutableList.of(orderingParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationOrderingA,
-                                fieldSelectionOperationOrderingB,
+                                fieldReferenceOperationOrderingA,
+                                fieldReferenceOperationOrderingB,
                                 rowOperationOrdering,
                                 returnOperationOrdering)),
                 Optional.of(new SortOrderList(ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST))),
@@ -236,16 +235,16 @@ final class TestRelationalProgramBuilder
         Block.Parameter groupingKeysParameter = new Block.Parameter(
                 "%30",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationGroupingKeys = new FieldSelection("%31", groupingKeysParameter, "f_2", ImmutableMap.of());
-        Row rowOperationGroupingKeys = new Row("%32", ImmutableList.of(fieldSelectionOperationGroupingKeys.result()), ImmutableList.of(fieldSelectionOperationGroupingKeys.attributes()));
+        FieldReference fieldReferenceOperationGroupingKeys = new FieldReference("%31", groupingKeysParameter, 1, ImmutableMap.of());
+        Row rowOperationGroupingKeys = new Row("%32", ImmutableList.of(fieldReferenceOperationGroupingKeys.result()), ImmutableList.of(fieldReferenceOperationGroupingKeys.attributes()));
         Return returnOperationGroupingKeys = new Return("%33", rowOperationGroupingKeys.result(), rowOperationGroupingKeys.attributes());
 
         // hash
         Block.Parameter hashParameter = new Block.Parameter(
                 "%34",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationHash = new FieldSelection("%35", hashParameter, "f_1", ImmutableMap.of());
-        Row rowOperationHash = new Row("%36", ImmutableList.of(fieldSelectionOperationHash.result()), ImmutableList.of(fieldSelectionOperationHash.attributes()));
+        FieldReference fieldReferenceOperationHash = new FieldReference("%35", hashParameter, 0, ImmutableMap.of());
+        Row rowOperationHash = new Row("%36", ImmutableList.of(fieldReferenceOperationHash.result()), ImmutableList.of(fieldReferenceOperationHash.attributes()));
         Return returnOperationHash = new Return("%37", rowOperationHash.result(), rowOperationHash.attributes());
 
         Aggregation aggregationOperation = new Aggregation(
@@ -262,14 +261,14 @@ final class TestRelationalProgramBuilder
                         Optional.of("^groupingKeysSelector"),
                         ImmutableList.of(groupingKeysParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationGroupingKeys,
+                                fieldReferenceOperationGroupingKeys,
                                 rowOperationGroupingKeys,
                                 returnOperationGroupingKeys)),
                 new Block(
                         Optional.of("^hashSelector"),
                         ImmutableList.of(hashParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationHash,
+                                fieldReferenceOperationHash,
                                 rowOperationHash,
                                 returnOperationHash)),
                 1,
@@ -283,14 +282,11 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 aggregationNode,
                 ImmutableList.of(VALUES_OPERATION, aggregationOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BOOLEAN),
-                        new RowType.Field(Optional.of("f_2"), BIGINT),
-                        new RowType.Field(Optional.of("f_3"), BIGINT))),
+                new MultisetType(anonymousRow(BOOLEAN, BIGINT, BIGINT)),
                 ImmutableMap.of(
-                        new Symbol(BOOLEAN, "b"), "f_1",
-                        new Symbol(BIGINT, "a"), "f_2",
-                        new Symbol(BIGINT, "sum_agg"), "f_3"));
+                        new Symbol(BOOLEAN, "b"), 0,
+                        new Symbol(BIGINT, "a"), 1,
+                        new Symbol(BIGINT, "sum_agg"), 2));
 
         assertThat(aggregateCallOperation.attributes())
                 .isEqualTo(ImmutableMap.builder()
@@ -344,16 +340,16 @@ final class TestRelationalProgramBuilder
         Block.Parameter correlationParameter = new Block.Parameter(
                 "%10",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationCorrelation = new FieldSelection("%11", correlationParameter, "f_2", ImmutableMap.of());
-        Row rowOperationCorrelation = new Row("%12", ImmutableList.of(fieldSelectionOperationCorrelation.result()), ImmutableList.of(fieldSelectionOperationCorrelation.attributes()));
+        FieldReference fieldReferenceOperationCorrelation = new FieldReference("%11", correlationParameter, 1, ImmutableMap.of());
+        Row rowOperationCorrelation = new Row("%12", ImmutableList.of(fieldReferenceOperationCorrelation.result()), ImmutableList.of(fieldReferenceOperationCorrelation.attributes()));
         Return returnOperationCorrelation = new Return("%13", rowOperationCorrelation.result(), rowOperationCorrelation.attributes());
 
         // subquery
         Block.Parameter subqueryParameter = new Block.Parameter(
                 "%14",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationSubquery = new FieldSelection("%16", subqueryParameter, "f_2", ImmutableMap.of());
-        Row rowOperationSubquery = new Row("%17", ImmutableList.of(fieldSelectionOperationSubquery.result()), ImmutableList.of(fieldSelectionOperationSubquery.attributes()));
+        FieldReference fieldReferenceOperationSubquery = new FieldReference("%16", subqueryParameter, 1, ImmutableMap.of());
+        Row rowOperationSubquery = new Row("%17", ImmutableList.of(fieldReferenceOperationSubquery.result()), ImmutableList.of(fieldReferenceOperationSubquery.attributes()));
         Return returnOperationSubqueryRow = new Return("%18", rowOperationSubquery.result(), rowOperationSubquery.attributes());
         Values valuesOperationSubquery = new Values(
                 "%15",
@@ -362,7 +358,7 @@ final class TestRelationalProgramBuilder
                         Optional.of("^row"),
                         ImmutableList.of(),
                         ImmutableList.of(
-                                fieldSelectionOperationSubquery,
+                                fieldReferenceOperationSubquery,
                                 rowOperationSubquery,
                                 returnOperationSubqueryRow))));
         Return returnOperationSubquery = new Return("%19", valuesOperationSubquery.result(), valuesOperationSubquery.attributes());
@@ -376,9 +372,9 @@ final class TestRelationalProgramBuilder
         // subquery row
         Block.Parameter secondFilterParameter = new Block.Parameter(
                 "%21",
-                irType(rowType(new RowType.Field(Optional.of("f_1"), BOOLEAN))));
-        FieldSelection fieldSelectionOperationFilter = new FieldSelection("%22", firstFilterParameter, "f_2", ImmutableMap.of());
-        Return returnOperationFilter = new Return("%23", fieldSelectionOperationFilter.result(), fieldSelectionOperationFilter.attributes());
+                irType(anonymousRow(BOOLEAN)));
+        FieldReference fieldReferenceOperationFilter = new FieldReference("%22", firstFilterParameter, 1, ImmutableMap.of());
+        Return returnOperationFilter = new Return("%23", fieldReferenceOperationFilter.result(), fieldReferenceOperationFilter.attributes());
 
         CorrelatedJoin correlatedJoinOperation = new CorrelatedJoin(
                 "%9",
@@ -387,7 +383,7 @@ final class TestRelationalProgramBuilder
                         Optional.of("^correlationSelector"),
                         ImmutableList.of(correlationParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationCorrelation,
+                                fieldReferenceOperationCorrelation,
                                 rowOperationCorrelation,
                                 returnOperationCorrelation)),
                 new Block(
@@ -400,7 +396,7 @@ final class TestRelationalProgramBuilder
                         Optional.of("^filter"),
                         ImmutableList.of(firstFilterParameter, secondFilterParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationFilter,
+                                fieldReferenceOperationFilter,
                                 returnOperationFilter)),
                 LEFT,
                 VALUES_OPERATION.attributes(),
@@ -409,14 +405,11 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 correlatedJoinNode,
                 ImmutableList.of(VALUES_OPERATION, correlatedJoinOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN),
-                        new RowType.Field(Optional.of("f_3"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "f_1",
-                        new Symbol(BOOLEAN, "b"), "f_2",
-                        new Symbol(BOOLEAN, "c"), "f_3"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1,
+                        new Symbol(BOOLEAN, "c"), 2));
     }
 
     @Test
@@ -462,41 +455,41 @@ final class TestRelationalProgramBuilder
         Block.Parameter leftInputsParameter = new Block.Parameter(
                 "%11",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationLeftInputsA = new FieldSelection("%12", leftInputsParameter, "f_1", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationLeftInputsB = new FieldSelection("%13", leftInputsParameter, "f_2", ImmutableMap.of());
+        FieldReference fieldReferenceOperationLeftInputsA = new FieldReference("%12", leftInputsParameter, 0, ImmutableMap.of());
+        FieldReference fieldReferenceOperationLeftInputsB = new FieldReference("%13", leftInputsParameter, 1, ImmutableMap.of());
         Row rowOperationLeftInputs = new Row(
                 "%14",
-                ImmutableList.of(fieldSelectionOperationLeftInputsA.result(), fieldSelectionOperationLeftInputsB.result()),
-                ImmutableList.of(fieldSelectionOperationLeftInputsA.attributes(), fieldSelectionOperationLeftInputsB.attributes()));
+                ImmutableList.of(fieldReferenceOperationLeftInputsA.result(), fieldReferenceOperationLeftInputsB.result()),
+                ImmutableList.of(fieldReferenceOperationLeftInputsA.attributes(), fieldReferenceOperationLeftInputsB.attributes()));
         Return returnOperationLeftInputs = new Return("%15", rowOperationLeftInputs.result(), rowOperationLeftInputs.attributes());
 
         Block.Parameter rightInputsParameter = new Block.Parameter(
                 "%16",
                 rightRowType);
-        FieldSelection fieldSelectionOperationRightInputsD = new FieldSelection("%17", rightInputsParameter, "f_2", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationRightInputsE = new FieldSelection("%18", rightInputsParameter, "f_3", ImmutableMap.of());
+        FieldReference fieldReferenceOperationRightInputsD = new FieldReference("%17", rightInputsParameter, 1, ImmutableMap.of());
+        FieldReference fieldReferenceOperationRightInputsE = new FieldReference("%18", rightInputsParameter, 2, ImmutableMap.of());
         Row rowOperationRightInputs = new Row(
                 "%19",
-                ImmutableList.of(fieldSelectionOperationRightInputsD.result(), fieldSelectionOperationRightInputsE.result()),
-                ImmutableList.of(fieldSelectionOperationRightInputsD.attributes(), fieldSelectionOperationRightInputsE.attributes()));
+                ImmutableList.of(fieldReferenceOperationRightInputsD.result(), fieldReferenceOperationRightInputsE.result()),
+                ImmutableList.of(fieldReferenceOperationRightInputsD.attributes(), fieldReferenceOperationRightInputsE.attributes()));
         Return returnOperationRightInputs = new Return("%20", rowOperationRightInputs.result(), rowOperationRightInputs.attributes());
 
-        RowType exchangeOutputRowType = rowType(new RowType.Field(Optional.of("f_1"), BIGINT), new RowType.Field(Optional.of("f_2"), BOOLEAN));
+        RowType exchangeOutputRowType = anonymousRow(BIGINT, BOOLEAN);
 
         // partitioning bound arguments
         Block.Parameter boundArgumentsParameter = new Block.Parameter(
                 "%21",
                 irType(exchangeOutputRowType));
-        FieldSelection fieldSelectionOperationF = new FieldSelection("%22", boundArgumentsParameter, "f_1", ImmutableMap.of());
-        Row rowOperationBoundArguments = new Row("%23", ImmutableList.of(fieldSelectionOperationF.result()), ImmutableList.of(fieldSelectionOperationF.attributes()));
+        FieldReference fieldReferenceOperationF = new FieldReference("%22", boundArgumentsParameter, 0, ImmutableMap.of());
+        Row rowOperationBoundArguments = new Row("%23", ImmutableList.of(fieldReferenceOperationF.result()), ImmutableList.of(fieldReferenceOperationF.attributes()));
         Return returnOperationBoundArguments = new Return("%24", rowOperationBoundArguments.result(), rowOperationBoundArguments.attributes());
 
         // partitioning hash
         Block.Parameter hashParameter = new Block.Parameter(
                 "%25",
                 irType(exchangeOutputRowType));
-        FieldSelection fieldSelectionOperationG = new FieldSelection("%26", hashParameter, "f_2", ImmutableMap.of());
-        Row rowOperationHashSymbol = new Row("%27", ImmutableList.of(fieldSelectionOperationG.result()), ImmutableList.of(fieldSelectionOperationG.attributes()));
+        FieldReference fieldReferenceOperationG = new FieldReference("%26", hashParameter, 1, ImmutableMap.of());
+        Row rowOperationHashSymbol = new Row("%27", ImmutableList.of(fieldReferenceOperationG.result()), ImmutableList.of(fieldReferenceOperationG.attributes()));
         Return returnOperationHashSymbol = new Return("%28", rowOperationHashSymbol.result(), rowOperationHashSymbol.attributes());
 
         // order by
@@ -514,30 +507,30 @@ final class TestRelationalProgramBuilder
                                 Optional.of("^inputSelector"),
                                 ImmutableList.of(leftInputsParameter),
                                 ImmutableList.of(
-                                        fieldSelectionOperationLeftInputsA,
-                                        fieldSelectionOperationLeftInputsB,
+                                        fieldReferenceOperationLeftInputsA,
+                                        fieldReferenceOperationLeftInputsB,
                                         rowOperationLeftInputs,
                                         returnOperationLeftInputs)),
                         new Block(
                                 Optional.of("^inputSelector"),
                                 ImmutableList.of(rightInputsParameter),
                                 ImmutableList.of(
-                                        fieldSelectionOperationRightInputsD,
-                                        fieldSelectionOperationRightInputsE,
+                                        fieldReferenceOperationRightInputsD,
+                                        fieldReferenceOperationRightInputsE,
                                         rowOperationRightInputs,
                                         returnOperationRightInputs))),
                 new Block(
                         Optional.of("^boundArguments"),
                         ImmutableList.of(boundArgumentsParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationF,
+                                fieldReferenceOperationF,
                                 rowOperationBoundArguments,
                                 returnOperationBoundArguments)),
                 new Block(
                         Optional.of("^hashSelector"),
                         ImmutableList.of(hashParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationG,
+                                fieldReferenceOperationG,
                                 rowOperationHashSymbol,
                                 returnOperationHashSymbol)),
                 new Block(
@@ -562,12 +555,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 exchangeNode,
                 ImmutableList.of(VALUES_OPERATION, rightSourceOperation, exchangeOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "f"), "f_1",
-                        new Symbol(BOOLEAN, "g"), "f_2"));
+                        new Symbol(BIGINT, "f"), 0,
+                        new Symbol(BOOLEAN, "g"), 1));
 
         assertThat(exchangeOperation.attributes())
                 .isEqualTo(ImmutableMap.builder()
@@ -619,38 +610,38 @@ final class TestRelationalProgramBuilder
         Block.Parameter inputsParameter = new Block.Parameter(
                 "%10",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationInputsA = new FieldSelection("%11", inputsParameter, "f_1", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationInputsB = new FieldSelection("%12", inputsParameter, "f_2", ImmutableMap.of());
+        FieldReference fieldReferenceOperationInputsA = new FieldReference("%11", inputsParameter, 0, ImmutableMap.of());
+        FieldReference fieldReferenceOperationInputsB = new FieldReference("%12", inputsParameter, 1, ImmutableMap.of());
         Row rowOperationInputs = new Row(
                 "%13",
-                ImmutableList.of(fieldSelectionOperationInputsA.result(), fieldSelectionOperationInputsB.result()),
-                ImmutableList.of(fieldSelectionOperationInputsA.attributes(), fieldSelectionOperationInputsB.attributes()));
+                ImmutableList.of(fieldReferenceOperationInputsA.result(), fieldReferenceOperationInputsB.result()),
+                ImmutableList.of(fieldReferenceOperationInputsA.attributes(), fieldReferenceOperationInputsB.attributes()));
         Return returnOperationInputs = new Return("%14", rowOperationInputs.result(), rowOperationInputs.attributes());
 
-        RowType exchangeOutputRowType = rowType(new RowType.Field(Optional.of("f_1"), BIGINT), new RowType.Field(Optional.of("f_2"), BOOLEAN));
+        RowType exchangeOutputRowType = anonymousRow(BIGINT, BOOLEAN);
 
         // partitioning bound arguments
         Block.Parameter boundArgumentsParameter = new Block.Parameter(
                 "%15",
                 irType(exchangeOutputRowType));
-        FieldSelection fieldSelectionOperationF = new FieldSelection("%16", boundArgumentsParameter, "f_1", ImmutableMap.of());
-        Row rowOperationBoundArguments = new Row("%17", ImmutableList.of(fieldSelectionOperationF.result()), ImmutableList.of(fieldSelectionOperationF.attributes()));
+        FieldReference fieldReferenceOperationF = new FieldReference("%16", boundArgumentsParameter, 0, ImmutableMap.of());
+        Row rowOperationBoundArguments = new Row("%17", ImmutableList.of(fieldReferenceOperationF.result()), ImmutableList.of(fieldReferenceOperationF.attributes()));
         Return returnOperationBoundArguments = new Return("%18", rowOperationBoundArguments.result(), rowOperationBoundArguments.attributes());
 
         // partitioning hash
         Block.Parameter hashParameter = new Block.Parameter(
                 "%19",
                 irType(exchangeOutputRowType));
-        FieldSelection fieldSelectionOperationG = new FieldSelection("%20", hashParameter, "f_2", ImmutableMap.of());
-        Row rowOperationHashSymbol = new Row("%21", ImmutableList.of(fieldSelectionOperationG.result()), ImmutableList.of(fieldSelectionOperationG.attributes()));
+        FieldReference fieldReferenceOperationG = new FieldReference("%20", hashParameter, 1, ImmutableMap.of());
+        Row rowOperationHashSymbol = new Row("%21", ImmutableList.of(fieldReferenceOperationG.result()), ImmutableList.of(fieldReferenceOperationG.attributes()));
         Return returnOperationHashSymbol = new Return("%22", rowOperationHashSymbol.result(), rowOperationHashSymbol.attributes());
 
         // order by
         Block.Parameter orderByParameter = new Block.Parameter(
                 "%23",
                 irType(exchangeOutputRowType));
-        FieldSelection fieldSelectionOperationOrderBy = new FieldSelection("%24", orderByParameter, "f_1", ImmutableMap.of());
-        Row rowOperationOrderBy = new Row("%25", ImmutableList.of(fieldSelectionOperationOrderBy.result()), ImmutableList.of(fieldSelectionOperationOrderBy.attributes()));
+        FieldReference fieldReferenceOperationOrderBy = new FieldReference("%24", orderByParameter, 0, ImmutableMap.of());
+        Row rowOperationOrderBy = new Row("%25", ImmutableList.of(fieldReferenceOperationOrderBy.result()), ImmutableList.of(fieldReferenceOperationOrderBy.attributes()));
         Return returnOperationOrderBy = new Return("%26", rowOperationOrderBy.result(), rowOperationOrderBy.attributes());
 
         Exchange exchangeOperation = new Exchange(
@@ -661,29 +652,29 @@ final class TestRelationalProgramBuilder
                                 Optional.of("^inputSelector"),
                                 ImmutableList.of(inputsParameter),
                                 ImmutableList.of(
-                                        fieldSelectionOperationInputsA,
-                                        fieldSelectionOperationInputsB,
+                                        fieldReferenceOperationInputsA,
+                                        fieldReferenceOperationInputsB,
                                         rowOperationInputs,
                                         returnOperationInputs))),
                 new Block(
                         Optional.of("^boundArguments"),
                         ImmutableList.of(boundArgumentsParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationF,
+                                fieldReferenceOperationF,
                                 rowOperationBoundArguments,
                                 returnOperationBoundArguments)),
                 new Block(
                         Optional.of("^hashSelector"),
                         ImmutableList.of(hashParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationG,
+                                fieldReferenceOperationG,
                                 rowOperationHashSymbol,
                                 returnOperationHashSymbol)),
                 new Block(
                         Optional.of("^orderingSelector"),
                         ImmutableList.of(orderByParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationOrderBy,
+                                fieldReferenceOperationOrderBy,
                                 rowOperationOrderBy,
                                 returnOperationOrderBy)),
                 GATHER,
@@ -699,12 +690,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 exchangeNode,
                 ImmutableList.of(VALUES_OPERATION, exchangeOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "f"), "f_1",
-                        new Symbol(BOOLEAN, "g"), "f_2"));
+                        new Symbol(BIGINT, "f"), 0,
+                        new Symbol(BOOLEAN, "g"), 1));
 
         assertThat(exchangeOperation.attributes())
                 .isEqualTo(ImmutableMap.builder()
@@ -749,14 +738,14 @@ final class TestRelationalProgramBuilder
         Block.Parameter predicateParameter = new Block.Parameter(
                 "%10",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperation = new FieldSelection("%11", predicateParameter, "f_1", ImmutableMap.of());
+        FieldReference fieldReferenceOperation = new FieldReference("%11", predicateParameter, 0, ImmutableMap.of());
         Constant constantOperation = new Constant("%12", BIGINT, 5L);
         Comparison comparisonOperation = new Comparison(
                 "%13",
-                fieldSelectionOperation.result(),
+                fieldReferenceOperation.result(),
                 constantOperation.result(),
                 GREATER_THAN,
-                ImmutableList.of(fieldSelectionOperation.attributes(), constantOperation.attributes()));
+                ImmutableList.of(fieldReferenceOperation.attributes(), constantOperation.attributes()));
         Return returnOperation = new Return("%14", comparisonOperation.result(), comparisonOperation.attributes());
         Filter filterOperation = new Filter(
                 "%9",
@@ -765,7 +754,7 @@ final class TestRelationalProgramBuilder
                         Optional.of("^predicate"),
                         ImmutableList.of(predicateParameter),
                         ImmutableList.of(
-                                fieldSelectionOperation,
+                                fieldReferenceOperation,
                                 constantOperation,
                                 comparisonOperation,
                                 returnOperation)),
@@ -774,12 +763,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 filterNode,
                 ImmutableList.of(VALUES_OPERATION, filterOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "f_1",
-                        new Symbol(BOOLEAN, "b"), "f_2"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1));
     }
 
     @Test
@@ -833,16 +820,16 @@ final class TestRelationalProgramBuilder
         Block.Parameter leftCriteriaParameter = new Block.Parameter(
                 "%14",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationLeftCriteria = new FieldSelection("%15", leftCriteriaParameter, "f_1", ImmutableMap.of());
-        Row rowOperationLeftCriteria = new Row("%16", ImmutableList.of(fieldSelectionOperationLeftCriteria.result()), ImmutableList.of(fieldSelectionOperationLeftCriteria.attributes()));
+        FieldReference fieldReferenceOperationLeftCriteria = new FieldReference("%15", leftCriteriaParameter, 0, ImmutableMap.of());
+        Row rowOperationLeftCriteria = new Row("%16", ImmutableList.of(fieldReferenceOperationLeftCriteria.result()), ImmutableList.of(fieldReferenceOperationLeftCriteria.attributes()));
         Return returnOperationLeftCriteria = new Return("%17", rowOperationLeftCriteria.result(), rowOperationLeftCriteria.attributes());
 
         // right join criteria
         Block.Parameter rightCriteriaParameter = new Block.Parameter(
                 "%18",
                 rightRowType);
-        FieldSelection fieldSelectionOperationRightCriteria = new FieldSelection("%19", rightCriteriaParameter, "f_1", ImmutableMap.of());
-        Row rowOperationRightCriteria = new Row("%20", ImmutableList.of(fieldSelectionOperationRightCriteria.result()), ImmutableList.of(fieldSelectionOperationRightCriteria.attributes()));
+        FieldReference fieldReferenceOperationRightCriteria = new FieldReference("%19", rightCriteriaParameter, 0, ImmutableMap.of());
+        Row rowOperationRightCriteria = new Row("%20", ImmutableList.of(fieldReferenceOperationRightCriteria.result()), ImmutableList.of(fieldReferenceOperationRightCriteria.attributes()));
         Return returnOperationRightCriteria = new Return("%21", rowOperationRightCriteria.result(), rowOperationRightCriteria.attributes());
 
         // join filter
@@ -860,8 +847,8 @@ final class TestRelationalProgramBuilder
         Block.Parameter leftHashSymbolParameter = new Block.Parameter(
                 "%26",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationLeftHashSymbol = new FieldSelection("%27", leftHashSymbolParameter, "f_2", ImmutableMap.of());
-        Row rowOperationLeftHashSymbol = new Row("%28", ImmutableList.of(fieldSelectionOperationLeftHashSymbol.result()), ImmutableList.of(fieldSelectionOperationLeftHashSymbol.attributes()));
+        FieldReference fieldReferenceOperationLeftHashSymbol = new FieldReference("%27", leftHashSymbolParameter, 1, ImmutableMap.of());
+        Row rowOperationLeftHashSymbol = new Row("%28", ImmutableList.of(fieldReferenceOperationLeftHashSymbol.result()), ImmutableList.of(fieldReferenceOperationLeftHashSymbol.attributes()));
         Return returnOperationLeftHashSymbol = new Return("%29", rowOperationLeftHashSymbol.result(), rowOperationLeftHashSymbol.attributes());
 
         // right hash symbol
@@ -875,32 +862,32 @@ final class TestRelationalProgramBuilder
         Block.Parameter leftOutputsParameter = new Block.Parameter(
                 "%33",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationLeftOutputsA = new FieldSelection("%34", leftOutputsParameter, "f_1", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationLeftOutputsB = new FieldSelection("%35", leftOutputsParameter, "f_2", ImmutableMap.of());
+        FieldReference fieldReferenceOperationLeftOutputsA = new FieldReference("%34", leftOutputsParameter, 0, ImmutableMap.of());
+        FieldReference fieldReferenceOperationLeftOutputsB = new FieldReference("%35", leftOutputsParameter, 1, ImmutableMap.of());
         Row rowOperationLeftOutputs = new Row(
                 "%36",
-                ImmutableList.of(fieldSelectionOperationLeftOutputsA.result(), fieldSelectionOperationLeftOutputsB.result()),
-                ImmutableList.of(fieldSelectionOperationLeftOutputsA.attributes(), fieldSelectionOperationLeftOutputsB.attributes()));
+                ImmutableList.of(fieldReferenceOperationLeftOutputsA.result(), fieldReferenceOperationLeftOutputsB.result()),
+                ImmutableList.of(fieldReferenceOperationLeftOutputsA.attributes(), fieldReferenceOperationLeftOutputsB.attributes()));
         Return returnOperationLeftOutputs = new Return("%37", rowOperationLeftOutputs.result(), rowOperationLeftOutputs.attributes());
 
         // right outputs
         Block.Parameter rightOutputsParameter = new Block.Parameter(
                 "%38",
                 rightRowType);
-        FieldSelection fieldSelectionOperationRightOutputsC = new FieldSelection("%39", rightOutputsParameter, "f_1", ImmutableMap.of());
-        Row rowOperationRightOutputs = new Row("%40", ImmutableList.of(fieldSelectionOperationRightOutputsC.result()), ImmutableList.of(fieldSelectionOperationRightOutputsC.attributes()));
+        FieldReference fieldReferenceOperationRightOutputsC = new FieldReference("%39", rightOutputsParameter, 0, ImmutableMap.of());
+        Row rowOperationRightOutputs = new Row("%40", ImmutableList.of(fieldReferenceOperationRightOutputsC.result()), ImmutableList.of(fieldReferenceOperationRightOutputsC.attributes()));
         Return returnOperationRightOutputs = new Return("%41", rowOperationRightOutputs.result(), rowOperationRightOutputs.attributes());
 
         // dynamic filter targets
         Block.Parameter dynamicFilterTargetsParameter = new Block.Parameter(
                 "%42",
                 rightRowType);
-        FieldSelection fieldSelectionOperationDynamicFilterTargetsC1 = new FieldSelection("%43", dynamicFilterTargetsParameter, "f_1", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationDynamicFilterTargetsC2 = new FieldSelection("%44", dynamicFilterTargetsParameter, "f_1", ImmutableMap.of());
+        FieldReference fieldReferenceOperationDynamicFilterTargetsC1 = new FieldReference("%43", dynamicFilterTargetsParameter, 0, ImmutableMap.of());
+        FieldReference fieldReferenceOperationDynamicFilterTargetsC2 = new FieldReference("%44", dynamicFilterTargetsParameter, 0, ImmutableMap.of());
         Row rowOperationDynamicFilterTargets = new Row(
                 "%45",
-                ImmutableList.of(fieldSelectionOperationDynamicFilterTargetsC1.result(), fieldSelectionOperationDynamicFilterTargetsC2.result()),
-                ImmutableList.of(fieldSelectionOperationDynamicFilterTargetsC1.attributes(), fieldSelectionOperationDynamicFilterTargetsC2.attributes()));
+                ImmutableList.of(fieldReferenceOperationDynamicFilterTargetsC1.result(), fieldReferenceOperationDynamicFilterTargetsC2.result()),
+                ImmutableList.of(fieldReferenceOperationDynamicFilterTargetsC1.attributes(), fieldReferenceOperationDynamicFilterTargetsC2.attributes()));
         Return returnOperationDynamicFilterTargets = new Return("%46", rowOperationDynamicFilterTargets.result(), rowOperationDynamicFilterTargets.attributes());
 
         Join joinOperation = new Join(
@@ -911,14 +898,14 @@ final class TestRelationalProgramBuilder
                         Optional.of("^leftCriteriaSelector"),
                         ImmutableList.of(leftCriteriaParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationLeftCriteria,
+                                fieldReferenceOperationLeftCriteria,
                                 rowOperationLeftCriteria,
                                 returnOperationLeftCriteria)),
                 new Block(
                         Optional.of("^rightCriteriaSelector"),
                         ImmutableList.of(rightCriteriaParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationRightCriteria,
+                                fieldReferenceOperationRightCriteria,
                                 rowOperationRightCriteria,
                                 returnOperationRightCriteria)),
                 new Block(
@@ -931,7 +918,7 @@ final class TestRelationalProgramBuilder
                         Optional.of("^leftHashSelector"),
                         ImmutableList.of(leftHashSymbolParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationLeftHashSymbol,
+                                fieldReferenceOperationLeftHashSymbol,
                                 rowOperationLeftHashSymbol,
                                 returnOperationLeftHashSymbol)),
                 new Block(
@@ -944,23 +931,23 @@ final class TestRelationalProgramBuilder
                         Optional.of("^leftOutputSelector"),
                         ImmutableList.of(leftOutputsParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationLeftOutputsA,
-                                fieldSelectionOperationLeftOutputsB,
+                                fieldReferenceOperationLeftOutputsA,
+                                fieldReferenceOperationLeftOutputsB,
                                 rowOperationLeftOutputs,
                                 returnOperationLeftOutputs)),
                 new Block(
                         Optional.of("^rightOutputSelector"),
                         ImmutableList.of(rightOutputsParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationRightOutputsC,
+                                fieldReferenceOperationRightOutputsC,
                                 rowOperationRightOutputs,
                                 returnOperationRightOutputs)),
                 new Block(
                         Optional.of("^dynamicFilterTargetSelector"),
                         ImmutableList.of(dynamicFilterTargetsParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationDynamicFilterTargetsC1,
-                                fieldSelectionOperationDynamicFilterTargetsC2,
+                                fieldReferenceOperationDynamicFilterTargetsC1,
+                                fieldReferenceOperationDynamicFilterTargetsC2,
                                 rowOperationDynamicFilterTargets,
                                 returnOperationDynamicFilterTargets)),
                 LEFT,
@@ -975,14 +962,11 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 joinNode,
                 ImmutableList.of(VALUES_OPERATION, rightSourceOperation, joinOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN),
-                        new RowType.Field(Optional.of("f_3"), BIGINT))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN, BIGINT)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "f_1",
-                        new Symbol(BOOLEAN, "b"), "f_2",
-                        new Symbol(BIGINT, "c"), "f_3"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1,
+                        new Symbol(BIGINT, "c"), 2));
 
         assertThat(joinOperation.attributes())
                 .isEqualTo(ImmutableMap.builder()
@@ -1036,12 +1020,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 limitNode,
                 ImmutableList.of(VALUES_OPERATION, limitOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "f_1",
-                        new Symbol(BOOLEAN, "b"), "f_2"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1));
 
         assertThat(limitOperation.attributes())
                 .isEqualTo(ImmutableMap.builder()
@@ -1071,8 +1053,8 @@ final class TestRelationalProgramBuilder
         Block.Parameter orderingParameter = new Block.Parameter(
                 "%10",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationOrderingB = new FieldSelection("%11", orderingParameter, "f_2", ImmutableMap.of());
-        Row rowOperationOrdering = new Row("%12", ImmutableList.of(fieldSelectionOperationOrderingB.result()), ImmutableList.of(fieldSelectionOperationOrderingB.attributes()));
+        FieldReference fieldReferenceOperationOrderingB = new FieldReference("%11", orderingParameter, 1, ImmutableMap.of());
+        Row rowOperationOrdering = new Row("%12", ImmutableList.of(fieldReferenceOperationOrderingB.result()), ImmutableList.of(fieldReferenceOperationOrderingB.attributes()));
         Return returnOperationOrdering = new Return("%13", rowOperationOrdering.result(), rowOperationOrdering.attributes());
 
         Limit limitOperation = new Limit(
@@ -1082,7 +1064,7 @@ final class TestRelationalProgramBuilder
                         Optional.of("^orderingSelector"),
                         ImmutableList.of(orderingParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationOrderingB,
+                                fieldReferenceOperationOrderingB,
                                 rowOperationOrdering,
                                 returnOperationOrdering)),
                 Optional.of(new SortOrderList(ImmutableList.of(ASC_NULLS_FIRST))),
@@ -1094,12 +1076,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 limitNode,
                 ImmutableList.of(VALUES_OPERATION, limitOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "f_1",
-                        new Symbol(BOOLEAN, "b"), "f_2"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1));
 
         assertThat(limitOperation.attributes())
                 .isEqualTo(ImmutableMap.builder()
@@ -1127,15 +1107,15 @@ final class TestRelationalProgramBuilder
                 ImmutableList.of("col_b", "col_a"),
                 ImmutableList.of(new Symbol(BOOLEAN, "b"), new Symbol(BIGINT, "a")));
 
-        Block.Parameter fieldSelectionParameter = new Block.Parameter(
+        Block.Parameter fieldReferenceParameter = new Block.Parameter(
                 "%10",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationB = new FieldSelection("%11", fieldSelectionParameter, "f_2", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationA = new FieldSelection("%12", fieldSelectionParameter, "f_1", ImmutableMap.of());
+        FieldReference fieldReferenceOperationB = new FieldReference("%11", fieldReferenceParameter, 1, ImmutableMap.of());
+        FieldReference fieldReferenceOperationA = new FieldReference("%12", fieldReferenceParameter, 0, ImmutableMap.of());
         Row rowOperation = new Row(
                 "%13",
-                ImmutableList.of(fieldSelectionOperationB.result(), fieldSelectionOperationA.result()),
-                ImmutableList.of(fieldSelectionOperationB.attributes(), fieldSelectionOperationA.attributes()));
+                ImmutableList.of(fieldReferenceOperationB.result(), fieldReferenceOperationA.result()),
+                ImmutableList.of(fieldReferenceOperationB.attributes(), fieldReferenceOperationA.attributes()));
         Return returnOperation = new Return("%14", rowOperation.result(), rowOperation.attributes());
 
         Output outputOperation = new Output(
@@ -1143,10 +1123,10 @@ final class TestRelationalProgramBuilder
                 VALUES_OPERATION.result(),
                 new Block(
                         Optional.of("^outputFieldSelector"),
-                        ImmutableList.of(fieldSelectionParameter),
+                        ImmutableList.of(fieldReferenceParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationB,
-                                fieldSelectionOperationA,
+                                fieldReferenceOperationB,
+                                fieldReferenceOperationA,
                                 rowOperation,
                                 returnOperation)),
                 ImmutableList.of("col_b", "col_a"));
@@ -1180,19 +1160,19 @@ final class TestRelationalProgramBuilder
         Block.Parameter assignmentsParameter = new Block.Parameter(
                 "%10",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationB = new FieldSelection("%11", assignmentsParameter, "f_2", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationA = new FieldSelection("%12", assignmentsParameter, "f_1", ImmutableMap.of());
+        FieldReference fieldReferenceOperationB = new FieldReference("%11", assignmentsParameter, 1, ImmutableMap.of());
+        FieldReference fieldReferenceOperationA = new FieldReference("%12", assignmentsParameter, 0, ImmutableMap.of());
         Constant constantOperation = new Constant("%13", BIGINT, 5L);
         Comparison comparisonOperation = new Comparison(
                 "%14",
-                fieldSelectionOperationA.result(),
+                fieldReferenceOperationA.result(),
                 constantOperation.result(),
                 GREATER_THAN,
-                ImmutableList.of(fieldSelectionOperationA.attributes(), constantOperation.attributes()));
+                ImmutableList.of(fieldReferenceOperationA.attributes(), constantOperation.attributes()));
         Row rowOperation = new Row(
                 "%15",
-                ImmutableList.of(fieldSelectionOperationB.result(), comparisonOperation.result()),
-                ImmutableList.of(fieldSelectionOperationB.attributes(), comparisonOperation.attributes()));
+                ImmutableList.of(fieldReferenceOperationB.result(), comparisonOperation.result()),
+                ImmutableList.of(fieldReferenceOperationB.attributes(), comparisonOperation.attributes()));
         Return returnOperation = new Return("%16", rowOperation.result(), rowOperation.attributes());
         Project projectOperation = new Project(
                 "%9",
@@ -1201,8 +1181,8 @@ final class TestRelationalProgramBuilder
                         Optional.of("^assignments"),
                         ImmutableList.of(assignmentsParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationB,
-                                fieldSelectionOperationA,
+                                fieldReferenceOperationB,
+                                fieldReferenceOperationA,
                                 constantOperation,
                                 comparisonOperation,
                                 rowOperation,
@@ -1212,12 +1192,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 projectNode,
                 ImmutableList.of(VALUES_OPERATION, projectOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BOOLEAN),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BOOLEAN, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BOOLEAN, "b"), "f_1",
-                        new Symbol(BOOLEAN, "c"), "f_2"));
+                        new Symbol(BOOLEAN, "b"), 0,
+                        new Symbol(BOOLEAN, "c"), 1));
     }
 
     @Test
@@ -1284,12 +1262,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 tableScanNode,
                 ImmutableList.of(tableScanOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "f_1",
-                        new Symbol(BOOLEAN, "b"), "f_2"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1));
 
         assertThat(tableScanOperation.attributes())
                 .isEqualTo(ImmutableMap.builder()
@@ -1327,8 +1303,8 @@ final class TestRelationalProgramBuilder
         Block.Parameter orderingParameter = new Block.Parameter(
                 "%10",
                 VALUES_OPERATION_ROW_TYPE);
-        FieldSelection fieldSelectionOperationOrderingB = new FieldSelection("%11", orderingParameter, "f_2", ImmutableMap.of());
-        Row rowOperationOrdering = new Row("%12", ImmutableList.of(fieldSelectionOperationOrderingB.result()), ImmutableList.of(fieldSelectionOperationOrderingB.attributes()));
+        FieldReference fieldReferenceOperationOrderingB = new FieldReference("%11", orderingParameter, 1, ImmutableMap.of());
+        Row rowOperationOrdering = new Row("%12", ImmutableList.of(fieldReferenceOperationOrderingB.result()), ImmutableList.of(fieldReferenceOperationOrderingB.attributes()));
         Return returnOperationOrdering = new Return("%13", rowOperationOrdering.result(), rowOperationOrdering.attributes());
 
         TopN topNOperation = new TopN(
@@ -1338,7 +1314,7 @@ final class TestRelationalProgramBuilder
                         Optional.of("^orderingSelector"),
                         ImmutableList.of(orderingParameter),
                         ImmutableList.of(
-                                fieldSelectionOperationOrderingB,
+                                fieldReferenceOperationOrderingB,
                                 rowOperationOrdering,
                                 returnOperationOrdering)),
                 new SortOrderList(ImmutableList.of(ASC_NULLS_FIRST)),
@@ -1349,12 +1325,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 topNNode,
                 ImmutableList.of(VALUES_OPERATION, topNOperation),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "f_1",
-                        new Symbol(BOOLEAN, "b"), "f_2"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1));
     }
 
     @Test
@@ -1363,12 +1337,10 @@ final class TestRelationalProgramBuilder
         assertProgram(
                 VALUES_NODE,
                 ImmutableList.of(VALUES_OPERATION),
-                new MultisetType(rowType(
-                        new RowType.Field(Optional.of("f_1"), BIGINT),
-                        new RowType.Field(Optional.of("f_2"), BOOLEAN))),
+                new MultisetType(anonymousRow(BIGINT, BOOLEAN)),
                 ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "f_1",
-                        new Symbol(BOOLEAN, "b"), "f_2"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1));
     }
 
     @Test
@@ -1400,52 +1372,55 @@ final class TestRelationalProgramBuilder
     {
         assertThat(relationRowType(new MultisetType(EMPTY_ROW))).isEqualTo(EMPTY_ROW);
 
-        RowType rowType = rowType(
-                new RowType.Field(Optional.of("a"), BIGINT),
-                new RowType.Field(Optional.of("b"), BOOLEAN));
+        RowType rowType = anonymousRow(BIGINT, BOOLEAN);
         assertThat(relationRowType(new MultisetType(rowType))).isEqualTo(rowType);
 
-        assertThatThrownBy(() -> relationRowType(new MultisetType(anonymousRow(BIGINT, BOOLEAN))))
-                .hasMessage("not a relation type. expected multiset of row with unique field names");
+        assertThatThrownBy(() -> relationRowType(new MultisetType(rowType(
+                new RowType.Field(Optional.of("a"), BIGINT),
+                new RowType.Field(Optional.of("b"), BOOLEAN)))))
+                .hasMessage("not a relation type. expected multiset of row with anonymous fields");
 
         assertThatThrownBy(() -> relationRowType(rowType))
-                .hasMessage("not a relation type. expected multiset of row with unique field names");
+                .hasMessage("not a relation type. expected multiset of row with anonymous fields");
 
         assertThatThrownBy(() -> relationRowType(BIGINT))
-                .hasMessage("not a relation type. expected multiset of row with unique field names");
+                .hasMessage("not a relation type. expected multiset of row with anonymous fields");
     }
 
     @Test
     public void testDeriveOutputMapping()
     {
         assertThatThrownBy(() -> deriveOutputMapping(BIGINT, ImmutableList.of(new Symbol(BIGINT, "a"))))
-                .hasMessage("not a relation row type. expected RowType with unique field names or EmptyRowType");
+                .hasMessage("not a relation row type. expected RowType with anonymous fields or EmptyRowType");
 
         assertThatThrownBy(() -> deriveOutputMapping(EMPTY_ROW, ImmutableList.of(new Symbol(BIGINT, "a"))))
                 .hasMessage("relation row type mismatch: output symbols present for EmptyRowType");
 
         assertThat(deriveOutputMapping(EMPTY_ROW, ImmutableList.of())).isEqualTo(ImmutableMap.of());
 
-        assertThatThrownBy(() -> deriveOutputMapping(rowType(new RowType.Field(Optional.of("x"), BIGINT)), ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BOOLEAN, "b"))))
+        assertThatThrownBy(() -> deriveOutputMapping(rowType(new RowType.Field(Optional.of("x"), BIGINT)), ImmutableList.of(new Symbol(BIGINT, "a"))))
+                .hasMessage("not a relation row type. expected RowType with anonymous fields or EmptyRowType");
+
+        assertThatThrownBy(() -> deriveOutputMapping(anonymousRow(BIGINT), ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BOOLEAN, "b"))))
                 .hasMessage("relation RowType does not match output symbols");
 
-        assertThatThrownBy(() -> deriveOutputMapping(rowType(new RowType.Field(Optional.of("x"), BOOLEAN)), ImmutableList.of(new Symbol(BIGINT, "a"))))
+        assertThatThrownBy(() -> deriveOutputMapping(anonymousRow(BOOLEAN), ImmutableList.of(new Symbol(BIGINT, "a"))))
                 .hasMessage("symbol type does not match field type");
 
         assertThat(deriveOutputMapping(
-                rowType(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BOOLEAN)),
+                anonymousRow(BIGINT, BOOLEAN),
                 ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BOOLEAN, "b"))))
                 .isEqualTo(ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "x",
-                        new Symbol(BOOLEAN, "b"), "y"));
+                        new Symbol(BIGINT, "a"), 0,
+                        new Symbol(BOOLEAN, "b"), 1));
 
         // duplicate output symbols
         assertThat(deriveOutputMapping(
-                rowType(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BOOLEAN), new RowType.Field(Optional.of("z"), BIGINT)),
+                anonymousRow(BIGINT, BOOLEAN, BIGINT),
                 ImmutableList.of(new Symbol(BIGINT, "a"), new Symbol(BOOLEAN, "b"), new Symbol(BIGINT, "a"))))
                 .isEqualTo(ImmutableMap.of(
-                        new Symbol(BIGINT, "a"), "x", // mapped to the first field
-                        new Symbol(BOOLEAN, "b"), "y"));
+                        new Symbol(BIGINT, "a"), 0, // mapped to the first field
+                        new Symbol(BOOLEAN, "b"), 1));
     }
 
     @Test
@@ -1454,17 +1429,14 @@ final class TestRelationalProgramBuilder
         String name = "^field_selector";
 
         Block.Parameter firstParameter = new Block.Parameter("%first", irType(EMPTY_ROW));
-        Block.Parameter secondParameter = new Block.Parameter("%second", irType(rowType(
-                new RowType.Field(Optional.of("a"), BIGINT),
-                new RowType.Field(Optional.of("b"), BOOLEAN))));
-        Block.Parameter thirdParameter = new Block.Parameter("%third", irType(rowType(
-                new RowType.Field(Optional.of("a"), BOOLEAN))));
+        Block.Parameter secondParameter = new Block.Parameter("%second", irType(anonymousRow(BIGINT, BOOLEAN)));
+        Block.Parameter thirdParameter = new Block.Parameter("%third", irType(anonymousRow(BOOLEAN)));
         List<Block.Parameter> inputRows = ImmutableList.of(firstParameter, secondParameter, thirdParameter);
 
-        List<Map<Symbol, String>> symbolMappings = ImmutableList.of(
+        List<Map<Symbol, Integer>> symbolMappings = ImmutableList.of(
                 ImmutableMap.of(),
-                ImmutableMap.of(new Symbol(BIGINT, "X"), "a", new Symbol(BOOLEAN, "Y"), "b"),
-                ImmutableMap.of(new Symbol(BOOLEAN, "Z"), "a"));
+                ImmutableMap.of(new Symbol(BIGINT, "X"), 0, new Symbol(BOOLEAN, "Y"), 1),
+                ImmutableMap.of(new Symbol(BOOLEAN, "Z"), 0));
 
         // select symbol X from second parameter and symbol Z from third parameter
         Block selectSomeFields = new RelationalProgramBuilder(new ValueNameAllocator(), ImmutableMap.builder())
@@ -1477,12 +1449,12 @@ final class TestRelationalProgramBuilder
                                 ImmutableList.of(new Symbol(BIGINT, "X")),
                                 ImmutableList.of(new Symbol(BOOLEAN, "Z"))));
 
-        FieldSelection fieldSelectionOperationX = new FieldSelection("%0", secondParameter, "a", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationZ = new FieldSelection("%1", thirdParameter, "a", ImmutableMap.of());
+        FieldReference fieldReferenceOperationX = new FieldReference("%0", secondParameter, 0, ImmutableMap.of());
+        FieldReference fieldReferenceOperationZ = new FieldReference("%1", thirdParameter, 0, ImmutableMap.of());
         Row rowOperation = new Row(
                 "%2",
-                ImmutableList.of(fieldSelectionOperationX.result(), fieldSelectionOperationZ.result()),
-                ImmutableList.of(fieldSelectionOperationX.attributes(), fieldSelectionOperationZ.attributes()));
+                ImmutableList.of(fieldReferenceOperationX.result(), fieldReferenceOperationZ.result()),
+                ImmutableList.of(fieldReferenceOperationX.attributes(), fieldReferenceOperationZ.attributes()));
         Return returnRow = new Return("%3", rowOperation.result(), rowOperation.attributes());
 
         assertThat(selectSomeFields)
@@ -1490,8 +1462,8 @@ final class TestRelationalProgramBuilder
                         Optional.of("^field_selector"),
                         inputRows,
                         ImmutableList.of(
-                                fieldSelectionOperationX,
-                                fieldSelectionOperationZ,
+                                fieldReferenceOperationX,
+                                fieldReferenceOperationZ,
                                 rowOperation,
                                 returnRow)));
 
@@ -1527,7 +1499,7 @@ final class TestRelationalProgramBuilder
                                 ImmutableList.of(new Symbol(BOOLEAN, "non_existent_symbol")),
                                 ImmutableList.of(),
                                 ImmutableList.of())))
-                .hasMessage("fieldName is null");
+                .hasMessage("fieldIndex is null");
 
         // failure when input rows do not match input mappings
         assertThatThrownBy(() -> new RelationalProgramBuilder(new ValueNameAllocator(), ImmutableMap.builder())
@@ -1554,16 +1526,6 @@ final class TestRelationalProgramBuilder
                                 ImmutableList.of(),
                                 ImmutableList.of())))
                 .hasMessage("inputs and symbol lists do not match");
-    }
-
-    @Test
-    public void testAssignRelationRowTypeFieldNames()
-    {
-        assertThat(assignRelationRowTypeFieldNames(anonymousRow(BIGINT, BOOLEAN)))
-                .isEqualTo(rowType(new RowType.Field(Optional.of("f_1"), BIGINT), new RowType.Field(Optional.of("f_2"), BOOLEAN)));
-
-        assertThat(assignRelationRowTypeFieldNames(rowType(new RowType.Field(Optional.of("x"), BIGINT), new RowType.Field(Optional.of("y"), BOOLEAN))))
-                .isEqualTo(rowType(new RowType.Field(Optional.of("f_1"), BIGINT), new RowType.Field(Optional.of("f_2"), BOOLEAN)));
     }
 
     private static ValuesNode valuesNode()
@@ -1619,7 +1581,7 @@ final class TestRelationalProgramBuilder
                                         returnOperation2))));
     }
 
-    private void assertProgram(PlanNode plan, List<Operation> expected, io.trino.spi.type.Type expectedType, Map<Symbol, String> expectedMapping)
+    private void assertProgram(PlanNode plan, List<Operation> expected, io.trino.spi.type.Type expectedType, Map<Symbol, Integer> expectedMapping)
     {
         RelationalProgramBuilder relationalProgramBuilder = new RelationalProgramBuilder(new ValueNameAllocator(), ImmutableMap.builder());
         Block.Builder blockBuilder = new Block.Builder(Optional.empty(), ImmutableList.of());
@@ -1642,9 +1604,9 @@ final class TestRelationalProgramBuilder
         }
         else {
             assertThat(expectedType)
-                    .isEqualTo(new MultisetType(assignRelationRowTypeFieldNames(RowType.anonymous(plan.getOutputSymbols().stream()
+                    .isEqualTo(new MultisetType(RowType.anonymous(plan.getOutputSymbols().stream()
                             .map(Symbol::type)
-                            .collect(toImmutableList())))));
+                            .collect(toImmutableList()))));
         }
         assertThat(expectedType).isEqualTo(trinoType(actual.getLast().result().type()));
 

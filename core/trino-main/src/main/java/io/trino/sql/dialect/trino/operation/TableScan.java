@@ -44,7 +44,6 @@ import static io.trino.sql.dialect.trino.Attributes.STATISTICS;
 import static io.trino.sql.dialect.trino.Attributes.TABLE_HANDLE;
 import static io.trino.sql.dialect.trino.Attributes.UPDATE_TARGET;
 import static io.trino.sql.dialect.trino.Attributes.USE_CONNECTOR_NODE_PARTITIONING;
-import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static java.util.Objects.requireNonNull;
@@ -87,7 +86,7 @@ public class TableScan
             this.result = new Result(resultName, irType(new MultisetType(EMPTY_ROW)));
         }
         else {
-            this.result = new Result(resultName, irType(new MultisetType(assignRelationRowTypeFieldNames(RowType.anonymous(outputTypes)))));
+            this.result = new Result(resultName, irType(new MultisetType(RowType.anonymous(outputTypes))));
         }
 
         ImmutableMap.Builder<AttributeKey, Object> attributes = ImmutableMap.builder();

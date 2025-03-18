@@ -88,7 +88,7 @@ final class TestProgramBuilderAndPrinter
                         IR version = 1
                         %0 = query() : () -> "boolean" ({
                             ^query
-                                %1 = values() : () -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
+                                %1 = values() : () -> "multiset(row(bigint,boolean))" ({
                                     ^row
                                         %2 = constant() : () -> "bigint" ()
                                             {constant_result = "{""type"":""bigint"",""value"":3}"}
@@ -108,17 +108,17 @@ final class TestProgramBuilderAndPrinter
                                             {ir.terminal = "true"}
                                     })
                                     {cardinality = "2"}
-                                %10 = filter(%1) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
-                                    ^predicate (%11 : "row(""f_1"" bigint,""f_2"" boolean)")
+                                %10 = filter(%1) : ("multiset(row(bigint,boolean))") -> "multiset(row(bigint,boolean))" ({
+                                    ^predicate (%11 : "row(bigint,boolean)")
                                         %12 = constant() : () -> "boolean" ()
                                             {constant_result = "{""type"":""boolean"",""value"":true}"}
                                         %13 = return(%12) : ("boolean") -> "boolean" ()
                                             {ir.terminal = "true"}
                                     })
-                                %14 = output(%10) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "boolean" ({
-                                    ^outputFieldSelector (%15 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %16 = field_selection(%15) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
+                                %14 = output(%10) : ("multiset(row(bigint,boolean))") -> "boolean" ({
+                                    ^outputFieldSelector (%15 : "row(bigint,boolean)")
+                                        %16 = field_reference(%15) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
                                         %17 = row(%16) : ("bigint") -> "row(bigint)" ()
                                         %18 = return(%17) : ("row(bigint)") -> "row(bigint)" ()
                                             {ir.terminal = "true"}
@@ -176,7 +176,7 @@ final class TestProgramBuilderAndPrinter
                         IR version = 1
                         %0 = query() : () -> "boolean" ({
                             ^query
-                                %1 = values() : () -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
+                                %1 = values() : () -> "multiset(row(bigint,boolean))" ({
                                     ^row
                                         %2 = constant() : () -> "bigint" ()
                                             {constant_result = "{""type"":""bigint"",""value"":1}"}
@@ -196,18 +196,18 @@ final class TestProgramBuilderAndPrinter
                                             {ir.terminal = "true"}
                                     })
                                     {cardinality = "2"}
-                                %10 = correlated_join(%1) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean))" ({
-                                    ^correlationSelector (%11 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %12 = field_selection(%11) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
-                                        %13 = field_selection(%11) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
+                                %10 = correlated_join(%1) : ("multiset(row(bigint,boolean))") -> "multiset(row(bigint,boolean,bigint,boolean,bigint,boolean))" ({
+                                    ^correlationSelector (%11 : "row(bigint,boolean)")
+                                        %12 = field_reference(%11) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
+                                        %13 = field_reference(%11) : ("row(bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
                                         %14 = row(%12, %13) : ("bigint", "boolean") -> "row(bigint,boolean)" ()
                                         %15 = return(%14) : ("row(bigint,boolean)") -> "row(bigint,boolean)" ()
                                             {ir.terminal = "true"}
                                     }, {
-                                    ^subquery (%16 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %17 = values() : () -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
+                                    ^subquery (%16 : "row(bigint,boolean)")
+                                        %17 = values() : () -> "multiset(row(bigint,boolean))" ({
                                             ^row
                                                 %18 = constant() : () -> "bigint" ()
                                                     {constant_result = "{""type"":""bigint"",""value"":3}"}
@@ -227,88 +227,88 @@ final class TestProgramBuilderAndPrinter
                                                     {ir.terminal = "true"}
                                             })
                                             {cardinality = "2"}
-                                        %26 = correlated_join(%17) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean))" ({
-                                            ^correlationSelector (%27 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                                %28 = field_selection(%27) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                                    {field_name = "f_1"}
-                                                %29 = field_selection(%27) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                                    {field_name = "f_2"}
+                                        %26 = correlated_join(%17) : ("multiset(row(bigint,boolean))") -> "multiset(row(bigint,boolean,bigint,boolean))" ({
+                                            ^correlationSelector (%27 : "row(bigint,boolean)")
+                                                %28 = field_reference(%27) : ("row(bigint,boolean)") -> "bigint" ()
+                                                    {field_index = "0"}
+                                                %29 = field_reference(%27) : ("row(bigint,boolean)") -> "boolean" ()
+                                                    {field_index = "1"}
                                                 %30 = row(%28, %29) : ("bigint", "boolean") -> "row(bigint,boolean)" ()
                                                 %31 = return(%30) : ("row(bigint,boolean)") -> "row(bigint,boolean)" ()
                                                     {ir.terminal = "true"}
                                             }, {
-                                            ^subquery (%32 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                                %33 = values() : () -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
+                                            ^subquery (%32 : "row(bigint,boolean)")
+                                                %33 = values() : () -> "multiset(row(bigint,boolean))" ({
                                                     ^row
-                                                        %34 = field_selection(%16) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                                            {field_name = "f_1"}
-                                                        %35 = field_selection(%16) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                                            {field_name = "f_2"}
+                                                        %34 = field_reference(%16) : ("row(bigint,boolean)") -> "bigint" ()
+                                                            {field_index = "0"}
+                                                        %35 = field_reference(%16) : ("row(bigint,boolean)") -> "boolean" ()
+                                                            {field_index = "1"}
                                                         %36 = row(%34, %35) : ("bigint", "boolean") -> "row(bigint,boolean)" ()
                                                         %37 = return(%36) : ("row(bigint,boolean)") -> "row(bigint,boolean)" ()
                                                             {ir.terminal = "true"}
                                                     }, {
                                                     ^row
-                                                        %38 = field_selection(%32) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                                            {field_name = "f_1"}
-                                                        %39 = field_selection(%32) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                                            {field_name = "f_2"}
+                                                        %38 = field_reference(%32) : ("row(bigint,boolean)") -> "bigint" ()
+                                                            {field_index = "0"}
+                                                        %39 = field_reference(%32) : ("row(bigint,boolean)") -> "boolean" ()
+                                                            {field_index = "1"}
                                                         %40 = row(%38, %39) : ("bigint", "boolean") -> "row(bigint,boolean)" ()
                                                         %41 = return(%40) : ("row(bigint,boolean)") -> "row(bigint,boolean)" ()
                                                             {ir.terminal = "true"}
                                                     })
                                                     {cardinality = "2"}
-                                                %42 = filter(%33) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
-                                                    ^predicate (%43 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                                        %44 = field_selection(%16) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                                            {field_name = "f_2"}
-                                                        %45 = field_selection(%32) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                                            {field_name = "f_2"}
+                                                %42 = filter(%33) : ("multiset(row(bigint,boolean))") -> "multiset(row(bigint,boolean))" ({
+                                                    ^predicate (%43 : "row(bigint,boolean)")
+                                                        %44 = field_reference(%16) : ("row(bigint,boolean)") -> "boolean" ()
+                                                            {field_index = "1"}
+                                                        %45 = field_reference(%32) : ("row(bigint,boolean)") -> "boolean" ()
+                                                            {field_index = "1"}
                                                         %46 = logical(%44, %45) : ("boolean", "boolean") -> "boolean" ()
                                                             {logical_operator = "AND"}
                                                         %47 = return(%46) : ("boolean") -> "boolean" ()
                                                             {ir.terminal = "true"}
                                                     })
-                                                %48 = return(%42) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ()
+                                                %48 = return(%42) : ("multiset(row(bigint,boolean))") -> "multiset(row(bigint,boolean))" ()
                                                     {ir.terminal = "true"}
                                             }, {
-                                            ^filter (%49 : "row(""f_1"" bigint,""f_2"" boolean)", %50 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                                %51 = field_selection(%16) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                                    {field_name = "f_2"}
+                                            ^filter (%49 : "row(bigint,boolean)", %50 : "row(bigint,boolean)")
+                                                %51 = field_reference(%16) : ("row(bigint,boolean)") -> "boolean" ()
+                                                    {field_index = "1"}
                                                 %52 = return(%51) : ("boolean") -> "boolean" ()
                                                     {ir.terminal = "true"}
                                             })
                                             {join_type = "INNER"}
-                                        %53 = return(%26) : ("multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean))" ()
+                                        %53 = return(%26) : ("multiset(row(bigint,boolean,bigint,boolean))") -> "multiset(row(bigint,boolean,bigint,boolean))" ()
                                             {ir.terminal = "true"}
                                     }, {
-                                    ^filter (%54 : "row(""f_1"" bigint,""f_2"" boolean)", %55 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean)")
-                                        %56 = field_selection(%54) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
-                                        %57 = field_selection(%55) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
-                                        %58 = field_selection(%55) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean)") -> "boolean" ()
-                                            {field_name = "f_4"}
+                                    ^filter (%54 : "row(bigint,boolean)", %55 : "row(bigint,boolean,bigint,boolean)")
+                                        %56 = field_reference(%54) : ("row(bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
+                                        %57 = field_reference(%55) : ("row(bigint,boolean,bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
+                                        %58 = field_reference(%55) : ("row(bigint,boolean,bigint,boolean)") -> "boolean" ()
+                                            {field_index = "3"}
                                         %59 = logical(%56, %57, %58) : ("boolean", "boolean", "boolean") -> "boolean" ()
                                             {logical_operator = "AND"}
                                         %60 = return(%59) : ("boolean") -> "boolean" ()
                                             {ir.terminal = "true"}
                                     })
                                     {join_type = "INNER"}
-                                %61 = output(%10) : ("multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean))") -> "boolean" ({
-                                    ^outputFieldSelector (%62 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean)")
-                                        %63 = field_selection(%62) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
-                                        %64 = field_selection(%62) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
-                                        %65 = field_selection(%62) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean)") -> "bigint" ()
-                                            {field_name = "f_3"}
-                                        %66 = field_selection(%62) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean)") -> "boolean" ()
-                                            {field_name = "f_4"}
-                                        %67 = field_selection(%62) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean)") -> "bigint" ()
-                                            {field_name = "f_5"}
-                                        %68 = field_selection(%62) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint,""f_4"" boolean,""f_5"" bigint,""f_6"" boolean)") -> "boolean" ()
-                                            {field_name = "f_6"}
+                                %61 = output(%10) : ("multiset(row(bigint,boolean,bigint,boolean,bigint,boolean))") -> "boolean" ({
+                                    ^outputFieldSelector (%62 : "row(bigint,boolean,bigint,boolean,bigint,boolean)")
+                                        %63 = field_reference(%62) : ("row(bigint,boolean,bigint,boolean,bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
+                                        %64 = field_reference(%62) : ("row(bigint,boolean,bigint,boolean,bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
+                                        %65 = field_reference(%62) : ("row(bigint,boolean,bigint,boolean,bigint,boolean)") -> "bigint" ()
+                                            {field_index = "2"}
+                                        %66 = field_reference(%62) : ("row(bigint,boolean,bigint,boolean,bigint,boolean)") -> "boolean" ()
+                                            {field_index = "3"}
+                                        %67 = field_reference(%62) : ("row(bigint,boolean,bigint,boolean,bigint,boolean)") -> "bigint" ()
+                                            {field_index = "4"}
+                                        %68 = field_reference(%62) : ("row(bigint,boolean,bigint,boolean,bigint,boolean)") -> "boolean" ()
+                                            {field_index = "5"}
                                         %69 = row(%63, %64, %65, %66, %67, %68) : ("bigint", "boolean", "bigint", "boolean", "bigint", "boolean") -> "row(bigint,boolean,bigint,boolean,bigint,boolean)" ()
                                         %70 = return(%69) : ("row(bigint,boolean,bigint,boolean,bigint,boolean)") -> "row(bigint,boolean,bigint,boolean,bigint,boolean)" ()
                                             {ir.terminal = "true"}
@@ -371,7 +371,7 @@ final class TestProgramBuilderAndPrinter
                         IR version = 1
                         %0 = query() : () -> "boolean" ({
                             ^query
-                                %1 = values() : () -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
+                                %1 = values() : () -> "multiset(row(bigint,boolean))" ({
                                     ^row
                                         %2 = constant() : () -> "bigint" ()
                                             {constant_result = "{""type"":""bigint"",""value"":3}"}
@@ -382,71 +382,71 @@ final class TestProgramBuilderAndPrinter
                                             {ir.terminal = "true"}
                                     })
                                     {cardinality = "1"}
-                                %6 = project(%1) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint))" ({
-                                    ^assignments (%7 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %8 = field_selection(%7) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
-                                        %9 = field_selection(%7) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
+                                %6 = project(%1) : ("multiset(row(bigint,boolean))") -> "multiset(row(bigint,boolean,bigint))" ({
+                                    ^assignments (%7 : "row(bigint,boolean)")
+                                        %8 = field_reference(%7) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
+                                        %9 = field_reference(%7) : ("row(bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
                                         %10 = constant() : () -> "bigint" ()
                                             {constant_result = "{""type"":""bigint"",""value"":5}"}
                                         %11 = row(%8, %9, %10) : ("bigint", "boolean", "bigint") -> "row(bigint,boolean,bigint)" ()
                                         %12 = return(%11) : ("row(bigint,boolean,bigint)") -> "row(bigint,boolean,bigint)" ()
                                             {ir.terminal = "true"}
                                     })
-                                %13 = aggregation(%6) : ("multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint))") -> "multiset(row(""f_1"" bigint,""f_2"" bigint,""f_3"" bigint))" ({
-                                    ^aggregates (%14 : "multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint))")
-                                        %15 = aggregate_call(%14) : ("multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint))") -> "bigint" ({
-                                            ^arguments (%16 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
+                                %13 = aggregation(%6) : ("multiset(row(bigint,boolean,bigint))") -> "multiset(row(bigint,bigint,bigint))" ({
+                                    ^aggregates (%14 : "multiset(row(bigint,boolean,bigint))")
+                                        %15 = aggregate_call(%14) : ("multiset(row(bigint,boolean,bigint))") -> "bigint" ({
+                                            ^arguments (%16 : "row(bigint,boolean,bigint)")
                                                 %17 = constant() : () -> "empty row" ()
                                                     {constant_result = "{""type"":""empty row""}"}
                                                 %18 = return(%17) : ("empty row") -> "empty row" ()
                                                     {ir.terminal = "true"}
                                             }, {
-                                            ^filterSelector (%19 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
-                                                %20 = field_selection(%19) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)") -> "boolean" ()
-                                                    {field_name = "f_2"}
+                                            ^filterSelector (%19 : "row(bigint,boolean,bigint)")
+                                                %20 = field_reference(%19) : ("row(bigint,boolean,bigint)") -> "boolean" ()
+                                                    {field_index = "1"}
                                                 %21 = row(%20) : ("boolean") -> "row(boolean)" ()
                                                 %22 = return(%21) : ("row(boolean)") -> "row(boolean)" ()
                                                     {ir.terminal = "true"}
                                             }, {
-                                            ^maskSelector (%23 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
+                                            ^maskSelector (%23 : "row(bigint,boolean,bigint)")
                                                 %24 = constant() : () -> "empty row" ()
                                                     {constant_result = "{""type"":""empty row""}"}
                                                 %25 = return(%24) : ("empty row") -> "empty row" ()
                                                     {ir.terminal = "true"}
                                             }, {
-                                            ^orderingSelector (%26 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
+                                            ^orderingSelector (%26 : "row(bigint,boolean,bigint)")
                                                 %27 = constant() : () -> "empty row" ()
                                                     {constant_result = "{""type"":""empty row""}"}
                                                 %28 = return(%27) : ("empty row") -> "empty row" ()
                                                     {ir.terminal = "true"}
                                             })
                                             {resolved_function = "{""signature"":{""name"":{""catalogName"":""system"",""schemaName"":""builtin"",""functionName"":""count""},""returnType"":""bigint"",""argumentTypes"":[]},""catalogHandle"":""system:normal:system"",""functionId"":""count():bigint"",""functionKind"":""AGGREGATE"",""deterministic"":true,""functionNullability"":{""returnNullable"":true,""argumentNullable"":[]},""typeDependencies"":{},""functionDependencies"":[]}", distinct = "true"}
-                                        %29 = aggregate_call(%14) : ("multiset(row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint))") -> "bigint" ({
-                                            ^arguments (%30 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
-                                                %31 = field_selection(%30) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)") -> "bigint" ()
-                                                    {field_name = "f_3"}
+                                        %29 = aggregate_call(%14) : ("multiset(row(bigint,boolean,bigint))") -> "bigint" ({
+                                            ^arguments (%30 : "row(bigint,boolean,bigint)")
+                                                %31 = field_reference(%30) : ("row(bigint,boolean,bigint)") -> "bigint" ()
+                                                    {field_index = "2"}
                                                 %32 = row(%31) : ("bigint") -> "row(bigint)" ()
                                                 %33 = return(%32) : ("row(bigint)") -> "row(bigint)" ()
                                                     {ir.terminal = "true"}
                                             }, {
-                                            ^filterSelector (%34 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
+                                            ^filterSelector (%34 : "row(bigint,boolean,bigint)")
                                                 %35 = constant() : () -> "empty row" ()
                                                     {constant_result = "{""type"":""empty row""}"}
                                                 %36 = return(%35) : ("empty row") -> "empty row" ()
                                                     {ir.terminal = "true"}
                                             }, {
-                                            ^maskSelector (%37 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
-                                                %38 = field_selection(%37) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)") -> "boolean" ()
-                                                    {field_name = "f_2"}
+                                            ^maskSelector (%37 : "row(bigint,boolean,bigint)")
+                                                %38 = field_reference(%37) : ("row(bigint,boolean,bigint)") -> "boolean" ()
+                                                    {field_index = "1"}
                                                 %39 = row(%38) : ("boolean") -> "row(boolean)" ()
                                                 %40 = return(%39) : ("row(boolean)") -> "row(boolean)" ()
                                                     {ir.terminal = "true"}
                                             }, {
-                                            ^orderingSelector (%41 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
-                                                %42 = field_selection(%41) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)") -> "bigint" ()
-                                                    {field_name = "f_1"}
+                                            ^orderingSelector (%41 : "row(bigint,boolean,bigint)")
+                                                %42 = field_reference(%41) : ("row(bigint,boolean,bigint)") -> "bigint" ()
+                                                    {field_index = "0"}
                                                 %43 = row(%42) : ("bigint") -> "row(bigint)" ()
                                                 %44 = return(%43) : ("row(bigint)") -> "row(bigint)" ()
                                                     {ir.terminal = "true"}
@@ -456,28 +456,28 @@ final class TestProgramBuilderAndPrinter
                                         %46 = return(%45) : ("row(bigint,bigint)") -> "row(bigint,bigint)" ()
                                             {ir.terminal = "true"}
                                     }, {
-                                    ^groupingKeysSelector (%47 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
-                                        %48 = field_selection(%47) : ("row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)") -> "bigint" ()
-                                            {field_name = "f_3"}
+                                    ^groupingKeysSelector (%47 : "row(bigint,boolean,bigint)")
+                                        %48 = field_reference(%47) : ("row(bigint,boolean,bigint)") -> "bigint" ()
+                                            {field_index = "2"}
                                         %49 = row(%48) : ("bigint") -> "row(bigint)" ()
                                         %50 = return(%49) : ("row(bigint)") -> "row(bigint)" ()
                                             {ir.terminal = "true"}
                                     }, {
-                                    ^hashSelector (%51 : "row(""f_1"" bigint,""f_2"" boolean,""f_3"" bigint)")
+                                    ^hashSelector (%51 : "row(bigint,boolean,bigint)")
                                         %52 = constant() : () -> "empty row" ()
                                             {constant_result = "{""type"":""empty row""}"}
                                         %53 = return(%52) : ("empty row") -> "empty row" ()
                                             {ir.terminal = "true"}
                                     })
                                     {grouping_sets_count = "2", global_grouping_sets = "[1]", pre_grouped_indexes = "[0]", aggregation_step = "SINGLE", input_reducing = "false"}
-                                %54 = output(%13) : ("multiset(row(""f_1"" bigint,""f_2"" bigint,""f_3"" bigint))") -> "boolean" ({
-                                    ^outputFieldSelector (%55 : "row(""f_1"" bigint,""f_2"" bigint,""f_3"" bigint)")
-                                        %56 = field_selection(%55) : ("row(""f_1"" bigint,""f_2"" bigint,""f_3"" bigint)") -> "bigint" ()
-                                            {field_name = "f_1"}
-                                        %57 = field_selection(%55) : ("row(""f_1"" bigint,""f_2"" bigint,""f_3"" bigint)") -> "bigint" ()
-                                            {field_name = "f_2"}
-                                        %58 = field_selection(%55) : ("row(""f_1"" bigint,""f_2"" bigint,""f_3"" bigint)") -> "bigint" ()
-                                            {field_name = "f_3"}
+                                %54 = output(%13) : ("multiset(row(bigint,bigint,bigint))") -> "boolean" ({
+                                    ^outputFieldSelector (%55 : "row(bigint,bigint,bigint)")
+                                        %56 = field_reference(%55) : ("row(bigint,bigint,bigint)") -> "bigint" ()
+                                            {field_index = "0"}
+                                        %57 = field_reference(%55) : ("row(bigint,bigint,bigint)") -> "bigint" ()
+                                            {field_index = "1"}
+                                        %58 = field_reference(%55) : ("row(bigint,bigint,bigint)") -> "bigint" ()
+                                            {field_index = "2"}
                                         %59 = row(%56, %57, %58) : ("bigint", "bigint", "bigint") -> "row(bigint,bigint,bigint)" ()
                                         %60 = return(%59) : ("row(bigint,bigint,bigint)") -> "row(bigint,bigint,bigint)" ()
                                             {ir.terminal = "true"}
@@ -518,14 +518,14 @@ final class TestProgramBuilderAndPrinter
                         IR version = 1
                         %0 = query() : () -> "boolean" ({
                             ^query
-                                %1 = table_scan() : () -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ()
+                                %1 = table_scan() : () -> "multiset(row(bigint,boolean))" ()
                                     {table_handle = "[test: table_handle attribute]", column_handles = "[test: column_handles attribute]", constraint = "[test: constraint attribute]", statistics = "{""outputRowCount"":""NaN"",""fieldStatistics"":{}}", update_target = "false", use_connector_node_partitioning = "true"}
-                                %2 = output(%1) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "boolean" ({
-                                    ^outputFieldSelector (%3 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %4 = field_selection(%3) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
-                                        %5 = field_selection(%3) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
+                                %2 = output(%1) : ("multiset(row(bigint,boolean))") -> "boolean" ({
+                                    ^outputFieldSelector (%3 : "row(bigint,boolean)")
+                                        %4 = field_reference(%3) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
+                                        %5 = field_reference(%3) : ("row(bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
                                         %6 = row(%4, %5) : ("bigint", "boolean") -> "row(bigint,boolean)" ()
                                         %7 = return(%6) : ("row(bigint,boolean)") -> "row(bigint,boolean)" ()
                                             {ir.terminal = "true"}
@@ -580,7 +580,7 @@ final class TestProgramBuilderAndPrinter
                         IR version = 1
                         %0 = query() : () -> "boolean" ({
                             ^query
-                                %1 = values() : () -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
+                                %1 = values() : () -> "multiset(row(bigint,boolean))" ({
                                     ^row
                                         %2 = constant() : () -> "bigint" ()
                                             {constant_result = "{""type"":""bigint"",""value"":3}"}
@@ -591,54 +591,54 @@ final class TestProgramBuilderAndPrinter
                                             {ir.terminal = "true"}
                                     })
                                     {cardinality = "1"}
-                                %6 = values() : () -> "multiset(row(""f_1"" smallint,""f_2"" bigint,""f_3"" boolean))" ()
+                                %6 = values() : () -> "multiset(row(smallint,bigint,boolean))" ()
                                     {cardinality = "0"}
-                                %7 = exchange(%1, %6) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))", "multiset(row(""f_1"" smallint,""f_2"" bigint,""f_3"" boolean))") -> "multiset(row(""f_1"" bigint,""f_2"" boolean))" ({
-                                    ^inputSelector (%8 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %9 = field_selection(%8) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
-                                        %10 = field_selection(%8) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
+                                %7 = exchange(%1, %6) : ("multiset(row(bigint,boolean))", "multiset(row(smallint,bigint,boolean))") -> "multiset(row(bigint,boolean))" ({
+                                    ^inputSelector (%8 : "row(bigint,boolean)")
+                                        %9 = field_reference(%8) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
+                                        %10 = field_reference(%8) : ("row(bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
                                         %11 = row(%9, %10) : ("bigint", "boolean") -> "row(bigint,boolean)" ()
                                         %12 = return(%11) : ("row(bigint,boolean)") -> "row(bigint,boolean)" ()
                                             {ir.terminal = "true"}
                                     }, {
-                                    ^inputSelector (%13 : "row(""f_1"" smallint,""f_2"" bigint,""f_3"" boolean)")
-                                        %14 = field_selection(%13) : ("row(""f_1"" smallint,""f_2"" bigint,""f_3"" boolean)") -> "bigint" ()
-                                            {field_name = "f_2"}
-                                        %15 = field_selection(%13) : ("row(""f_1"" smallint,""f_2"" bigint,""f_3"" boolean)") -> "boolean" ()
-                                            {field_name = "f_3"}
+                                    ^inputSelector (%13 : "row(smallint,bigint,boolean)")
+                                        %14 = field_reference(%13) : ("row(smallint,bigint,boolean)") -> "bigint" ()
+                                            {field_index = "1"}
+                                        %15 = field_reference(%13) : ("row(smallint,bigint,boolean)") -> "boolean" ()
+                                            {field_index = "2"}
                                         %16 = row(%14, %15) : ("bigint", "boolean") -> "row(bigint,boolean)" ()
                                         %17 = return(%16) : ("row(bigint,boolean)") -> "row(bigint,boolean)" ()
                                             {ir.terminal = "true"}
                                     }, {
-                                    ^boundArguments (%18 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %19 = field_selection(%18) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
+                                    ^boundArguments (%18 : "row(bigint,boolean)")
+                                        %19 = field_reference(%18) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
                                         %20 = row(%19) : ("bigint") -> "row(bigint)" ()
                                         %21 = return(%20) : ("row(bigint)") -> "row(bigint)" ()
                                             {ir.terminal = "true"}
                                     }, {
-                                    ^hashSelector (%22 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %23 = field_selection(%22) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
+                                    ^hashSelector (%22 : "row(bigint,boolean)")
+                                        %23 = field_reference(%22) : ("row(bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
                                         %24 = row(%23) : ("boolean") -> "row(boolean)" ()
                                         %25 = return(%24) : ("row(boolean)") -> "row(boolean)" ()
                                             {ir.terminal = "true"}
                                     }, {
-                                    ^orderingSelector (%26 : "row(""f_1"" bigint,""f_2"" boolean)")
+                                    ^orderingSelector (%26 : "row(bigint,boolean)")
                                         %27 = constant() : () -> "empty row" ()
                                             {constant_result = "{""type"":""empty row""}"}
                                         %28 = return(%27) : ("empty row") -> "empty row" ()
                                             {ir.terminal = "true"}
                                     })
                                     {exchange_type = "GATHER", exchange_scope = "REMOTE", partitioning_handle = "[test: partitioning_handle attribute]", nullable_values = "[test: nullable_values attribute]", replicate_nulls_and_any = "false", bucket_to_partition = "[5,6,7]"}
-                                %29 = output(%7) : ("multiset(row(""f_1"" bigint,""f_2"" boolean))") -> "boolean" ({
-                                    ^outputFieldSelector (%30 : "row(""f_1"" bigint,""f_2"" boolean)")
-                                        %31 = field_selection(%30) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "bigint" ()
-                                            {field_name = "f_1"}
-                                        %32 = field_selection(%30) : ("row(""f_1"" bigint,""f_2"" boolean)") -> "boolean" ()
-                                            {field_name = "f_2"}
+                                %29 = output(%7) : ("multiset(row(bigint,boolean))") -> "boolean" ({
+                                    ^outputFieldSelector (%30 : "row(bigint,boolean)")
+                                        %31 = field_reference(%30) : ("row(bigint,boolean)") -> "bigint" ()
+                                            {field_index = "0"}
+                                        %32 = field_reference(%30) : ("row(bigint,boolean)") -> "boolean" ()
+                                            {field_index = "1"}
                                         %33 = row(%31, %32) : ("bigint", "boolean") -> "row(bigint,boolean)" ()
                                         %34 = return(%33) : ("row(bigint,boolean)") -> "row(bigint,boolean)" ()
                                             {ir.terminal = "true"}

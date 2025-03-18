@@ -42,11 +42,12 @@ public final class FieldReference
     private final Value base;
     private final Map<AttributeKey, Object> attributes;
 
-    public FieldReference(String resultName, Value base, int fieldIndex, Map<AttributeKey, Object> sourceAttributes)
+    public FieldReference(String resultName, Value base, Integer fieldIndex, Map<AttributeKey, Object> sourceAttributes)
     {
         super(TRINO, NAME);
         requireNonNull(resultName, "resultName is null");
         requireNonNull(base, "base is null");
+        requireNonNull(fieldIndex, "fieldIndex is null");
         requireNonNull(sourceAttributes, "sourceAttributes is null");
 
         if (!(trinoType(base.type()) instanceof RowType baseRowType)) {
