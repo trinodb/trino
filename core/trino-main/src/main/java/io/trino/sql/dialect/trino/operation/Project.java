@@ -31,12 +31,12 @@ import java.util.Objects;
 
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
-import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
 import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION;
+import static io.trino.sql.dialect.trino.TypeConstraint.IS_RELATION_ROW;
 import static io.trino.sql.newir.Region.singleBlockRegion;
 import static java.util.Objects.requireNonNull;
 
@@ -65,7 +65,7 @@ public final class Project
 
         if (assignments.parameters().size() != 1 ||
                 !trinoType(assignments.parameters().getFirst().type()).equals(relationRowType(trinoType(input.type()))) ||
-                !(trinoType(assignments.getReturnedType()) instanceof RowType || trinoType(assignments.getReturnedType()).equals(EMPTY_ROW))) {
+                !IS_RELATION_ROW.test(trinoType(assignments.getReturnedType()))) {
             throw new TrinoException(IR_ERROR, "invalid assignments for Project operation");
         }
         this.assignments = singleBlockRegion(assignments);
@@ -75,7 +75,7 @@ public final class Project
             resultType = new MultisetType(EMPTY_ROW);
         }
         else {
-            resultType = new MultisetType(assignRelationRowTypeFieldNames((RowType) trinoType(assignments.getReturnedType())));
+            resultType = new MultisetType((RowType) trinoType(assignments.getReturnedType()));
         }
         this.result = new Result(resultName, irType(resultType));
 

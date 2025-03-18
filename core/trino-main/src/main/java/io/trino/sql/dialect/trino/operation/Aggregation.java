@@ -39,7 +39,6 @@ import static io.trino.sql.dialect.trino.Attributes.GROUPING_SETS_COUNT;
 import static io.trino.sql.dialect.trino.Attributes.GROUP_ID_INDEX;
 import static io.trino.sql.dialect.trino.Attributes.INPUT_REDUCING;
 import static io.trino.sql.dialect.trino.Attributes.PRE_GROUPED_INDEXES;
-import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
@@ -124,7 +123,7 @@ public class Aggregation
             this.result = new Result(resultName, irType(new MultisetType(EMPTY_ROW)));
         }
         else {
-            this.result = new Result(resultName, irType(new MultisetType(assignRelationRowTypeFieldNames(RowType.anonymous(outputTypes)))));
+            this.result = new Result(resultName, irType(new MultisetType(RowType.anonymous(outputTypes))));
         }
 
         int groupingKeysCount = trinoType(groupingKeysSelector.getReturnedType()).getTypeParameters().size();

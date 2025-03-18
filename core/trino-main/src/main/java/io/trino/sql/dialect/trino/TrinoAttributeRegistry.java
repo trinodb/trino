@@ -45,7 +45,6 @@ import static io.trino.sql.dialect.trino.Attributes.DYNAMIC_FILTER_IDS;
 import static io.trino.sql.dialect.trino.Attributes.EXCHANGE_SCOPE;
 import static io.trino.sql.dialect.trino.Attributes.EXCHANGE_TYPE;
 import static io.trino.sql.dialect.trino.Attributes.FIELD_INDEX;
-import static io.trino.sql.dialect.trino.Attributes.FIELD_NAME;
 import static io.trino.sql.dialect.trino.Attributes.GLOBAL_GROUPING_SETS;
 import static io.trino.sql.dialect.trino.Attributes.GROUPING_SETS_COUNT;
 import static io.trino.sql.dialect.trino.Attributes.GROUP_ID_INDEX;
@@ -76,7 +75,6 @@ import static io.trino.sql.dialect.trino.Attributes.USE_CONNECTOR_NODE_PARTITION
 import static io.trino.sql.dialect.trino.TrinoAttributeRegistry.ConstantResult.CONSTANT_RESULT_CODEC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public class TrinoAttributeRegistry
 {
@@ -126,7 +124,6 @@ public class TrinoAttributeRegistry
                 .put(EXCHANGE_SCOPE.name(), new AttributeProperties<>(EXCHANGE_SCOPE, Attributes.ExchangeScope::parse, Attributes.ExchangeScope::print))
                 .put(EXCHANGE_TYPE.name(), new AttributeProperties<>(EXCHANGE_TYPE, Attributes.ExchangeType::parse, Attributes.ExchangeType::print))
                 .put(FIELD_INDEX.name(), new AttributeProperties<>(FIELD_INDEX, Integer::valueOf, Object::toString))
-                .put(FIELD_NAME.name(), new AttributeProperties<>(FIELD_NAME, identity(), identity()))
                 .put(GLOBAL_GROUPING_SETS.name(), new AttributeProperties<>(GLOBAL_GROUPING_SETS, Attributes.IntegerList::parse, Attributes.IntegerList::print))
                 .put(GROUPING_SETS_COUNT.name(), new AttributeProperties<>(GROUPING_SETS_COUNT, Integer::valueOf, Object::toString))
                 .put(GROUP_ID_INDEX.name(), new AttributeProperties<>(GROUP_ID_INDEX, Integer::valueOf, Object::toString))

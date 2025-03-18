@@ -60,7 +60,6 @@ public class Attributes
     public static final AttributeMetadata<ExchangeScope> EXCHANGE_SCOPE = new AttributeMetadata<>("exchange_scope", false);
     public static final AttributeMetadata<ExchangeType> EXCHANGE_TYPE = new AttributeMetadata<>("exchange_type", false);
     public static final AttributeMetadata<Integer> FIELD_INDEX = new AttributeMetadata<>("field_index", false);
-    public static final AttributeMetadata<String> FIELD_NAME = new AttributeMetadata<>("field_name", false);
     public static final AttributeMetadata<List<Integer>> GLOBAL_GROUPING_SETS = new AttributeMetadata<>("global_grouping_sets", false);
     public static final AttributeMetadata<Integer> GROUPING_SETS_COUNT = new AttributeMetadata<>("grouping_sets_count", false);
     public static final AttributeMetadata<Integer> GROUP_ID_INDEX = new AttributeMetadata<>("group_id_index", false);

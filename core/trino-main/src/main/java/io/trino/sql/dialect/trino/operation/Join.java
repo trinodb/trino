@@ -42,7 +42,6 @@ import static io.trino.sql.dialect.trino.Attributes.JOIN_TYPE;
 import static io.trino.sql.dialect.trino.Attributes.MAY_SKIP_OUTPUT_DUPLICATES;
 import static io.trino.sql.dialect.trino.Attributes.SPILLABLE;
 import static io.trino.sql.dialect.trino.Attributes.STATISTICS_AND_COST_SUMMARY;
-import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
@@ -182,7 +181,7 @@ public final class Join
             this.result = new Result(resultName, irType(new MultisetType(EMPTY_ROW)));
         }
         else {
-            this.result = new Result(resultName, irType(new MultisetType(assignRelationRowTypeFieldNames(RowType.anonymous(outputTypes)))));
+            this.result = new Result(resultName, irType(new MultisetType(RowType.anonymous(outputTypes))));
         }
 
         if (dynamicFilterTargetSelector.parameters().size() != 1 ||

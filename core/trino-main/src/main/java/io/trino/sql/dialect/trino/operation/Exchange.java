@@ -51,7 +51,6 @@ import static io.trino.sql.dialect.trino.Attributes.PARTITIONING_HANDLE;
 import static io.trino.sql.dialect.trino.Attributes.PARTITION_COUNT;
 import static io.trino.sql.dialect.trino.Attributes.REPLICATE_NULLS_AND_ANY;
 import static io.trino.sql.dialect.trino.Attributes.SORT_ORDERS;
-import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.RelationalProgramBuilder.relationRowType;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
@@ -138,7 +137,7 @@ public class Exchange
                 .map(Region::singleBlockRegion)
                 .collect(toImmutableList());
 
-        Type exchangeRowType = inputFieldTypes.isEmpty() ? EMPTY_ROW : assignRelationRowTypeFieldNames(RowType.anonymous(inputFieldTypes));
+        Type exchangeRowType = inputFieldTypes.isEmpty() ? EMPTY_ROW : RowType.anonymous(inputFieldTypes);
         this.result = new Result(resultName, irType(new MultisetType(exchangeRowType)));
 
         if (partitioningBoundArguments.parameters().size() != 1 ||

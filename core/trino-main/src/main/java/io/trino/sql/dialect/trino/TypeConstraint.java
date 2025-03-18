@@ -18,37 +18,22 @@ import io.trino.spi.type.MultisetType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.function.Predicate;
 
-import static io.trino.sql.newir.FormatOptions.isValidIdentifier;
 import static java.util.Objects.requireNonNull;
 
 public record TypeConstraint(Predicate<Type> constraint)
 {
     // Intermediate result row type.
     // Row without fields is supported and represented as EmptyRowType.
-    // If row fields are present, they must have valid unique names.
+    // If row fields are present, they must not have names.
     public static final TypeConstraint IS_RELATION_ROW = new TypeConstraint(type -> {
         if (type instanceof EmptyRowType) {
             return true;
         }
         if (type instanceof RowType rowType) {
-            Set<String> uniqueFieldNames = new HashSet<>();
-            for (RowType.Field field : rowType.getFields()) {
-                if (field.getName().isEmpty()) {
-                    return false;
-                }
-                String fieldName = field.getName().orElseThrow();
-                if (!isValidIdentifier(fieldName)) {
-                    return false;
-                }
-                if (!uniqueFieldNames.add(fieldName)) {
-                    return false;
-                }
-            }
-            return true;
+            return rowType.getFields().stream()
+                    .allMatch(field -> field.getName().isEmpty());
         }
         return false;
     });

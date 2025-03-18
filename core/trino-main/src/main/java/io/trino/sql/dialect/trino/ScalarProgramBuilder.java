@@ -29,7 +29,6 @@ import io.trino.sql.dialect.trino.operation.Coalesce;
 import io.trino.sql.dialect.trino.operation.Comparison;
 import io.trino.sql.dialect.trino.operation.Constant;
 import io.trino.sql.dialect.trino.operation.FieldReference;
-import io.trino.sql.dialect.trino.operation.FieldSelection;
 import io.trino.sql.dialect.trino.operation.In;
 import io.trino.sql.dialect.trino.operation.IsNull;
 import io.trino.sql.dialect.trino.operation.Lambda;
@@ -60,7 +59,6 @@ import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
 import static io.trino.sql.dialect.trino.Context.argumentMapping;
 import static io.trino.sql.dialect.trino.Context.composedMapping;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
-import static java.lang.String.format;
 import static java.util.HashMap.newHashMap;
 import static java.util.Objects.requireNonNull;
 
@@ -351,7 +349,7 @@ public class ScalarProgramBuilder
         // model lambda logic as a Block. collect all lambda arguments in a row
         // and pass them as a single parameter to the Block.
         Type lambdaParameterType;
-        Map<Symbol, String> lambdaMapping;
+        Map<Symbol, Integer> lambdaMapping;
 
         if (node.arguments().isEmpty()) {
             lambdaParameterType = EMPTY_ROW;
@@ -364,9 +362,8 @@ public class ScalarProgramBuilder
             lambdaMapping = newHashMap(node.arguments().size());
             for (int i = 0; i < node.arguments().size(); i++) {
                 Symbol argument = node.arguments().get(i);
-                String fieldName = format("a_%s", i + 1);
-                fields.add(new RowType.Field(Optional.of(fieldName), argument.type()));
-                lambdaMapping.putIfAbsent(argument, fieldName);
+                fields.add(new RowType.Field(Optional.empty(), argument.type()));
+                lambdaMapping.putIfAbsent(argument, i);
             }
             lambdaParameterType = RowType.from(fields.build());
         }
@@ -440,10 +437,10 @@ public class ScalarProgramBuilder
             throw new TrinoException(IR_ERROR, "no mapping for symbol " + node.name());
         }
         String resultName = nameAllocator.newName();
-        FieldSelection fieldSelection = new FieldSelection(resultName, rowField.row(), rowField.field(), ImmutableMap.of()); // TODO pass attributes through correlation / block argument
-        valueMap.put(fieldSelection.result(), fieldSelection);
-        context.block().addOperation(fieldSelection);
-        return fieldSelection;
+        FieldReference fieldReference = new FieldReference(resultName, rowField.row(), rowField.field(), ImmutableMap.of()); // TODO pass attributes through correlation / block argument
+        valueMap.put(fieldReference.result(), fieldReference);
+        context.block().addOperation(fieldReference);
+        return fieldReference;
     }
 
     @Override

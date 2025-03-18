@@ -35,7 +35,7 @@ import io.trino.sql.dialect.trino.operation.Aggregation;
 import io.trino.sql.dialect.trino.operation.Constant;
 import io.trino.sql.dialect.trino.operation.CorrelatedJoin;
 import io.trino.sql.dialect.trino.operation.Exchange;
-import io.trino.sql.dialect.trino.operation.FieldSelection;
+import io.trino.sql.dialect.trino.operation.FieldReference;
 import io.trino.sql.dialect.trino.operation.Filter;
 import io.trino.sql.dialect.trino.operation.Join;
 import io.trino.sql.dialect.trino.operation.Limit;
@@ -197,7 +197,7 @@ public class RelationalProgramBuilder
                 node.isInputReducingAggregation(),
                 input.operation().attributes());
         valueMap.put(aggregation.result(), aggregation);
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(aggregation.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(aggregation.result().type())), node.getOutputSymbols());
         context.block().addOperation(aggregation);
         return new OperationAndMapping(aggregation, outputMapping);
     }
@@ -208,7 +208,7 @@ public class RelationalProgramBuilder
             Type outputType,
             AggregationStep step,
             Context outerContext,
-            Map<Symbol, String> inputMapping)
+            Map<Symbol, Integer> inputMapping)
     {
         String resultName = nameAllocator.newName();
 
@@ -302,7 +302,7 @@ public class RelationalProgramBuilder
                 this,
                 new Context(subqueryBuilder, composedMapping(context, argumentMapping(subqueryParameter, input.mapping()))));
         addReturnOperation(subqueryBuilder);
-        Map<Symbol, String> subqueryMapping = deriveOutputMapping(relationRowType(trinoType(subqueryBuilder.recentOperation().result().type())), node.getSubquery().getOutputSymbols());
+        Map<Symbol, Integer> subqueryMapping = deriveOutputMapping(relationRowType(trinoType(subqueryBuilder.recentOperation().result().type())), node.getSubquery().getOutputSymbols());
         Map<AttributeKey, Object> subqueryAttributes = subqueryBuilder.recentOperation().attributes();
         Block subquery = subqueryBuilder.build();
         valueMap.put(subqueryParameter, subquery);
@@ -336,7 +336,7 @@ public class RelationalProgramBuilder
                 subqueryAttributes);
         valueMap.put(correlatedJoin.result(), correlatedJoin);
 
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(correlatedJoin.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(correlatedJoin.result().type())), node.getOutputSymbols());
         context.block().addOperation(correlatedJoin);
         return new OperationAndMapping(correlatedJoin, outputMapping);
     }
@@ -363,8 +363,8 @@ public class RelationalProgramBuilder
 
         // per ExchangeNode constructor, inputs is not empty. inputSelectors is not empty too.
         List<Type> inputFieldTypes = trinoType(inputSelectors.getFirst().getReturnedType()).getTypeParameters();
-        Type exchangeRowType = inputFieldTypes.isEmpty() ? EMPTY_ROW : assignRelationRowTypeFieldNames(RowType.anonymous(inputFieldTypes));
-        Map<Symbol, String> outputMapping = deriveOutputMapping(exchangeRowType, node.getOutputSymbols());
+        Type exchangeRowType = inputFieldTypes.isEmpty() ? EMPTY_ROW : RowType.anonymous(inputFieldTypes);
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(exchangeRowType, node.getOutputSymbols());
 
         // partitioning bound arguments
         Block.Parameter boundArgumentsParameter = new Block.Parameter(
@@ -474,7 +474,7 @@ public class RelationalProgramBuilder
 
         Filter filter = new Filter(resultName, input.operation().result(), predicate, input.operation().attributes());
         valueMap.put(filter.result(), filter);
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(filter.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(filter.result().type())), node.getOutputSymbols());
         context.block().addOperation(filter);
         return new OperationAndMapping(filter, outputMapping);
     }
@@ -590,7 +590,7 @@ public class RelationalProgramBuilder
                 left.operation().attributes(),
                 right.operation().attributes());
         valueMap.put(join.result(), join);
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(join.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(join.result().type())), node.getOutputSymbols());
         context.block().addOperation(join);
         return new OperationAndMapping(join, outputMapping);
     }
@@ -624,7 +624,7 @@ public class RelationalProgramBuilder
                 preSortedIndexes,
                 input.operation().attributes());
         valueMap.put(limit.result(), limit);
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(limit.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(limit.result().type())), node.getOutputSymbols());
         context.block().addOperation(limit);
         return new OperationAndMapping(limit, outputMapping);
     }
@@ -679,7 +679,7 @@ public class RelationalProgramBuilder
 
         Project project = new Project(resultName, input.operation().result(), assignments, input.operation().attributes());
         valueMap.put(project.result(), project);
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(project.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(project.result().type())), node.getOutputSymbols());
         context.block().addOperation(project);
         return new OperationAndMapping(project, outputMapping);
     }
@@ -713,7 +713,7 @@ public class RelationalProgramBuilder
                 node.isUpdateTarget(),
                 node.getUseConnectorNodePartitioning());
         valueMap.put(tableScan.result(), tableScan);
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(tableScan.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(tableScan.result().type())), node.getOutputSymbols());
         context.block().addOperation(tableScan);
         return new OperationAndMapping(tableScan, outputMapping);
     }
@@ -751,7 +751,7 @@ public class RelationalProgramBuilder
                 TopNStep.of(node.getStep()),
                 input.operation().attributes());
         valueMap.put(topN.result(), topN);
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(topN.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(topN.result().type())), node.getOutputSymbols());
         context.block().addOperation(topN);
         return new OperationAndMapping(topN, outputMapping);
     }
@@ -784,7 +784,7 @@ public class RelationalProgramBuilder
             values = new Values(resultName, rowType, rows);
         }
         valueMap.put(values.result(), values);
-        Map<Symbol, String> outputMapping = deriveOutputMapping(relationRowType(trinoType(values.result().type())), node.getOutputSymbols());
+        Map<Symbol, Integer> outputMapping = deriveOutputMapping(relationRowType(trinoType(values.result().type())), node.getOutputSymbols());
         context.block().addOperation(values);
         return new OperationAndMapping(values, outputMapping);
     }
@@ -795,20 +795,20 @@ public class RelationalProgramBuilder
     public static Type relationRowType(Type relationType)
     {
         if (!IS_RELATION.test(relationType)) {
-            throw new TrinoException(IR_ERROR, "not a relation type. expected multiset of row with unique field names");
+            throw new TrinoException(IR_ERROR, "not a relation type. expected multiset of row with anonymous fields");
         }
 
         return ((MultisetType) relationType).getElementType();
     }
 
     /**
-     * Map each output symbol of the PlanNode to a corresponding field name in the Operations output row type.
+     * Map each output symbol of the PlanNode to a corresponding field index in the Operations output row type.
      */
     @VisibleForTesting
-    public static Map<Symbol, String> deriveOutputMapping(Type relationRowType, List<Symbol> outputSymbols)
+    public static Map<Symbol, Integer> deriveOutputMapping(Type relationRowType, List<Symbol> outputSymbols)
     {
         if (!IS_RELATION_ROW.test(relationRowType)) {
-            throw new TrinoException(IR_ERROR, "not a relation row type. expected RowType with unique field names or EmptyRowType");
+            throw new TrinoException(IR_ERROR, "not a relation row type. expected RowType with anonymous fields or EmptyRowType");
         }
 
         if (relationRowType.equals(EMPTY_ROW)) {
@@ -827,19 +827,19 @@ public class RelationalProgramBuilder
         // If a PlanNode outputs some symbol twice, we will use the first occurrence for mapping.
         // As a result, the downstream references to the symbol will be mapped to the same output field,
         // and the other field will be unused and eligible for pruning.
-        Map<Symbol, String> mapping = HashMap.newHashMap(outputSymbols.size());
+        Map<Symbol, Integer> mapping = HashMap.newHashMap(outputSymbols.size());
         for (int i = 0; i < outputSymbols.size(); i++) {
             Symbol symbol = outputSymbols.get(i);
             RowType.Field field = rowType.getFields().get(i);
             if (!symbol.type().equals(field.getType())) {
                 throw new TrinoException(IR_ERROR, "symbol type does not match field type");
             }
-            mapping.putIfAbsent(symbol, field.getName().orElseThrow());
+            mapping.putIfAbsent(symbol, i);
         }
         return mapping;
     }
 
-    private Block fieldSelectorBlock(String blockName, Block.Parameter inputRow, Map<Symbol, String> inputSymbolMapping, List<Symbol> selectedSymbolsList)
+    private Block fieldSelectorBlock(String blockName, Block.Parameter inputRow, Map<Symbol, Integer> inputSymbolMapping, List<Symbol> selectedSymbolsList)
     {
         return fieldSelectorBlock(
                 blockName,
@@ -861,7 +861,7 @@ public class RelationalProgramBuilder
      * @return a row containing selected fields from all input rows
      */
     @VisibleForTesting
-    public Block fieldSelectorBlock(String blockName, List<Block.Parameter> inputRows, List<Map<Symbol, String>> inputSymbolMappings, List<List<Symbol>> selectedSymbolsLists)
+    public Block fieldSelectorBlock(String blockName, List<Block.Parameter> inputRows, List<Map<Symbol, Integer>> inputSymbolMappings, List<List<Symbol>> selectedSymbolsLists)
     {
         if (inputRows.size() != inputSymbolMappings.size()) {
             throw new TrinoException(IR_ERROR, "inputs and input symbol mappings do not match");
@@ -887,14 +887,14 @@ public class RelationalProgramBuilder
         ImmutableList.Builder<Operation> selections = ImmutableList.builder();
         for (int i = 0; i < inputRows.size(); i++) {
             Block.Parameter parameter = inputRows.get(i);
-            Map<Symbol, String> symbolMapping = inputSymbolMappings.get(i);
+            Map<Symbol, Integer> symbolMapping = inputSymbolMappings.get(i);
             List<Symbol> symbols = selectedSymbolsLists.get(i);
             for (Symbol symbol : symbols) {
                 String value = nameAllocator.newName();
-                FieldSelection fieldSelection = new FieldSelection(value, parameter, symbolMapping.get(symbol), ImmutableMap.of()); // TODO pass appropriate row-specific input attributes through lambda arguments
-                valueMap.put(fieldSelection.result(), fieldSelection);
-                selectorBlock.addOperation(fieldSelection);
-                selections.add(fieldSelection);
+                FieldReference fieldReference = new FieldReference(value, parameter, symbolMapping.get(symbol), ImmutableMap.of()); // TODO pass appropriate row-specific input attributes through lambda arguments
+                valueMap.put(fieldReference.result(), fieldReference);
+                selectorBlock.addOperation(fieldReference);
+                selections.add(fieldReference);
             }
         }
         // build a row of selected items
@@ -925,27 +925,12 @@ public class RelationalProgramBuilder
     }
 
     /**
-     * Assigns unique lowercase names, compliant with IS_RELATION_ROW type constraint: f_1, f_2, ...
-     * Indexing from 1 for similarity with SQL indexing.
-     */
-    public static RowType assignRelationRowTypeFieldNames(RowType relationRowType)
-    {
-        ImmutableList.Builder<RowType.Field> fields = ImmutableList.builder();
-        for (int i = 0; i < relationRowType.getTypeParameters().size(); i++) {
-            fields.add(new RowType.Field(
-                    Optional.of(String.format("f_%s", i + 1)),
-                    relationRowType.getTypeParameters().get(i)));
-        }
-        return RowType.from(fields.build());
-    }
-
-    /**
      * A result of transforming a PlanNode into an Operation.
-     * Maps each output symbol of the PlanNode to a corresponding field name in the Operations output RowType.
+     * Maps each output symbol of the PlanNode to a corresponding field index in the Operations output RowType.
      */
-    public record OperationAndMapping(Operation operation, Map<Symbol, String> mapping)
+    public record OperationAndMapping(Operation operation, Map<Symbol, Integer> mapping)
     {
-        public OperationAndMapping(Operation operation, Map<Symbol, String> mapping)
+        public OperationAndMapping(Operation operation, Map<Symbol, Integer> mapping)
         {
             this.operation = requireNonNull(operation, "operation is null");
             this.mapping = ImmutableMap.copyOf(requireNonNull(mapping, "mapping is null"));

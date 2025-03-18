@@ -19,8 +19,6 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.RowType;
-import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
 import io.trino.sql.dialect.trino.Context.RowField;
 import io.trino.sql.dialect.trino.ProgramBuilder.ValueNameAllocator;
@@ -34,7 +32,6 @@ import io.trino.sql.dialect.trino.operation.Coalesce;
 import io.trino.sql.dialect.trino.operation.Comparison;
 import io.trino.sql.dialect.trino.operation.Constant;
 import io.trino.sql.dialect.trino.operation.FieldReference;
-import io.trino.sql.dialect.trino.operation.FieldSelection;
 import io.trino.sql.dialect.trino.operation.In;
 import io.trino.sql.dialect.trino.operation.IsNull;
 import io.trino.sql.dialect.trino.operation.Lambda;
@@ -60,7 +57,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
 import static io.trino.spi.type.RowType.anonymousRow;
-import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.dialect.trino.Attributes.ComparisonOperator.GREATER_THAN;
@@ -76,13 +72,11 @@ final class TestScalarProgramBuilder
 {
     private static final Block.Parameter INPUT_ROW_PARAMETER = new Block.Parameter(
             "%input_row",
-            irType(rowType(
-                    new Field(Optional.of("f_1"), BIGINT),
-                    new Field(Optional.of("f_2"), BOOLEAN))));
+            irType(anonymousRow(BIGINT, BOOLEAN)));
 
     private static final Map<Symbol, RowField> SYMBOL_MAPPING = ImmutableMap.of(
-            new Symbol(BIGINT, "a"), new RowField(INPUT_ROW_PARAMETER, "f_1"),
-            new Symbol(BOOLEAN, "b"), new RowField(INPUT_ROW_PARAMETER, "f_2"));
+            new Symbol(BIGINT, "a"), new RowField(INPUT_ROW_PARAMETER, 0),
+            new Symbol(BOOLEAN, "b"), new RowField(INPUT_ROW_PARAMETER, 1));
 
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
 
@@ -155,16 +149,16 @@ final class TestScalarProgramBuilder
                                 new io.trino.sql.ir.Reference(BIGINT, "x"),
                                 new io.trino.sql.ir.Constant(BIGINT, 0L))));
 
-        FieldSelection fieldSelectionOperationA = new FieldSelection("%0", INPUT_ROW_PARAMETER, "f_1", ImmutableMap.of());
-        Block.Parameter lambdaArgument = new Block.Parameter("%2", irType(rowType(new RowType.Field(Optional.of("a_1"), BIGINT))));
-        FieldSelection fieldSelectionOperationX = new FieldSelection("%3", lambdaArgument, "a_1", ImmutableMap.of());
+        FieldReference fieldReferenceOperationA = new FieldReference("%0", INPUT_ROW_PARAMETER, 0, ImmutableMap.of());
+        Block.Parameter lambdaArgument = new Block.Parameter("%2", irType(anonymousRow(BIGINT)));
+        FieldReference fieldReferenceOperationX = new FieldReference("%3", lambdaArgument, 0, ImmutableMap.of());
         Constant constantOperation = new Constant("%4", BIGINT, 0L);
         Comparison comparisonOperation = new Comparison(
                 "%5",
-                fieldSelectionOperationX.result(),
+                fieldReferenceOperationX.result(),
                 constantOperation.result(),
                 LESS_THAN,
-                ImmutableList.of(fieldSelectionOperationX.attributes(), constantOperation.attributes()));
+                ImmutableList.of(fieldReferenceOperationX.attributes(), constantOperation.attributes()));
         Return returnOperation = new Return("%6", comparisonOperation.result(), comparisonOperation.attributes());
         Lambda lambdaOperation = new Lambda(
                 "%1",
@@ -172,20 +166,20 @@ final class TestScalarProgramBuilder
                         Optional.of("^lambda"),
                         ImmutableList.of(lambdaArgument),
                         ImmutableList.of(
-                                fieldSelectionOperationX,
+                                fieldReferenceOperationX,
                                 constantOperation,
                                 comparisonOperation,
                                 returnOperation)));
         Bind bindOperation = new Bind(
                 "%7",
-                ImmutableList.of(fieldSelectionOperationA.result()),
+                ImmutableList.of(fieldReferenceOperationA.result()),
                 lambdaOperation.result(),
-                ImmutableList.of(fieldSelectionOperationA.attributes(), lambdaOperation.attributes()));
+                ImmutableList.of(fieldReferenceOperationA.attributes(), lambdaOperation.attributes()));
 
         assertProgram(
                 bindExpression,
                 ImmutableList.of(
-                        fieldSelectionOperationA,
+                        fieldReferenceOperationA,
                         lambdaOperation,
                         bindOperation),
                 new FunctionType(ImmutableList.of(), BOOLEAN));
@@ -471,15 +465,15 @@ final class TestScalarProgramBuilder
                         new io.trino.sql.ir.Reference(BIGINT, "x"),
                         new io.trino.sql.ir.Constant(BIGINT, 0L)));
 
-        Block.Parameter lambdaArgument = new Block.Parameter("%1", irType(rowType(new RowType.Field(Optional.of("a_1"), BIGINT))));
-        FieldSelection fieldSelectionOperationX = new FieldSelection("%2", lambdaArgument, "a_1", ImmutableMap.of());
+        Block.Parameter lambdaArgument = new Block.Parameter("%1", irType(anonymousRow(BIGINT)));
+        FieldReference fieldReferenceOperationX = new FieldReference("%2", lambdaArgument, 0, ImmutableMap.of());
         Constant constantOperation = new Constant("%3", BIGINT, 0L);
         Comparison comparisonOperation = new Comparison(
                 "%4",
-                fieldSelectionOperationX.result(),
+                fieldReferenceOperationX.result(),
                 constantOperation.result(),
                 LESS_THAN,
-                ImmutableList.of(fieldSelectionOperationX.attributes(), constantOperation.attributes()));
+                ImmutableList.of(fieldReferenceOperationX.attributes(), constantOperation.attributes()));
         Return returnOperation = new Return("%5", comparisonOperation.result(), comparisonOperation.attributes());
         Lambda lambdaOperation = new Lambda(
                 "%0",
@@ -487,7 +481,7 @@ final class TestScalarProgramBuilder
                         Optional.of("^lambda"),
                         ImmutableList.of(lambdaArgument),
                         ImmutableList.of(
-                                fieldSelectionOperationX,
+                                fieldReferenceOperationX,
                                 constantOperation,
                                 comparisonOperation,
                                 returnOperation)));
@@ -512,24 +506,22 @@ final class TestScalarProgramBuilder
                                         new io.trino.sql.ir.Reference(BIGINT, "a"), // correlated symbol
                                         new io.trino.sql.ir.Reference(BIGINT, "y"))))); // lambda argument
 
-        Block.Parameter lambdaArgument = new Block.Parameter("%1", irType(rowType(
-                new RowType.Field(Optional.of("a_1"), BOOLEAN),
-                new RowType.Field(Optional.of("a_2"), BIGINT))));
-        FieldSelection fieldSelectionOperationB = new FieldSelection("%2", INPUT_ROW_PARAMETER, "f_2", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationX = new FieldSelection("%3", lambdaArgument, "a_1", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationA = new FieldSelection("%4", INPUT_ROW_PARAMETER, "f_1", ImmutableMap.of());
-        FieldSelection fieldSelectionOperationY = new FieldSelection("%5", lambdaArgument, "a_2", ImmutableMap.of());
+        Block.Parameter lambdaArgument = new Block.Parameter("%1", irType(anonymousRow(BOOLEAN, BIGINT)));
+        FieldReference fieldReferenceOperationB = new FieldReference("%2", INPUT_ROW_PARAMETER, 1, ImmutableMap.of());
+        FieldReference fieldReferenceOperationX = new FieldReference("%3", lambdaArgument, 0, ImmutableMap.of());
+        FieldReference fieldReferenceOperationA = new FieldReference("%4", INPUT_ROW_PARAMETER, 0, ImmutableMap.of());
+        FieldReference fieldReferenceOperationY = new FieldReference("%5", lambdaArgument, 1, ImmutableMap.of());
         Comparison comparisonOperation = new Comparison(
                 "%6",
-                fieldSelectionOperationA.result(),
-                fieldSelectionOperationY.result(),
+                fieldReferenceOperationA.result(),
+                fieldReferenceOperationY.result(),
                 LESS_THAN,
-                ImmutableList.of(fieldSelectionOperationA.attributes(), fieldSelectionOperationY.attributes()));
+                ImmutableList.of(fieldReferenceOperationA.attributes(), fieldReferenceOperationY.attributes()));
         Logical logicalOperation = new Logical(
                 "%7",
-                ImmutableList.of(fieldSelectionOperationB.result(), fieldSelectionOperationX.result(), comparisonOperation.result()),
+                ImmutableList.of(fieldReferenceOperationB.result(), fieldReferenceOperationX.result(), comparisonOperation.result()),
                 OR,
-                ImmutableList.of(fieldSelectionOperationB.attributes(), fieldSelectionOperationX.attributes(), comparisonOperation.attributes()));
+                ImmutableList.of(fieldReferenceOperationB.attributes(), fieldReferenceOperationX.attributes(), comparisonOperation.attributes()));
         Return returnOperation = new Return("%8", logicalOperation.result(), logicalOperation.attributes());
         Lambda lambdaOperation = new Lambda(
                 "%0",
@@ -537,10 +529,10 @@ final class TestScalarProgramBuilder
                         Optional.of("^lambda"),
                         ImmutableList.of(lambdaArgument),
                         ImmutableList.of(
-                                fieldSelectionOperationB,
-                                fieldSelectionOperationX,
-                                fieldSelectionOperationA,
-                                fieldSelectionOperationY,
+                                fieldReferenceOperationB,
+                                fieldReferenceOperationX,
+                                fieldReferenceOperationA,
+                                fieldReferenceOperationY,
                                 comparisonOperation,
                                 logicalOperation,
                                 returnOperation)));
@@ -557,18 +549,16 @@ final class TestScalarProgramBuilder
                         new Symbol(BOOLEAN, "x")),
                 new io.trino.sql.ir.Reference(BOOLEAN, "x"));
 
-        Block.Parameter lambdaArgument = new Block.Parameter("%1", irType(rowType(
-                new RowType.Field(Optional.of("a_1"), BOOLEAN),
-                new RowType.Field(Optional.of("a_2"), BOOLEAN))));
-        FieldSelection fieldSelectionOperation = new FieldSelection("%2", lambdaArgument, "a_1", ImmutableMap.of());
-        Return returnOperation = new Return("%3", fieldSelectionOperation.result(), fieldSelectionOperation.attributes());
+        Block.Parameter lambdaArgument = new Block.Parameter("%1", irType(anonymousRow(BOOLEAN, BOOLEAN)));
+        FieldReference fieldReferenceOperation = new FieldReference("%2", lambdaArgument, 0, ImmutableMap.of());
+        Return returnOperation = new Return("%3", fieldReferenceOperation.result(), fieldReferenceOperation.attributes());
         Lambda lambdaOperation = new Lambda(
                 "%0",
                 new Block(
                         Optional.of("^lambda"),
                         ImmutableList.of(lambdaArgument),
                         ImmutableList.of(
-                                fieldSelectionOperation,
+                                fieldReferenceOperation,
                                 returnOperation)));
 
         assertProgram(lambdaExpression, ImmutableList.of(lambdaOperation), new FunctionType(ImmutableList.of(BOOLEAN, BOOLEAN), BOOLEAN));
@@ -632,9 +622,9 @@ final class TestScalarProgramBuilder
     {
         io.trino.sql.ir.Reference referenceExpression = new io.trino.sql.ir.Reference(BIGINT, "a");
 
-        FieldSelection fieldSelectionOperation = new FieldSelection("%0", INPUT_ROW_PARAMETER, "f_1", ImmutableMap.of());
+        FieldReference fieldReferenceOperation = new FieldReference("%0", INPUT_ROW_PARAMETER, 0, ImmutableMap.of());
 
-        assertProgram(referenceExpression, ImmutableList.of(fieldSelectionOperation), BIGINT);
+        assertProgram(referenceExpression, ImmutableList.of(fieldReferenceOperation), BIGINT);
     }
 
     @Test

@@ -32,7 +32,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
 import static io.trino.sql.dialect.trino.Attributes.CARDINALITY;
-import static io.trino.sql.dialect.trino.RelationalProgramBuilder.assignRelationRowTypeFieldNames;
 import static io.trino.sql.dialect.trino.TrinoDialect.TRINO;
 import static io.trino.sql.dialect.trino.TrinoDialect.irType;
 import static io.trino.sql.dialect.trino.TrinoDialect.trinoType;
@@ -57,11 +56,10 @@ public final class Values
         requireNonNull(resultName, "resultName is null");
         requireNonNull(rows, "rows is null");
 
-        // Create output type with unique field names.
-        // Field names of the passed RowType and of the individual rows (if present) will be ignored.
+        // Create output type with anonymous fields.
         // This is consistent with the Trino behavior in StatementAnalyzer: the RelationType
         // for Values has anonymous fields even if individual rows had named fields.
-        RowType outputType = assignRelationRowTypeFieldNames(rowType);
+        RowType outputType = RowType.anonymous(rowType.getTypeParameters());
         this.result = new Result(resultName, irType(new MultisetType(outputType)));
 
         // Verify that each row matches the output type. Check field types only.
