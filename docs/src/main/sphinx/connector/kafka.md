@@ -30,7 +30,7 @@ See the {doc}`kafka-tutorial`.
 
 To connect to Kafka, you need:
 
-- Kafka broker version 0.10.0 or higher.
+- Kafka broker version 3.3 or higher (with KRaft enabled).
 - Network access from the Trino coordinator and workers to the Kafka nodes.
   Port 9092 is the default port.
 
@@ -40,7 +40,7 @@ must be taken:
 
 - Copy the `kafka-protobuf-provider` and `kafka-protobuf-types` JAR files
   from [Confluent](https://packages.confluent.io/maven/io/confluent/) for
-  Confluent version 7.3.1 to the Kafka connector plugin directory (`<install
+  Confluent version 7.9.0 to the Kafka connector plugin directory (`<install
   directory>/plugin/kafka`) on all nodes in the cluster.
   The plugin directory depends on the {doc}`/installation` method.
 - By copying those JARs and using them, you agree to the terms of the [Confluent
