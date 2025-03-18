@@ -13,6 +13,7 @@
  */
 package io.trino.hive.formats.line.grok;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.trino.hive.formats.line.grok.exception.GrokException;
 import org.junit.jupiter.api.Test;
 
@@ -35,9 +36,9 @@ public class TestApacheDataType
 
     @Test
     public void test002_httpd_access_semi()
-            throws GrokException, ParseException
+            throws GrokException, ParseException, JsonProcessingException
     {
-        Grok g = Grok.create(ResourceManager.PATTERNS, "%{IPORHOST:clientip} %{USER:ident;boolean} %{USER:auth} \\[%{HTTPDATE:timestamp;date;dd/MMM/yyyy:HH:mm:ss Z}\\] \"(?:%{WORD:verb;string} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion;float})?|%{DATA:rawrequest})\" %{NUMBER:response;int} (?:%{NUMBER:bytes;long}|-)");
+        Grok g = Grok.create("%{IPORHOST:clientip} %{USER:ident;boolean} %{USER:auth} \\[%{HTTPDATE:timestamp;date;dd/MMM/yyyy:HH:mm:ss Z}\\] \"(?:%{WORD:verb;string} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion;float})?|%{DATA:rawrequest})\" %{NUMBER:response;int} (?:%{NUMBER:bytes;long}|-)");
 
         Match gm = g.match(line);
         gm.captures();
@@ -46,18 +47,18 @@ public class TestApacheDataType
 
         Map<String, Object> map = gm.toMap();
         assertThat(map.get("timestamp")).isEqualTo(new SimpleDateFormat("dd/MMM/yyyy:HH:mm:ss Z").parse("07/Mar/2004:16:45:56 -0800"));
-        assertThat(map.get("response")).isEqualTo(Integer.valueOf(401));
+        assertThat(map.get("response")).isEqualTo(401);
         assertThat(map.get("ident")).isEqualTo(Boolean.FALSE);
-        assertThat(map.get("httpversion")).isEqualTo(Float.valueOf(1.1f));
-        assertThat(map.get("bytes")).isEqualTo(Long.valueOf(12846));
+        assertThat(map.get("httpversion")).isEqualTo(1.1f);
+        assertThat(map.get("bytes")).isEqualTo(12846L);
         assertThat(map.get("verb")).isEqualTo("GET");
     }
 
     @Test
     public void test002_httpd_access_colon()
-            throws GrokException, ParseException
+            throws GrokException, ParseException, JsonProcessingException
     {
-        Grok g = Grok.create(ResourceManager.PATTERNS, "%{IPORHOST:clientip} %{USER:ident:boolean} %{USER:auth} \\[%{HTTPDATE:timestamp:date:dd/MMM/yyyy:HH:mm:ss Z}\\] \"(?:%{WORD:verb:string} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion:float})?|%{DATA:rawrequest})\" %{NUMBER:response:int} (?:%{NUMBER:bytes:long}|-)");
+        Grok g = Grok.create("%{IPORHOST:clientip} %{USER:ident:boolean} %{USER:auth} \\[%{HTTPDATE:timestamp:date:dd/MMM/yyyy:HH:mm:ss Z}\\] \"(?:%{WORD:verb:string} %{NOTSPACE:request}(?: HTTP/%{NUMBER:httpversion:float})?|%{DATA:rawrequest})\" %{NUMBER:response:int} (?:%{NUMBER:bytes:long}|-)");
 
         Match gm = g.match(line);
         gm.captures();
@@ -66,10 +67,10 @@ public class TestApacheDataType
 
         Map<String, Object> map = gm.toMap();
         assertThat(map.get("timestamp")).isEqualTo(new SimpleDateFormat("dd/MMM/yyyy:HH:mm:ss Z").parse("07/Mar/2004:16:45:56 -0800"));
-        assertThat(map.get("response")).isEqualTo(Integer.valueOf(401));
+        assertThat(map.get("response")).isEqualTo(401);
         assertThat(map.get("ident")).isEqualTo(Boolean.FALSE);
-        assertThat(map.get("httpversion")).isEqualTo(Float.valueOf(1.1f));
-        assertThat(map.get("bytes")).isEqualTo(Long.valueOf(12846));
+        assertThat(map.get("httpversion")).isEqualTo(1.1f);
+        assertThat(map.get("bytes")).isEqualTo(12846L);
         assertThat(map.get("verb")).isEqualTo("GET");
     }
 }

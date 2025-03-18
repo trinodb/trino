@@ -45,7 +45,13 @@ public class TestGrok
      *
      * }
      */
-    private Grok g = Grok.EMPTY;
+
+    Grok g = Grok.create(null);
+
+    public TestGrok()
+            throws GrokException
+    {
+    }
 
     @Test
     public void test000_basic()
@@ -93,9 +99,7 @@ public class TestGrok
 
     @Test
     public void test000_dummy()
-            throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         boolean thrown = false;
         /** This check if grok throw */
         try {
@@ -127,7 +131,7 @@ public class TestGrok
     public void test001_static_metod_factory()
             throws Throwable
     {
-        Grok staticGrok = Grok.create(ResourceManager.PATTERNS, "%{USERNAME}");
+        Grok staticGrok = Grok.create("%{USERNAME}");
         Match gm = staticGrok.match("root");
         gm.captures();
         assertThat(gm.toMap().toString()).isEqualTo("{USERNAME=root}");
@@ -153,7 +157,6 @@ public class TestGrok
     public void test001_username()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{USERNAME}");
 
         Match gm = g.match("root");
@@ -181,7 +184,6 @@ public class TestGrok
     public void test001_username2()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{USER}");
 
         Match gm = g.match("root");
@@ -209,7 +211,6 @@ public class TestGrok
     public void test002_numbers()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{NUMBER}");
 
         Match gm = g.match("-42");
@@ -221,7 +222,6 @@ public class TestGrok
     public void test003_word()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{WORD}");
 
         Match gm = g.match("a");
@@ -237,7 +237,6 @@ public class TestGrok
     public void test004_SPACE()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{SPACE}");
 
         Match gm = g.match("abc dc");
@@ -249,7 +248,6 @@ public class TestGrok
     public void test004_number()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{NUMBER}");
 
         Match gm = g.match("Something costs $55.4!");
@@ -261,7 +259,6 @@ public class TestGrok
     public void test005_NOTSPACE()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{NOTSPACE}");
 
         Match gm = g.match("abc dc");
@@ -273,7 +270,6 @@ public class TestGrok
     public void test006_QUOTEDSTRING()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{QUOTEDSTRING:text}");
 
         Match gm = g.match("\"abc dc\"");
@@ -285,7 +281,6 @@ public class TestGrok
     public void test007_UUID()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{UUID}");
 
         Match gm = g.match("61243740-4786-11e3-86a7-0002a5d5c51b");
@@ -305,7 +300,6 @@ public class TestGrok
     public void test008_MAC()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{MAC}");
 
         Match gm = g.match("5E:FF:56:A2:AF:15");
@@ -317,7 +311,6 @@ public class TestGrok
     public void test009_IPORHOST()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{IPORHOST}");
 
         Match gm = g.match("www.google.fr");
@@ -333,7 +326,6 @@ public class TestGrok
     public void test010_HOSTPORT()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{HOSTPORT}");
 
         Match gm = g.match("www.google.fr:80");
@@ -345,8 +337,8 @@ public class TestGrok
     public void test011_COMBINEDAPACHELOG()
             throws Throwable
     {
-        g.addPatternFromFile(ResourceManager.PATTERNS);
         g.compile("%{COMBINEDAPACHELOG}");
+        g.setStrictMode(true);
 
         Match gm =
                 g.match("112.169.19.192 - - [06/Mar/2013:01:36:30 +0900] \"GET / HTTP/1.1\" 200 44346 \"-\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_2) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.152 Safari/537.22\"");
@@ -366,9 +358,6 @@ public class TestGrok
         assertThat(gm.toMap().get("httpversion")).isEqualTo("1.1");
         assertThat(gm.toMap().get("request")).isEqualTo("/wp-content/plugins/easy-table/themes/default/style.css?ver=1.0");
         assertThat(gm.toMap().get("TIME")).isEqualTo("01:36:30");
-
-        // assertEquals("{HOSTPORT=www.google.fr:80, IPORHOST=www.google.fr, PORT=80}",
-        // gm.toMap().toString());
     }
 
     /**
@@ -379,7 +368,7 @@ public class TestGrok
     public void test012_day()
             throws Throwable
     {
-        Grok grok = Grok.create(ResourceManager.PATTERNS, "%{DAY}");
+        Grok grok = Grok.create("%{DAY}");
 
         List<String> days = new ArrayList<String>();
         days.add("Mon");
@@ -411,7 +400,7 @@ public class TestGrok
     public void test013_IpSet()
             throws Throwable
     {
-        Grok grok = Grok.create(ResourceManager.PATTERNS, "%{IP}");
+        Grok grok = Grok.create("%{IP}");
 
         BufferedReader br = Files.newBufferedReader(Path.of(ResourceManager.IP));
         String line;
@@ -428,7 +417,7 @@ public class TestGrok
     public void test014_month()
             throws Throwable
     {
-        Grok grok = Grok.create(ResourceManager.PATTERNS, "%{MONTH}");
+        Grok grok = Grok.create("%{MONTH}");
 
         String[] array = {"Jan", "January", "Feb", "February", "Mar", "March", "Apr", "April", "May", "Jun", "June",
                 "Jul", "July", "Aug", "August", "Sep", "September", "Oct", "October", "Nov",
@@ -448,7 +437,7 @@ public class TestGrok
     public void test015_iso8601()
             throws GrokException
     {
-        Grok grok = Grok.create(ResourceManager.PATTERNS, "%{TIMESTAMP_ISO8601}");
+        Grok grok = Grok.create("%{TIMESTAMP_ISO8601}");
 
         String[] array = {
                 "2001-01-01T00:00:00",
@@ -482,7 +471,7 @@ public class TestGrok
     public void test016_uri()
             throws GrokException
     {
-        Grok grok = Grok.create(ResourceManager.PATTERNS, "%{URI}");
+        Grok grok = Grok.create("%{URI}");
 
         String[] array = {
                 "http://www.google.com",
@@ -529,7 +518,7 @@ public class TestGrok
     public void test017_nonMachingList()
             throws GrokException
     {
-        Grok grok = Grok.create(ResourceManager.PATTERNS, "%{URI}");
+        Grok grok = Grok.create("%{URI}");
 
         String[] array = {
                 "http://www.google.com",

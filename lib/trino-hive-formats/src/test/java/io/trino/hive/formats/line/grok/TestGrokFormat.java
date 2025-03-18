@@ -14,26 +14,23 @@
 package io.trino.hive.formats.line.grok;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.hive.formats.line.Column;
-import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.grok.exception.GrokException;
-import io.trino.spi.PageBuilder;
-import io.trino.spi.type.Type;
-import org.assertj.core.api.AbstractThrowableAssert;
-import org.assertj.core.api.ThrowableAssert;
+import io.trino.spi.TrinoException;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.hive.formats.FormatTestUtils.assertColumnValueEquals;
-import static io.trino.hive.formats.FormatTestUtils.createLineBuffer;
-import static io.trino.hive.formats.FormatTestUtils.readTrinoValues;
+import static io.trino.hive.formats.line.grok.TestGrokUtils.assertError;
+import static io.trino.hive.formats.line.grok.TestGrokUtils.assertLine;
+import static io.trino.hive.formats.line.grok.TestGrokUtils.readLine;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -54,6 +51,9 @@ public class TestGrokFormat
                 log,
                 inputFormat,
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Arrays.asList("hello", "123"));
     }
 
@@ -72,6 +72,9 @@ public class TestGrokFormat
                 log,
                 inputFormat,
                 Optional.of(inputGrokCustomPatterns),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Arrays.asList("550e8400-e29b-41d4-a716-446655440000", "CREATE"));
     }
 
@@ -95,7 +98,32 @@ public class TestGrokFormat
                 log,
                 inputFormat,
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Arrays.asList("192.168.1.1", "john", "27/Feb/2024:10:15:30 +0000", "GET", "/api/v1/users", "1.1", "200", "1234"));
+    }
+
+    @Test
+    public void testDataTypeCoercion()
+            throws IOException
+    {
+        String log = "123 456 1 0";
+        String inputFormat = "%{NUMBER:a:int} %{NUMBER:b:double} %{NUMBER:c:float} %{NUMBER:d:double}";
+
+        assertLine(
+                ImmutableList.of(
+                        new Column("a", INTEGER, 0),
+                        new Column("b", DOUBLE, 1),
+                        new Column("c", REAL, 2),
+                        new Column("d", VARCHAR, 3)),
+                log,
+                inputFormat,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Arrays.asList(123, 456.0, 1.0f, "0.0"));
     }
 
     @Test
@@ -104,9 +132,12 @@ public class TestGrokFormat
         String log = "abc";
         List<Column> columns = ImmutableList.of(new Column("abc", VARCHAR, 0));
 
-        assertError(columns, log, Optional.of(""), Optional.empty(), "Grok compilation failure: {pattern} should not be empty", Optional.of(GrokException.class)); // input.format is empty
-        assertError(columns, log, Optional.of("     "), Optional.empty(), "Grok compilation failure: {pattern} should not be empty", Optional.of(GrokException.class)); // input.format is whitespace
-        assertError(columns, log, Optional.empty(), Optional.empty(), "Schema does not have required 'input.format' property", Optional.empty()); // input.format is null
+        assertError(columns, log, Optional.of(""), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                "Grok compilation failure: {pattern} should not be empty", Optional.of(GrokException.class)); // input.format is empty
+        assertError(columns, log, Optional.of("     "), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                "Grok compilation failure: {pattern} should not be empty", Optional.of(GrokException.class)); // input.format is whitespace
+        assertError(columns, log, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                "Schema does not have required 'input.format' property", Optional.empty()); // input.format is null
     }
 
     @Test
@@ -115,7 +146,8 @@ public class TestGrokFormat
         String log = "foo";
         List<Column> columns = ImmutableList.of(new Column("abc", VARCHAR, 0));
 
-        assertError(columns, log, Optional.of("%{NONEXISTENT}"), Optional.empty(), "Grok compilation failure: Pattern NONEXISTENT is not defined.", Optional.of(GrokException.class));
+        assertError(columns, log, Optional.of("%{NONEXISTENT}"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
+                "Grok compilation failure: Pattern NONEXISTENT is not defined.", Optional.of(GrokException.class));
     }
 
     // TODO: If pattern already exists, it just replaces the pattern, should we allow this to happen?
@@ -135,6 +167,9 @@ public class TestGrokFormat
                 log,
                 inputFormat,
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Arrays.asList(null, null));
     }
 
@@ -150,6 +185,9 @@ public class TestGrokFormat
                 columns,
                 log,
                 inputFormat,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 Arrays.asList("abc"));
 
@@ -170,6 +208,9 @@ public class TestGrokFormat
                 complexLog,
                 complexInputFormat,
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Arrays.asList(
                         "192.168.1.1",
                         "GET",
@@ -179,6 +220,25 @@ public class TestGrokFormat
                         "Success Message",
                         "Additional Details",
                         "1234ms"));
+    }
+
+    @Test
+    public void testUnsupportedDatatype()
+    {
+        String log = "2025-01-01";
+        String inputFormat = "%{DATE:date}";
+        List<Column> columns = ImmutableList.of(new Column("a", DATE, 0));
+
+        assertThatThrownBy(
+                () -> readLine(
+                        columns,
+                        log,
+                        Optional.of(inputFormat),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()))
+                .isInstanceOf(TrinoException.class);
     }
 
     @Test
@@ -197,6 +257,9 @@ public class TestGrokFormat
                 log,
                 inputFormat,
                 Optional.of(inputGrokCustomPatterns),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Arrays.asList(
                         "Feb 9 07:15:00", // BUG, should be => Feb 9 07:15:00 m4eastmail postfix/smtpd[19305]:
                         "m4eastmail", // BUG, should be => B88C4120838:
@@ -238,6 +301,9 @@ public class TestGrokFormat
                 log,
                 inputFormat,
                 Optional.of(inputGrokCustomPatterns),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Arrays.asList(
                         "2017-09-12 12:10:34,972",
                         "INFO",
@@ -296,6 +362,9 @@ public class TestGrokFormat
                 log,
                 inputFormat,
                 Optional.of(inputGrokCustomPatterns),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 Arrays.asList(
                         "79a59df900b949e55d96a1e698fbacedfd6e09d98eacf8f8d5218e7cd47ef2be",
                         "amzn-s3-demo-bucket1",
@@ -315,43 +384,5 @@ public class TestGrokFormat
                         "-",
                         "S3Console/0.4",
                         "-"));
-    }
-
-    private static void assertError(List<Column> columns, String line, Optional<String> inputFormat, Optional<String> inputGrokCustomPatterns, String errorMessage, Optional<Class> expectedErrorClass)
-    {
-        ThrowableAssert.ThrowingCallable testAction = () -> readLine(columns, line, inputFormat, inputGrokCustomPatterns);
-
-        AbstractThrowableAssert<?, ? extends Throwable> assertion = assertThatThrownBy(testAction).hasMessage(errorMessage);
-
-        expectedErrorClass.ifPresent(assertion::hasRootCauseInstanceOf);
-    }
-
-    private static void assertLine(List<Column> columns, String line, String inputFormat, Optional<String> inputGrokCustomPatterns, List<Object> expectedValues)
-            throws IOException
-    {
-        List<Object> actualValues = readLine(columns, line, Optional.of(inputFormat), inputGrokCustomPatterns);
-        for (int i = 0; i < columns.size(); i++) {
-            Type type = columns.get(i).type();
-            Object actualValue = actualValues.get(i);
-            Object expectedValue = expectedValues.get(i);
-            assertColumnValueEquals(type, actualValue, expectedValue);
-        }
-    }
-
-    private static List<Object> readLine(List<Column> columns, String line, Optional<String> inputFormat, Optional<String> inputGrokCustomPatterns)
-            throws IOException
-    {
-        LineDeserializer deserializer = new GrokDeserializerFactory().create(columns, createGrokProperties(inputFormat, inputGrokCustomPatterns));
-        PageBuilder pageBuilder = new PageBuilder(1, deserializer.getTypes());
-        deserializer.deserialize(createLineBuffer(line), pageBuilder);
-        return readTrinoValues(columns, pageBuilder.build(), 0);
-    }
-
-    private static Map<String, String> createGrokProperties(Optional<String> inputFormat, Optional<String> inputGrokCustomPatterns)
-    {
-        ImmutableMap.Builder<String, String> schema = ImmutableMap.builder();
-        inputFormat.ifPresent(grokInputFormat -> schema.put(GrokDeserializerFactory.INPUT_FORMAT, grokInputFormat));
-        inputGrokCustomPatterns.ifPresent(grokCustomPattern -> schema.put(GrokDeserializerFactory.INPUT_GROK_CUSTOM_PATTERNS, grokCustomPattern));
-        return schema.buildOrThrow();
     }
 }

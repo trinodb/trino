@@ -26,11 +26,8 @@ public final class ResourceManager
     {
     }
 
-    public static final String PATTERNS = "src/main/resources/grok/patterns";
-    public static final String DEFAULTDATATYPE = "src/main/resources/grok/datatype";
-    public static final String DATEFORMAT = "src/main/resources/grok/dateformat";
-    public static final String MESSAGES = "src/main/resources/grok/message/messages";
-    public static final String ACCESS_LOG = "src/main/resources/grok/access_log";
-    public static final String NASA = "src/main/resources/grok/nasa/";
-    public static final String IP = "src/main/resources/grok/ip";
+    public static final String MESSAGES = "src/test/resources/grok/message/messages";
+    public static final String ACCESS_LOG = "src/test/resources/grok/access_log";
+    public static final String NASA = "src/test/resources/grok/nasa/";
+    public static final String IP = "src/test/resources/grok/ip";
 }
