@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>473-SNAPSHOT</version>
+    <version>473</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -142,14 +142,14 @@
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
         <developerConnection>scm:git:git@github.com:trinodb/trino.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>473</tag>
         <url>https://github.com/trinodb/trino</url>
     </scm>
 
     <properties>
         <project.build.targetJdk>23</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2025-03-06T01:05:29Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-03-19T21:36:13Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
