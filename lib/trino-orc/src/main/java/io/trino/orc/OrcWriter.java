@@ -187,13 +187,13 @@ public final class OrcWriter
                     options.isShouldCompactMinMax());
             columnWriters.add(columnWriter);
 
-            if (columnWriter instanceof SliceDictionaryColumnWriter) {
-                sliceColumnWriters.add((SliceDictionaryColumnWriter) columnWriter);
+            if (columnWriter instanceof SliceDictionaryColumnWriter sliceDictionaryColumnWriter) {
+                sliceColumnWriters.add(sliceDictionaryColumnWriter);
             }
             else {
                 for (ColumnWriter nestedColumnWriter : columnWriter.getNestedColumnWriters()) {
-                    if (nestedColumnWriter instanceof SliceDictionaryColumnWriter) {
-                        sliceColumnWriters.add((SliceDictionaryColumnWriter) nestedColumnWriter);
+                    if (nestedColumnWriter instanceof SliceDictionaryColumnWriter sliceDictionaryColumnWriter) {
+                        sliceColumnWriters.add(sliceDictionaryColumnWriter);
                     }
                 }
             }

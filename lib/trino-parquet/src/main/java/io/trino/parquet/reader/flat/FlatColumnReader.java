@@ -257,11 +257,11 @@ public class FlatColumnReader<BufferType>
         DataPage page = pageReader.readPage();
         requireNonNull(page, "page is null");
         log.debug("readNextPage field %s, page %s", field, page);
-        if (page instanceof DataPageV1) {
-            readFlatPageV1((DataPageV1) page);
+        if (page instanceof DataPageV1 dataPageV1) {
+            readFlatPageV1(dataPageV1);
         }
-        else if (page instanceof DataPageV2) {
-            readFlatPageV2((DataPageV2) page);
+        else if (page instanceof DataPageV2 dataPageV2) {
+            readFlatPageV2(dataPageV2);
         }
         // For a compressed data page, the memory used by the decompressed values data needs to be accounted
         // for separately as ParquetCompressionUtils#decompress allocates a new byte array for the decompressed result.

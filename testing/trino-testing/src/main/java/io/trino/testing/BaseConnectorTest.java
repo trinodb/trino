@@ -7312,7 +7312,7 @@ public abstract class BaseConnectorTest
     {
         return plan -> {
             int actualCount = searchFrom(plan.getRoot())
-                    .where(node -> node instanceof LimitNode && ((LimitNode) node).isPartial() && ((LimitNode) node).requiresPreSortedInputs())
+                    .where(node -> node instanceof LimitNode limitNode && limitNode.isPartial() && limitNode.requiresPreSortedInputs())
                     .findAll()
                     .size();
             if (actualCount != expectedCount) {

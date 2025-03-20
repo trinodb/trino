@@ -106,11 +106,11 @@ public class QueryRewriter
         Statement statement = parser.createStatement(query.getQuery());
         try (Connection connection = DriverManager.getConnection(gatewayUrl, usernameOverride.orElse(query.getUsername()), passwordOverride.orElse(query.getPassword()))) {
             trySetConnectionProperties(query, connection);
-            if (statement instanceof CreateTableAsSelect) {
-                return rewriteCreateTableAsSelect(connection, query, (CreateTableAsSelect) statement);
+            if (statement instanceof CreateTableAsSelect createTableAsSelect) {
+                return rewriteCreateTableAsSelect(connection, query, createTableAsSelect);
             }
-            if (statement instanceof Insert) {
-                return rewriteInsertQuery(connection, query, (Insert) statement);
+            if (statement instanceof Insert insert) {
+                return rewriteInsertQuery(connection, query, insert);
             }
         }
 

@@ -3696,12 +3696,12 @@ public class LocalExecutionPlanner
         private boolean isLocalScaledWriterExchange(PlanNode node)
         {
             Optional<PlanNode> result = searchFrom(node)
-                    .where(planNode -> planNode instanceof ExchangeNode && ((ExchangeNode) planNode).getScope() == LOCAL)
+                    .where(planNode -> planNode instanceof ExchangeNode exchangeNode && exchangeNode.getScope() == LOCAL)
                     .findFirst();
 
             return result.isPresent()
-                    && result.get() instanceof ExchangeNode
-                    && ((ExchangeNode) result.get()).getPartitioningScheme().getPartitioning().getHandle().isScaleWriters();
+                    && result.get() instanceof ExchangeNode exchangeNode
+                    && exchangeNode.getPartitioningScheme().getPartitioning().getHandle().isScaleWriters();
         }
 
         private PhysicalOperation createLocalMerge(ExchangeNode node, LocalExecutionPlanContext context)
@@ -4236,8 +4236,8 @@ public class LocalExecutionPlanner
     {
         WriterTarget target = node.getTarget();
         return (fragments, statistics, tableExecuteContext) -> {
-            if (target instanceof CreateTarget) {
-                return metadata.finishCreateTable(session, ((CreateTarget) target).getHandle(), fragments, statistics);
+            if (target instanceof CreateTarget createTarget) {
+                return metadata.finishCreateTable(session, createTarget.getHandle(), fragments, statistics);
             }
             if (target instanceof InsertTarget insertTarget) {
                 return metadata.finishInsert(session, insertTarget.getHandle(), insertTarget.getSourceTableHandles(), fragments, statistics);
@@ -4252,8 +4252,8 @@ public class LocalExecutionPlanner
                         refreshTarget.getSourceTableHandles(),
                         refreshTarget.getSourceTableFunctions());
             }
-            if (target instanceof TableExecuteTarget) {
-                TableExecuteHandle tableExecuteHandle = ((TableExecuteTarget) target).getExecuteHandle();
+            if (target instanceof TableExecuteTarget tableExecuteTarget) {
+                TableExecuteHandle tableExecuteHandle = tableExecuteTarget.getExecuteHandle();
                 metadata.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteContext.getSplitsInfo());
                 return Optional.empty();
             }

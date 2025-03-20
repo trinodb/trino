@@ -53,8 +53,8 @@ public record MongoIndex(List<MongodbIndexKey> keys)
 
         for (String name : key.keySet()) {
             Object value = key.get(name);
-            if (value instanceof Number) {
-                int order = ((Number) value).intValue();
+            if (value instanceof Number number) {
+                int order = number.intValue();
                 checkState(order == 1 || order == -1, "Unknown index sort order");
                 SortOrder sortOrder = order == 1 ? SortOrder.ASC_NULLS_LAST : SortOrder.DESC_NULLS_LAST;
                 builder.add(new MongodbIndexKey(name, Optional.of(sortOrder)));

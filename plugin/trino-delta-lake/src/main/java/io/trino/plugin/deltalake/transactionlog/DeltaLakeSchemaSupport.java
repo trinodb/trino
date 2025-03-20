@@ -297,14 +297,14 @@ public final class DeltaLakeSchemaSupport
 
     public static Object serializeColumnType(ColumnMappingMode columnMappingMode, AtomicInteger maxColumnId, Type columnType)
     {
-        if (columnType instanceof ArrayType) {
-            return serializeArrayType(columnMappingMode, maxColumnId, (ArrayType) columnType);
+        if (columnType instanceof ArrayType arrayType) {
+            return serializeArrayType(columnMappingMode, maxColumnId, arrayType);
         }
-        if (columnType instanceof RowType) {
-            return serializeStructType(columnMappingMode, maxColumnId, (RowType) columnType);
+        if (columnType instanceof RowType rowType) {
+            return serializeStructType(columnMappingMode, maxColumnId, rowType);
         }
-        if (columnType instanceof MapType) {
-            return serializeMapType(columnMappingMode, maxColumnId, (MapType) columnType);
+        if (columnType instanceof MapType mapType) {
+            return serializeMapType(columnMappingMode, maxColumnId, mapType);
         }
         return serializePrimitiveType(columnType);
     }
@@ -414,8 +414,8 @@ public final class DeltaLakeSchemaSupport
 
     private static void validateStructuralType(Optional<Type> rootType, Type type)
     {
-        if (type instanceof ArrayType) {
-            validateType(rootType, ((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            validateType(rootType, arrayType.getElementType());
         }
 
         if (type instanceof MapType mapType) {
@@ -431,8 +431,8 @@ public final class DeltaLakeSchemaSupport
     private static void validatePrimitiveType(Type type)
     {
         if (serializeSupportedPrimitiveType(type).isEmpty() ||
-                (type instanceof TimestampType && ((TimestampType) type).getPrecision() != 6) ||
-                (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() != 3)) {
+                (type instanceof TimestampType timestampType && timestampType.getPrecision() != 6) ||
+                (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() != 3)) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Unsupported type: " + type);
         }
     }

@@ -80,8 +80,8 @@ public final class JoinUtils
     public static boolean isBuildSideReplicated(PlanNode node)
     {
         checkArgument(node instanceof JoinNode || node instanceof SemiJoinNode);
-        if (node instanceof JoinNode) {
-            return PlanNodeSearcher.searchFrom(((JoinNode) node).getRight())
+        if (node instanceof JoinNode joinNode) {
+            return PlanNodeSearcher.searchFrom(joinNode.getRight())
                     .recurseOnlyWhen(planNode -> planNode instanceof ProjectNode ||
                                     isLocalRepartitionExchange(planNode) ||
                                     isLocalGatherExchange(planNode))  // used in cross join case

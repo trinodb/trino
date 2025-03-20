@@ -93,8 +93,8 @@ class TestHivePageSourceProvider
 
     private static Block createInputBlock(List<Object> data, Type type)
     {
-        if (type instanceof RowType) {
-            return createRowBlock(data, (RowType) type);
+        if (type instanceof RowType rowType) {
+            return createRowBlock(data, rowType);
         }
         if (BIGINT.equals(type)) {
             return createLongArrayBlock(data);

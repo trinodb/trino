@@ -118,8 +118,8 @@ public final class StructuralTestUtil
             type.writeBoolean(blockBuilder, (Boolean) element);
         }
         else if (javaType == long.class) {
-            if (element instanceof SqlDecimal) {
-                type.writeLong(blockBuilder, ((SqlDecimal) element).getUnscaledValue().longValue());
+            if (element instanceof SqlDecimal sqlDecimal) {
+                type.writeLong(blockBuilder, sqlDecimal.getUnscaledValue().longValue());
             }
             else if (REAL.equals(type)) {
                 type.writeLong(blockBuilder, floatToRawIntBits(((Number) element).floatValue()));
@@ -135,19 +135,19 @@ public final class StructuralTestUtil
             if (element instanceof String) {
                 type.writeSlice(blockBuilder, Slices.utf8Slice(element.toString()));
             }
-            else if (element instanceof byte[]) {
-                type.writeSlice(blockBuilder, Slices.wrappedBuffer((byte[]) element));
+            else if (element instanceof byte[] bytes) {
+                type.writeSlice(blockBuilder, Slices.wrappedBuffer(bytes));
             }
             else {
                 type.writeSlice(blockBuilder, (Slice) element);
             }
         }
         else {
-            if (element instanceof SqlDecimal) {
-                type.writeObject(blockBuilder, Int128.valueOf(((SqlDecimal) element).getUnscaledValue()));
+            if (element instanceof SqlDecimal sqlDecimal) {
+                type.writeObject(blockBuilder, Int128.valueOf(sqlDecimal.getUnscaledValue()));
             }
-            else if (element instanceof BigDecimal) {
-                type.writeObject(blockBuilder, Decimals.valueOf((BigDecimal) element));
+            else if (element instanceof BigDecimal bigDecimal) {
+                type.writeObject(blockBuilder, Decimals.valueOf(bigDecimal));
             }
             else {
                 type.writeObject(blockBuilder, element);

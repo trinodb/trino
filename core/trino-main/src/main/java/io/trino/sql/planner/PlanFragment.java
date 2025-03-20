@@ -282,8 +282,8 @@ public class PlanFragment
             findRemoteSourceNodes(source, builder);
         }
 
-        if (node instanceof RemoteSourceNode) {
-            builder.add((RemoteSourceNode) node);
+        if (node instanceof RemoteSourceNode remoteSourceNode) {
+            builder.add(remoteSourceNode);
         }
     }
 

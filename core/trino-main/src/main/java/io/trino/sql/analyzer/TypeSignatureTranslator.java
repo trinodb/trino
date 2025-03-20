@@ -181,8 +181,8 @@ public final class TypeSignatureTranslator
 
         if (type.getPrecision().isPresent()) {
             DataTypeParameter precision = type.getPrecision().get();
-            if (precision instanceof NumericParameter) {
-                parameters.add(numericParameter(Long.parseLong(((NumericParameter) precision).getValue())));
+            if (precision instanceof NumericParameter numericParameter) {
+                parameters.add(numericParameter(Long.parseLong(numericParameter.getValue())));
             }
             else if (precision instanceof TypeParameter typeParameter) {
                 DataType typeVariable = typeParameter.getValue();

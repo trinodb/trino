@@ -167,10 +167,9 @@ public class ResourceGroupSpec
         if (other == this) {
             return true;
         }
-        if (!(other instanceof ResourceGroupSpec)) {
+        if (!(other instanceof ResourceGroupSpec that)) {
             return false;
         }
-        ResourceGroupSpec that = (ResourceGroupSpec) other;
         return (name.equals(that.name) &&
                 softMemoryLimit.equals(that.softMemoryLimit) &&
                 maxQueued == that.maxQueued &&

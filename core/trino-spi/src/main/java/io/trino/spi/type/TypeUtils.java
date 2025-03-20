@@ -85,11 +85,11 @@ public final class TypeUtils
         }
         else if (type.getJavaType() == Slice.class) {
             Slice slice;
-            if (value instanceof byte[]) {
-                slice = Slices.wrappedBuffer((byte[]) value);
+            if (value instanceof byte[] bytes) {
+                slice = Slices.wrappedBuffer(bytes);
             }
-            else if (value instanceof String) {
-                slice = Slices.utf8Slice((String) value);
+            else if (value instanceof String string) {
+                slice = Slices.utf8Slice(string);
             }
             else {
                 slice = (Slice) value;

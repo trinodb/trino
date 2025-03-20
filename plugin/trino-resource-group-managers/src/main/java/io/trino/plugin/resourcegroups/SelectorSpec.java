@@ -110,10 +110,9 @@ public class SelectorSpec
         if (other == this) {
             return true;
         }
-        if (!(other instanceof SelectorSpec)) {
+        if (!(other instanceof SelectorSpec that)) {
             return false;
         }
-        SelectorSpec that = (SelectorSpec) other;
         return (group.equals(that.group) &&
                 userRegex.map(Pattern::pattern).equals(that.userRegex.map(Pattern::pattern)) &&
                 userRegex.map(Pattern::flags).equals(that.userRegex.map(Pattern::flags)) &&

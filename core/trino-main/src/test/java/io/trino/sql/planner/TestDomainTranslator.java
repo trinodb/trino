@@ -1850,7 +1850,7 @@ public class TestDomainTranslator
 
         public boolean isFractional()
         {
-            return type == DOUBLE || type == REAL || (type instanceof DecimalType && ((DecimalType) type).getScale() > 0);
+            return type == DOUBLE || type == REAL || (type instanceof DecimalType decimalType && decimalType.getScale() > 0);
         }
 
         public boolean isTypeWithNaN()

@@ -163,8 +163,8 @@ public class BenchmarkPagesSerde
                 if (fieldValue == null) {
                     blockBuilder.appendNull();
                 }
-                else if (fieldValue instanceof String) {
-                    VARCHAR.writeSlice(blockBuilder, utf8Slice((String) fieldValue));
+                else if (fieldValue instanceof String string) {
+                    VARCHAR.writeSlice(blockBuilder, utf8Slice(string));
                 }
                 else {
                     throw new UnsupportedOperationException();

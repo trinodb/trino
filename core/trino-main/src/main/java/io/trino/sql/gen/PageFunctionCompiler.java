@@ -618,8 +618,8 @@ public class PageFunctionCompiler
     {
         TreeSet<Integer> channels = new TreeSet<>();
         for (RowExpression expression : Expressions.subExpressions(expressions)) {
-            if (expression instanceof InputReferenceExpression) {
-                channels.add(((InputReferenceExpression) expression).field());
+            if (expression instanceof InputReferenceExpression inputReferenceExpression) {
+                channels.add(inputReferenceExpression.field());
             }
         }
         return ImmutableList.copyOf(channels);

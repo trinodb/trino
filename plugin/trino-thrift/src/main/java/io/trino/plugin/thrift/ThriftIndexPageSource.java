@@ -168,6 +168,7 @@ public class ThriftIndexPageSource
     }
 
     @Override
+    @SuppressWarnings("CollectionUndefinedEquality")
     public SourcePage getNextSourcePage()
     {
         if (finished) {

@@ -82,8 +82,8 @@ public final class BigQueryTypeUtils
         if (type.equals(DOUBLE)) {
             return DOUBLE.getDouble(block, position);
         }
-        if (type instanceof DecimalType) {
-            return readBigDecimal((DecimalType) type, block, position).toString();
+        if (type instanceof DecimalType decimalType) {
+            return readBigDecimal(decimalType, block, position).toString();
         }
         if (type instanceof VarcharType varcharType) {
             return varcharType.getSlice(block, position).toStringUtf8();

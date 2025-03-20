@@ -244,8 +244,8 @@ public class CassandraSession
         // check if there is a comment to establish column ordering
         Object comment = tableMeta.getOptions().get(CqlIdentifier.fromInternal("comment"));
         Set<String> hiddenColumns = ImmutableSet.of();
-        if (comment instanceof String && ((String) comment).startsWith(PRESTO_COMMENT_METADATA)) {
-            String columnOrderingString = ((String) comment).substring(PRESTO_COMMENT_METADATA.length());
+        if (comment instanceof String string && string.startsWith(PRESTO_COMMENT_METADATA)) {
+            String columnOrderingString = string.substring(PRESTO_COMMENT_METADATA.length());
 
             // column ordering
             List<ExtraColumnMetadata> extras = extraColumnMetadataCodec.fromJson(columnOrderingString);

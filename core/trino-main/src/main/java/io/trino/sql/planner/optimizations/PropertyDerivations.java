@@ -969,11 +969,11 @@ public final class PropertyDerivations
     private static Optional<Symbol> rewriteExpression(Map<Symbol, Expression> assignments, Expression expression)
     {
         // Only simple coalesce expressions supported currently
-        if (!(expression instanceof Coalesce)) {
+        if (!(expression instanceof Coalesce coalesce)) {
             return Optional.empty();
         }
 
-        Set<Expression> arguments = ImmutableSet.copyOf(((Coalesce) expression).operands());
+        Set<Expression> arguments = ImmutableSet.copyOf(coalesce.operands());
         if (!arguments.stream().allMatch(Reference.class::isInstance)) {
             return Optional.empty();
         }
@@ -982,8 +982,8 @@ public final class PropertyDerivations
         // of the arguments. Thus we extract and compare the symbols of the CoalesceExpression as a set rather than compare the
         // CoalesceExpression directly.
         for (Map.Entry<Symbol, Expression> entry : assignments.entrySet()) {
-            if (entry.getValue() instanceof Coalesce) {
-                Set<Expression> candidateArguments = ImmutableSet.copyOf(((Coalesce) entry.getValue()).operands());
+            if (entry.getValue() instanceof Coalesce value) {
+                Set<Expression> candidateArguments = ImmutableSet.copyOf(value.operands());
                 if (!candidateArguments.stream().allMatch(Reference.class::isInstance)) {
                     return Optional.empty();
                 }

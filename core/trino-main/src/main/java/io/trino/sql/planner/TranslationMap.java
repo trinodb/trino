@@ -957,7 +957,7 @@ public class TranslationMap
     private io.trino.sql.ir.Expression translate(SubscriptExpression node)
     {
         Type baseType = analysis.getType(node.getBase());
-        if (baseType instanceof RowType rowType) {
+        if (baseType instanceof RowType) {
             // Do not rewrite subscript index into symbol. Row subscript index is required to be a literal.
             io.trino.sql.ir.Expression rewrittenBase = translateExpression(node.getBase());
             LongLiteral index = (LongLiteral) node.getIndex();

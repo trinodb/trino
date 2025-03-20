@@ -582,7 +582,7 @@ public class RowType
     private static Boolean chainEqual(Boolean previousFieldsEqual, int currentFieldIndex, MethodHandle currentFieldEqual, SqlRow leftRow, SqlRow rightRow)
             throws Throwable
     {
-        if (previousFieldsEqual == FALSE) {
+        if (FALSE.equals(previousFieldsEqual)) {
             return FALSE;
         }
 
@@ -596,7 +596,7 @@ public class RowType
         }
 
         Boolean result = (Boolean) currentFieldEqual.invokeExact(leftFieldBlock, leftRawIndex, rightFieldBlock, rightRawIndex);
-        if (result == TRUE) {
+        if (TRUE.equals(result)) {
             // this field is equal, so the result is either true or unknown depending on the previous fields
             return previousFieldsEqual;
         }

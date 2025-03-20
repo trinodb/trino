@@ -110,8 +110,8 @@ public final class TestingUnnesterUtil
             Type type = unnestTypes.get(i);
             Block inputBlock = page.getBlock(replicatedTypes.size() + i);
 
-            if (type instanceof ArrayType) {
-                Type elementType = ((ArrayType) type).getElementType();
+            if (type instanceof ArrayType arrayType) {
+                Type elementType = arrayType.getElementType();
                 if (elementType instanceof RowType) {
                     List<Type> rowTypes = elementType.getTypeParameters();
                     Block[] blocks = buildExpectedUnnestedArrayOfRowBlock(inputBlock, rowTypes, maxCardinalities, totalEntries);
@@ -123,8 +123,7 @@ public final class TestingUnnesterUtil
                     outputBlocks[outputChannel++] = buildExpectedUnnestedArrayBlock(inputBlock, ((ArrayType) unnestTypes.get(i)).getElementType(), maxCardinalities, totalEntries);
                 }
             }
-            else if (type instanceof MapType) {
-                MapType mapType = (MapType) unnestTypes.get(i);
+            else if (type instanceof MapType mapType) {
                 Block[] blocks = buildExpectedUnnestedMapBlocks(inputBlock, mapType.getKeyType(), mapType.getValueType(), maxCardinalities, totalEntries);
                 for (Block block : blocks) {
                     outputBlocks[outputChannel++] = block;
@@ -146,8 +145,8 @@ public final class TestingUnnesterUtil
     {
         List<Type> outputTypes = new ArrayList<>(replicatedTypes);
         for (Type unnestType : unnestTypes) {
-            if (unnestType instanceof ArrayType) {
-                Type elementType = ((ArrayType) unnestType).getElementType();
+            if (unnestType instanceof ArrayType arrayType) {
+                Type elementType = arrayType.getElementType();
                 if (elementType instanceof RowType) {
                     List<Type> rowTypes = elementType.getTypeParameters();
                     outputTypes.addAll(rowTypes);
@@ -156,9 +155,9 @@ public final class TestingUnnesterUtil
                     outputTypes.add(elementType);
                 }
             }
-            else if (unnestType instanceof MapType) {
-                outputTypes.add(((MapType) unnestType).getKeyType());
-                outputTypes.add(((MapType) unnestType).getValueType());
+            else if (unnestType instanceof MapType mapType) {
+                outputTypes.add(mapType.getKeyType());
+                outputTypes.add(mapType.getValueType());
             }
         }
 

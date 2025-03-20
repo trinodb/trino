@@ -250,8 +250,8 @@ public class ParquetWriter
             }
         }
         catch (IOException e) {
-            if (e instanceof ParquetCorruptionException) {
-                throw (ParquetCorruptionException) e;
+            if (e instanceof ParquetCorruptionException pce) {
+                throw pce;
             }
             throw new ParquetCorruptionException(input.getId(), "Validation failed with exception %s", e);
         }

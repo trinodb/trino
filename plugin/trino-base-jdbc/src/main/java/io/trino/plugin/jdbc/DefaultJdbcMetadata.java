@@ -870,11 +870,11 @@ public class DefaultJdbcMetadata
     {
         requireNonNull(assignments, "assignments is null");
         requireNonNull(expression, "expression is null");
-        if (!(expression instanceof Variable)) {
+        if (!(expression instanceof Variable variable)) {
             return Optional.empty();
         }
 
-        String name = ((Variable) expression).getName();
+        String name = variable.getName();
         ColumnHandle columnHandle = assignments.get(name);
         verifyNotNull(columnHandle, "No assignment for %s", name);
         return Optional.of(((JdbcColumnHandle) columnHandle));

@@ -104,8 +104,8 @@ final class TypeUtils
             return "decimal";
         }
 
-        if (elementType instanceof ArrayType) {
-            return getArrayElementPgTypeName(session, client, ((ArrayType) elementType).getElementType());
+        if (elementType instanceof ArrayType arrayType) {
+            return getArrayElementPgTypeName(session, client, arrayType.getElementType());
         }
 
         return client.toWriteMapping(session, elementType).getDataType();

@@ -346,10 +346,9 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             if (this == other) {
                 return true;
             }
-            if (!(other instanceof TopicAndSubjects)) {
+            if (!(other instanceof TopicAndSubjects that)) {
                 return false;
             }
-            TopicAndSubjects that = (TopicAndSubjects) other;
             return topic.equals(that.topic) &&
                     keySubject.equals(that.keySubject) &&
                     valueSubject.equals(that.valueSubject);

@@ -482,8 +482,8 @@ class ParquetTester
                 dataFile,
                 columnNames,
                 columnTypes)) {
-            if (pageSource instanceof RecordPageSource) {
-                assertRecordCursor(columnTypes, expectedValues, ((RecordPageSource) pageSource).getCursor());
+            if (pageSource instanceof RecordPageSource recordPageSource) {
+                assertRecordCursor(columnTypes, expectedValues, recordPageSource.getCursor());
             }
             else {
                 assertPageSource(columnTypes, expectedValues, pageSource);

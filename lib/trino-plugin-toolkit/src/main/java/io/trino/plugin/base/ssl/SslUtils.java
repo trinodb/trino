@@ -129,12 +129,12 @@ public final class SslUtils
                 continue;
             }
             Certificate certificate = keyStore.getCertificate(alias);
-            if (!(certificate instanceof X509Certificate)) {
+            if (!(certificate instanceof X509Certificate x509Certificate)) {
                 continue;
             }
 
             try {
-                ((X509Certificate) certificate).checkValidity();
+                x509Certificate.checkValidity();
             }
             catch (CertificateExpiredException e) {
                 throw new CertificateExpiredException("KeyStore certificate is expired: " + e.getMessage());

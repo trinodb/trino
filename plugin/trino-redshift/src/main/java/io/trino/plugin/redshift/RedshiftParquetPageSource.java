@@ -116,8 +116,8 @@ public class RedshiftParquetPageSource
 
     static TrinoException handleException(Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(REDSHIFT_PARQUET_BAD_DATA, exception);

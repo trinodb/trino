@@ -431,8 +431,8 @@ public final class RowBlock
                     .map(dictionaryBlock::createProjection)
                     .toList();
         }
-        if (block instanceof RowBlock) {
-            return ((RowBlock) block).getFieldBlocks();
+        if (block instanceof RowBlock rowBlock) {
+            return rowBlock.getFieldBlocks();
         }
         throw new IllegalArgumentException("Unexpected block type: " + block.getClass().getSimpleName());
     }

@@ -241,8 +241,8 @@ public class ScanQueryPageSource
 
     private void flattenFields(Map<String, Type> result, String fieldName, Type type)
     {
-        if (type instanceof RowType) {
-            for (RowType.Field field : ((RowType) type).getFields()) {
+        if (type instanceof RowType rowType) {
+            for (RowType.Field field : rowType.getFields()) {
                 flattenFields(result, appendPath(fieldName, field.getName().get()), field.getType());
             }
         }

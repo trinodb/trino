@@ -541,12 +541,12 @@ public class OpenSearchMetadata
                         escape = Optional.of((Slice) ((Constant) arguments.get(2)).getValue());
                     }
 
-                    if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
+                    if (!newRegexes.containsKey(columnName) && pattern instanceof Slice slice) {
                         IndexMetadata metadata = client.getIndexMetadata(handle.index());
                         if (metadata.schema()
                                     .fields().stream()
                                     .anyMatch(field -> columnName.equals(field.name()) && field.type() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.type()).name()))) {
-                            newRegexes.put(columnName, likeToRegexp((Slice) pattern, escape));
+                            newRegexes.put(columnName, likeToRegexp(slice, escape));
                             continue;
                         }
                     }
@@ -784,11 +784,11 @@ public class OpenSearchMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof RawQueryFunctionHandle)) {
+        if (!(handle instanceof RawQueryFunctionHandle rawQueryFunctionHandle)) {
             return Optional.empty();
         }
 
-        ConnectorTableHandle tableHandle = ((RawQueryFunctionHandle) handle).getTableHandle();
+        ConnectorTableHandle tableHandle = rawQueryFunctionHandle.getTableHandle();
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }
