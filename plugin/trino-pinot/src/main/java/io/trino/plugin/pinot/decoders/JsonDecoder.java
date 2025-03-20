@@ -35,8 +35,8 @@ public class JsonDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof String) {
-            Slice slice = jsonParse(utf8Slice((String) value));
+        else if (value instanceof String string) {
+            Slice slice = jsonParse(utf8Slice(string));
             ((VariableWidthBlockBuilder) output).writeEntry(slice);
         }
         else {

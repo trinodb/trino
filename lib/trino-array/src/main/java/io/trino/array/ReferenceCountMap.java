@@ -82,17 +82,17 @@ public final class ReferenceCountMap
         if (key == null) {
             extraIdentity = 0;
         }
-        else if (key instanceof Block) {
-            extraIdentity = (int) ((Block) key).getRetainedSizeInBytes();
+        else if (key instanceof Block block) {
+            extraIdentity = (int) block.getRetainedSizeInBytes();
         }
-        else if (key instanceof Slice) {
-            extraIdentity = (int) ((Slice) key).getRetainedSize();
+        else if (key instanceof Slice slice) {
+            extraIdentity = (int) slice.getRetainedSize();
         }
         else if (key.getClass().isArray()) {
             extraIdentity = getLength(key);
         }
-        else if (key instanceof MapHashTables) {
-            extraIdentity = (int) ((MapHashTables) key).getRetainedSizeInBytes();
+        else if (key instanceof MapHashTables mapHashTables) {
+            extraIdentity = (int) mapHashTables.getRetainedSizeInBytes();
         }
         else {
             throw new IllegalArgumentException(format("Unsupported type for %s", key));

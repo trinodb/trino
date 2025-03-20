@@ -507,8 +507,8 @@ public final class SqlFormatter
                     append(indent, "");
                 }
                 Node value = argument.getValue();
-                if (value instanceof Expression) {
-                    builder.append(formatExpression((Expression) value));
+                if (value instanceof Expression expression) {
+                    builder.append(formatExpression(expression));
                 }
                 else {
                     process(value, indent + 1);
@@ -523,7 +523,7 @@ public final class SqlFormatter
         protected Void visitTableArgument(TableFunctionTableArgument node, Integer indent)
         {
             Relation relation = node.getTable();
-            Node unaliased = relation instanceof AliasedRelation ? ((AliasedRelation) relation).getRelation() : relation;
+            Node unaliased = relation instanceof AliasedRelation aliasedRelation ? aliasedRelation.getRelation() : relation;
             if (unaliased instanceof TableSubquery) {
                 // unpack the relation from TableSubquery to avoid adding another pair of parentheses
                 unaliased = ((TableSubquery) unaliased).getQuery();
@@ -1287,11 +1287,11 @@ public final class SqlFormatter
             List<String> options = new ArrayList<>();
 
             for (ExplainOption option : node.getOptions()) {
-                if (option instanceof ExplainType) {
-                    options.add("TYPE " + ((ExplainType) option).getType());
+                if (option instanceof ExplainType explainType) {
+                    options.add("TYPE " + explainType.getType());
                 }
-                else if (option instanceof ExplainFormat) {
-                    options.add("FORMAT " + ((ExplainFormat) option).getType());
+                else if (option instanceof ExplainFormat explainFormat) {
+                    options.add("FORMAT " + explainFormat.getType());
                 }
                 else {
                     throw new UnsupportedOperationException("unhandled explain option: " + option);
@@ -2608,9 +2608,9 @@ public final class SqlFormatter
         private void processRelation(Relation relation, Integer indent)
         {
             // TODO: handle this properly
-            if (relation instanceof Table) {
+            if (relation instanceof Table table) {
                 builder.append("TABLE ")
-                        .append(formatName(((Table) relation).getName()))
+                        .append(formatName(table.getName()))
                         .append('\n');
             }
             else {

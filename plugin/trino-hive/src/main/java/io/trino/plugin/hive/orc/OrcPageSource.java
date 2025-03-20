@@ -157,8 +157,8 @@ public class OrcPageSource
 
     static TrinoException handleException(OrcDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof OrcCorruptionException) {
             return new TrinoException(HIVE_BAD_DATA, exception);

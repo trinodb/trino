@@ -1463,12 +1463,12 @@ public class TestLogicalPlanner
         // validates that there exists only one remote exchange
         Consumer<Plan> validateSingleRemoteExchange = plan -> assertThat(countOfMatchingNodes(
                 plan,
-                node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE)).isEqualTo(1);
+                node -> node instanceof ExchangeNode exchangeNode && exchangeNode.getScope() == REMOTE)).isEqualTo(1);
 
         Consumer<Plan> validateSingleStreamingAggregation = plan -> assertThat(countOfMatchingNodes(
                 plan,
-                node -> node instanceof AggregationNode && ((AggregationNode) node).getGroupingKeys().contains(new Symbol(BIGINT, "unique"))
-                        && ((AggregationNode) node).isStreamable())).isEqualTo(1);
+                node -> node instanceof AggregationNode aggregationNode && aggregationNode.getGroupingKeys().contains(new Symbol(BIGINT, "unique"))
+                        && aggregationNode.isStreamable())).isEqualTo(1);
 
         // region is unpartitioned, AssignUniqueId should provide satisfying partitioning for count(*) after LEFT JOIN
         assertPlanWithSession(
@@ -1518,7 +1518,7 @@ public class TestLogicalPlanner
                 plan -> // make sure there are only two remote exchanges (one in probe and one in build side)
                         assertThat(countOfMatchingNodes(
                                 plan,
-                                node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == REMOTE)).isEqualTo(2));
+                                node -> node instanceof ExchangeNode exchangeNode && exchangeNode.getScope() == REMOTE)).isEqualTo(2));
 
         // replicated join is preserved if probe side is single node
         assertPlanWithSession(

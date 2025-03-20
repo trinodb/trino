@@ -64,10 +64,9 @@ public class Metrics
         if (this == o) {
             return true;
         }
-        if (!(o instanceof Metrics)) {
+        if (!(o instanceof Metrics that)) {
             return false;
         }
-        Metrics that = (Metrics) o;
         return metrics.equals(that.metrics);
     }
 

@@ -324,12 +324,12 @@ public final class DeltaLakeParquetStatisticsUtils
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            if (statistics instanceof LongStatistics) {
-                Instant ts = Instant.ofEpochMilli(((LongStatistics) statistics).genericGetMin());
+            if (statistics instanceof LongStatistics longStatistics) {
+                Instant ts = Instant.ofEpochMilli(longStatistics.genericGetMin());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
             }
-            if (statistics instanceof BinaryStatistics) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMin());
+            if (statistics instanceof BinaryStatistics binaryStatistics) {
+                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMin());
                 Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC).truncatedTo(MILLIS)));
             }
@@ -359,16 +359,16 @@ public final class DeltaLakeParquetStatisticsUtils
             int scale = ((LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) logicalType).getScale();
 
             BigDecimal min;
-            if (statistics instanceof IntStatistics) {
-                min = BigDecimal.valueOf(((IntStatistics) statistics).getMin()).movePointLeft(scale);
+            if (statistics instanceof IntStatistics intStatistics) {
+                min = BigDecimal.valueOf(intStatistics.getMin()).movePointLeft(scale);
                 return Optional.of(min.toPlainString());
             }
-            if (statistics instanceof LongStatistics) {
-                min = BigDecimal.valueOf(((LongStatistics) statistics).getMin()).movePointLeft(scale);
+            if (statistics instanceof LongStatistics longStatistics) {
+                min = BigDecimal.valueOf(longStatistics.getMin()).movePointLeft(scale);
                 return Optional.of(min.toPlainString());
             }
-            if (statistics instanceof BinaryStatistics) {
-                BigInteger base = new BigInteger(((BinaryStatistics) statistics).genericGetMin().getBytes());
+            if (statistics instanceof BinaryStatistics binaryStatistics) {
+                BigInteger base = new BigInteger(binaryStatistics.genericGetMin().getBytes());
                 min = new BigDecimal(base, scale);
                 return Optional.of(min.toPlainString());
             }
@@ -427,12 +427,12 @@ public final class DeltaLakeParquetStatisticsUtils
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
-            if (statistics instanceof LongStatistics) {
-                Instant ts = Instant.ofEpochMilli(((LongStatistics) statistics).genericGetMax());
+            if (statistics instanceof LongStatistics longStatistics) {
+                Instant ts = Instant.ofEpochMilli(longStatistics.genericGetMax());
                 return Optional.of(ISO_INSTANT.format(ZonedDateTime.ofInstant(ts, UTC)));
             }
-            if (statistics instanceof BinaryStatistics) {
-                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(((BinaryStatistics) statistics).genericGetMax());
+            if (statistics instanceof BinaryStatistics binaryStatistics) {
+                DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(binaryStatistics.genericGetMax());
                 Instant ts = Instant.ofEpochSecond(decodedTimestamp.epochSeconds(), decodedTimestamp.nanosOfSecond());
                 ZonedDateTime zonedDateTime = ZonedDateTime.ofInstant(ts, UTC);
                 ZonedDateTime truncatedToMillis = zonedDateTime.truncatedTo(MILLIS);
@@ -465,16 +465,16 @@ public final class DeltaLakeParquetStatisticsUtils
             int scale = ((LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) logicalType).getScale();
 
             BigDecimal max;
-            if (statistics instanceof IntStatistics) {
-                max = BigDecimal.valueOf(((IntStatistics) statistics).getMax()).movePointLeft(scale);
+            if (statistics instanceof IntStatistics intStatistics) {
+                max = BigDecimal.valueOf(intStatistics.getMax()).movePointLeft(scale);
                 return Optional.of(max.toPlainString());
             }
-            if (statistics instanceof LongStatistics) {
-                max = BigDecimal.valueOf(((LongStatistics) statistics).getMax()).movePointLeft(scale);
+            if (statistics instanceof LongStatistics longStatistics) {
+                max = BigDecimal.valueOf(longStatistics.getMax()).movePointLeft(scale);
                 return Optional.of(max.toPlainString());
             }
-            if (statistics instanceof BinaryStatistics) {
-                BigInteger base = new BigInteger(((BinaryStatistics) statistics).genericGetMax().getBytes());
+            if (statistics instanceof BinaryStatistics binaryStatistics) {
+                BigInteger base = new BigInteger(binaryStatistics.genericGetMax().getBytes());
                 max = new BigDecimal(base, scale);
                 return Optional.of(max.toPlainString());
             }

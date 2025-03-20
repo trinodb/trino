@@ -1117,11 +1117,11 @@ public class BigQueryMetadata
     @Override
     public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
-        if (!(handle instanceof QueryHandle)) {
+        if (!(handle instanceof QueryHandle queryHandle)) {
             return Optional.empty();
         }
 
-        ConnectorTableHandle tableHandle = ((QueryHandle) handle).getTableHandle();
+        ConnectorTableHandle tableHandle = queryHandle.getTableHandle();
         List<ColumnHandle> columnHandles = ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
         return Optional.of(new TableFunctionApplicationResult<>(tableHandle, columnHandles));
     }

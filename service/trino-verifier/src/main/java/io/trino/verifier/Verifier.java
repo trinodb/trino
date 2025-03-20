@@ -345,8 +345,8 @@ public class Verifier
 
     private static boolean shouldAddStackTrace(Exception e)
     {
-        if (e instanceof TrinoException) {
-            ErrorCode errorCode = ((TrinoException) e).getErrorCode();
+        if (e instanceof TrinoException trinoException) {
+            ErrorCode errorCode = trinoException.getErrorCode();
             if (EXPECTED_ERRORS.contains(errorCode)) {
                 return false;
             }

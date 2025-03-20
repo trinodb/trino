@@ -112,8 +112,8 @@ public class TextColumnEncodingFactory
         if (DATE.equals(type)) {
             return new DateEncoding(type, textEncodingOptions.getNullSequence());
         }
-        if (type instanceof TimestampType) {
-            return new TimestampEncoding((TimestampType) type, textEncodingOptions.getNullSequence(), textEncodingOptions.getTimestampFormats());
+        if (type instanceof TimestampType timestampType) {
+            return new TimestampEncoding(timestampType, textEncodingOptions.getNullSequence(), textEncodingOptions.getTimestampFormats());
         }
         if (type instanceof ArrayType arrayType) {
             TextColumnEncoding elementEncoding = getEncoding(arrayType.getElementType(), depth + 1);

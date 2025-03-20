@@ -1162,8 +1162,8 @@ public class OrcTester
         if (type instanceof VarcharType) {
             return value;
         }
-        if (type instanceof CharType) {
-            return new HiveChar((String) value, ((CharType) type).getLength());
+        if (type instanceof CharType charType) {
+            return new HiveChar((String) value, charType.getLength());
         }
         if (type.equals(VARBINARY)) {
             return ((SqlVarbinary) value).getBytes();
@@ -1404,14 +1404,14 @@ public class OrcTester
         if (type instanceof TimestampWithTimeZoneType) {
             return true;
         }
-        if (type instanceof ArrayType) {
-            return isTimestampTz(((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return isTimestampTz(arrayType.getElementType());
         }
-        if (type instanceof MapType) {
-            return isTimestampTz(((MapType) type).getKeyType()) || isTimestampTz(((MapType) type).getValueType());
+        if (type instanceof MapType mapType) {
+            return isTimestampTz(mapType.getKeyType()) || isTimestampTz(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return ((RowType) type).getFields().stream()
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream()
                     .map(RowType.Field::getType)
                     .anyMatch(OrcTester::isTimestampTz);
         }
@@ -1423,14 +1423,14 @@ public class OrcTester
         if (type.equals(UUID)) {
             return true;
         }
-        if (type instanceof ArrayType) {
-            return isUuid(((ArrayType) type).getElementType());
+        if (type instanceof ArrayType arrayType) {
+            return isUuid(arrayType.getElementType());
         }
-        if (type instanceof MapType) {
-            return isUuid(((MapType) type).getKeyType()) || isUuid(((MapType) type).getValueType());
+        if (type instanceof MapType mapType) {
+            return isUuid(mapType.getKeyType()) || isUuid(mapType.getValueType());
         }
-        if (type instanceof RowType) {
-            return ((RowType) type).getFields().stream()
+        if (type instanceof RowType rowType) {
+            return rowType.getFields().stream()
                     .map(RowType.Field::getType)
                     .anyMatch(OrcTester::isUuid);
         }

@@ -228,8 +228,8 @@ public class ArrayType
             return null;
         }
 
-        if (block instanceof ArrayBlock) {
-            return ((ArrayBlock) block).apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
+        if (block instanceof ArrayBlock arrayBlock) {
+            return arrayBlock.apply((valuesBlock, start, length) -> arrayBlockToObjectValues(session, valuesBlock, start, length), position);
         }
         Block arrayBlock = getObject(block, position);
         return arrayBlockToObjectValues(session, arrayBlock, 0, arrayBlock.getPositionCount());

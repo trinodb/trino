@@ -109,8 +109,8 @@ public final class ExplainRewrite
             List<ExplainOption> options = node.getOptions();
 
             for (ExplainOption option : options) {
-                if (option instanceof ExplainType) {
-                    planType = ((ExplainType) option).getType();
+                if (option instanceof ExplainType explainType) {
+                    planType = explainType.getType();
                     // Use JSON as the default format for EXPLAIN (TYPE IO).
                     if (planType == IO) {
                         planFormat = JSON;
@@ -120,8 +120,8 @@ public final class ExplainRewrite
             }
 
             for (ExplainOption option : options) {
-                if (option instanceof ExplainFormat) {
-                    planFormat = ((ExplainFormat) option).getType();
+                if (option instanceof ExplainFormat explainFormat) {
+                    planFormat = explainFormat.getType();
                     break;
                 }
             }

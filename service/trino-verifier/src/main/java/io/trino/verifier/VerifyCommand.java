@@ -375,14 +375,14 @@ public class VerifyCommand
         if (statement instanceof CreateTableAsSelect) {
             return CREATE;
         }
-        if (statement instanceof CreateView) {
-            if (((CreateView) statement).isReplace()) {
+        if (statement instanceof CreateView createView) {
+            if (createView.isReplace()) {
                 return MODIFY;
             }
             return CREATE;
         }
-        if (statement instanceof CreateMaterializedView) {
-            if (((CreateMaterializedView) statement).isReplace()) {
+        if (statement instanceof CreateMaterializedView createMaterializedView) {
+            if (createMaterializedView.isReplace()) {
                 return MODIFY;
             }
             return CREATE;
@@ -405,8 +405,8 @@ public class VerifyCommand
         if (statement instanceof Explain) {
             return READ;
         }
-        if (statement instanceof ExplainAnalyze) {
-            return statementToQueryType(((ExplainAnalyze) statement).getStatement());
+        if (statement instanceof ExplainAnalyze explainAnalyze) {
+            return statementToQueryType(explainAnalyze.getStatement());
         }
         if (statement instanceof Insert) {
             return MODIFY;

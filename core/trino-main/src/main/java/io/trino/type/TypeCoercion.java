@@ -131,8 +131,8 @@ public final class TypeCoercion
             return false;
         }
 
-        if (source instanceof DecimalType) {
-            int precision = ((DecimalType) source).getPrecision();
+        if (source instanceof DecimalType decimalType) {
+            int precision = decimalType.getPrecision();
             if (precision > 15 && result.equals(DOUBLE)) {
                 return false;
             }

@@ -6328,7 +6328,7 @@ public abstract class BaseHiveConnectorTest
     {
         return plan -> {
             int actualRemoteExchangesCount = searchFrom(plan.getRoot())
-                    .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.REMOTE)
+                    .where(node -> node instanceof ExchangeNode exchangeNode && exchangeNode.getScope() == ExchangeNode.Scope.REMOTE)
                     .findAll()
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {

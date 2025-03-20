@@ -105,14 +105,14 @@ final class ParquetWriters
         if (BIGINT.equals(type)) {
             return new BigintValueWriter(valuesWriter, type, parquetType);
         }
-        if (type instanceof DecimalType) {
+        if (type instanceof DecimalType decimalType) {
             if (parquetType.getPrimitiveTypeName() == INT32) {
                 return new Int32ShortDecimalValueWriter(valuesWriter, type, parquetType);
             }
             if (parquetType.getPrimitiveTypeName() == INT64) {
                 return new Int64ShortDecimalValueWriter(valuesWriter, type, parquetType);
             }
-            if (((DecimalType) type).isShort()) {
+            if (decimalType.isShort()) {
                 return new FixedLenByteArrayShortDecimalValueWriter(valuesWriter, type, parquetType);
             }
             return new FixedLenByteArrayLongDecimalValueWriter(valuesWriter, type, parquetType);

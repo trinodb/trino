@@ -34,6 +34,7 @@ public class FutureStateChange<T>
     @GuardedBy("listeners")
     private final Set<SettableFuture<T>> listeners = new HashSet<>();
 
+    @SuppressWarnings("CollectionUndefinedEquality")
     public ListenableFuture<T> createNewListener()
     {
         SettableFuture<T> listener = SettableFuture.create();

@@ -135,9 +135,9 @@ class SubqueryPlanner
     private <T extends io.trino.sql.tree.Expression> List<T> selectSubqueries(PlanBuilder subPlan, io.trino.sql.tree.Expression parent, List<T> candidates)
     {
         SuccessorsFunction<Node> recurse = expression -> {
-            if (!(expression instanceof io.trino.sql.tree.Expression) ||
-                    (!analysis.isColumnReference((io.trino.sql.tree.Expression) expression) && // no point in following dereference chains
-                            !subPlan.canTranslate((io.trino.sql.tree.Expression) expression))) { // don't consider subqueries under parts of the expression that have already been handled
+            if (!(expression instanceof io.trino.sql.tree.Expression value) ||
+                    (!analysis.isColumnReference(value) && // no point in following dereference chains
+                            !subPlan.canTranslate(value))) { // don't consider subqueries under parts of the expression that have already been handled
                 return expression.getChildren();
             }
 

@@ -74,26 +74,26 @@ public final class TypeUtils
 
     private static String getDisplayLabelForLegacyClients(Type type)
     {
-        if (type instanceof TimestampType && ((TimestampType) type).getPrecision() == TimestampType.DEFAULT_PRECISION) {
+        if (type instanceof TimestampType timestampType && timestampType.getPrecision() == TimestampType.DEFAULT_PRECISION) {
             return StandardTypes.TIMESTAMP;
         }
-        if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType && timestampWithTimeZoneType.getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
             return StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
         }
-        if (type instanceof TimeType && ((TimeType) type).getPrecision() == TimeType.DEFAULT_PRECISION) {
+        if (type instanceof TimeType timeType && timeType.getPrecision() == TimeType.DEFAULT_PRECISION) {
             return StandardTypes.TIME;
         }
-        if (type instanceof TimeWithTimeZoneType && ((TimeWithTimeZoneType) type).getPrecision() == TimeWithTimeZoneType.DEFAULT_PRECISION) {
+        if (type instanceof TimeWithTimeZoneType timeWithTimeZoneType && timeWithTimeZoneType.getPrecision() == TimeWithTimeZoneType.DEFAULT_PRECISION) {
             return StandardTypes.TIME_WITH_TIME_ZONE;
         }
-        if (type instanceof ArrayType) {
-            return ARRAY + "(" + getDisplayLabelForLegacyClients(((ArrayType) type).getElementType()) + ")";
+        if (type instanceof ArrayType arrayType) {
+            return ARRAY + "(" + getDisplayLabelForLegacyClients(arrayType.getElementType()) + ")";
         }
-        if (type instanceof MapType) {
-            return MAP + "(" + getDisplayLabelForLegacyClients(((MapType) type).getKeyType()) + ", " + getDisplayLabelForLegacyClients(((MapType) type).getValueType()) + ")";
+        if (type instanceof MapType mapType) {
+            return MAP + "(" + getDisplayLabelForLegacyClients(mapType.getKeyType()) + ", " + getDisplayLabelForLegacyClients(mapType.getValueType()) + ")";
         }
-        if (type instanceof RowType) {
-            return getRowDisplayLabelForLegacyClients((RowType) type);
+        if (type instanceof RowType rowType) {
+            return getRowDisplayLabelForLegacyClients(rowType);
         }
 
         return type.getDisplayName();

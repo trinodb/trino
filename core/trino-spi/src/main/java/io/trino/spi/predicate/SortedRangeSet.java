@@ -1251,10 +1251,10 @@ public final class SortedRangeSet
         if (!getType().equals(other.getType())) {
             throw new IllegalStateException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
-        if (!(other instanceof SortedRangeSet)) {
+        if (!(other instanceof SortedRangeSet sortedRangeSet)) {
             throw new IllegalStateException(format("ValueSet is not a SortedRangeSet: %s", other.getClass()));
         }
-        return (SortedRangeSet) other;
+        return sortedRangeSet;
     }
 
     @Override

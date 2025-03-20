@@ -4300,8 +4300,8 @@ class AstBuilder
 
     private GrantorSpecification getGrantorSpecification(SqlBaseParser.GrantorContext context)
     {
-        if (context instanceof SqlBaseParser.SpecifiedPrincipalContext) {
-            return new GrantorSpecification(GrantorSpecification.Type.PRINCIPAL, Optional.of(getPrincipalSpecification(((SqlBaseParser.SpecifiedPrincipalContext) context).principal())));
+        if (context instanceof SqlBaseParser.SpecifiedPrincipalContext specifiedPrincipalContext) {
+            return new GrantorSpecification(GrantorSpecification.Type.PRINCIPAL, Optional.of(getPrincipalSpecification(specifiedPrincipalContext.principal())));
         }
         if (context instanceof SqlBaseParser.CurrentUserGrantorContext) {
             return new GrantorSpecification(GrantorSpecification.Type.CURRENT_USER, Optional.empty());
@@ -4314,14 +4314,14 @@ class AstBuilder
 
     private PrincipalSpecification getPrincipalSpecification(SqlBaseParser.PrincipalContext context)
     {
-        if (context instanceof SqlBaseParser.UnspecifiedPrincipalContext) {
-            return new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, (Identifier) visit(((SqlBaseParser.UnspecifiedPrincipalContext) context).identifier()));
+        if (context instanceof SqlBaseParser.UnspecifiedPrincipalContext unspecifiedPrincipalContext) {
+            return new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, (Identifier) visit(unspecifiedPrincipalContext.identifier()));
         }
-        if (context instanceof SqlBaseParser.UserPrincipalContext) {
-            return new PrincipalSpecification(PrincipalSpecification.Type.USER, (Identifier) visit(((SqlBaseParser.UserPrincipalContext) context).identifier()));
+        if (context instanceof SqlBaseParser.UserPrincipalContext userPrincipalContext) {
+            return new PrincipalSpecification(PrincipalSpecification.Type.USER, (Identifier) visit(userPrincipalContext.identifier()));
         }
-        if (context instanceof SqlBaseParser.RolePrincipalContext) {
-            return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, (Identifier) visit(((SqlBaseParser.RolePrincipalContext) context).identifier()));
+        if (context instanceof SqlBaseParser.RolePrincipalContext rolePrincipalContext) {
+            return new PrincipalSpecification(PrincipalSpecification.Type.ROLE, (Identifier) visit(rolePrincipalContext.identifier()));
         }
         throw new IllegalArgumentException("Unsupported principal: " + context);
     }

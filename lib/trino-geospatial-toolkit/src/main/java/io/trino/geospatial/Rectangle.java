@@ -116,11 +116,10 @@ public final class Rectangle
             return false;
         }
 
-        if (!(obj instanceof Rectangle)) {
+        if (!(obj instanceof Rectangle other)) {
             return false;
         }
 
-        Rectangle other = (Rectangle) obj;
         return other.xMin == this.xMin && other.yMin == this.yMin && other.xMax == this.xMax && other.yMax == this.yMax;
     }
 

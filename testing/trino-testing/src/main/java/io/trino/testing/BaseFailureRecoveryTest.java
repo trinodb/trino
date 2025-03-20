@@ -614,8 +614,8 @@ public abstract class BaseFailureRecoveryTest
             }
             catch (RuntimeException e) {
                 failure = e;
-                if (e instanceof QueryFailedException) {
-                    queryId = ((QueryFailedException) e).getQueryId().getId();
+                if (e instanceof QueryFailedException queryFailedException) {
+                    queryId = queryFailedException.getQueryId().getId();
                 }
             }
 

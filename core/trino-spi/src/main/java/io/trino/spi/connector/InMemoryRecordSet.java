@@ -147,16 +147,12 @@ public class InMemoryRecordSet
             checkState(record != null, "no current record");
             Object value = record.get(field);
             requireNonNull(value, "value is null");
-            if (value instanceof byte[]) {
-                return Slices.wrappedBuffer((byte[]) value);
-            }
-            if (value instanceof String) {
-                return Slices.utf8Slice((String) value);
-            }
-            if (value instanceof Slice) {
-                return (Slice) value;
-            }
-            throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
+            return switch (value) {
+                case byte[] bytes -> Slices.wrappedBuffer(bytes);
+                case String string -> Slices.utf8Slice(string);
+                case Slice slice -> slice;
+                default -> throw new IllegalArgumentException("Field " + field + " is not a String, but is a " + value.getClass().getName());
+            };
         }
 
         @Override
@@ -293,14 +289,14 @@ public class InMemoryRecordSet
             else if (value instanceof Number) {
                 completedBytes += 8;
             }
-            else if (value instanceof String) {
-                completedBytes += ((String) value).length();
+            else if (value instanceof String string) {
+                completedBytes += string.length();
             }
-            else if (value instanceof byte[]) {
-                completedBytes += ((byte[]) value).length;
+            else if (value instanceof byte[] bytes) {
+                completedBytes += bytes.length;
             }
-            else if (value instanceof Block) {
-                completedBytes += ((Block) value).getSizeInBytes();
+            else if (value instanceof Block block) {
+                completedBytes += block.getSizeInBytes();
             }
             else if (value instanceof SqlMap map) {
                 completedBytes += map.getSizeInBytes();
@@ -308,8 +304,8 @@ public class InMemoryRecordSet
             else if (value instanceof SqlRow row) {
                 completedBytes += row.getSizeInBytes();
             }
-            else if (value instanceof Slice) {
-                completedBytes += ((Slice) value).length();
+            else if (value instanceof Slice slice) {
+                completedBytes += slice.length();
             }
             else if (value instanceof LongTimestamp) {
                 completedBytes += LongTimestamp.INSTANCE_SIZE;

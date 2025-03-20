@@ -315,9 +315,9 @@ public final class IcebergAvroDataConversion
             type.writeSlice(builder, javaUuidToTrinoUuid((UUID) object));
             return;
         }
-        if (type instanceof ArrayType) {
+        if (type instanceof ArrayType arrayType) {
             Collection<?> array = (Collection<?>) object;
-            Type elementType = ((ArrayType) type).getElementType();
+            Type elementType = arrayType.getElementType();
             org.apache.iceberg.types.Type elementIcebergType = icebergType.asListType().elementType();
             ((ArrayBlockBuilder) builder).buildEntry(elementBuilder -> {
                 for (Object element : array) {
@@ -326,10 +326,10 @@ public final class IcebergAvroDataConversion
             });
             return;
         }
-        if (type instanceof MapType) {
+        if (type instanceof MapType mapType) {
             Map<?, ?> map = (Map<?, ?>) object;
-            Type keyType = ((MapType) type).getKeyType();
-            Type valueType = ((MapType) type).getValueType();
+            Type keyType = mapType.getKeyType();
+            Type valueType = mapType.getValueType();
             org.apache.iceberg.types.Type keyIcebergType = icebergType.asMapType().keyType();
             org.apache.iceberg.types.Type valueIcebergType = icebergType.asMapType().valueType();
             ((MapBlockBuilder) builder).buildEntry((keyBuilder, valueBuilder) -> {

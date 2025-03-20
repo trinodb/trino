@@ -45,11 +45,11 @@ public class WindowFunctionMatcher
         Optional<Symbol> result = Optional.empty();
 
         Map<Symbol, Function> assignments;
-        if (node instanceof WindowNode) {
-            assignments = ((WindowNode) node).getWindowFunctions();
+        if (node instanceof WindowNode windowNode) {
+            assignments = windowNode.getWindowFunctions();
         }
-        else if (node instanceof PatternRecognitionNode) {
-            assignments = ((PatternRecognitionNode) node).getWindowFunctions();
+        else if (node instanceof PatternRecognitionNode patternRecognitionNode) {
+            assignments = patternRecognitionNode.getWindowFunctions();
         }
         else {
             return result;

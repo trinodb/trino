@@ -354,39 +354,39 @@ public class LogicalPlanner
 
     private RelationPlan planStatementWithoutOutput(Analysis analysis, Statement statement)
     {
-        if (statement instanceof CreateTableAsSelect) {
+        if (statement instanceof CreateTableAsSelect createTableAsSelect) {
             if (analysis.getCreate().orElseThrow().isCreateTableAsSelectNoOp()) {
                 throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE IF NOT EXISTS is not supported in this context " + statement.getClass().getSimpleName());
             }
-            return createTableCreationPlan(analysis, ((CreateTableAsSelect) statement).getQuery());
+            return createTableCreationPlan(analysis, createTableAsSelect.getQuery());
         }
-        if (statement instanceof Analyze) {
-            return createAnalyzePlan(analysis, (Analyze) statement);
+        if (statement instanceof Analyze analyze) {
+            return createAnalyzePlan(analysis, analyze);
         }
-        if (statement instanceof Insert) {
+        if (statement instanceof Insert insert) {
             checkState(analysis.getInsert().isPresent(), "Insert handle is missing");
-            return createInsertPlan(analysis, (Insert) statement);
+            return createInsertPlan(analysis, insert);
         }
         if (statement instanceof RefreshMaterializedView) {
             return createRefreshMaterializedViewPlan(analysis);
         }
-        if (statement instanceof Delete) {
-            return createDeletePlan(analysis, (Delete) statement);
+        if (statement instanceof Delete delete) {
+            return createDeletePlan(analysis, delete);
         }
-        if (statement instanceof Update) {
-            return createUpdatePlan(analysis, (Update) statement);
+        if (statement instanceof Update update) {
+            return createUpdatePlan(analysis, update);
         }
-        if (statement instanceof Merge) {
-            return createMergePlan(analysis, (Merge) statement);
+        if (statement instanceof Merge merge) {
+            return createMergePlan(analysis, merge);
         }
-        if (statement instanceof Query) {
-            return createRelationPlan(analysis, (Query) statement);
+        if (statement instanceof Query query) {
+            return createRelationPlan(analysis, query);
         }
-        if (statement instanceof ExplainAnalyze) {
-            return createExplainAnalyzePlan(analysis, (ExplainAnalyze) statement);
+        if (statement instanceof ExplainAnalyze explainAnalyze) {
+            return createExplainAnalyzePlan(analysis, explainAnalyze);
         }
-        if (statement instanceof TableExecute) {
-            return createTableExecutePlan(analysis, (TableExecute) statement);
+        if (statement instanceof TableExecute tableExecute) {
+            return createTableExecutePlan(analysis, tableExecute);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported statement type " + statement.getClass().getSimpleName());
     }
@@ -808,11 +808,11 @@ public class LogicalPlanner
             return new Cast(expression, toType);
         }
         int targetLength;
-        if (toType instanceof VarcharType) {
-            if (((VarcharType) toType).isUnbounded()) {
+        if (toType instanceof VarcharType varcharType) {
+            if (varcharType.isUnbounded()) {
                 return new Cast(expression, toType);
             }
-            targetLength = ((VarcharType) toType).getBoundedLength();
+            targetLength = varcharType.getBoundedLength();
         }
         else {
             targetLength = ((CharType) toType).getLength();

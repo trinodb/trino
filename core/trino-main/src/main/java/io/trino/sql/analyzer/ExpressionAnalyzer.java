@@ -666,9 +666,9 @@ public class ExpressionAnalyzer
         @Override
         public Type process(Node node, @Nullable Context context)
         {
-            if (node instanceof Expression) {
+            if (node instanceof Expression expression) {
                 // don't double process a node
-                Type type = expressionTypes.get(NodeRef.of(((Expression) node)));
+                Type type = expressionTypes.get(NodeRef.of(expression));
                 if (type != null) {
                     return type;
                 }
@@ -2124,11 +2124,11 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
             Type resultType = valueType;
-            if (valueType instanceof TimeType) {
-                resultType = createTimeWithTimeZoneType(((TimeType) valueType).getPrecision());
+            if (valueType instanceof TimeType timeType) {
+                resultType = createTimeWithTimeZoneType(timeType.getPrecision());
             }
-            else if (valueType instanceof TimestampType) {
-                resultType = createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision());
+            else if (valueType instanceof TimestampType timestampType) {
+                resultType = createTimestampWithTimeZoneType(timestampType.getPrecision());
             }
 
             return setExpressionType(node, resultType);
@@ -2414,9 +2414,9 @@ public class ExpressionAnalyzer
                         ImmutableList.<Expression>builder().add(value).addAll(inListExpression.getValues()).build());
                 setExpressionType(inListExpression, type);
             }
-            else if (valueList instanceof SubqueryExpression) {
+            else if (valueList instanceof SubqueryExpression subqueryExpression) {
                 subqueryInPredicates.add(NodeRef.of(node));
-                analyzePredicateWithSubquery(node, process(value, context), (SubqueryExpression) valueList, context);
+                analyzePredicateWithSubquery(node, process(value, context), subqueryExpression, context);
             }
             else {
                 throw new IllegalArgumentException("Unexpected value list type for InPredicate: " + node.getValueList().getClass().getName());
@@ -3904,7 +3904,7 @@ public class ExpressionAnalyzer
                 type.equals(INTEGER) ||
                 type.equals(SMALLINT) ||
                 type.equals(TINYINT) ||
-                type instanceof DecimalType && ((DecimalType) type).getScale() == 0;
+                type instanceof DecimalType decimalType && decimalType.getScale() == 0;
     }
 
     public static boolean isStringType(Type type)

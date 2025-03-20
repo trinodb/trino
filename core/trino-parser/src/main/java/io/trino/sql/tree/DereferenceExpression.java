@@ -95,11 +95,11 @@ public class DereferenceExpression
         Identifier field = expression.field.get();
 
         List<Identifier> parts = null;
-        if (expression.base instanceof Identifier) {
-            parts = ImmutableList.of((Identifier) expression.base, field);
+        if (expression.base instanceof Identifier identifier) {
+            parts = ImmutableList.of(identifier, field);
         }
-        else if (expression.base instanceof DereferenceExpression) {
-            QualifiedName baseQualifiedName = getQualifiedName((DereferenceExpression) expression.base);
+        else if (expression.base instanceof DereferenceExpression dereferenceExpression) {
+            QualifiedName baseQualifiedName = getQualifiedName(dereferenceExpression);
             if (baseQualifiedName != null) {
                 ImmutableList.Builder<Identifier> builder = ImmutableList.builder();
                 builder.addAll(baseQualifiedName.getOriginalParts());
@@ -129,7 +129,7 @@ public class DereferenceExpression
 
     public static boolean isQualifiedAllFieldsReference(Expression expression)
     {
-        return expression instanceof DereferenceExpression && !((DereferenceExpression) expression).field.isPresent();
+        return expression instanceof DereferenceExpression dereferenceExpression && !dereferenceExpression.field.isPresent();
     }
 
     @Override
