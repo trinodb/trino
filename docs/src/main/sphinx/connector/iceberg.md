@@ -804,6 +804,14 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+You can use a `WHERE` clause with [metadata columns](#iceberg-metadata-columns)
+to filter which files are optimized:
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$file_modified_time" > date_trunc('day', CURRENT_TIMESTAMP);
+```
+
 (iceberg-optimize-manifests)=
 ##### optimize_manifests
 
