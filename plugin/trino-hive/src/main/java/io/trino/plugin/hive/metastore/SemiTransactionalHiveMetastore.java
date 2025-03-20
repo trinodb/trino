@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -2332,14 +2331,6 @@ public class SemiTransactionalHiveMetastore
                     }
                 }
             }
-        }
-    }
-
-    @VisibleForTesting
-    public synchronized void testOnlyCheckIsReadOnly()
-    {
-        if (state != State.EMPTY) {
-            throw new AssertionError("Test did not commit or rollback");
         }
     }
 

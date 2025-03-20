@@ -21,11 +21,8 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.BigintType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.IntegerType;
-import io.trino.spi.type.SmallintType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.VarcharType;
 
 import java.math.BigDecimal;
@@ -68,20 +65,6 @@ public class PartitionFilterBuilder
         return this;
     }
 
-    public PartitionFilterBuilder addSmallintValues(String columnName, Long... values)
-    {
-        Domain domain = Domain.multipleValues(SmallintType.SMALLINT, Arrays.asList(values));
-        domains.merge(columnName, domain, Domain::union);
-        return this;
-    }
-
-    public PartitionFilterBuilder addTinyintValues(String columnName, Long... values)
-    {
-        Domain domain = Domain.multipleValues(TinyintType.TINYINT, Arrays.asList(values));
-        domains.merge(columnName, domain, Domain::union);
-        return this;
-    }
-
     public PartitionFilterBuilder addDecimalValues(String columnName, String... values)
     {
         checkArgument(values.length > 0);
@@ -89,13 +72,6 @@ public class PartitionFilterBuilder
                 .map(PartitionFilterBuilder::decimalOf)
                 .collect(toImmutableList());
         Domain domain = Domain.multipleValues(DECIMAL_TYPE, encodedValues);
-        domains.merge(columnName, domain, Domain::union);
-        return this;
-    }
-
-    public PartitionFilterBuilder addDateValues(String columnName, Long... values)
-    {
-        Domain domain = Domain.multipleValues(DateType.DATE, Arrays.asList(values));
         domains.merge(columnName, domain, Domain::union);
         return this;
     }
