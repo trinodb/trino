@@ -18,22 +18,13 @@ import io.trino.spi.connector.SchemaTableName;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_OFFLINE;
-import static java.util.Objects.requireNonNull;
 
 public class TableOfflineException
         extends TrinoException
 {
-    private final SchemaTableName tableName;
-
     public TableOfflineException(SchemaTableName tableName, boolean forPresto, String offlineMessage)
     {
         super(HIVE_TABLE_OFFLINE, formatMessage(tableName, forPresto, offlineMessage));
-        this.tableName = requireNonNull(tableName, "tableName is null");
-    }
-
-    public SchemaTableName getTableName()
-    {
-        return tableName;
     }
 
     private static String formatMessage(SchemaTableName tableName, boolean forPresto, String offlineMessage)
