@@ -508,6 +508,7 @@
                                     <excludes>
                                         <exclude>org/jetbrains/**</exclude>
                                         <exclude>org/intellij/**</exclude>
+                                        <exclude>org/jspecify/**</exclude>
                                         <exclude>com/google/errorprone/**</exclude>
                                         <exclude>META-INF/maven/**</exclude>
                                         <exclude>META-INF/licenses/**</exclude>
