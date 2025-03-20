@@ -735,7 +735,7 @@ public class PlanOptimizers
                                 new PushdownFilterIntoWindow(plannerContext),
                                 new PushFilterIntoValues(plannerContext),
                                 new ReplaceJoinOverConstantWithProject(),
-                                new ReplaceWindowWithRowNumber(metadata))),
+                                new ReplaceWindowWithRowNumber())),
                 new IterativeOptimizer(
                         plannerContext,
                         ruleStats,
