@@ -13,10 +13,7 @@
  */
 package io.trino.type;
 
-import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.CharType;
-import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
@@ -25,9 +22,7 @@ import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 
-import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.StandardTypes.ARRAY;
 import static io.trino.spi.type.StandardTypes.MAP;
 import static io.trino.spi.type.StandardTypes.ROW;
@@ -38,31 +33,6 @@ public final class TypeUtils
     public static final int NULL_HASH_CODE = 0;
 
     private TypeUtils() {}
-
-    public static int expectedValueSize(Type type, int defaultSize)
-    {
-        if (type instanceof FixedWidthType) {
-            return ((FixedWidthType) type).getFixedSize();
-        }
-        // If bound on length of varchar or char is smaller than defaultSize, use that as expected size
-        // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
-        if (type instanceof VarcharType) {
-            return ((VarcharType) type).getLength()
-                    .map(length -> Math.min(length, defaultSize))
-                    .orElse(defaultSize);
-        }
-        if (type instanceof CharType) {
-            return Math.min(((CharType) type).getLength(), defaultSize);
-        }
-        return defaultSize;
-    }
-
-    public static void checkElementNotNull(boolean isNull, String errorMsg)
-    {
-        if (isNull) {
-            throw new TrinoException(NOT_SUPPORTED, errorMsg);
-        }
-    }
 
     public static String getDisplayLabel(Type type, boolean legacy)
     {
