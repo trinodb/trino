@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>234</version>
+        <version>237</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -496,7 +496,7 @@
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>failureaccess</artifactId>
-                <version>1.0.2</version>
+                <version>1.0.3</version>
             </dependency>
 
             <dependency>
