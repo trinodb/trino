@@ -220,6 +220,7 @@ import io.trino.sql.planner.iterative.rule.ReplaceJoinOverConstantWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
+import io.trino.sql.planner.iterative.rule.RewriteExcludeColumns;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.RewriteTableFunctionToTableScan;
 import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
@@ -464,7 +465,8 @@ public class PlanOptimizers
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
                                         new SimplifyCountOverConstant(plannerContext),
                                         new PreAggregateCaseAggregations(plannerContext),
-                                        new RemoveRedundantDistinctAggregation()))
+                                        new RemoveRedundantDistinctAggregation(),
+                                        new RewriteExcludeColumns()))
                                 .build()),
                 // MergeUnion and related projection pruning rules must run before limit pushdown rules, otherwise
                 // an intermediate limit node will prevent unions from being merged later on
