@@ -815,7 +815,12 @@ WHERE "$file_modified_time" > date_trunc('day', CURRENT_TIMESTAMP);
 (iceberg-optimize-manifests)=
 ##### optimize_manifests
 
-Optimize table manifests to speed up planning.
+Rewrites manifest files to cluster them by partitioning columns.
+This can be used to optimize scan planning when there are many small manifest files
+or when there are partition filters in read queries but the manifest files are
+not grouped by partitions.
+The iceberg table property `commit.manifest.target-size-bytes` controls
+the maximum size of manifest files produced by this procedure.
 
 `optimize_manifests` can be run as follows:
 
