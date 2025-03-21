@@ -216,10 +216,10 @@ public class TestInformationSchemaConnector
                 "VALUES (2, 2)",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema3_empty, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema3_empty, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table1)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema3_empty, table=test_table1)")
@@ -228,10 +228,10 @@ public class TestInformationSchemaConnector
                         .add("ConnectorMetadata.isView(schema=test_schema2, table=test_table1)")
                         .add("ConnectorMetadata.isView(schema=test_schema3_empty, table=test_table1)")
                         .add("ConnectorMetadata.isView(schema=test_schema4_empty, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema3_empty, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema4_empty, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema3_empty, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema4_empty, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table1)")
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema3_empty, table=test_table1)")
@@ -252,14 +252,14 @@ public class TestInformationSchemaConnector
                 "VALUES (2, 2)",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table2)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table2)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema3_empty, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema3_empty, table=test_table2)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table1)", 4)
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table2)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table2)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema2, table=test_table2)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema3_empty, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema3_empty, table=test_table2)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table1)", 5)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema4_empty, table=test_table2)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table2)")
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema2, table=test_table2)")
@@ -276,14 +276,14 @@ public class TestInformationSchemaConnector
                         .add("ConnectorMetadata.isView(schema=test_schema3_empty, table=test_table2)")
                         .add("ConnectorMetadata.isView(schema=test_schema4_empty, table=test_table1)")
                         .add("ConnectorMetadata.isView(schema=test_schema4_empty, table=test_table2)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table2)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table2)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema3_empty, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema3_empty, table=test_table2)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema4_empty, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema4_empty, table=test_table2)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table2)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema2, table=test_table2)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema3_empty, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema3_empty, table=test_table2)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema4_empty, table=test_table1)", 2)
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema4_empty, table=test_table2)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table2)")
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema2, table=test_table1)")
@@ -297,10 +297,10 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'",
                 "VALUES 100",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getTableMetadata(handle=test_schema1.test_table1)")
                         .build());
@@ -312,20 +312,20 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=wrong_schema1, table=test_table1)")
                         .build());
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog IN ('wrong', 'test_catalog') AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
-                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 4)
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=wrong_schema1, table=test_table1)", 5)
                         .add("ConnectorMetadata.getMaterializedView(schema=wrong_schema1, table=test_table1)")
                         .add("ConnectorMetadata.getView(schema=wrong_schema1, table=test_table1)")
-                        .add("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=wrong_schema1, table=test_table1)", 2)
                         .add("ConnectorMetadata.getTableHandle(schema=wrong_schema1, table=test_table1)")
                         .build());
         assertMetadataCalls(
@@ -411,5 +411,22 @@ public class TestInformationSchemaConnector
         });
 
         assertMultisetsEqual(actualMetadataCallsCount, expectedMetadataCallsCount);
+    }
+
+    @Test
+    @Timeout(60)
+    public void testMetadataCallsJl()
+    {
+        assertMetadataCalls(
+                "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'",
+                "VALUES (1, 1)",
+                ImmutableMultiset.<String>builder()
+//                        .add("ConnectorMetadata.listSchemaNames")
+                        .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
+                        .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
+                        .add("ConnectorMetadata.isView(schema=test_schema1, table=test_table1)")
+                        .addCopies("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)", 2)
+                        .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
+                        .build());
     }
 }
