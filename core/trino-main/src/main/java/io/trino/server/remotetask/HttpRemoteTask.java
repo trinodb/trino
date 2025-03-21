@@ -322,6 +322,13 @@ public final class HttpRemoteTask
 
             TaskInfo initialTask = createInitialTask(taskId, location, nodeId, this.speculative.get(), pipelinedBufferStates, new TaskStats(DateTime.now(), null));
 
+            RemoteTaskCleaner remoteTaskCleaner = new RemoteTaskCleaner(
+                    taskId,
+                    location,
+                    httpClient,
+                    errorScheduledExecutor,
+                    () -> createSpanBuilder("remote-task-cleaner", span));
+
             this.dynamicFiltersFetcher = new DynamicFiltersFetcher(
                     this::fatalUnacknowledgedFailure,
                     taskId,
@@ -334,7 +341,8 @@ public final class HttpRemoteTask
                     maxErrorDuration,
                     errorScheduledExecutor,
                     stats,
-                    dynamicFilterService);
+                    dynamicFilterService,
+                    remoteTaskCleaner);
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::fatalUnacknowledgedFailure,
@@ -347,12 +355,14 @@ public final class HttpRemoteTask
                     () -> createSpanBuilder("task-status", span),
                     maxErrorDuration,
                     errorScheduledExecutor,
-                    stats);
+                    stats,
+                    remoteTaskCleaner);
 
             RetryPolicy retryPolicy = getRetryPolicy(session);
             this.taskInfoFetcher = new TaskInfoFetcher(
                     this::fatalUnacknowledgedFailure,
                     taskStatusFetcher,
+                    remoteTaskCleaner,
                     initialTask,
                     httpClient,
                     () -> createSpanBuilder("task-info", span),
