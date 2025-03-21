@@ -46,6 +46,7 @@ public class IcebergMetadataFactory
     private final Predicate<String> allowedExtraProperties;
     private final ExecutorService icebergScanExecutor;
     private final Executor metadataFetchingExecutor;
+    private final Executor materializedViewExecutor;
 
     @Inject
     public IcebergMetadataFactory(
@@ -58,6 +59,7 @@ public class IcebergMetadataFactory
             @RawHiveMetastoreFactory Optional<HiveMetastoreFactory> metastoreFactory,
             @ForIcebergScanPlanning ExecutorService icebergScanExecutor,
             @ForIcebergMetadata ExecutorService metadataExecutorService,
+            @ForIcebergMaterializedView ExecutorService materializedViewExecutor,
             IcebergConfig config)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -82,6 +84,8 @@ public class IcebergMetadataFactory
         else {
             this.metadataFetchingExecutor = new BoundedExecutor(metadataExecutorService, config.getMetadataParallelism());
         }
+
+        this.materializedViewExecutor = requireNonNull(materializedViewExecutor, "materializedViewExecutor is null");
     }
 
     public IcebergMetadata create(ConnectorIdentity identity)
@@ -97,6 +101,7 @@ public class IcebergMetadataFactory
                 addFilesProcedureEnabled,
                 allowedExtraProperties,
                 icebergScanExecutor,
-                metadataFetchingExecutor);
+                metadataFetchingExecutor,
+                materializedViewExecutor);
     }
 }
