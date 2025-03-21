@@ -77,6 +77,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
+import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
@@ -141,6 +142,7 @@ public class CheckpointEntryIterator
     private final List<CheckpointFieldExtractor> extractors;
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final TupleDomain<DeltaLakeColumnHandle> partitionConstraint;
+    private final TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint;
     private final Optional<RowType> txnType;
     private final Optional<RowType> addType;
     private final Optional<RowType> addDeletionVectorType;
@@ -173,6 +175,7 @@ public class CheckpointEntryIterator
             boolean checkpointRowStatisticsWritingEnabled,
             int domainCompactionThreshold,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint,
             Optional<Predicate<String>> addStatsMinMaxColumnFilter)
     {
         this.checkpointPath = checkpoint.location().toString();
@@ -181,6 +184,7 @@ public class CheckpointEntryIterator
         this.stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         this.checkpointRowStatisticsWritingEnabled = checkpointRowStatisticsWritingEnabled;
         this.partitionConstraint = requireNonNull(partitionConstraint, "partitionConstraint is null");
+        this.nonPartitionConstraint = requireNonNull(nonPartitionConstraint, "nonPartitionConstraint is null");
         requireNonNull(addStatsMinMaxColumnFilter, "addStatsMinMaxColumnFilter is null");
         checkArgument(!fields.isEmpty(), "fields is empty");
         // ADD requires knowing the metadata in order to figure out the Parquet schema
@@ -526,6 +530,16 @@ public class CheckpointEntryIterator
                 return null;
             }
 
+            Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(addReader.getRow("stats_parsed"))
+                    .map(row -> parseStatisticsFromParquet(session, row, addParsedStatsFieldType.orElseThrow()));
+            TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = createStatisticsPredicate(
+                    parsedStats,
+                    schema,
+                    metadataEntry.getLowercasePartitionColumns());
+            if (!nonPartitionConstraint.overlaps(statisticsPredicate)) {
+                return null;
+            }
+
             String path = addReader.getString("path");
             long size = addReader.getLong("size");
             long modificationTime = addReader.getLong("modificationTime");
@@ -537,8 +551,6 @@ public class CheckpointEntryIterator
                         .map(row -> parseDeletionVectorFromParquet(session, row, addDeletionVectorType.orElseThrow()));
             }
 
-            Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(addReader.getRow("stats_parsed"))
-                    .map(row -> parseStatisticsFromParquet(session, row, addParsedStatsFieldType.orElseThrow()));
             Optional<String> stats = Optional.empty();
             if (parsedStats.isEmpty()) {
                 stats = Optional.ofNullable(addReader.getString("stats"));

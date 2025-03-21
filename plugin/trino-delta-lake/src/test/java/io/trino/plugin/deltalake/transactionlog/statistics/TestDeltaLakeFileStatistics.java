@@ -108,6 +108,7 @@ public class TestDeltaLakeFileStatistics
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 TupleDomain.all(),
+                TupleDomain.all(),
                 Optional.empty());
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
         CheckpointEntryIterator protocolEntryIterator = new CheckpointEntryIterator(
@@ -123,6 +124,7 @@ public class TestDeltaLakeFileStatistics
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty());
         ProtocolEntry protocolEntry = getOnlyElement(protocolEntryIterator).getProtocol();
@@ -140,6 +142,7 @@ public class TestDeltaLakeFileStatistics
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.of(alwaysTrue()));
         DeltaLakeTransactionLogEntry matchingAddFileEntry = null;
