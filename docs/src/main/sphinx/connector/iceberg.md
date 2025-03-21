@@ -804,8 +804,8 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
-You can use a `WHERE` clause with [metadata columns](#iceberg-metadata-columns)
-to filter which files are optimized:
+Use a `WHERE` clause with [metadata columns](iceberg-metadata-columns) to filter
+which files are optimized.
 
 ```sql
 ALTER TABLE test_table EXECUTE optimize
