@@ -6393,43 +6393,42 @@ public abstract class BaseIcebergConnectorTest
     public void testOptimizeWithFileModifiedTimeColumn()
             throws Exception
     {
-        String tableName = "test_optimize_with_file_modified_time_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id integer)");
+        try (TestTable table = newTrinoTable("test_optimize_with_file_modified_time_", "(id INT)")) {
+            String tableName = table.getName();
 
-        assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (2)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (3)", 1);
-        storageTimePrecision.sleep(1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES (4)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1)", 1);
+            storageTimePrecision.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2)", 1);
+            storageTimePrecision.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3)", 1);
+            storageTimePrecision.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (4)", 1);
 
-        ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
-        ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
-        ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
-        ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
-        // Sanity check
-        assertThat(List.of(firstFileModifiedTime, secondFileModifiedTime, thirdFileModifiedTime, fourthFileModifiedTime))
-                .doesNotHaveDuplicates();
+            ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
+            ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
+            ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
+            ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+            // Sanity check
+            assertThat(List.of(firstFileModifiedTime, secondFileModifiedTime, thirdFileModifiedTime, fourthFileModifiedTime))
+                    .doesNotHaveDuplicates();
 
-        List<String> initialFiles = getActiveFiles(tableName);
-        assertThat(initialFiles).hasSize(4);
+            List<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
 
-        storageTimePrecision.sleep(1);
-        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
-        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
-                "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
-                "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
-        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
-                "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
-                "\"$file_modified_time\" = from_iso8601_timestamp('" + fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+            storageTimePrecision.sleep(1);
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+            assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
 
-        List<String> updatedFiles = getActiveFiles(tableName);
-        assertThat(updatedFiles)
-                .hasSize(2)
-                .doesNotContainAnyElementsOf(initialFiles);
-
-        assertUpdate("DROP TABLE " + tableName);
+            List<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
     }
 
     @Test
