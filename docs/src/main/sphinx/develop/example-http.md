@@ -5,6 +5,14 @@ data over HTTP. For example, if you have a large amount of data in a
 CSV format, you can point the example HTTP connector at this data and
 write a query to process it.
 
+## Installation
+
+The example HTTP connector plugin is optional and must be downloaded and
+installed as part of your Trino cluster provisioning.
+
+Download the plugin archive {maven_download}`example-http` and follow the
+[plugin installation instructions](plugins-installation).
+
 ## Code
 
 The Example HTTP connector can be found in the [trino-example-http](https://github.com/trinodb/trino/tree/master/plugin/trino-example-http)
