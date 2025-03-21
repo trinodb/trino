@@ -204,16 +204,6 @@ public final class FlatHash
         }
     }
 
-    public boolean contains(Block[] blocks, int position)
-    {
-        return contains(blocks, position, flatHashStrategy.hash(blocks, position));
-    }
-
-    public boolean contains(Block[] blocks, int position, long hash)
-    {
-        return getIndex(blocks, position, hash) >= 0;
-    }
-
     public void computeHashes(Block[] blocks, long[] hashes, int offset, int length)
     {
         if (hasPrecomputedHash) {
