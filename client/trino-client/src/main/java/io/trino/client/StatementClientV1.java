@@ -15,6 +15,7 @@ package io.trino.client;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -24,11 +25,13 @@ import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -40,6 +43,7 @@ import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -47,6 +51,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -61,16 +66,19 @@ import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
 import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ThreadSafe
 class StatementClientV1
         implements StatementClient
 {
+    private static final long HEARTBEAT_INTERVAL = new Duration(30, SECONDS).toMillis() * 1_000_000;
     private static final MediaType MEDIA_TYPE_TEXT = MediaType.parse("text/plain; charset=utf-8");
     private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
@@ -95,6 +103,7 @@ class StatementClientV1
     private final Set<String> deallocatedPreparedStatements = Sets.newConcurrentHashSet();
     private final AtomicReference<String> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
+    private final AtomicLong lastHeartbeat = new AtomicLong();
     private final ZoneId timeZone;
     private final Duration requestTimeoutNanos;
     private final Optional<String> user;
@@ -389,6 +398,50 @@ class StatementClientV1
         return executeRequest(request, "fetching next", (e) -> true);
     }
 
+    public void heartbeat()
+    {
+        if (System.nanoTime() - lastHeartbeat.get() < HEARTBEAT_INTERVAL) {
+            return;
+        }
+
+        if (!isRunning()) {
+            return;
+        }
+
+        URI nextUri = currentStatusInfo().getNextUri();
+        if (nextUri == null) {
+            return;
+        }
+
+        Request request = prepareRequest(HttpUrl.get(nextUri)
+                .newBuilder()
+                .addPathSegment("heartbeat").build())
+                .build();
+
+        lastHeartbeat.set(System.nanoTime());
+        httpCallFactory.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e)
+            {
+                if (isTransient(e)) {
+                    lastHeartbeat.set(0); // retry sending heartbeat
+                }
+            }
+
+            @Override
+            public void onResponse(Call call, Response response)
+            {
+                if (response.code() == HTTP_OK) {
+                    // Heartbeat acknowledged, move even further
+                    lastHeartbeat.set(System.nanoTime());
+                }
+                if (response.code() == HTTP_NOT_FOUND) {
+                    lastHeartbeat.set(Long.MAX_VALUE); // No server-side support for heartbeats
+                }
+            }
+        });
+    }
+
     private boolean executeRequest(Request request, String taskName, Function<Exception, Boolean> isRetryable)
     {
         Exception cause = null;
@@ -427,6 +480,7 @@ class StatementClientV1
             JsonResponse<QueryResults> response;
             try {
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpCallFactory, request);
+                lastHeartbeat.set(System.nanoTime());
             }
             catch (RuntimeException e) {
                 if (!isRetryable.apply(e)) {
@@ -512,7 +566,7 @@ class StatementClientV1
         }
 
         currentResults.set(results);
-        currentRows.set(resultRowsDecoder.toRows(results));
+        currentRows.set(new HeartbeatingResultRows(resultRowsDecoder.toRows(results), this::heartbeat));
     }
 
     private List<String> safeSplitToList(String value)
@@ -610,5 +664,51 @@ class StatementClientV1
          * finished on remote Trino server (including failed and successfully completed)
          */
         FINISHED,
+    }
+
+    private static class HeartbeatingResultRows
+            implements ResultRows
+    {
+        private final Iterator<List<Object>> iterator;
+        private final boolean isNull;
+        private final Runnable heartbeat;
+
+        public HeartbeatingResultRows(ResultRows delegate, Runnable heartbeat)
+        {
+            this.iterator = delegate.iterator();
+            this.isNull = delegate.isNull();
+            this.heartbeat = heartbeat;
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            if (iterator instanceof CloseableIterator) {
+                ((CloseableIterator<?>) iterator).close();
+            }
+        }
+
+        @Override
+        public boolean isNull()
+        {
+            return isNull;
+        }
+
+        @Override
+        public Iterator<List<Object>> iterator()
+        {
+            return new AbstractIterator<>() {
+                @Override
+                protected List<Object> computeNext()
+                {
+                    heartbeat.run();
+                    if (iterator.hasNext()) {
+                        return iterator.next();
+                    }
+                    return endOfData();
+                }
+            };
+        }
     }
 }
