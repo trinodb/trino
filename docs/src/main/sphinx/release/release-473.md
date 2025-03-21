@@ -1,5 +1,10 @@
 # Release 473 (19 Mar 2025)
 
+```{warning}
+This release is broken and should not be used. GROUP BY and DISTINCT queries containing
+more than 33M unique groups can produce incorrect results. See: ({issue}`25381`)
+```
+
 ## General
 
 * Add support for array literals. ({issue}`25301`)
