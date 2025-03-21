@@ -1602,16 +1602,9 @@ public final class ThriftHiveMetastore
 
     private long acquireLock(String context, LockRequest lockRequest)
     {
+        LockResponse response = acquireLock(lockRequest);
+        long lockId = response.getLockid();
         try {
-            LockResponse response = retry()
-                    .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
-                    .run("acquireLock", stats.getAcquireLock().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            return metastoreClient.acquireLock(lockRequest);
-                        }
-                    }));
-
-            long lockId = response.getLockid();
             long waitStart = nanoTime();
             while (response.getState() == LockState.WAITING) {
                 if (Duration.nanosSince(waitStart).compareTo(maxWaitForLock) > 0) {
@@ -1635,6 +1628,25 @@ public final class ThriftHiveMetastore
             }
 
             return response.getLockid();
+        }
+        catch (TException e) {
+            throw unlockSuppressing(lockId, new TrinoException(HIVE_METASTORE_ERROR, e));
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private LockResponse acquireLock(LockRequest lockRequest)
+    {
+        try {
+            return retry()
+                    .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
+                    .run("acquireLock", stats.getAcquireLock().wrap(() -> {
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
+                            return metastoreClient.acquireLock(lockRequest);
+                        }
+                    }));
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);
