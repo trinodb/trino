@@ -50,17 +50,36 @@ public class TestLdapGroupProviderIntegration
 
     static {
         ConfigBuilder withMemberOf = builder -> {
+            builder.put("cache.enabled", "false");
             builder.put("ldap.user-member-of-attribute", "memberOf");
             return builder;
         };
 
         ConfigBuilder withGroupFilter = builder -> {
+            builder.put("cache.enabled", "false");
             builder.put("ldap.use-group-filter", "true");
             builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
             return builder;
         };
 
-        CONFIG_BUILDERS = ImmutableList.of(withMemberOf, withGroupFilter);
+        ConfigBuilder cacheEnabledWithMemberOf = builder -> {
+            builder.put("cache.enabled", "true");
+            builder.put("cache.ttl", "5s");
+            builder.put("cache.maximum-size", "10");
+            builder.put("ldap.user-member-of-attribute", "memberOf");
+            return builder;
+        };
+
+        ConfigBuilder cacheEnabledWithGroupFilter = builder -> {
+            builder.put("cache.enabled", "true");
+            builder.put("cache.ttl", "5s");
+            builder.put("cache.maximum-size", "10");
+            builder.put("ldap.use-group-filter", "true");
+            builder.put("ldap.group-base-dn", "ou=groups,dc=trino,dc=testldap,dc=com");
+            return builder;
+        };
+
+        CONFIG_BUILDERS = ImmutableList.of(withMemberOf, withGroupFilter, cacheEnabledWithMemberOf, cacheEnabledWithGroupFilter);
     }
 
     private Closer closer;
