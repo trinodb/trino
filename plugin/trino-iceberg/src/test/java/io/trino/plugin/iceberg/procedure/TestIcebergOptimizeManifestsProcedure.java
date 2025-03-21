@@ -13,25 +13,38 @@
  */
 package io.trino.plugin.iceberg.procedure;
 
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
+import io.trino.plugin.iceberg.IcebergTestUtils;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import org.apache.iceberg.BaseTable;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestIcebergOptimizeManifestsProcedure
         extends AbstractTestQueryFramework
 {
+    private HiveMetastore metastore;
+    private TrinoFileSystemFactory fileSystemFactory;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder().build();
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().build();
+        metastore = getHiveMetastore(queryRunner);
+        fileSystemFactory = getFileSystemFactory(queryRunner);
+        return queryRunner;
     }
 
     @Test
@@ -51,6 +64,30 @@ final class TestIcebergOptimizeManifestsProcedure
 
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES 1, 2");
+        }
+    }
+
+    @Test
+    void testSplitManifests()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_manifests", "(x int)")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+            assertThat(manifestFiles(table.getName()))
+                    .hasSize(1);
+
+            // Set small target size to force split
+            BaseTable icebergTable = loadTable(table.getName());
+            icebergTable.updateProperties()
+                    .set("commit.manifest.target-size-bytes", "1")
+                    .commit();
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE optimize_manifests");
+
+            assertThat(manifestFiles(table.getName()))
+                    .hasSize(3);
         }
     }
 
@@ -145,5 +182,10 @@ final class TestIcebergOptimizeManifestsProcedure
         return computeActual("SELECT path FROM \"" + tableName + "$manifests\"").getOnlyColumnAsSet().stream()
                 .map(path -> (String) path)
                 .collect(toImmutableSet());
+    }
+
+    private BaseTable loadTable(String tableName)
+    {
+        return IcebergTestUtils.loadTable(tableName, metastore, fileSystemFactory, "hive", "tpch");
     }
 }
