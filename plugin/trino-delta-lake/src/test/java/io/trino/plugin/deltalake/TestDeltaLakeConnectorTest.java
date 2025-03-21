@@ -96,6 +96,7 @@ import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Map.entry;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1017,6 +1018,111 @@ public class TestDeltaLakeConnectorTest
             assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IN ('" + firstFilePath + "', '" + secondFilePath + "')", "VALUES ('first'), ('second')");
             assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL", "VALUES ('first'), ('second')");
             assertQueryReturnsEmptyResult("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NULL");
+        }
+    }
+
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+            throws Exception
+    {
+        ZonedDateTime beforeTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+        MILLISECONDS.sleep(1);
+        try (TestTable table = newTrinoTable("test_file_modified_time_", "(col) AS VALUES 1")) {
+            // Describe output should not have the $file_modified_time hidden column
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('col', 'integer', '', '')");
+
+            ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + table.getName());
+            ZonedDateTime afterTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+            assertThat(fileModifiedTime).isBetween(beforeTime, afterTime);
+
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
+            ZonedDateTime anotherFileModifiedTime = (ZonedDateTime) computeScalar("SELECT max(\"$file_modified_time\") FROM " + table.getName());
+            assertThat(fileModifiedTime)
+                    .isNotEqualTo(anotherFileModifiedTime);
+            assertThat(anotherFileModifiedTime).isAfter(fileModifiedTime); // to detect potential clock backward adjustment
+
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IN (from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'), from_iso8601_timestamp('" + anotherFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" <> from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')"))
+                    .matches("VALUES 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NOT NULL"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NULL"))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+
+            assertQuery("SHOW STATS FOR (SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))",
+                    "VALUES " +
+                            "('col', null, 1.0, 0.0, null, 1, 1), " +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + beforeTime.format(ISO_OFFSET_DATE_TIME) + "')", 0);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 1, 2");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')", 1);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 2");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET col = 100 WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + anotherFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')", 1);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 100");
+
+            // EXPLAIN triggers stats calculation and also rendering
+            assertQuerySucceeds("EXPLAIN SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithFileModifiedTimeColumn()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_file_modified_time_", "(id INT)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 4", 1);
+
+            ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
+            ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
+            ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
+            ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+            // Sanity check
+            assertThat(List.of(firstFileModifiedTime, secondFileModifiedTime, thirdFileModifiedTime, fourthFileModifiedTime))
+                    .doesNotHaveDuplicates();
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            MILLISECONDS.sleep(1);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
         }
     }
 

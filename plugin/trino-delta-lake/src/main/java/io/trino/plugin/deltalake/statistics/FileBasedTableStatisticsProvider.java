@@ -25,6 +25,7 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.DoubleRange;
@@ -48,6 +49,8 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.spi.statistics.StatsUtil.toStatsRepresentation;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -113,6 +116,7 @@ public class FileBasedTableStatisticsProvider
                 .filter(column -> predicatedColumnNames.contains(column.name()))
                 .collect(toImmutableList());
 
+        Domain fileModifiedDomain = getFileModifiedTimeDomain(tableHandle.getNonPartitionConstraint());
         try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(
                 session,
                 tableSnapshot,
@@ -130,6 +134,10 @@ public class FileBasedTableStatisticsProvider
                 }
                 DeltaLakeFileStatistics stats = fileStatistics.get();
                 if (!partitionMatchesPredicate(addEntry.getCanonicalPartitionValues(), tableHandle.getEnforcedPartitionConstraint().getDomains().orElseThrow())) {
+                    continue;
+                }
+
+                if (!fileModifiedTimeMatchesPredicate(fileModifiedDomain, addEntry.getModificationTime())) {
                     continue;
                 }
 
