@@ -15,11 +15,15 @@ package io.trino.plugin.deltalake.util;
 
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 
 public final class DeltaLakeDomains
 {
@@ -35,5 +39,17 @@ public final class DeltaLakeDomains
             }
         }
         return true;
+    }
+
+    public static Domain getFileModifiedTimeDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate)
+    {
+        return effectivePredicate.getDomains()
+                .flatMap(domains -> Optional.ofNullable(domains.get(fileModifiedTimeColumnHandle())))
+                .orElseGet(() -> Domain.all(fileModifiedTimeColumnHandle().baseType()));
+    }
+
+    public static boolean fileModifiedTimeMatchesPredicate(Domain fileModifiedTimeDomain, long fileModifiedTime)
+    {
+        return fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY));
     }
 }
