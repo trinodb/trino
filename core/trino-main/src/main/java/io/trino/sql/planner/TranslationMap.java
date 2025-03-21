@@ -150,6 +150,7 @@ import static io.trino.sql.ir.Comparison.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.ir.Comparison.Operator.NOT_EQUAL;
 import static io.trino.sql.ir.IrExpressions.ifExpression;
 import static io.trino.sql.ir.IrExpressions.not;
+import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.tree.JsonQuery.EmptyOrErrorBehavior.ERROR;
 import static io.trino.sql.tree.JsonQuery.QuotesBehavior.KEEP;
@@ -545,11 +546,17 @@ public class TranslationMap
         return not(plannerContext.getMetadata(), translateExpression(expression.getValue()));
     }
 
-    private io.trino.sql.ir.Expression translate(Row expression)
+    private io.trino.sql.ir.Expression translate(Row row)
     {
-        return new io.trino.sql.ir.Row(expression.getItems().stream()
-                .map(this::translateExpression)
-                .collect(toImmutableList()));
+        ImmutableList.Builder<io.trino.sql.ir.Expression> fields = ImmutableList.builder();
+        ImmutableList.Builder<RowType.Field> typeFields = ImmutableList.builder();
+        for (int i = 0; i < row.getFields().size(); i++) {
+            io.trino.sql.tree.Row.Field field = row.getFields().get(i);
+            io.trino.sql.ir.Expression expression = coerceIfNecessary(analysis, field.getExpression(), translateExpression(field.getExpression()));
+            fields.add(expression);
+            typeFields.add(new RowType.Field(field.getName().map(Identifier::getCanonicalValue), expression.type()));
+        }
+        return new io.trino.sql.ir.Row(fields.build(), RowType.from(typeFields.build()));
     }
 
     private io.trino.sql.ir.Expression translate(ComparisonExpression expression)

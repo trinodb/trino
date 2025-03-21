@@ -20,73 +20,57 @@ import io.trino.sql.ir.Cast;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.ExpressionTreeRewriter;
 import io.trino.sql.ir.Row;
-import io.trino.type.UnknownType;
 
 /**
  * Transforms expressions of the form
  *
  * <pre>
  *  CAST(
- *      CAST(
- *          ROW(x, y)
- *          AS row(f1 type1, f2 type2))
- *      AS row(g1 type3, g2 type4))
+ *      ROW(x, y)
+ *      AS row(f1 type1, f2 type2))
  * </pre>
  *
  * to
  *
  * <pre>
- *  CAST(
- *      ROW(
- *          CAST(x AS type1),
- *          CAST(y AS type2))
- *      AS row(g1 type3, g2 type4))
+ *  ROW(
+ *      CAST(x AS type1) as f1,
+ *      CAST(y AS type2) as f2)
  * </pre>
- *
- * Note: it preserves the top-level CAST if the row type has field names because the names are needed by the ROW to JSON cast
- *       TODO: ideally, the types involved in ROW to JSON cast should be captured at analysis time and
- *         remain fixed for the duration of the optimization process so as to have flexibility in terms
- *         of removing field names, which are irrelevant in the IR
  */
 public class PushCastIntoRow
         extends ExpressionRewriteRuleSet
 {
     public PushCastIntoRow()
     {
-        super((expression, context) -> ExpressionTreeRewriter.rewriteWith(new Rewriter(), expression, false));
+        super((expression, context) -> ExpressionTreeRewriter.rewriteWith(new Rewriter(), expression, null));
     }
 
     private static class Rewriter
-            extends io.trino.sql.ir.ExpressionRewriter<Boolean>
+            extends io.trino.sql.ir.ExpressionRewriter<Void>
     {
         @Override
-        public Expression rewriteCast(Cast node, Boolean inRowCast, ExpressionTreeRewriter<Boolean> treeRewriter)
+        public Expression rewriteCast(Cast node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (!(node.type() instanceof RowType type)) {
-                return treeRewriter.defaultRewrite(node, false);
+            if (!(node.type() instanceof RowType castToType)) {
+                return treeRewriter.defaultRewrite(node, null);
             }
 
-            // if inRowCast == true or row is anonymous, we're free to push Cast into Row. An enclosing CAST(... AS ROW) will take care of preserving field names
-            // otherwise, apply recursively with inRowCast == true and don't push this one
-
-            if (inRowCast || type.getFields().stream().allMatch(field -> field.getName().isEmpty())) {
-                Expression value = treeRewriter.rewrite(node.expression(), true);
-
-                if (value instanceof Row row) {
-                    ImmutableList.Builder<Expression> items = ImmutableList.builder();
-                    for (int i = 0; i < row.items().size(); i++) {
-                        Expression item = row.items().get(i);
-                        Type itemType = type.getFields().get(i).getType();
-                        if (!(itemType instanceof UnknownType)) {
-                            item = new Cast(item, itemType);
-                        }
-                        items.add(item);
+            Expression value = treeRewriter.rewrite(node.expression(), null);
+            if (value instanceof Row(java.util.List<Expression> expressions, RowType type)) {
+                ImmutableList.Builder<Expression> items = ImmutableList.builder();
+                for (int i = 0; i < expressions.size(); i++) {
+                    Expression fieldValue = expressions.get(i);
+                    Type fieldType = castToType.getFields().get(i).getType();
+                    if (!fieldValue.type().equals(fieldType)) {
+                        fieldValue = new Cast(fieldValue, fieldType);
                     }
-                    return new Row(items.build());
+                    items.add(fieldValue);
                 }
+                return new Row(items.build(), castToType);
             }
 
-            return treeRewriter.defaultRewrite(node, true);
+            return treeRewriter.defaultRewrite(node, null);
         }
     }
 }

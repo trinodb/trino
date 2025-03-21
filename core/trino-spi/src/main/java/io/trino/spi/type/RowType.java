@@ -190,11 +190,6 @@ public class RowType
 
     private static TypeSignature makeSignature(List<Field> fields)
     {
-        int size = fields.size();
-        if (size == 0) {
-            throw new IllegalArgumentException("Row type must have at least 1 field");
-        }
-
         List<TypeSignatureParameter> parameters = fields.stream()
                 .map(field -> new NamedTypeSignature(field.getName().map(RowFieldName::new), field.getType().getTypeSignature()))
                 .map(TypeSignatureParameter::namedTypeParameter)
