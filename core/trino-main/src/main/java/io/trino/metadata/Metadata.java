@@ -758,6 +758,16 @@ public interface Metadata
 
     void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken);
 
+    void createBranch(Session session, TableHandle tableHandle, String branch);
+
+    void dropBranch(Session session, TableHandle tableHandle, String branch);
+
+    void fastForwardBranch(Session session, TableHandle tableHandle, String from, String to);
+
+    Collection<String> listBranches(Session session, TableHandle tableHandle);
+
+    boolean branchExists(Session session, TableHandle tableHandle, String branch);
+
     /**
      * Creates the specified materialized view with the specified view definition.
      */
