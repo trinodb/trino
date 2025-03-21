@@ -60,6 +60,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.net.HttpHeaders.CONTENT_ENCODING;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.http.client.HttpStatus.NO_CONTENT;
 import static io.airlift.http.client.HttpStatus.familyForStatusCode;
@@ -359,6 +360,7 @@ public final class HttpPageBufferClient
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
                         .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
+                        .setHeader(CONTENT_ENCODING, "identity")
                         .setUri(uri).build(),
                 new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
 
