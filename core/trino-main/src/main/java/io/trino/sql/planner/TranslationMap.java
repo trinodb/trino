@@ -27,6 +27,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimeWithTimeZoneType;
@@ -101,6 +102,8 @@ import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.MapLiteral;
+import io.trino.sql.tree.MapLiteral.EntryLiteral;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -119,6 +122,7 @@ import io.trino.type.IntervalYearMonthType;
 import io.trino.type.JsonPath2016Type;
 import io.trino.type.UnknownType;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -134,6 +138,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RowType.anonymousRow;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -318,6 +323,7 @@ public class TranslationMap
                 case FunctionCall expression -> translate(expression);
                 case DereferenceExpression expression -> translate(expression);
                 case Array expression -> translate(expression);
+                case MapLiteral expression -> translate(expression);
                 case CurrentCatalog expression -> translate(expression);
                 case CurrentSchema expression -> translate(expression);
                 case CurrentPath expression -> translate(expression);
@@ -685,6 +691,23 @@ public class TranslationMap
         checkState(index >= 0, "could not find field name: %s", fieldName);
 
         return new FieldReference(translateExpression(expression.getBase()), index);
+    }
+
+    private io.trino.sql.ir.Expression translate(MapLiteral expression)
+    {
+        MapType mapType = (MapType) analysis.getType(expression);
+
+        // convert entries to array(row(key, value))
+        List<io.trino.sql.ir.Expression> entries = new ArrayList<>();
+        for (EntryLiteral entry : expression.getEntries()) {
+            entries.add(new io.trino.sql.ir.Row(ImmutableList.of(translateExpression(entry.key()), translateExpression(entry.value()))));
+        }
+        io.trino.sql.ir.Array array = new io.trino.sql.ir.Array(anonymousRow(mapType.getKeyType(), mapType.getValueType()), entries);
+
+        return BuiltinFunctionCallBuilder.resolve(plannerContext.getMetadata())
+                .setName("map_from_entries")
+                .addArgument(array.type(), array)
+                .build();
     }
 
     private io.trino.sql.ir.Expression translate(Array expression)
