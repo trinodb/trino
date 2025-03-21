@@ -21,9 +21,11 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
 
@@ -32,14 +34,13 @@ public class FutureStateChange<T>
 {
     // Use a separate future for each listener so canceled listeners can be removed
     @GuardedBy("listeners")
-    private final Set<SettableFuture<T>> listeners = new HashSet<>();
+    private final Set<FutureRef<T>> listeners = new HashSet<>();
 
-    @SuppressWarnings("CollectionUndefinedEquality")
     public ListenableFuture<T> createNewListener()
     {
         SettableFuture<T> listener = SettableFuture.create();
         synchronized (listeners) {
-            listeners.add(listener);
+            listeners.add(new FutureRef<>(listener));
         }
 
         // remove the listener when the future completes
@@ -49,7 +50,7 @@ public class FutureStateChange<T>
                     // since all futures are cleared from the listeners set before being notified
                     if (listener.isCancelled()) {
                         synchronized (listeners) {
-                            listeners.remove(listener);
+                            listeners.remove(new FutureRef<>(listener));
                         }
                     }
                 },
@@ -73,12 +74,38 @@ public class FutureStateChange<T>
         requireNonNull(executor, "executor is null");
         List<SettableFuture<T>> futures;
         synchronized (listeners) {
-            futures = ImmutableList.copyOf(listeners);
+            futures = ImmutableList.copyOf(listeners).stream()
+                    .map(FutureRef::future)
+                    .collect(toImmutableList());
             listeners.clear();
         }
 
         for (SettableFuture<T> future : futures) {
             executor.execute(() -> future.set(newState));
+        }
+    }
+
+    private record FutureRef<V>(SettableFuture<V> future)
+    {
+        private FutureRef(SettableFuture<V> future)
+        {
+            this.future = requireNonNull(future, "future is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FutureRef<?> futureRef = (FutureRef<?>) o;
+            return future == futureRef.future;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(future);
         }
     }
 }

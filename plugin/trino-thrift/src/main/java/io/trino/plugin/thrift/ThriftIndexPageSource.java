@@ -38,6 +38,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -84,7 +85,7 @@ public class ThriftIndexPageSource
 
     private final List<TrinoThriftSplit> splits = new ArrayList<>();
     private final Queue<ListenableFuture<TrinoThriftPageResult>> dataRequests = new LinkedList<>();
-    private final Map<ListenableFuture<TrinoThriftPageResult>, RunningSplitContext> contexts;
+    private final Map<FutureRef<TrinoThriftPageResult>, RunningSplitContext> contexts;
     private final ThriftConnectorStats stats;
 
     private int splitIndex;
@@ -168,7 +169,6 @@ public class ThriftIndexPageSource
     }
 
     @Override
-    @SuppressWarnings("CollectionUndefinedEquality")
     public SourcePage getNextSourcePage()
     {
         if (finished) {
@@ -200,7 +200,7 @@ public class ThriftIndexPageSource
 
         // at least one of data requests completed
         ListenableFuture<TrinoThriftPageResult> resultFuture = getAndRemoveNextCompletedRequest();
-        RunningSplitContext resultContext = contexts.remove(resultFuture);
+        RunningSplitContext resultContext = contexts.remove(new FutureRef<>(resultFuture));
         checkState(resultContext != null, "no associated context for the request");
         TrinoThriftPageResult pageResult = getFutureValue(resultFuture);
         Page page = pageResult.toPage(outputColumnTypes);
@@ -314,7 +314,7 @@ public class ThriftIndexPageSource
         future = catchingThriftException(future);
         future.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         dataRequests.add(future);
-        contexts.put(future, context);
+        contexts.put(new FutureRef<>(future), context);
     }
 
     private TrinoThriftService openClient(TrinoThriftSplit split)
@@ -375,6 +375,30 @@ public class ThriftIndexPageSource
         public TrinoThriftSplit getSplit()
         {
             return split;
+        }
+    }
+
+    private record FutureRef<V>(ListenableFuture<V> future)
+    {
+        private FutureRef(ListenableFuture<V> future)
+        {
+            this.future = requireNonNull(future, "future is null");
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            FutureRef<?> futureRef = (FutureRef<?>) o;
+            return future == futureRef.future;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hashCode(future);
         }
     }
 }
