@@ -131,10 +131,6 @@ public class TrinoHiveCatalog
 {
     private static final Logger log = Logger.get(TrinoHiveCatalog.class);
     private static final int PER_QUERY_CACHE_SIZE = 1000;
-    public static final String DEPENDS_ON_TABLES = "dependsOnTables";
-    public static final String DEPENDS_ON_TABLE_FUNCTIONS = "dependsOnTableFunctions";
-    // Value should be ISO-8601 formatted time instant
-    public static final String TRINO_QUERY_START_TIME = "trino-query-start-time";
 
     private final CachingHiveMetastore metastore;
     private final TrinoViewHiveMetastore trinoViewHiveMetastore;
