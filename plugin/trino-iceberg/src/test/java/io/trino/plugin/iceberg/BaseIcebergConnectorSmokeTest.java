@@ -870,6 +870,59 @@ public abstract class BaseIcebergConnectorSmokeTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testIcebergTablesSystemTable()
+            throws Exception
+    {
+        String firstSchema = "first_schema_" + randomNameSuffix();
+        String secondSchema = "second_schema_" + randomNameSuffix();
+        createSchema(firstSchema);
+        createSchema(secondSchema);
+
+        try (AutoCloseable _ = createTable(firstSchema, "first_schema_table1", "(id int)");
+                AutoCloseable _ = createTable(firstSchema, "first_schema_table2", "(id int)");
+                AutoCloseable _ = createTable(secondSchema, "second_schema_table", "(id int)");
+                AutoCloseable _ = createSparkIcebergTable(firstSchema)) {
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema = '%s'".formatted(firstSchema)))
+                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema='%s'".formatted(firstSchema));
+            assertThat(query("SELECT * FROM iceberg.system.iceberg_tables WHERE table_schema in ('%s', '%s')".formatted(firstSchema, secondSchema)))
+                    .matches("SELECT table_schema, table_name FROM iceberg.information_schema.tables WHERE table_schema IN ('%s', '%s')".formatted(firstSchema, secondSchema));
+        }
+        finally {
+            dropSchema(firstSchema);
+            dropSchema(secondSchema);
+        }
+    }
+
+    protected void dropSchema(String schema)
+            throws Exception
+    {
+        assertQuerySucceeds("DROP SCHEMA " + schema);
+    }
+
+    protected AutoCloseable createTable(String schema, String tableName, String tableDefinition)
+            throws Exception
+    {
+        Session schemaSession = Session.builder(getQueryRunner().getDefaultSession()).setSchema(schema).build();
+        return new TestTable(
+                sql -> getQueryRunner().execute(schemaSession, sql),
+                tableName,
+                tableDefinition);
+    }
+
+    protected void createSchema(String schemaName)
+            throws Exception
+    {
+        String defaultSchemaName = getSession().getSchema().orElseThrow();
+        String schemaLocation = schemaPath().replaceAll(defaultSchemaName, schemaName);
+        assertQuerySucceeds("CREATE SCHEMA " + schemaName + " WITH (location = '%s')".formatted(schemaLocation));
+    }
+
+    protected AutoCloseable createSparkIcebergTable(String schema)
+    {
+        return () -> {};
+    }
+
     private long getMostRecentSnapshotId(String tableName)
     {
         return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
