@@ -262,7 +262,7 @@ public final class FlatHash
     private int getIndex(Block[] blocks, int position, long hash)
     {
         byte hashPrefix = (byte) (hash & 0x7F | 0x80);
-        int bucket = bucket((int) hash >> 7);
+        int bucket = bucket((int) (hash >> 7));
 
         int step = 1;
         long repeated = repeat(hashPrefix);
