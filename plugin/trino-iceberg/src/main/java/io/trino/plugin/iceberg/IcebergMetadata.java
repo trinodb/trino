@@ -165,6 +165,7 @@ import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
+import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableProperties;
 import org.apache.iceberg.TableScan;
@@ -2115,7 +2116,11 @@ public class IcebergMetadata
 
         beginTransaction(icebergTable);
         RewriteManifests rewriteManifests = transaction.rewriteManifests();
-        rewriteManifests.clusterBy(_ -> "file").commit();
+        rewriteManifests.clusterBy(file -> {
+            // Use the first partition field as the clustering key
+            StructLike partition = file.partition();
+            return partition.size() > 1 ? partition.get(0, Object.class) : partition;
+        }).commit();
         commitTransaction(transaction, "optimize manifests");
         transaction = null;
     }
