@@ -216,12 +216,28 @@ public final class FlatHash
 
     public void computeHashes(Block[] blocks, long[] hashes, int offset, int length)
     {
-        flatHashStrategy.hashBlocksBatched(blocks, hashes, offset, length);
+        if (hasPrecomputedHash) {
+            Block hashBlock = blocks[blocks.length - 1];
+            for (int i = 0; i < length; i++) {
+                hashes[i] = BIGINT.getLong(hashBlock, offset + i);
+            }
+        }
+        else {
+            flatHashStrategy.hashBlocksBatched(blocks, hashes, offset, length);
+        }
     }
 
     public int putIfAbsent(Block[] blocks, int position)
     {
-        return putIfAbsent(blocks, position, flatHashStrategy.hash(blocks, position));
+        long hash;
+        if (hasPrecomputedHash) {
+            hash = BIGINT.getLong(blocks[blocks.length - 1], position);
+        }
+        else {
+            hash = flatHashStrategy.hash(blocks, position);
+        }
+
+        return putIfAbsent(blocks, position, hash);
     }
 
     public int putIfAbsent(Block[] blocks, int position, long hash)
