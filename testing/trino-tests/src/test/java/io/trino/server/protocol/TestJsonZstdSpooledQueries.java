@@ -13,12 +13,12 @@
  */
 package io.trino.server.protocol;
 
-public class TestJsonSpooledDistributedQueries
-        extends AbstractSpooledQueryDataDistributedQueries
+public class TestJsonZstdSpooledQueries
+        extends AbstractSpooledQueries
 {
     @Override
     protected String encoding()
     {
-        return "json";
+        return "json+zstd";
     }
 }

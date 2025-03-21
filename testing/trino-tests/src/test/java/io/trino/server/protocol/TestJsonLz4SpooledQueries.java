@@ -11,18 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server.protocol.retrieval;
+package io.trino.server.protocol;
 
-import io.trino.server.protocol.spooling.SpoolingConfig;
-
-import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.COORDINATOR_STORAGE_REDIRECT;
-
-public class TestSpooledCoordinatorStorageRedirectRetrievalDistributedQueries
-        extends AbstractSpooledQueryDataRetrievalDistributedQueries
+public class TestJsonLz4SpooledQueries
+        extends AbstractSpooledQueries
 {
     @Override
-    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
+    protected String encoding()
     {
-        return COORDINATOR_STORAGE_REDIRECT;
+        return "json+lz4";
     }
 }
