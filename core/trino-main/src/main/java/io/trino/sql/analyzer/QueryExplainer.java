@@ -44,6 +44,8 @@ import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.ExplainType.Type;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Prepare;
+import io.trino.sql.tree.RenameCatalog;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.Statement;
 
 import java.util.List;
@@ -203,6 +205,8 @@ public class QueryExplainer
         return Optional.of(switch (statement) {
             case CreateCatalog createCatalog -> "CREATE CATALOG " + createCatalog.getCatalogName();
             case DropCatalog dropCatalog -> "DROP CATALOG " + dropCatalog.getCatalogName();
+            case RenameCatalog renameCatalog -> "ALTER CATALOG %s RENAME TO %s".formatted(renameCatalog.getSource(), renameCatalog.getTarget());
+            case SetCatalogProperties setCatalogProperties -> "ALTER CATALOG %s SET PROPERTIES".formatted(setCatalogProperties.getName());
             case CreateSchema createSchema -> "CREATE SCHEMA " + createSchema.getSchemaName();
             case DropSchema dropSchema -> "DROP SCHEMA " + dropSchema.getSchemaName();
             case CreateTable createTable -> "CREATE TABLE " + createTable.getName();

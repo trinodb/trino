@@ -68,6 +68,12 @@ public class AllowAllAccessControl
     public void checkCanDropCatalog(SecurityContext context, String catalog) {}
 
     @Override
+    public void checkCanRenameCatalog(SecurityContext context, String catalog, String newCatalog) {}
+
+    @Override
+    public void checkCanSetCatalogProperties(SecurityContext context, String catalog, Map<String, Optional<String>> properties) {}
+
+    @Override
     public Set<String> filterCatalogs(SecurityContext context, Set<String> catalogs)
     {
         return catalogs;
