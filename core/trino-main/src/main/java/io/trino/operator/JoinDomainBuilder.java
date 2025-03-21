@@ -24,9 +24,12 @@ import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.DynamicFilterDomain;
+import io.trino.sql.planner.LongBloomFilter;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -65,6 +68,7 @@ public class JoinDomainBuilder
     private final Type type;
 
     private final int maxDistinctValues;
+    private final int bloomFilterMaxDistinctValues;
     private final long maxFilterSizeInBytes;
     private final Runnable notifyStateChange;
 
@@ -95,28 +99,31 @@ public class JoinDomainBuilder
 
     private ValueBlock minValue;
     private ValueBlock maxValue;
+    private LongBloomFilter bloomFilter;
 
     private boolean collectDistinctValues = true;
-    private boolean collectMinMax;
+    private boolean collectBloomFilter;
 
     private long retainedSizeInBytes = INSTANCE_SIZE;
 
     public JoinDomainBuilder(
             Type type,
             int maxDistinctValues,
+            int bloomFilterMaxDistinctValues,
             DataSize maxFilterSize,
-            boolean minMaxEnabled,
             Runnable notifyStateChange,
             TypeOperators typeOperators)
     {
         this.type = requireNonNull(type, "type is null");
 
         this.maxDistinctValues = maxDistinctValues;
+        this.bloomFilterMaxDistinctValues = bloomFilterMaxDistinctValues;
         this.maxFilterSizeInBytes = maxFilterSize.toBytes();
         this.notifyStateChange = requireNonNull(notifyStateChange, "notifyStateChange is null");
 
         // Skipping DOUBLE and REAL in collectMinMaxValues to avoid dealing with NaN values
-        this.collectMinMax = minMaxEnabled && type.isOrderable() && type != DOUBLE && type != REAL;
+        boolean collectMinMax = type.isOrderable() && type != DOUBLE && type != REAL;
+        this.collectBloomFilter = bloomFilterMaxDistinctValues > 0 && type.getJavaType() == long.class && collectMinMax;
 
         MethodHandle readOperator = typeOperators.getReadValueOperator(type, simpleConvention(NULLABLE_RETURN, FLAT));
         readOperator = readOperator.asType(readOperator.type().changeReturnType(Object.class));
@@ -127,11 +134,13 @@ public class JoinDomainBuilder
         this.hashBlock = typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         this.identicalFlatFlat = typeOperators.getIdenticalOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, FLAT));
         this.identicalFlatBlock = typeOperators.getIdenticalOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, VALUE_BLOCK_POSITION_NOT_NULL));
-        if (collectMinMax) {
+        if (collectBloomFilter) {
+            this.bloomFilter = new LongBloomFilter();
             this.compareFlatFlat = typeOperators.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, FLAT, FLAT));
             this.compareBlockBlock = typeOperators.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         }
         else {
+            this.bloomFilter = null;
             this.compareFlatFlat = null;
             this.compareBlockBlock = null;
         }
@@ -157,7 +166,7 @@ public class JoinDomainBuilder
 
     public boolean isCollecting()
     {
-        return collectMinMax || collectDistinctValues;
+        return collectBloomFilter || collectDistinctValues;
     }
 
     public void add(Block block)
@@ -180,14 +189,20 @@ public class JoinDomainBuilder
                 case LazyBlock _ -> throw new VerifyException("Did not expect LazyBlock after loading " + block.getClass().getSimpleName());
             }
 
-            // if the distinct size is too large, fall back to min max, and drop the distinct values
+            // if the distinct size is too large, fall back to bloom filter, and drop the distinct values
             if (distinctSize > maxDistinctValues || getRetainedSizeInBytes() > maxFilterSizeInBytes) {
+                if (distinctSize > bloomFilterMaxDistinctValues) {
+                    disableBloomFilterCollection();
+                }
+
                 retainedSizeInBytes = INSTANCE_SIZE;
-                if (collectMinMax) {
+                if (collectBloomFilter) {
                     int minIndex = -1;
                     int maxIndex = -1;
                     for (int index = 0; index < distinctCapacity; index++) {
                         if (distinctControl[index] != 0) {
+                            bloomFilter.insert((long) readValueToObject(index));
+
                             if (minIndex == -1) {
                                 minIndex = index;
                                 maxIndex = index;
@@ -202,6 +217,9 @@ public class JoinDomainBuilder
                             }
                         }
                     }
+
+                    retainedSizeInBytes += bloomFilter == null ? 0 : bloomFilter.getSizeInBytes();
+
                     if (minIndex != -1) {
                         minValue = readValueToBlock(minIndex);
                         maxValue = readValueToBlock(maxIndex);
@@ -221,16 +239,20 @@ public class JoinDomainBuilder
                 distinctMaxFill = 0;
             }
         }
-        else if (collectMinMax) {
+        else if (collectBloomFilter) {
             int minValuePosition = -1;
             int maxValuePosition = -1;
 
             ValueBlock valueBlock = block.getUnderlyingValueBlock();
             for (int i = 0; i < block.getPositionCount(); i++) {
                 int position = block.getUnderlyingValuePosition(i);
+                // Inner and right join doesn't match rows with null key column values.
                 if (valueBlock.isNull(position)) {
                     continue;
                 }
+
+                bloomFilter.insert(type.getLong(valueBlock, position));
+
                 if (minValuePosition == -1) {
                     // First non-null value
                     minValuePosition = position;
@@ -244,6 +266,14 @@ public class JoinDomainBuilder
                     maxValuePosition = position;
                 }
             }
+
+            if (bloomFilter.getMinDistinctHashes() > bloomFilterMaxDistinctValues) {
+                disableBloomFilterCollection();
+                retainedSizeInBytes = INSTANCE_SIZE;
+                return;
+            }
+
+            retainedSizeInBytes = INSTANCE_SIZE + bloomFilter.getSizeInBytes();
 
             if (minValuePosition == -1) {
                 // all block values are nulls
@@ -268,20 +298,15 @@ public class JoinDomainBuilder
         }
     }
 
-    public void disableMinMax()
+    private void disableBloomFilterCollection()
     {
-        collectMinMax = false;
-        if (minValue != null) {
-            retainedSizeInBytes -= minValue.getRetainedSizeInBytes();
-            minValue = null;
-        }
-        if (maxValue != null) {
-            retainedSizeInBytes -= maxValue.getRetainedSizeInBytes();
-            maxValue = null;
-        }
+        collectBloomFilter = false;
+        bloomFilter = null;
+        minValue = null;
+        maxValue = null;
     }
 
-    public Domain build()
+    public DynamicFilterDomain build()
     {
         if (collectDistinctValues) {
             ImmutableList.Builder<Object> values = ImmutableList.builder();
@@ -295,18 +320,19 @@ public class JoinDomainBuilder
                 }
             }
             // Inner and right join doesn't match rows with null key column values.
-            return Domain.create(ValueSet.copyOf(type, values.build()), false);
+            return DynamicFilterDomain.fromDomain(Domain.create(ValueSet.copyOf(type, values.build()), false));
         }
-        if (collectMinMax) {
-            if (minValue == null) {
+        if (collectBloomFilter) {
+            if (bloomFilter.isEmpty()) {
                 // all values were null
-                return Domain.none(type);
+                return DynamicFilterDomain.none(type);
             }
             Object min = readNativeValue(type, minValue, 0);
             Object max = readNativeValue(type, maxValue, 0);
-            return Domain.create(ValueSet.ofRanges(range(type, min, true, max, true)), false);
+            Range range = range(type, min, true, max, true);
+            return new DynamicFilterDomain(bloomFilter, ValueSet.ofRanges(range), type, false);
         }
-        return Domain.all(type);
+        return DynamicFilterDomain.all(type);
     }
 
     private void add(ValueBlock block, int position)
