@@ -34,6 +34,8 @@ import io.trino.sql.tree.Statement;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -105,7 +107,10 @@ public class Analyzer
                             accessControlInfo.getAccessControl().checkCanSelectFromColumns(
                                     accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId(), session.getStart()),
                                     tableName,
-                                    columns)));
+                                    columns.stream()
+                                            .map(Field::getOriginColumnName)
+                                            .map(Optional::get)
+                                            .collect(Collectors.toSet()))));
         }
 
         return analysis;
