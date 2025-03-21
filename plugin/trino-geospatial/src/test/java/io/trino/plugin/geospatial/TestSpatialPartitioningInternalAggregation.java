@@ -49,7 +49,6 @@ import static io.trino.operator.aggregation.AggregationTestUtils.getGroupValue;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.math.RoundingMode.CEILING;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,7 +80,7 @@ public class TestSpatialPartitioningInternalAggregation
         Rectangle expectedExtent = new Rectangle(-10, -10, Math.nextUp(10.0), Math.nextUp(10.0));
         Slice expectedValue = getSpatialPartitioning(expectedExtent, geometries, partitionCount);
 
-        AggregatorFactory aggregatorFactory = function.createAggregatorFactory(SINGLE, Ints.asList(0, 1), OptionalInt.empty());
+        AggregatorFactory aggregatorFactory = function.createSingleAggregatorFactory(Ints.asList(0, 1), OptionalInt.empty());
         Page page = new Page(geometryBlock, partitionCountBlock);
 
         Aggregator aggregator = aggregatorFactory.createAggregator(new AggregationMetrics());

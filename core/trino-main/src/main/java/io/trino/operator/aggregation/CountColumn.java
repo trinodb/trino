@@ -21,7 +21,7 @@ import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
@@ -29,6 +29,7 @@ import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.WindowAccumulator;
 import io.trino.spi.function.WindowIndex;
+import io.trino.spi.type.StandardTypes;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 
@@ -48,13 +49,7 @@ public final class CountColumn
         state.setValue(state.getValue() + 1);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState LongState state, LongState otherState)
-    {
-        state.setValue(state.getValue() + otherState.getValue());
-    }
-
-    @OutputFunction("BIGINT")
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "count", output = "$sum0"))
     public static void output(@AggregationState LongState state, BlockBuilder out)
     {
         BIGINT.writeLong(out, state.getValue());

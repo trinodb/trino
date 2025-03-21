@@ -44,7 +44,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestArrayAggregation
@@ -156,7 +155,7 @@ public class TestArrayAggregation
     public void testEmptyStateOutputsNull()
     {
         TestingAggregationFunction bigIntAgg = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
-        GroupedAggregator groupedAggregator = bigIntAgg.createAggregatorFactory(SINGLE, ImmutableList.of(), OptionalInt.empty())
+        GroupedAggregator groupedAggregator = bigIntAgg.createSingleAggregatorFactory(ImmutableList.of(), OptionalInt.empty())
                 .createGroupedAggregator(new AggregationMetrics());
         BlockBuilder blockBuilder = bigIntAgg.getFinalType().createBlockBuilder(null, 1000);
 
@@ -212,7 +211,7 @@ public class TestArrayAggregation
         int numGroups = 50000;
         int arraySize = 30;
         Random random = new Random();
-        GroupedAggregator groupedAggregator = varcharAgg.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())
+        GroupedAggregator groupedAggregator = varcharAgg.createSingleAggregatorFactory(ImmutableList.of(0), OptionalInt.empty())
                 .createGroupedAggregator(new AggregationMetrics());
 
         for (int j = 0; j < numGroups; j++) {

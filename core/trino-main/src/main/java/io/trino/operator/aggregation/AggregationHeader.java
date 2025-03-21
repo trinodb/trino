@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.function.AggregationDecomposition;
 import io.trino.spi.function.WindowAccumulator;
 
 import java.util.Optional;
@@ -26,6 +27,7 @@ public record AggregationHeader(
         Set<String> aliases,
         Optional<String> description,
         boolean decomposable,
+        Optional<AggregationDecomposition> decomposition,
         boolean orderSensitive,
         boolean hidden,
         boolean deprecated,

@@ -44,7 +44,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -127,8 +126,7 @@ public class TestMultimapAggAggregation
     public void testMultiplePages()
     {
         TestingAggregationFunction aggFunction = getAggregationFunction(BIGINT, BIGINT);
-        GroupedAggregator groupedAggregator = aggFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty())
-                .createGroupedAggregator(new AggregationMetrics());
+        GroupedAggregator groupedAggregator = aggFunction.createSingleAggregatorFactory(ImmutableList.of(0, 1), OptionalInt.empty()).createGroupedAggregator(new AggregationMetrics());
 
         testMultimapAggWithGroupBy(aggFunction, groupedAggregator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
     }
@@ -137,8 +135,7 @@ public class TestMultimapAggAggregation
     public void testMultiplePagesAndGroups()
     {
         TestingAggregationFunction aggFunction = getAggregationFunction(BIGINT, BIGINT);
-        GroupedAggregator groupedAggregator = aggFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty())
-                .createGroupedAggregator(new AggregationMetrics());
+        GroupedAggregator groupedAggregator = aggFunction.createSingleAggregatorFactory(ImmutableList.of(0, 1), OptionalInt.empty()).createGroupedAggregator(new AggregationMetrics());
 
         testMultimapAggWithGroupBy(aggFunction, groupedAggregator, 0, BIGINT, ImmutableList.of(1L, 1L), BIGINT, ImmutableList.of(2L, 3L));
         testMultimapAggWithGroupBy(aggFunction, groupedAggregator, 300, BIGINT, ImmutableList.of(7L, 7L), BIGINT, ImmutableList.of(8L, 9L));
@@ -148,8 +145,7 @@ public class TestMultimapAggAggregation
     public void testManyValues()
     {
         TestingAggregationFunction aggFunction = getAggregationFunction(BIGINT, BIGINT);
-        GroupedAggregator groupedAggregator = aggFunction.createAggregatorFactory(SINGLE, ImmutableList.of(0, 1), OptionalInt.empty())
-                .createGroupedAggregator(new AggregationMetrics());
+        GroupedAggregator groupedAggregator = aggFunction.createSingleAggregatorFactory(ImmutableList.of(0, 1), OptionalInt.empty()).createGroupedAggregator(new AggregationMetrics());
 
         int numGroups = 30000;
         int numKeys = 10;
@@ -175,8 +171,7 @@ public class TestMultimapAggAggregation
     public void testEmptyStateOutputIsNull()
     {
         TestingAggregationFunction aggregationFunction = getAggregationFunction(BIGINT, BIGINT);
-        GroupedAggregator groupedAggregator = aggregationFunction.createAggregatorFactory(SINGLE, Ints.asList(), OptionalInt.empty())
-                .createGroupedAggregator(new AggregationMetrics());
+        GroupedAggregator groupedAggregator = aggregationFunction.createSingleAggregatorFactory(Ints.asList(), OptionalInt.empty()).createGroupedAggregator(new AggregationMetrics());
         BlockBuilder blockBuilder = aggregationFunction.getFinalType().createBlockBuilder(null, 1);
         groupedAggregator.evaluate(0, blockBuilder);
         assertThat(blockBuilder.build().isNull(0)).isTrue();
