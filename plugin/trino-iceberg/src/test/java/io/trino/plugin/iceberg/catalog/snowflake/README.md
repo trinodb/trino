@@ -6,7 +6,7 @@ For testing purpose, some of the TPCH tables are created through tests by copyin
 
 Iceberg Snowflake catalog creation steps are taken from [official Iceberg Snowflake catalog guide](https://quickstarts.snowflake.com/guide/getting_started_iceberg_tables/index.html?_ga=2.81143831.1840596713.1702066099-371582571.1622222327#2)
 
-Below are the steps to create an external volume as outline in [external volume creation official guide](https://docs.snowflake.com/en/user-guide/tables-iceberg-configure-external-volume#label-tables-iceberg-configure-external-volume-s3-create-role)
+Below are the steps to create an external volume as outlined in [external volume creation official guide](https://docs.snowflake.com/en/user-guide/tables-iceberg-configure-external-volume#label-tables-iceberg-configure-external-volume-s3-create-role)
 
 1. Create an S3 bucket.  
 
