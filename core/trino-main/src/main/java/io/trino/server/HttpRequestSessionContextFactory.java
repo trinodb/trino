@@ -273,13 +273,24 @@ public class HttpRequestSessionContextFactory
         // We derive original identity using this header, but older clients will not send it, so fall back to identity
         Optional<String> optionalOriginalUser = Optional
                 .ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestOriginalUser())));
-        Identity originalIdentity = optionalOriginalUser.map(originalUser -> Identity.from(identity)
-                        .withUser(originalUser)
-                        .withExtraCredentials(new HashMap<>())
-                        .withGroups(groupProvider.getGroups(originalUser))
-                        .build())
+        String originalRoles = trimEmptyToNull(headers.getFirst(protocolHeaders.requestOriginalRole()));
+        Identity originalIdentity = optionalOriginalUser
+                .map(user -> buildOriginalIdentity(identity, user, Optional.ofNullable(originalRoles)))
                 .orElse(identity);
         return originalIdentity;
+    }
+
+    private Identity buildOriginalIdentity(Identity identity, String originalUser, Optional<String> originalRoles)
+    {
+        Identity newIdentity = Identity.from(identity)
+                .withUser(originalUser)
+                .withExtraCredentials(new HashMap<>())
+                .withGroups(groupProvider.getGroups(originalUser))
+                .build();
+        if (originalRoles.isPresent()) {
+            newIdentity = addEnabledRoles(newIdentity, SelectedRole.valueOf(originalRoles.get()), metadata);
+        }
+        return newIdentity;
     }
 
     private static List<String> splitHttpHeader(MultivaluedMap<String, String> headers, String name)
