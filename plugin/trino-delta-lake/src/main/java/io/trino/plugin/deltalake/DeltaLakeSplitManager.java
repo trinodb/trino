@@ -60,6 +60,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.FULL_REFRESH;
+import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFilteringWaitTimeout;
@@ -67,6 +68,8 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSi
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.clamp;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -163,6 +166,7 @@ public class DeltaLakeSplitManager
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);
+        Domain fileModifiedDomain = getFileModifiedTimePathDomain(nonPartitionConstraint);
 
         boolean splittable =
                 // Delta Lake handles updates and deletes by copying entire data files, minus updates/deletes. Because of this we can only have one Split/UpdatablePageSource
@@ -204,6 +208,10 @@ public class DeltaLakeSplitManager
                     }
 
                     if (filesModifiedAfter.isPresent() && addAction.getModificationTime() <= filesModifiedAfter.get().toEpochMilli()) {
+                        return Stream.empty();
+                    }
+
+                    if (!fileModifiedTimeMatchesPredicate(fileModifiedDomain, addAction.getModificationTime())) {
                         return Stream.empty();
                     }
 
@@ -303,6 +311,18 @@ public class DeltaLakeSplitManager
     private static boolean pathMatchesPredicate(Domain pathDomain, String path)
     {
         return pathDomain.includesNullableValue(utf8Slice(path));
+    }
+
+    public static Domain getFileModifiedTimePathDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate)
+    {
+        return effectivePredicate.getDomains()
+                .flatMap(domains -> Optional.ofNullable(domains.get(fileModifiedTimeColumnHandle())))
+                .orElseGet(() -> Domain.all(fileModifiedTimeColumnHandle().baseType()));
+    }
+
+    private static boolean fileModifiedTimeMatchesPredicate(Domain fileModifiedTimeDomain, long fileModifiedTime)
+    {
+        return fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY));
     }
 
     private List<DeltaLakeSplit> splitsForFile(

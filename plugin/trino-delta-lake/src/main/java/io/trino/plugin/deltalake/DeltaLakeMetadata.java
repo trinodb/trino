@@ -3332,11 +3332,13 @@ public class DeltaLakeMetadata
 
         TupleDomain<DeltaLakeColumnHandle> newEnforcedConstraint;
         TupleDomain<DeltaLakeColumnHandle> newUnenforcedConstraint;
+        TupleDomain<DeltaLakeColumnHandle> newRemainingConstraint;
         Set<DeltaLakeColumnHandle> newConstraintColumns;
         if (predicate.isNone()) {
             // Engine does not pass none Constraint.summary. It can become none when combined with the expression and connector's domain knowledge.
             newEnforcedConstraint = TupleDomain.none();
             newUnenforcedConstraint = TupleDomain.all();
+            newRemainingConstraint = TupleDomain.all();
             newConstraintColumns = constraint.getPredicateColumns().stream()
                     .flatMap(Collection::stream)
                     .map(DeltaLakeColumnHandle.class::cast)
@@ -3348,6 +3350,7 @@ public class DeltaLakeMetadata
 
             ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> enforceableDomains = ImmutableMap.builder();
             ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> unenforceableDomains = ImmutableMap.builder();
+            ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> remainingDomains = ImmutableMap.builder();
             ImmutableSet.Builder<DeltaLakeColumnHandle> constraintColumns = ImmutableSet.builder();
             // We need additional field to track partition columns used in queries as enforceDomains seem to be not catching
             // cases when partition columns is used within complex filter as 'partitionColumn % 2 = 0'
@@ -3358,7 +3361,14 @@ public class DeltaLakeMetadata
             for (Entry<ColumnHandle, Domain> domainEntry : constraintDomains.entrySet()) {
                 DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) domainEntry.getKey();
                 if (!partitionColumns.contains(column)) {
-                    unenforceableDomains.put(column, domainEntry.getValue());
+                    if (column.equals(fileModifiedTimeColumnHandle())) {
+                        unenforceableDomains.put(column, domainEntry.getValue());
+                    }
+                    else {
+                        unenforceableDomains.put(column, domainEntry.getValue());
+                        // the column can not be pusheddown
+                        remainingDomains.put(column, domainEntry.getValue());
+                    }
                 }
                 else {
                     enforceableDomains.put(column, domainEntry.getValue());
@@ -3368,6 +3378,7 @@ public class DeltaLakeMetadata
 
             newEnforcedConstraint = TupleDomain.withColumnDomains(enforceableDomains.buildOrThrow());
             newUnenforcedConstraint = TupleDomain.withColumnDomains(unenforceableDomains.buildOrThrow());
+            newRemainingConstraint = TupleDomain.withColumnDomains(remainingDomains.buildOrThrow());
             newConstraintColumns = constraintColumns.build();
         }
 
@@ -3405,7 +3416,7 @@ public class DeltaLakeMetadata
 
         return Optional.of(new ConstraintApplicationResult<>(
                 newHandle,
-                newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                newRemainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
     }
