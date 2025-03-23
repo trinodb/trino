@@ -22,6 +22,7 @@ import com.google.inject.Singleton;
 import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.server.EnableVirtualThreads;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.slice.Slice;
 import io.airlift.stats.GcMonitor;
@@ -213,6 +214,8 @@ public class ServerMainModule
             httpServerConfig.setHttp2MaxConcurrentStreams(32 * 1024); // from the default 16K
         });
 
+        newOptionalBinder(binder, Key.get(boolean.class, EnableVirtualThreads.class))
+                .setBinding().toInstance(true);
         binder.bind(PreparedStatementEncoder.class).in(Scopes.SINGLETON);
         binder.bind(HttpRequestSessionContextFactory.class).in(Scopes.SINGLETON);
         install(new InternalCommunicationModule());
