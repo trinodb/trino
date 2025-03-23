@@ -15,6 +15,7 @@ package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
@@ -46,6 +47,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -284,6 +287,93 @@ public class CoordinatorDynamicCatalogManager
         finally {
             catalogsUpdateLock.unlock();
         }
+    }
+
+    public void refreshCatalogs()
+    {
+        catalogsUpdateLock.lock();
+        try {
+            checkState(state != State.STOPPED, "ConnectorManager is stopped");
+
+            log.debug("Refreshing catalogs from CatalogStore");
+
+            Map<CatalogName, CatalogStore.StoredCatalog> storeCatalogs = catalogStore.getCatalogs()
+                    .stream()
+                    .collect(Collectors.toMap(
+                            CatalogStore.StoredCatalog::name,
+                            Function.identity()));
+
+            Map<CatalogName, Catalog> activeUserCatalogs = activeCatalogs
+                    .entrySet()
+                    .stream()
+                    .filter(entry -> !isSystemCatalog(entry.getValue()))
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+
+            Set<CatalogName> removedCatalogs = Sets.difference(activeUserCatalogs.keySet(), storeCatalogs.keySet());
+            Set<CatalogName> newCatalogs = Sets.difference(storeCatalogs.keySet(), activeUserCatalogs.keySet());
+
+            Set<CatalogName> updatedCatalogs = Sets.intersection(activeUserCatalogs.keySet(), storeCatalogs.keySet())
+                    .stream()
+                    .filter(catalogName ->
+                            catalogVersionChanged(activeUserCatalogs.get(catalogName), storeCatalogs.get(catalogName)))
+                    .collect(Collectors.toSet());
+
+            removedCatalogs.forEach(removedCatalogName -> {
+                activeCatalogs.remove(removedCatalogName);
+                log.debug("Removed catalog: %s", removedCatalogName);
+            });
+
+            newCatalogs.forEach(newCatalogName -> {
+                CatalogStore.StoredCatalog storedCatalog = storeCatalogs.get(newCatalogName);
+                CatalogProperties catalogProperties = null;
+                try {
+                    catalogProperties = storedCatalog.loadProperties();
+                    CatalogConnector catalogConnector = catalogFactory.createCatalog(catalogProperties);
+                    allCatalogs.put(catalogProperties.catalogHandle(), catalogConnector);
+                    activeCatalogs.put(newCatalogName, catalogConnector.getCatalog());
+                    log.debug("-- Added catalog %s using connector %s --", newCatalogName, catalogConnector.getConnectorName());
+                }
+                catch (Throwable e) {
+                    CatalogHandle catalogHandle = catalogProperties != null ? catalogProperties.catalogHandle() : createRootCatalogHandle(storedCatalog.name(), new CatalogVersion("failed"));
+                    ConnectorName connectorName = catalogProperties != null ? catalogProperties.connectorName() : new ConnectorName("unknown");
+                    activeCatalogs.put(storedCatalog.name(), failedCatalog(storedCatalog.name(), catalogHandle, connectorName));
+                    log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.name(), connectorName);
+                }
+            });
+
+            updatedCatalogs.forEach(updatedCatalogName -> {
+                CatalogStore.StoredCatalog storedCatalog = storeCatalogs.get(updatedCatalogName);
+                CatalogProperties catalogProperties = null;
+                try {
+                    catalogProperties = storedCatalog.loadProperties();
+                    CatalogConnector catalogConnector = catalogFactory.createCatalog(catalogProperties);
+                    allCatalogs.put(catalogProperties.catalogHandle(), catalogConnector);
+                    activeCatalogs.put(updatedCatalogName, catalogConnector.getCatalog());
+                    log.debug("-- Updated catalog %s using connector %s with new properties --", updatedCatalogName, catalogConnector.getConnectorName());
+                }
+                catch (Throwable e) {
+                    ConnectorName connectorName = catalogProperties != null ? catalogProperties.connectorName() : new ConnectorName("unknown");
+                    log.error(e, "-- Failed to update catalog %s using connector %s with new properties, keeping previous version --", storedCatalog.name(), connectorName);
+                }
+            });
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+    }
+
+    private boolean isSystemCatalog(Catalog catalog)
+    {
+        return catalog.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)
+                || !catalog.getCatalogHandle().getType().equals(CatalogHandle.CatalogHandleType.NORMAL);
+    }
+
+    private boolean catalogVersionChanged(Catalog activeCatalog, CatalogStore.StoredCatalog storedCatalog)
+    {
+        CatalogVersion activeCatalogVersion = activeCatalog.getCatalogHandle().getVersion();
+        CatalogVersion storedCatalogVersion = storedCatalog.loadProperties().catalogHandle().getVersion();
+
+        return !activeCatalogVersion.equals(storedCatalogVersion);
     }
 
     public void registerGlobalSystemConnector(GlobalSystemConnector connector)

@@ -41,6 +41,9 @@ public class DynamicCatalogManagerModule
 
             configBinder(binder).bindConfig(CatalogPruneTaskConfig.class);
             binder.bind(CatalogPruneTask.class).in(Scopes.SINGLETON);
+
+            configBinder(binder).bindConfig(CatalogRefreshTaskConfig.class);
+            binder.bind(CatalogRefreshTask.class).in(Scopes.SINGLETON);
         }
         else {
             binder.bind(WorkerDynamicCatalogManager.class).in(Scopes.SINGLETON);
