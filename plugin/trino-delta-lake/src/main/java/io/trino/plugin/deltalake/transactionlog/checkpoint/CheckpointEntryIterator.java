@@ -77,7 +77,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
-import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
@@ -89,6 +88,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;

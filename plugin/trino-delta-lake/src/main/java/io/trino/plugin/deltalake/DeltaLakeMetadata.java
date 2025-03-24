@@ -236,7 +236,6 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isProjectionP
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isStoreTableMetadataInMetastoreEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
-import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
@@ -293,6 +292,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.loadNewTail;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;

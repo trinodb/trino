@@ -86,7 +86,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isCheckpointFilteringEnabled;
-import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readLastCheckpoint;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
@@ -94,6 +93,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
