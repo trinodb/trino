@@ -12,7 +12,7 @@ the coordinator on the cluster.
 
 The Trino CLI has the following requirements:
 
-* Java version 8 or higher available on the path. Java 22 or higher is
+* Java version 11 or higher available on the path. Java 22 or higher is
   recommended for improved decompression performance.
 * Network access over HTTP/HTTPS to the coordinator of the Trino cluster.
 * Network access to the configured object storage, if the
