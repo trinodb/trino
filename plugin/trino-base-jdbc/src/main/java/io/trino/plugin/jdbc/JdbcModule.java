@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc;
 
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Key;
@@ -43,9 +42,11 @@ import java.util.concurrent.ExecutorService;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.multibindings.ProvidesIntoOptional.Type.DEFAULT;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
@@ -111,8 +112,7 @@ public class JdbcModule
 
         newOptionalBinder(binder, Key.get(ExecutorService.class, ForRecordCursor.class))
                 .setDefault()
-                .toProvider(MoreExecutors::newDirectExecutorService)
-                .in(Scopes.SINGLETON);
+                .toInstance(newThreadPerTaskExecutor(virtualThreadsNamed("jdbc-record-cursor-%s")));
 
         newSetBinder(binder, JdbcQueryEventListener.class);
 

@@ -25,11 +25,10 @@ import io.trino.spi.catalog.CatalogName;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class RemoteQueryCancellationModule
         extends AbstractConfigurationAwareModule
@@ -67,7 +66,7 @@ public class RemoteQueryCancellationModule
         @Override
         public ExecutorService get()
         {
-            return newCachedThreadPool(daemonThreadsNamed(format("%s-record-cursor-%%d", catalogName)));
+            return newThreadPerTaskExecutor(virtualThreadsNamed(catalogName + "-record-cursor-%d"));
         }
     }
 }
