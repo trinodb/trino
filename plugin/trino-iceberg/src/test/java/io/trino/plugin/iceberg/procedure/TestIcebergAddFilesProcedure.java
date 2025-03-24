@@ -265,6 +265,22 @@ final class TestIcebergAddFilesProcedure
     }
 
     @Test
+    void testAddFilesSpecialCharPartitionColumnDefinitions()
+    {
+        String hiveTableName = "test_add_files_" + randomNameSuffix();
+        String icebergTableName = "test_add_files_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE hive.tpch." + hiveTableName + " WITH (partitioned_by = ARRAY['special@col']) AS SELECT 1 x, 10 \"special@col\"", 1);
+        assertUpdate("CREATE TABLE iceberg.tpch." + icebergTableName + " WITH (partitioning = ARRAY['\"special@col\"']) AS SELECT 2 x, 20 \"special@col\"", 1);
+
+        assertUpdate("ALTER TABLE " + icebergTableName + " EXECUTE add_files_from_table('tpch', '" + hiveTableName + "', map(ARRAY['special@col'], ARRAY['10']))");
+        assertQuery("SELECT * FROM iceberg.tpch." + icebergTableName, "VALUES (1, 10), (2, 20)");
+
+        assertUpdate("DROP TABLE hive.tpch." + hiveTableName);
+        assertUpdate("DROP TABLE iceberg.tpch." + icebergTableName);
+    }
+
+    @Test
     void testAddFilesFromNonPartitionTable()
     {
         String hiveTableName = "test_add_files_" + randomNameSuffix();

@@ -86,7 +86,6 @@ import static io.trino.plugin.hive.util.HiveUtil.isDeltaLakeTable;
 import static io.trino.plugin.hive.util.HiveUtil.isHudiTable;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
-import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.procedure.MigrationUtils.buildDataFiles;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -204,7 +203,7 @@ public class MigrateProcedure
         String location = hiveTable.getStorage().getLocation();
 
         Map<String, String> properties = icebergTableProperties(location, hiveTable.getParameters(), nameMapping, toIcebergFileFormat(storageFormat));
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitionColumnNames(hiveTable));
+        PartitionSpec partitionSpec = parsePartitionFields(schema, hiveTable);
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
@@ -229,7 +228,7 @@ public class MigrateProcedure
                     session,
                     sourceTableName,
                     schema,
-                    parsePartitionFields(schema, toPartitionFields(hiveTable)),
+                    partitionSpec,
                     unsorted(),
                     Optional.of(location),
                     properties);
@@ -366,11 +365,12 @@ public class MigrateProcedure
         };
     }
 
-    private static List<String> toPartitionFields(io.trino.metastore.Table table)
+    private static PartitionSpec parsePartitionFields(Schema schema, io.trino.metastore.Table table)
     {
-        ImmutableList.Builder<String> fields = ImmutableList.builder();
-        fields.addAll(getPartitionColumnNames(table));
-        return fields.build();
+        PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
+        List<String> partitionColumnNames = getPartitionColumnNames(table);
+        partitionColumnNames.forEach(builder::identity);
+        return builder.build();
     }
 
     private static List<String> getPartitionColumnNames(io.trino.metastore.Table table)
