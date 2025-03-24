@@ -98,7 +98,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getSplitSize;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
@@ -224,7 +224,7 @@ public class IcebergSplitSource
                                 .map(IcebergColumnHandle.class::cast))
                 .map(IcebergColumnHandle::getId)
                 .collect(toImmutableSet());
-        this.fileModifiedTimeDomain = getFileModifiedTimePathDomain(tableHandle.getEnforcedPredicate());
+        this.fileModifiedTimeDomain = getFileModifiedTimeDomain(tableHandle.getEnforcedPredicate());
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
         this.executor = requireNonNull(executor, "executor is null");
     }

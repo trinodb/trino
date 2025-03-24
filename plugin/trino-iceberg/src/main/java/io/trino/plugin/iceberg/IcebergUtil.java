@@ -1173,7 +1173,7 @@ public final class IcebergUtil
         return domain;
     }
 
-    public static Domain getFileModifiedTimePathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
+    public static Domain getFileModifiedTimeDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)
     {
         IcebergColumnHandle fileModifiedTimeColumn = fileModifiedTimeColumnHandle();
         Domain domain = effectivePredicate.getDomains().orElseThrow(() -> new IllegalArgumentException("Unexpected NONE tuple domain"))
