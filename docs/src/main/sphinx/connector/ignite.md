@@ -95,7 +95,7 @@ WITH (
 The following are supported Ignite table properties from [https://ignite.apache.org/docs/latest/sql-reference/ddl](https://ignite.apache.org/docs/latest/sql-reference/ddl)
 
 :::{list-table}
-:widths: 30, 10, 100
+:widths: 30, 10, 60
 :header-rows: 1
 
 * - Property name
