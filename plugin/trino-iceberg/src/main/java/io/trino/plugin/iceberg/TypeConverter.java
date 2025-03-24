@@ -49,6 +49,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
@@ -106,8 +107,7 @@ public final class TypeConverter
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
             case VARIANT:
-                // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
-                break;
+                return typeManager.getType(new TypeSignature(JSON));
             case GEOMETRY:
             case GEOGRAPHY:
             case UNKNOWN:

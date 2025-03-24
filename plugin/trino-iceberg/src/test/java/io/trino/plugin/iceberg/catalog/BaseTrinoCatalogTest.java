@@ -534,6 +534,50 @@ public abstract class BaseTrinoCatalogTest
         }
     }
 
+    @Test
+    public void testTableWithVariantColumn()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, SESSION.getUser());
+
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            String namespace = "ns_var_" + randomNameSuffix();
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION, namespace));
+
+            SchemaTableName tableWithVariantColumn = new SchemaTableName(namespace, "t1");
+            catalog.newCreateTableTransaction(
+                            SESSION,
+                            tableWithVariantColumn,
+                            new Schema(Types.NestedField.required(0, "id", Types.IntegerType.get()), Types.NestedField.required(1, "data", Types.VariantType.get())),
+                            PartitionSpec.unpartitioned(),
+                            SortOrder.unsorted(),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, tableWithVariantColumn)),
+                            ImmutableMap.of("format-version", "3"))
+                    .commitTransaction();
+            closer.register(() -> catalog.dropTable(SESSION, tableWithVariantColumn));
+
+            createExternalIcebergTable(catalog, namespace, closer);
+            ImmutableList.Builder<TableInfo> allTables = ImmutableList.<TableInfo>builder()
+                    .add(new TableInfo(tableWithVariantColumn, TABLE));
+
+            // No namespace provided, all tables across all namespaces should be returned
+            assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(allTables.build());
+            // Namespace is provided and exists
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).containsExactly(new TableInfo(tableWithVariantColumn, TABLE));
+            assertThat(catalog.listIcebergTables(SESSION, Optional.of(namespace))).containsExactly(tableWithVariantColumn);
+
+            Table icebergTable = catalog.loadTable(SESSION, tableWithVariantColumn);
+            assertThat(icebergTable.name()).isEqualTo(quotedTableName(tableWithVariantColumn));
+            assertThat(icebergTable.schema().columns()).hasSize(2);
+            assertThat(icebergTable.schema().columns().get(0).name()).isEqualTo("id");
+            assertThat(icebergTable.schema().columns().get(0).type()).isEqualTo(Types.IntegerType.get());
+            assertThat(icebergTable.schema().columns().get(1).name()).isEqualTo("data");
+            assertThat(icebergTable.schema().columns().get(1).type()).isEqualTo(Types.VariantType.get());
+        }
+    }
+
     protected void createMaterializedView(
             ConnectorSession session,
             TrinoCatalog catalog,

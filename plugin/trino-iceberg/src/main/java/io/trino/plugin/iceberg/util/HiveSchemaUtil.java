@@ -50,8 +50,10 @@ public final class HiveSchemaUtil
             case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: UNKNOWN");
             case GEOMETRY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOMETRY");
             case GEOGRAPHY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOGRAPHY");
-            // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
-            case VARIANT -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: VARIANT");
+            // TODO: Hive does not support variant yet. So leave this unchanged?
+            // Caused by: InvalidObjectException(message:Invalid column type: variant)
+            // at io.trino.hive.thrift.metastore.ThriftHiveMetastore$create_table_result$create_table_resultStandardScheme.read(ThriftHiveMetastore.java:60697)
+            case VARIANT -> "variant";
             case LIST -> "array<%s>".formatted(convert(type.asListType().elementType()));
             case MAP -> "map<%s,%s>".formatted(convert(type.asMapType().keyType()), convert(type.asMapType().valueType()));
             case STRUCT -> "struct<%s>".formatted(type.asStructType().fields().stream()
