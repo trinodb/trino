@@ -63,7 +63,7 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
@@ -145,7 +145,7 @@ public final class TableStatisticsReader
 
         Domain partitionDomain = getPartitionDomain(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Domain fileModifiedTimeDomain = getFileModifiedTimePathDomain(effectivePredicate);
+        Domain fileModifiedTimeDomain = getFileModifiedTimeDomain(effectivePredicate);
         Schema snapshotSchema = schemaFor(icebergTable, snapshotId);
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId()))))
