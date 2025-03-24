@@ -1,0 +1,39 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.plugin.deltalake.util;
+
+import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
+import io.trino.spi.predicate.Domain;
+
+import java.util.Map;
+import java.util.Optional;
+
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+
+public final class DeltaLakeDomains
+{
+    private DeltaLakeDomains() {}
+
+    public static boolean partitionMatchesPredicate(Map<String, Optional<String>> partitionKeys, Map<DeltaLakeColumnHandle, Domain> domains)
+    {
+        for (Map.Entry<DeltaLakeColumnHandle, Domain> enforcedDomainsEntry : domains.entrySet()) {
+            DeltaLakeColumnHandle partitionColumn = enforcedDomainsEntry.getKey();
+            Domain partitionDomain = enforcedDomainsEntry.getValue();
+            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.basePhysicalColumnName())))) {
+                return false;
+            }
+        }
+        return true;
+    }
+}

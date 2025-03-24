@@ -66,6 +66,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFil
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.Math.clamp;
 import static java.util.Objects.requireNonNull;
@@ -279,18 +280,6 @@ public class DeltaLakeSplitManager
         return tableHandle.getProjectedColumns().get().stream()
                 .map(DeltaLakeColumnHandle::columnType)
                 .anyMatch(DeltaLakeColumnType.REGULAR::equals);
-    }
-
-    public static boolean partitionMatchesPredicate(Map<String, Optional<String>> partitionKeys, Map<DeltaLakeColumnHandle, Domain> domains)
-    {
-        for (Map.Entry<DeltaLakeColumnHandle, Domain> enforcedDomainsEntry : domains.entrySet()) {
-            DeltaLakeColumnHandle partitionColumn = enforcedDomainsEntry.getKey();
-            Domain partitionDomain = enforcedDomainsEntry.getValue();
-            if (!partitionDomain.includesNullableValue(deserializePartitionValue(partitionColumn, partitionKeys.get(partitionColumn.basePhysicalColumnName())))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private static Domain getPathDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate)
