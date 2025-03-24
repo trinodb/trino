@@ -17,21 +17,17 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testing.sql.TestTable;
 
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
-import static java.lang.String.format;
 
 public class TestMySqlGlobalTransactionMyConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
-    private TestingMySqlServer mySqlServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mySqlServer = closeAfterClass(new TestingMySqlServer(true));
+        TestingMySqlServer mySqlServer = closeAfterClass(new TestingMySqlServer(true));
         return MySqlQueryRunner.builder(mySqlServer)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
@@ -58,10 +54,8 @@ public class TestMySqlGlobalTransactionMyConnectorSmokeTest
     }
 
     @Override
-    protected TestTable createTestTableForWrites(String tablePrefix)
+    protected String getCreateTableDefaultDefinition()
     {
-        TestTable table = super.createTestTableForWrites(tablePrefix);
-        mySqlServer.execute(format("ALTER TABLE %s ADD PRIMARY KEY (a)", table.getName()));
-        return table;
+        return "(a bigint NOT NULL, b double) WITH (primary_key = ARRAY['a'])";
     }
 }
