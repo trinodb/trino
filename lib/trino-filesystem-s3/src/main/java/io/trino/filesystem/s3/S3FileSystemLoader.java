@@ -48,11 +48,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.getRetryStrategy;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_REQUIRED;
 
 final class S3FileSystemLoader
@@ -63,7 +63,7 @@ final class S3FileSystemLoader
     private final S3ClientFactory clientFactory;
     private final S3Presigner preSigner;
     private final S3Context context;
-    private final ExecutorService uploadExecutor = newCachedThreadPool(daemonThreadsNamed("s3-upload-%s"));
+    private final ExecutorService uploadExecutor = newThreadPerTaskExecutor(virtualThreadsNamed("s3-upload-%d"));
     private final Map<Optional<S3SecurityMappingResult>, S3Client> clients = new ConcurrentHashMap<>();
 
     @Inject
