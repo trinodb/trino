@@ -65,7 +65,9 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSi
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileSizeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileSizeDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getPathDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.pathMatchesPredicate;
@@ -167,6 +169,7 @@ public class DeltaLakeSplitManager
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);
         Domain fileModifiedDomain = getFileModifiedTimeDomain(nonPartitionConstraint);
+        Domain fileSizeDomain = getFileSizeDomain(nonPartitionConstraint);
 
         boolean splittable =
                 // Delta Lake handles updates and deletes by copying entire data files, minus updates/deletes. Because of this we can only have one Split/UpdatablePageSource
@@ -216,6 +219,10 @@ public class DeltaLakeSplitManager
                     }
 
                     if (addAction.getDeletionVector().isEmpty() && maxScannedFileSizeInBytes.isPresent() && addAction.getSize() > maxScannedFileSizeInBytes.get()) {
+                        return Stream.empty();
+                    }
+
+                    if (!fileSizeMatchesPredicate(fileSizeDomain, addAction.getSize())) {
                         return Stream.empty();
                     }
 

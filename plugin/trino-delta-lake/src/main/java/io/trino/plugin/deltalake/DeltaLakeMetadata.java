@@ -295,7 +295,9 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.loadNewTail;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileSizeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileSizeDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getPathDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.pathMatchesPredicate;
@@ -4219,6 +4221,7 @@ public class DeltaLakeMetadata
 
         Domain pathDomain = getPathDomain(tableHandle.getNonPartitionConstraint());
         Domain fileModifiedDomain = getFileModifiedTimeDomain(tableHandle.getNonPartitionConstraint());
+        Domain fileSizeDomain = getFileSizeDomain(tableHandle.getNonPartitionConstraint());
 
         long deletedRecords = 0L;
         boolean allDeletedFilesStatsPresent = true;
@@ -4233,6 +4236,10 @@ public class DeltaLakeMetadata
                 }
 
                 if (!fileModifiedTimeMatchesPredicate(fileModifiedDomain, addFileEntry.getModificationTime())) {
+                    continue;
+                }
+
+                if (!fileSizeMatchesPredicate(fileSizeDomain, addFileEntry.getSize())) {
                     continue;
                 }
 

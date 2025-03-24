@@ -52,7 +52,9 @@ import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredic
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.buildSplitPath;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileSizeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileSizeDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getPathDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.pathMatchesPredicate;
@@ -122,6 +124,7 @@ public class FileBasedTableStatisticsProvider
 
         Domain pathDomain = getPathDomain(tableHandle.getNonPartitionConstraint());
         Domain fileModifiedDomain = getFileModifiedTimeDomain(tableHandle.getNonPartitionConstraint());
+        Domain fileSizeDomain = getFileSizeDomain(tableHandle.getNonPartitionConstraint());
         try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(
                 session,
                 tableSnapshot,
@@ -148,6 +151,10 @@ public class FileBasedTableStatisticsProvider
                 }
 
                 if (!fileModifiedTimeMatchesPredicate(fileModifiedDomain, addEntry.getModificationTime())) {
+                    continue;
+                }
+
+                if (!fileSizeMatchesPredicate(fileSizeDomain, addEntry.getSize())) {
                     continue;
                 }
 
