@@ -36,17 +36,19 @@ import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
-import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class BigQueryConnectorModule
@@ -127,9 +129,15 @@ public class BigQueryConnectorModule
 
         @Provides
         @Singleton
-        public ListeningExecutorService provideListeningExecutor(BigQueryConfig config)
+        public ListeningExecutorService provideListeningExecutor(CatalogName catalogName, BigQueryConfig config)
         {
-            return listeningDecorator(newFixedThreadPool(config.getMetadataParallelism(), daemonThreadsNamed("big-query-%s"))); // limit parallelism
+            return listeningDecorator(new ThreadPoolExecutor(
+                    config.getMetadataParallelism(),
+                    config.getMetadataParallelism(),
+                    0,
+                    TimeUnit.MILLISECONDS,
+                    new LinkedBlockingDeque<>(),
+                    virtualThreadsNamed("bigquery-" + catalogName + "-metadata-%d")));
         }
 
         @Provides
@@ -137,7 +145,7 @@ public class BigQueryConnectorModule
         @ForBigQueryPageSource
         public ExecutorService provideExecutor(CatalogName catalogName)
         {
-            return newCachedThreadPool(daemonThreadsNamed("bigquery-" + catalogName + "-%s"));
+            return newThreadPerTaskExecutor(virtualThreadsNamed("bigquery-" + catalogName + "-%d"));
         }
     }
 
