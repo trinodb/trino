@@ -18,8 +18,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Range;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -71,6 +74,7 @@ import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.util.JsonUtil;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
@@ -93,6 +97,9 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -163,6 +170,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -7380,6 +7388,50 @@ public abstract class BaseIcebergConnectorTest
                     "The provided location '%s' does not match the existing table location '.*'".formatted(initialTableLocation));
             assertThat(getCurrentSnapshotId(table.getName()))
                     .isEqualTo(v1SnapshotId);
+        }
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @RepeatedTest(3)
+    public void testConcurrentCreateReplaceAndInserts()
+            throws Exception
+    {
+        int cortThreads = 1;
+        int insertThreads = 4;
+        int threads = cortThreads + insertThreads;
+        try (TestTable replacedTable = newTrinoTable(
+                "test_concurrent_create_replace_and_inserts_replaced_table_",
+                "(a) AS VALUES 1");
+                TestTable newSourceTable = newTrinoTable(
+                        "test_concurrent_create_replace_and_inserts_new_source_table_",
+                        "AS select a, b, rand() as r from UNNEST(SEQUENCE(1, 9001), SEQUENCE(1, 9001)) AS t(a, b)");
+                ExecutorService executor = newFixedThreadPool(threads)) {
+            CyclicBarrier barrier = new CyclicBarrier(threads);
+            Builder<Callable<Void>> callableBuilder = ImmutableList.builder();
+            // Replace the table
+            for (int index = 0; index < cortThreads; index++) {
+                callableBuilder.add(() -> {
+                    barrier.await(10, SECONDS);
+                    assertUpdate("CREATE OR REPLACE TABLE " + replacedTable.getName() + " AS SELECT a FROM " + newSourceTable.getName(), 9001);
+                    return null;
+                });
+            }
+            // while concurrently adding new blind inserts
+            for (int index = 0; index < insertThreads; index++) {
+                int valueToInsert = 10000 + index;
+                callableBuilder.add(() -> {
+                    barrier.await(10, SECONDS);
+                    getQueryRunner().execute("INSERT INTO " + replacedTable.getName() + " VALUES (" + valueToInsert + ")");
+                    return null;
+                });
+            }
+            executor.invokeAll(callableBuilder.build()).forEach(MoreFutures::getDone);
+
+            assertThat(query(format("SELECT count(*) FROM %s", replacedTable.getName()))).result()
+                    .rows()
+                    .extracting(row -> (Long) row.getField(0))
+                    .singleElement()
+                    .matches(Range.closed(9001L, 9001L + insertThreads));
         }
     }
 

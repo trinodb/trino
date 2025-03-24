@@ -131,7 +131,7 @@ public class TestIcebergGlueCatalogAccessOperations
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
                             .add(CREATE_TABLE)
                             .addCopies(GET_DATABASE, 2)
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -149,7 +149,7 @@ public class TestIcebergGlueCatalogAccessOperations
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
                             .addCopies(GET_DATABASE, 2)
                             .add(CREATE_TABLE)
-                            .add(GET_TABLE)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -163,7 +163,7 @@ public class TestIcebergGlueCatalogAccessOperations
                     ImmutableMultiset.<GlueMetastoreMethod>builder()
                             .addCopies(GET_DATABASE, 2)
                             .add(CREATE_TABLE)
-                            .addCopies(GET_TABLE, 5)
+                            .addCopies(GET_TABLE, 6)
                             .add(UPDATE_TABLE)
                             .build());
         }

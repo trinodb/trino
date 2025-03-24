@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.UnknownTableTypeException;
 import io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations;
+import io.trino.plugin.iceberg.procedure.MigrateProcedure;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -192,7 +193,10 @@ public class GlueIcebergTableOperations
     {
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
         TableInput tableInput = tableUpdateFunction.apply(table, newMetadataLocation);
-
+        if (MigrateProcedure.PROVIDER_PROPERTY_VALUE.equals(metadata.properties().get(MigrateProcedure.PROVIDER_PROPERTY_KEY))) {
+            // Assume this is a table executing migrate procedure
+            glueVersionId = null;
+        }
         try {
             stats.getUpdateTable().call(() -> glueClient.updateTable(x -> x
                     .databaseName(database)

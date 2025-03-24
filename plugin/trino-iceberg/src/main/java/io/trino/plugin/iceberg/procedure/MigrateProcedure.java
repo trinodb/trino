@@ -34,6 +34,7 @@ import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.procedure.MigrationUtils.RecursiveDirectory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -174,8 +175,15 @@ public class MigrateProcedure
     public void doMigrate(ConnectorSession session, String schemaName, String tableName, String recursiveDirectory)
     {
         SchemaTableName sourceTableName = new SchemaTableName(schemaName, tableName);
+        HiveMetastore metastore;
         TrinoCatalog catalog = catalogFactory.create(session.getIdentity());
-        HiveMetastore metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
+        if (catalog instanceof TrinoHiveCatalog trinoHiveCatalog) {
+            // gets a caching metastore so that replaceTable invalidates table cache
+            metastore = trinoHiveCatalog.getMetastore();
+        }
+        else {
+            metastore = metastoreFactory.createMetastore(Optional.of(session.getIdentity()));
+        }
         RecursiveDirectory recursive = Enums.getIfPresent(RecursiveDirectory.class, recursiveDirectory.toUpperCase(ENGLISH)).toJavaUtil()
                 .orElseThrow(() -> new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Invalid recursive_directory: " + recursiveDirectory));
 
