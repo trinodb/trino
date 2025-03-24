@@ -166,6 +166,6 @@ public record DeltaLakeColumnHandle(
 
     public static boolean isMetadataColumnHandle(DeltaLakeColumnHandle columnHandle)
     {
-        return columnHandle.equals(fileModifiedTimeColumnHandle()) || columnHandle.equals(pathColumnHandle());
+        return columnHandle.equals(fileModifiedTimeColumnHandle()) || columnHandle.equals(pathColumnHandle()) || columnHandle.equals(fileSizeColumnHandle());
     }
 }

@@ -1191,6 +1191,90 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testFileSizeHiddenColumn()
+    {
+        try (TestTable table = newTrinoTable("test_file_size_column", "(val VARCHAR)")) {
+            String tableName = table.getName();
+
+            // Describe output should not have the $file_size hidden column
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('val', 'varchar', '', '')");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1234567890'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345678901234567890'", 1);
+
+            long firstFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1'");
+            long secondFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345'");
+            long thirdFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1234567890'");
+            long fourthFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345678901234567890'");
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" = " + firstFileSize))
+                    .matches("VALUES CAST('1' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + firstFileSize + " AND \"$file_size\" <= " + thirdFileSize))
+                    .matches("VALUES CAST('12345' AS VARCHAR), CAST('1234567890' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + secondFileSize + " AND \"$file_size\" <= " + fourthFileSize))
+                    .matches("VALUES CAST('1234567890' AS VARCHAR), CAST('12345678901234567890' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertQuery("SHOW STATS FOR (SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + thirdFileSize + ")",
+                    "VALUES " +
+                            "('val', 36.0, 1.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_size\" = 0", 0);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES '1', '12345', '1234567890', '12345678901234567890'");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_size\" = " + firstFileSize, 1);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES '12345', '1234567890', '12345678901234567890'");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET val = 'update' WHERE \"$file_size\" = " + secondFileSize, 1);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES 'update', '1234567890', '12345678901234567890'");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithFileSizeColumn()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_file_size_", "(val VARCHAR)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1234567890'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345678901234567890'", 1);
+
+            long secondFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345'");
+            long thirdFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1234567890'");
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            MILLISECONDS.sleep(1);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " + "\"$file_size\" <= " + secondFileSize);
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " + "\"$file_size\" >= " + thirdFileSize);
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
     public void testTableLocationTrailingSpace()
     {
         String tableName = "table_with_space_" + randomNameSuffix();
@@ -3711,7 +3795,7 @@ public class TestDeltaLakeConnectorTest
                 // delete filter applied on partitioned field and on synthesized field
                 "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
                 "address = 'Antioch' AND \"$file_size\" > 0",
-                false);
+                true);
         testDeleteWithFilter(
                 // delete filter applied on function over partitioned field
                 "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
