@@ -35,6 +35,7 @@ import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.ARRAY;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.MAP;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.STRUCT;
+import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.VARIANT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -61,7 +62,7 @@ public class ColumnIdentity
         this.typeCategory = requireNonNull(typeCategory, "typeCategory is null");
         requireNonNull(children, "children is null");
         checkArgument(
-                children.isEmpty() == (typeCategory == PRIMITIVE),
+                children.isEmpty() == (typeCategory == PRIMITIVE || typeCategory == VARIANT),
                 "Children should be empty if and only if column type is primitive");
         ImmutableMap.Builder<Integer, ColumnIdentity> childrenBuilder = ImmutableMap.builder();
         ImmutableMap.Builder<Integer, Integer> childFieldIdToIndex = ImmutableMap.builder();
@@ -155,7 +156,8 @@ public class ColumnIdentity
         PRIMITIVE,
         STRUCT,
         ARRAY,
-        MAP
+        MAP,
+        VARIANT
     }
 
     public static ColumnIdentity primitiveColumnIdentity(int id, String name)
@@ -168,6 +170,11 @@ public class ColumnIdentity
         int id = column.fieldId();
         String name = column.name();
         org.apache.iceberg.types.Type fieldType = column.type();
+
+        if (fieldType.isVariantType()) {
+            // todo: confirm do we still needs this? Iceberg does not seem to support non-primitive partition fields
+            return new ColumnIdentity(id, name, VARIANT, ImmutableList.of());
+        }
 
         if (!fieldType.isNestedType()) {
             return new ColumnIdentity(id, name, PRIMITIVE, ImmutableList.of());
