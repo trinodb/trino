@@ -103,7 +103,7 @@ The following are supported Ignite table properties from [https://ignite.apache.
   - Description
 * - `primary_key`
   - No
-  - The primary key of the table, can chose multi columns as the table primary
+  - The primary key of the table, can choose multi columns as the table primary
     key. Table at least contains one column not in primary key.
 :::
 
