@@ -57,7 +57,7 @@ public class DropCatalogTask
             WarningCollector warningCollector)
     {
         if (statement.isCascade()) {
-            throw new TrinoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
+            throw new TrinoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP CATALOG");
         }
 
         String catalogName = statement.getCatalogName().getValue().toLowerCase(ENGLISH);
