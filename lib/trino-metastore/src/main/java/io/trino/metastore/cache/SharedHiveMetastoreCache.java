@@ -43,10 +43,10 @@ import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class SharedHiveMetastoreCache
@@ -112,7 +112,7 @@ public class SharedHiveMetastoreCache
     public void start()
     {
         if (enabled) {
-            executorService = newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s"));
+            executorService = newThreadPerTaskExecutor(virtualThreadsNamed("hive-metastore-" + catalogName + "-%d"));
         }
     }
 
