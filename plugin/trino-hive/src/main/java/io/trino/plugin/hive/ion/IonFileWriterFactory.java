@@ -19,7 +19,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hive.formats.line.Column;
-import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.metastore.StorageFormat;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.HiveCompressionCodec;
@@ -39,12 +38,12 @@ import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static io.trino.hive.formats.HiveClassNames.ION_OUTPUT_FORMAT;
-import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getType;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnTypes;
+import static java.util.Objects.requireNonNull;
 
 public class IonFileWriterFactory
         implements HiveFileWriterFactory
@@ -57,8 +56,8 @@ public class IonFileWriterFactory
             TrinoFileSystemFactory fileSystemFactory,
             TypeManager typeManager)
     {
-        this.fileSystemFactory = fileSystemFactory;
-        this.typeManager = typeManager;
+        this.fileSystemFactory = requireNonNull(fileSystemFactory);
+        this.typeManager = requireNonNull(typeManager);
     }
 
     @Override
@@ -78,14 +77,11 @@ public class IonFileWriterFactory
             return Optional.empty();
         }
 
-        if (IonSerDeProperties.hasUnsupportedProperty(schema)) {
-            throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating Ion Output, Table contains unsupported SerDe properties for native Ion");
-        }
+        IonSerDeProperties.validatePropertySupport(schema);
 
         try {
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             TrinoOutputFile outputFile = fileSystem.newOutputFile(location);
-            AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
 
             Closeable rollbackAction = () -> fileSystem.deleteFile(location);
 
@@ -99,10 +95,8 @@ public class IonFileWriterFactory
                     .toList();
 
             return Optional.of(new IonFileWriter(
-                    outputFile.create(outputStreamMemoryContext),
-                    outputStreamMemoryContext,
+                    outputFile,
                     rollbackAction,
-                    typeManager,
                     compressionCodec.getHiveCompressionKind(),
                     IonSerDeProperties.getIonEncoding(schema),
                     columns));

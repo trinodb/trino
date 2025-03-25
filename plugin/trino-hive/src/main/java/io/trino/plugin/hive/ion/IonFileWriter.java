@@ -15,15 +15,14 @@ package io.trino.plugin.hive.ion;
 
 import com.amazon.ion.IonWriter;
 import com.google.common.io.CountingOutputStream;
+import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.ion.IonEncoder;
-import io.trino.hive.formats.ion.IonEncoderFactory;
 import io.trino.hive.formats.line.Column;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
-import io.trino.spi.type.TypeManager;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -34,6 +33,7 @@ import java.util.function.LongSupplier;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
+import static java.util.Objects.requireNonNull;
 
 public class IonFileWriter
         implements FileWriter
@@ -46,20 +46,20 @@ public class IonFileWriter
     private final LongSupplier bytesWritten;
 
     public IonFileWriter(
-            OutputStream outputStream,
-            AggregatedMemoryContext outputStreamMemoryContext,
+            TrinoOutputFile outputFile,
             Closeable rollbackAction,
-            TypeManager typeManager,
             Optional<CompressionKind> compressionKind,
             IonSerDeProperties.IonEncoding ionEncoding,
             List<Column> columns)
             throws IOException
     {
-        this.outputStreamMemoryContext = outputStreamMemoryContext;
-        this.rollbackAction = rollbackAction;
-        this.pageEncoder = IonEncoderFactory.buildEncoder(columns);
-        CountingOutputStream countingOutputStream = new CountingOutputStream(outputStream);
-        this.bytesWritten = countingOutputStream::getCount;
+        requireNonNull(outputFile);
+        requireNonNull(rollbackAction);
+        requireNonNull(ionEncoding);
+        requireNonNull(columns);
+
+        this.outputStreamMemoryContext = AggregatedMemoryContext.newSimpleAggregatedMemoryContext();
+        CountingOutputStream countingOutputStream = new CountingOutputStream(outputFile.create(outputStreamMemoryContext));
         if (compressionKind.isPresent()) {
             this.outputStream = compressionKind.get().createCodec()
                     .createStreamCompressor(countingOutputStream);
@@ -67,7 +67,11 @@ public class IonFileWriter
         else {
             this.outputStream = countingOutputStream;
         }
+
+        this.bytesWritten = countingOutputStream::getCount;
+        this.rollbackAction = rollbackAction;
         this.writer = ionEncoding.createWriter(this.outputStream);
+        this.pageEncoder = new IonEncoder(columns);
     }
 
     @Override

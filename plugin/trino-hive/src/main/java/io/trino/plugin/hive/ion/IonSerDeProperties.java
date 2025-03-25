@@ -22,6 +22,8 @@ import io.trino.hive.formats.ion.IonDecoderConfig;
 import io.trino.spi.TrinoException;
 
 import java.io.OutputStream;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -85,9 +87,9 @@ public final class IonSerDeProperties
             }
         }
 
-        Boolean strictTyping = Boolean.parseBoolean(
+        boolean strictTyping = Boolean.parseBoolean(
                 propertiesMap.getOrDefault(STRICT_PATH_TYPING_PROPERTY, STRICT_PATH_TYPING_DEFAULT));
-        Boolean caseSensitive = Boolean.parseBoolean(
+        boolean caseSensitive = Boolean.parseBoolean(
                 propertiesMap.getOrDefault(PATH_EXTRACTION_CASE_SENSITIVITY, PATH_EXTRACTION_CASE_SENSITIVITY_DEFAULT));
 
         return new IonDecoderConfig(extractionsBuilder.buildOrThrow(), strictTyping, caseSensitive);
@@ -125,9 +127,13 @@ public final class IonSerDeProperties
         };
     }
 
-    public static boolean hasUnsupportedProperty(Map<String, String> properties)
+    /**
+     * Checks if all of the properties starting with "ion." are supported.
+     * Throws TrinoException if any are unsupported.
+     */
+    public static void validatePropertySupport(Map<String, String> properties)
     {
-        boolean unsupported = false;
+        List<String> errors = new LinkedList<>();
         for (Map.Entry<String, String> entry : properties.entrySet()) {
             String key = entry.getKey();
             String value = entry.getValue();
@@ -135,15 +141,14 @@ public final class IonSerDeProperties
                 continue;
             }
             String defaultValue = defaultOnlyProperties.get(key);
-            if (defaultValue != null && !defaultValue.equals(value)) {
+            if ((defaultValue != null && !defaultValue.equals(value))
+                    || unsupportedPropertiesRegex.matcher(key).matches()) {
                 log.error("Ion Table contains unsupported SerDe property: %s => %s", key, value);
-                unsupported = true;
-            }
-            if (unsupportedPropertiesRegex.matcher(key).matches()) {
-                log.error("Ion Table contains unsupported SerDe property: %s => %s", key, value);
-                unsupported = true;
+                errors.add(String.format("%s = %s", key, value));
             }
         }
-        return unsupported;
+        if (!errors.isEmpty()) {
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Ion Table contains unsupported SerDe properties: " + String.join(", ", errors));
+        }
     }
 }
