@@ -505,10 +505,12 @@ public class TestIonFormat
                         + "{ amount: 1234d0, big_amount: 1234d0 }"
                         + "{ amount: 12d2, big_amount: 12d2 }"
                         + "{ amount: 1234.000, big_amount: 1234.000000 }"
+                        + "{ amount: 1.234e3, big_amount: 1.234e3 }" // these are both IonFloats
                         + "{ amount: 1234, big_amount: 1234 }", // these are both IonInts
                 List.of(new SqlDecimal(BigInteger.valueOf(123400), 10, 2), new SqlDecimal(BigInteger.valueOf(123400000), 25, 5)),
                 List.of(new SqlDecimal(BigInteger.valueOf(123400), 10, 2), new SqlDecimal(BigInteger.valueOf(123400000), 25, 5)),
                 List.of(new SqlDecimal(BigInteger.valueOf(120000), 10, 2), new SqlDecimal(BigInteger.valueOf(120000000), 25, 5)),
+                List.of(new SqlDecimal(BigInteger.valueOf(123400), 10, 2), new SqlDecimal(BigInteger.valueOf(123400000), 25, 5)),
                 List.of(new SqlDecimal(BigInteger.valueOf(123400), 10, 2), new SqlDecimal(BigInteger.valueOf(123400000), 25, 5)),
                 List.of(new SqlDecimal(BigInteger.valueOf(123400), 10, 2), new SqlDecimal(BigInteger.valueOf(123400000), 25, 5)));
     }
