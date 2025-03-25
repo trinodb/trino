@@ -16,11 +16,14 @@ package io.trino.plugin.iceberg.procedure;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Provider;
 import io.airlift.units.Duration;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.TableProcedureMetadata;
 
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
+import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.connector.TableProcedureExecutionMode.coordinatorOnly;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public class ExpireSnapshotsTableProcedure
         implements Provider<TableProcedureMetadata>
@@ -36,6 +39,16 @@ public class ExpireSnapshotsTableProcedure
                                 "retention_threshold",
                                 "Only snapshots older than threshold should be removed",
                                 Duration.valueOf("7d"),
+                                false),
+                        integerProperty(
+                                "retain_last",
+                                "Number of ancestor snapshots to preserve regardless of retention_threshold (defaults to 1)",
+                                null,
+                                value -> {
+                                    if (value < 1) {
+                                        throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "retain_last must be at least 1, cannot be: %s".formatted(value));
+                                    }
+                                },
                                 false)));
     }
 }
