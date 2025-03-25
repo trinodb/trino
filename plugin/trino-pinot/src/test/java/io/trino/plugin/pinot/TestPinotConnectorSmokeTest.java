@@ -71,6 +71,7 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -157,6 +158,7 @@ public class TestPinotConnectorSmokeTest
                 .setPinot(pinot)
                 .addPinotProperty("pinot.max-rows-per-split-for-segment-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .addPinotProperty("pinot.max-rows-for-broker-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES))
+                .addPinotProperty("pinot.json-predicate-pushdown.enabled", "true")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
@@ -792,6 +794,7 @@ public class TestPinotConnectorSmokeTest
         private final Double unluckyNumber;
         private final Long longNumber;
         private final long updatedAt;
+        private final String json;
 
         @JsonCreator
         public TestingJsonRecord(
@@ -819,7 +822,18 @@ public class TestPinotConnectorSmokeTest
             this.luckyNumber = requireNonNull(luckyNumber, "luckyNumber is null");
             this.unluckyNumber = requireNonNull(unluckyNumber, "unluckyNumber is null");
             this.longNumber = requireNonNull(longNumber, "longNumber is null");
+            this.json = buildJson(vendor, luckyNumbers, neighbors);
             this.updatedAt = updatedAt;
+        }
+
+        private static String buildJson(String vendor, List<Integer> luckyNumbers, List<String> neighbors)
+        {
+            StringJoiner neighborJoiner = new StringJoiner("\",\"", "[\"", "\"]");
+            for (String neighbor : neighbors) {
+                neighborJoiner.add(neighbor);
+            }
+            return """
+                    {"vendor": "%s", "neighbors": %s, "lucky_numbers": %s, "lucky_number": %d, "test_null": null}""".formatted(vendor, neighborJoiner, luckyNumbers, luckyNumbers.getFirst());
         }
 
         @JsonProperty
@@ -894,6 +908,12 @@ public class TestPinotConnectorSmokeTest
             return updatedAt;
         }
 
+        @JsonProperty
+        public String getJson()
+        {
+            return json;
+        }
+
         public static Object of(
                 String vendor,
                 String city,
@@ -964,7 +984,137 @@ public class TestPinotConnectorSmokeTest
     public void testIntegerType()
     {
         assertThat(query("SELECT lucky_number FROM " + JSON_TABLE + " WHERE vendor = 'vendor1'"))
-                .matches("VALUES (INTEGER '5')")
+                .matches("VALUES 5")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testJsonExtractScalarIsNull()
+    {
+        assertThat(query("SELECT lucky_number FROM " + JSON_TABLE + " WHERE vendor = 'vendor1' AND json_extract_scalar(json, '$.missing') IS NULL"))
+                .matches("VALUES 5")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT lucky_number FROM " + JSON_TABLE + " WHERE vendor = 'vendor1' AND json_extract_scalar(json, '$.test_null') IS NULL"))
+                .matches("VALUES 5")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testJsonContains()
+    {
+        assertThat(query("SELECT lucky_number FROM " + JSON_TABLE + " WHERE contains(ARRAY['vendor1'], json_extract_scalar(json, '$.vendor'))"))
+                .matches("VALUES 5")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT lucky_number FROM " + JSON_TABLE + " WHERE contains(ARRAY[5], CAST(json_extract_scalar(json, '$.lucky_number') AS INTEGER))"))
+                .matches("VALUES 5")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testJsonArrayContains()
+    {
+        assertThat(query("SELECT lucky_number FROM " + JSON_TABLE + " WHERE json_array_contains(json_extract(json, '$.neighbors'), 'foo1')"))
+                .matches("VALUES 5")
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT lucky_number FROM " + JSON_TABLE + " WHERE json_array_contains(json_extract(json, '$.lucky_numbers'), 5)"))
+                .matches("VALUES 5")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testJsonArrayContainsEquals()
+    {
+        // equals false case
+        String otherVendors = "VALUES VARCHAR 'vendor2','vendor3','vendor4','vendor5','vendor6','vendor7'";
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE json_array_contains(json_extract(json, '$.neighbors'), 'foo1') = false"))
+                .matches(otherVendors)
+                .isFullyPushedDown();
+
+        // equals true case
+        String firstVendor = "VALUES VARCHAR 'vendor1'";
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE json_array_contains(json_extract(json, '$.neighbors'), 'foo1') = true"))
+                .matches(firstVendor)
+                .isFullyPushedDown();
+
+        // not equals true case
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE json_array_contains(json_extract(json, '$.neighbors'), 'foo1') != true"))
+                .matches(otherVendors)
+                .isFullyPushedDown();
+
+        // not equals false case
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE json_array_contains(json_extract(json, '$.neighbors'), 'foo1') != false"))
+                .matches(firstVendor)
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testNotJsonArrayContains()
+    {
+        String otherVendors = "VALUES VARCHAR 'vendor2','vendor3','vendor4','vendor5','vendor6','vendor7'";
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE NOT(json_array_contains(json_extract(json, '$.neighbors'), 'foo1'))"))
+                .matches(otherVendors)
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testJsonContainsEquals()
+    {
+        // equals false case
+        String otherVendors = "VALUES VARCHAR 'vendor2','vendor3','vendor4','vendor5','vendor6','vendor7'";
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE contains(ARRAY['vendor1'], json_extract_scalar(json, '$.vendor')) = false"))
+                .matches(otherVendors)
+                .isFullyPushedDown();
+
+        // equals true case
+        String firstVendor = "VALUES VARCHAR 'vendor1'";
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE contains(ARRAY['vendor1'], json_extract_scalar(json, '$.vendor')) = true"))
+                .matches(firstVendor)
+                .isFullyPushedDown();
+
+        // not equals true case
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE contains(ARRAY['vendor1'], json_extract_scalar(json, '$.vendor')) != true"))
+                .matches(otherVendors)
+                .isFullyPushedDown();
+
+        // not equals false case
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE contains(ARRAY['vendor1'], json_extract_scalar(json, '$.vendor')) != false"))
+                .matches(firstVendor)
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testNotJsonContains()
+    {
+        String otherVendors = "VALUES VARCHAR 'vendor2','vendor3','vendor4','vendor5','vendor6','vendor7'";
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE NOT(contains(ARRAY['vendor1'], json_extract_scalar(json, '$.vendor')))"))
+                .matches(otherVendors)
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testEqualsAndJsonExtractScalarIsNull()
+    {
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE vendor = 'vendor1' AND json_extract_scalar(json, '$.selector') IS NULL"))
+                .matches("VALUES VARCHAR 'vendor1'")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testEqualsOrJsonExtractScalarIsNull()
+    {
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE vendor = 'vendor1' OR json_extract_scalar(json, '$.selector') IS NULL"))
+                .matches("VALUES VARCHAR 'vendor1','vendor2','vendor3','vendor4','vendor5','vendor6','vendor7'")
+                .isFullyPushedDown();
+    }
+
+    @Test
+    public void testNotEqualsOrJsonExtractScalarIsNull()
+    {
+        assertThat(query("SELECT vendor FROM " + JSON_TABLE + " WHERE NOT(vendor = 'vendor1' OR json_extract_scalar(json, '$.selector') IS NULL)"))
+                .returnsEmptyResult()
                 .isFullyPushedDown();
     }
 
@@ -2877,8 +3027,8 @@ public class TestPinotConnectorSmokeTest
         assertThat(query("SELECT name FROM \"SELECT json_extract_scalar(json_col, '$.name', 'STRING', '0') AS name" +
                 "  FROM json_type_table WHERE json_extract_scalar(json_col, '$.id', 'INT', '0') = '1'\""))
                 .matches("VALUES (VARCHAR 'user_1')");
-        assertThat(query("SELECT JSON_EXTRACT_SCALAR(json_col, '$.name') FROM " + JSON_TYPE_TABLE +
-                "  WHERE JSON_EXTRACT_SCALAR(json_col, '$.id') = '1'"))
+        assertThat(query("SELECT json_extract_scalar(json_col, '$.name') FROM " + JSON_TYPE_TABLE +
+                "  WHERE json_extract_scalar(json_col, '$.id') = '1'"))
                 .matches("VALUES (VARCHAR 'user_1')");
         assertThat(query("SELECT string_col FROM " + JSON_TYPE_TABLE + " WHERE json_col = JSON '{\"id\":0,\"name\":\"user_0\"}'"))
                 .matches("VALUES VARCHAR 'string_0'");
