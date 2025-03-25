@@ -1006,18 +1006,82 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testPathColumn()
     {
-        try (TestTable table = newTrinoTable("test_path_column", "(x VARCHAR)")) {
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+        try (TestTable table = newTrinoTable("test_path_column", "(x VARCHAR, part VARCHAR) WITH (partitioned_by = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first', 'a#sharp'", 1);
             String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName());
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
-            String secondFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE x = 'second'");
+            assertThat(firstFilePath.contains("a#sharp")).isFalse();
+            assertThat(firstFilePath.contains("a%23sharp")).isTrue();
 
-            // Verify predicate correctness on $path column
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", "VALUES 'first'");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" <> '" + firstFilePath + "'", "VALUES 'second'");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IN ('" + firstFilePath + "', '" + secondFilePath + "')", "VALUES ('first'), ('second')");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL", "VALUES ('first'), ('second')");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'a%23sharp'", 1);
+            String secondFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE x = 'second'");
+            assertThat(secondFilePath.contains("a%23sharp")).isFalse();
+            assertThat(secondFilePath.contains("a%2523sharp")).isTrue();
+
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE part = 'a#sharp'", "VALUES 'first'");
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE part = 'a%23sharp'", "VALUES 'second'");
+
+            // Verify predicate correctness on $path column, and check it is pusheddown
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'"))
+                    .matches("VALUES CAST('first' AS VARCHAR)")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" <> '" + firstFilePath + "'"))
+                    .matches("VALUES CAST('second' AS VARCHAR)")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" IN ('" + firstFilePath + "', '" + secondFilePath + "')"))
+                    .matches("VALUES (CAST('first' AS VARCHAR)), (CAST('second' AS VARCHAR))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL"))
+                    .matches("VALUES (CAST('first' AS VARCHAR)), (CAST('second' AS VARCHAR))")
+                    .isFullyPushedDown();
             assertQueryReturnsEmptyResult("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NULL");
+
+            assertQuery("SHOW STATS FOR (SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "')",
+                    "VALUES " +
+                            "('x', 11.0, 1.0, 0.0, null, null, null)," +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = 'not exist'", 0);
+            assertQuery("SELECT x FROM " + table.getName(),  "VALUES 'first', 'second'");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", 1);
+            assertQuery("SELECT x FROM " + table.getName(), "VALUES 'second'");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET x = 'update' WHERE \"$path\" = '" + secondFilePath + "'", 1);
+            assertQuery("SELECT x FROM " + table.getName(), "VALUES 'update'");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithPathColumn()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_path_column", "(id integer)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 4", 1);
+
+            String firstPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 1");
+            String secondPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2");
+            String thirdPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3");
+            String fourthPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4");
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + firstPath + "' OR \"$path\" = '" + secondPath + "'");
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + thirdPath + "' OR \"$path\" = '" + fourthPath + "'");
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
         }
     }
 

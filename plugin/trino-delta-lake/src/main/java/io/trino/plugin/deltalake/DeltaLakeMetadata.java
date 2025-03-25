@@ -219,6 +219,7 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.FILE_MODIFIED_TIME
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.PATH_COLUMN_NAME;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.fileModifiedTimeColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.fileSizeColumnHandle;
+import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.isMetadataColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.mergeRowIdColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
@@ -236,6 +237,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isProjectionP
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isStoreTableMetadataInMetastoreEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isTableStatisticsEnabled;
+import static io.trino.plugin.deltalake.DeltaLakeSplitManager.buildSplitPath;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.CHECKPOINT_INTERVAL_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
@@ -294,7 +296,9 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLog
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.loadNewTail;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getPathDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.pathMatchesPredicate;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -3362,15 +3366,13 @@ public class DeltaLakeMetadata
                     .forEach(constraintColumns::add);
             for (Entry<ColumnHandle, Domain> domainEntry : constraintDomains.entrySet()) {
                 DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) domainEntry.getKey();
-                if (!partitionColumns.contains(column)) {
-                    if (column.equals(fileModifiedTimeColumnHandle())) {
-                        unenforceableDomains.put(column, domainEntry.getValue());
-                    }
-                    else {
-                        unenforceableDomains.put(column, domainEntry.getValue());
-                        // the column can not be pusheddown
-                        remainingDomains.put(column, domainEntry.getValue());
-                    }
+                if (isMetadataColumnHandle(column)) {
+                    unenforceableDomains.put(column, domainEntry.getValue());
+                }
+                else if (!partitionColumns.contains(column)) {
+                    unenforceableDomains.put(column, domainEntry.getValue());
+                    // the column can not be pusheddown
+                    remainingDomains.put(column, domainEntry.getValue());
                 }
                 else {
                     enforceableDomains.put(column, domainEntry.getValue());
@@ -3844,7 +3846,7 @@ public class DeltaLakeMetadata
                             || addFileEntry.getStats().get().getNullCount().isEmpty())
                     .filter(addFileEntry -> !URI.create(addFileEntry.getPath()).isAbsolute()) // TODO: Support absolute paths https://github.com/trinodb/trino/issues/18277
                     // Statistics returns whole path to file build in DeltaLakeSplitManager, so we need to create corresponding map key for AddFileEntry.
-                    .collect(toImmutableMap(addFileEntry -> DeltaLakeSplitManager.buildSplitPath(Location.of(tableHandle.getLocation()), addFileEntry).toString(), identity()));
+                    .collect(toImmutableMap(addFileEntry -> buildSplitPath(Location.of(tableHandle.getLocation()), addFileEntry).toString(), identity()));
         }
         if (addFileEntriesWithNoStats.isEmpty()) {
             return;
@@ -4215,6 +4217,7 @@ public class DeltaLakeMetadata
         long commitVersion = currentVersion + 1;
         transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, isolationLevel, commitVersion, writeTimestamp, operation, tableHandle.getReadVersion(), false));
 
+        Domain pathDomain = getPathDomain(tableHandle.getNonPartitionConstraint());
         Domain fileModifiedDomain = getFileModifiedTimeDomain(tableHandle.getNonPartitionConstraint());
 
         long deletedRecords = 0L;
@@ -4223,6 +4226,11 @@ public class DeltaLakeMetadata
             Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
             while (addFileEntryIterator.hasNext()) {
                 AddFileEntry addFileEntry = addFileEntryIterator.next();
+
+                String splitPath = buildSplitPath(Location.of(tableHandle.getLocation()), addFileEntry).toString();
+                if (!pathMatchesPredicate(pathDomain, splitPath)) {
+                    continue;
+                }
 
                 if (!fileModifiedTimeMatchesPredicate(fileModifiedDomain, addFileEntry.getModificationTime())) {
                     continue;
