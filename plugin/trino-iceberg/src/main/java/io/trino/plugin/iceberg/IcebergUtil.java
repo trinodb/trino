@@ -72,7 +72,6 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -499,19 +498,19 @@ public final class IcebergUtil
         throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
-    public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
+    public static Map<Integer, org.apache.iceberg.types.Type> primitiveFieldTypes(Schema schema)
     {
         return primitiveFieldTypes(schema.columns())
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
-    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(List<NestedField> nestedFields)
+    private static Stream<Entry<Integer, org.apache.iceberg.types.Type>> primitiveFieldTypes(List<NestedField> nestedFields)
     {
         return nestedFields.stream()
                 .flatMap(IcebergUtil::primitiveFieldTypes);
     }
 
-    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(NestedField nestedField)
+    private static Stream<Entry<Integer, org.apache.iceberg.types.Type>> primitiveFieldTypes(NestedField nestedField)
     {
         org.apache.iceberg.types.Type fieldType = nestedField.type();
         if (fieldType.isPrimitiveType()) {
@@ -1219,11 +1218,11 @@ public final class IcebergUtil
 
     public static List<org.apache.iceberg.types.Type> partitionTypes(
             List<PartitionField> partitionFields,
-            Map<Integer, org.apache.iceberg.types.Type.PrimitiveType> idToPrimitiveTypeMapping)
+            Map<Integer, org.apache.iceberg.types.Type> idToPrimitiveTypeMapping)
     {
         ImmutableList.Builder<org.apache.iceberg.types.Type> partitionTypeBuilder = ImmutableList.builder();
         for (PartitionField partitionField : partitionFields) {
-            org.apache.iceberg.types.Type.PrimitiveType sourceType = idToPrimitiveTypeMapping.get(partitionField.sourceId());
+            org.apache.iceberg.types.Type sourceType = idToPrimitiveTypeMapping.get(partitionField.sourceId());
             org.apache.iceberg.types.Type type = partitionField.transform().getResultType(sourceType);
             partitionTypeBuilder.add(type);
         }

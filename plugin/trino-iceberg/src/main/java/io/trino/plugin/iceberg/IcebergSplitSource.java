@@ -130,7 +130,7 @@ public class IcebergSplitSource
     private final Map<String, String> fileIoProperties;
     private final Scan<?, FileScanTask, CombinedScanTask> tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
-    private final Map<Integer, Type.PrimitiveType> fieldIdToType;
+    private final Map<Integer, Type> fieldIdToType;
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
@@ -555,7 +555,7 @@ public class IcebergSplitSource
 
     @VisibleForTesting
     static TupleDomain<IcebergColumnHandle> createFileStatisticsDomain(
-            Map<Integer, Type.PrimitiveType> fieldIdToType,
+            Map<Integer, Type> fieldIdToType,
             @Nullable Map<Integer, ByteBuffer> lowerBounds,
             @Nullable Map<Integer, ByteBuffer> upperBounds,
             @Nullable Map<Integer, Long> nullValueCounts,

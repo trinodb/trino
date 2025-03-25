@@ -116,7 +116,7 @@ public class FilesTable
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
     private final Optional<IcebergPartitionColumn> partitionColumnType;
-    private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
+    private final Map<Integer, Type> idToPrimitiveTypeMapping;
     private final List<Types.NestedField> primitiveFields;
     private final ExecutorService executor;
 
@@ -217,7 +217,7 @@ public class FilesTable
         private final MapType integerToVarcharMapType;
         private final Optional<IcebergPartitionColumn> partitionColumnType;
         private final List<PartitionField> partitionFields;
-        private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
+        private final Map<Integer, Type> idToPrimitiveTypeMapping;
 
         public PlanFilesIterable(
                 CloseableIterable<FileScanTask> planFiles,
@@ -228,7 +228,7 @@ public class FilesTable
                 TypeManager typeManager,
                 Optional<IcebergPartitionColumn> partitionColumnType,
                 List<PartitionField> partitionFields,
-                Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping)
+                Map<Integer, Type> idToPrimitiveTypeMapping)
         {
             this.planFiles = requireNonNull(planFiles, "planFiles is null");
             this.primitiveFields = ImmutableList.copyOf(requireNonNull(primitiveFields, "primitiveFields is null"));
