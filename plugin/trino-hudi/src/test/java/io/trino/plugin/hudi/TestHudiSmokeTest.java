@@ -31,6 +31,7 @@ import static io.trino.plugin.hudi.HudiSessionProperties.METADATA_TABLE_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.QUERY_PARTITION_FILTER_REQUIRED;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_MOR;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_RLI_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
@@ -119,13 +120,44 @@ public class TestHudiSmokeTest
     {
         // Stopgap to enable MDT
         Session session = withMdtEnabled(getSession());
-        getQueryRunner().execute(session, "SET SESSION hudi.metadata_enabled=true");
         MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG' AND id=1");
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG' AND name='a1'");
         int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
         int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
         assertThat(prunedSplits).isLessThan(totalSplits);
-        // With file skipping, only 1 split should be returned
+        // With colstats file skipping, only 1 split should be returned
+        assertThat(prunedSplits).isEqualTo(1);
+    }
+
+    @Test
+    public void testRecordLevelFileSkipping()
+    {
+        // Stopgap to enable MDT
+        Session session = withMdtEnabled(getSession());
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_RLI_MOR);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_RLI_MOR
+                + " WHERE country='SG' AND id IN (1, 3) AND name = 'a1'");
+        // Apply predicate for all fileSlices
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // With RLI file skipping, only 1 split should be returned
+        assertThat(prunedSplits).isEqualTo(1);
+    }
+
+    @Test
+    public void testSecondaryIndexFileSkipping()
+    {
+        // Stopgap to enable MDT
+        Session session = withMdtEnabled(getSession());
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_RLI_MOR);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_RLI_MOR
+                + " WHERE country='SG' AND price = 101.00");
+        // Apply predicate for all fileSlices
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // With SI file skipping, only 1 split should be returned
         assertThat(prunedSplits).isEqualTo(1);
     }
 

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hudi.query;
 
-import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
 import org.apache.hudi.common.model.FileSlice;
 

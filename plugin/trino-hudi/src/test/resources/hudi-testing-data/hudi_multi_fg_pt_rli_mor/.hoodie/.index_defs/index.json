@@ -1,0 +1,11 @@
+{
+  "indexDefinitions" : {
+    "secondary_index_idx_price" : {
+      "indexName" : "secondary_index_idx_price",
+      "indexType" : "secondary_index",
+      "indexFunction" : "identity",
+      "sourceFields" : [ "price" ],
+      "indexOptions" : { }
+    }
+  }
+}
