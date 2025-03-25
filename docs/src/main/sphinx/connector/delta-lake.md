@@ -670,6 +670,11 @@ ALTER TABLE test_table EXECUTE optimize
 WHERE "$file_modified_time" > date_trunc('day', CURRENT_TIMESTAMP);
 ```
 
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$path" <> 'skipping-file-path'
+```
+
 (delta-lake-alter-table-rename-to)=
 #### ALTER TABLE RENAME TO
 

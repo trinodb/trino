@@ -58,9 +58,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode.FULL_REFRESH;
-import static io.trino.plugin.deltalake.DeltaLakeColumnHandle.pathColumnHandle;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getMaxSplitSize;
@@ -68,7 +66,9 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getPathDomain;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.pathMatchesPredicate;
 import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.lang.Math.clamp;
 import static java.util.Objects.requireNonNull;
@@ -287,18 +287,6 @@ public class DeltaLakeSplitManager
         return tableHandle.getProjectedColumns().get().stream()
                 .map(DeltaLakeColumnHandle::columnType)
                 .anyMatch(DeltaLakeColumnType.REGULAR::equals);
-    }
-
-    private static Domain getPathDomain(TupleDomain<DeltaLakeColumnHandle> effectivePredicate)
-    {
-        return effectivePredicate.getDomains()
-                .flatMap(domains -> Optional.ofNullable(domains.get(pathColumnHandle())))
-                .orElseGet(() -> Domain.all(pathColumnHandle().baseType()));
-    }
-
-    private static boolean pathMatchesPredicate(Domain pathDomain, String path)
-    {
-        return pathDomain.includesNullableValue(utf8Slice(path));
     }
 
     private List<DeltaLakeSplit> splitsForFile(
