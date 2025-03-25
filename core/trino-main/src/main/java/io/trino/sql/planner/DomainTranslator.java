@@ -119,7 +119,7 @@ public final class DomainTranslator
         return IrUtils.combineConjuncts(toPredicateConjuncts(tupleDomain));
     }
 
-    public List<Expression> toPredicateConjuncts(TupleDomain<Symbol> tupleDomain)
+    private List<Expression> toPredicateConjuncts(TupleDomain<Symbol> tupleDomain)
     {
         if (tupleDomain.isNone()) {
             return ImmutableList.of(FALSE);
@@ -132,7 +132,7 @@ public final class DomainTranslator
                 .collect(toImmutableList());
     }
 
-    private Expression toPredicate(Domain domain, Reference reference)
+    public Expression toPredicate(Domain domain, Reference reference)
     {
         if (domain.getValues().isNone()) {
             return domain.isNullAllowed() ? new IsNull(reference) : FALSE;
