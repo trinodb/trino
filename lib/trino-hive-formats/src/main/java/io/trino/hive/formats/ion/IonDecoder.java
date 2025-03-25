@@ -166,7 +166,7 @@ public class IonDecoder
             case BigintType t -> wrapDecoder(LONG_DECODER, t, IonType.INT);
             case RealType t -> wrapDecoder(REAL_DECODER, t, IonType.FLOAT);
             case DoubleType t -> wrapDecoder(FLOAT_DECODER, t, IonType.FLOAT);
-            case DecimalType t -> wrapDecoder(decimalDecoder(t), t, IonType.DECIMAL, IonType.INT);
+            case DecimalType t -> wrapDecoder(decimalDecoder(t), t, IonType.DECIMAL, IonType.INT, IonType.FLOAT);
             case BooleanType t -> wrapDecoder(BOOL_DECODER, t, IonType.BOOL);
             case DateType t -> wrapDecoder(DATE_DECODER, t, IonType.TIMESTAMP);
             case TimestampType t -> wrapDecoder(timestampDecoder(t), t, IonType.TIMESTAMP);
