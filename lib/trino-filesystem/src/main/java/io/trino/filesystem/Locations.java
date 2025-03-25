@@ -21,16 +21,9 @@ public final class Locations
 
     private Locations() {}
 
-    /**
-     * @deprecated use {@link Location#appendPath(String)} instead
-     */
-    @Deprecated
     public static String appendPath(String location, String path)
     {
-        if (!location.endsWith("/")) {
-            location += "/";
-        }
-        return location + path;
+        return Location.of(location).appendPath(path).toString();
     }
 
     /**
