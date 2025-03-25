@@ -68,7 +68,7 @@ public class PartitionsTable
     private final TypeManager typeManager;
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
-    private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
+    private final Map<Integer, Type> idToTypeMapping;
     private final List<NestedField> nonPartitionPrimitiveColumns;
     private final Optional<IcebergPartitionColumn> partitionColumnType;
     private final List<PartitionField> partitionFields;
@@ -310,7 +310,7 @@ public class PartitionsTable
     {
         ImmutableList.Builder<Type> partitionTypeBuilder = ImmutableList.builder();
         for (PartitionField partitionField : partitionFields) {
-            Type.PrimitiveType sourceType = idToTypeMapping.get(partitionField.sourceId());
+            Type sourceType = idToTypeMapping.get(partitionField.sourceId());
             Type type = partitionField.transform().getResultType(sourceType);
             partitionTypeBuilder.add(type);
         }
