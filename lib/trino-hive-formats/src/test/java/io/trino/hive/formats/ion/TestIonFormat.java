@@ -49,9 +49,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.IntStream;
 
 import static io.trino.hive.formats.FormatTestUtils.assertColumnValuesEquals;
 import static io.trino.hive.formats.FormatTestUtils.readTrinoValues;
@@ -602,12 +603,14 @@ public class TestIonFormat
     public void testEncode()
             throws IOException
     {
+        Map<String, Integer> map = new HashMap<>();
+        map.put("a", 2);
+        map.put("b", 5);
+        map.put("c", null);
         List<Object> row1 = List.of(17, "something", true, new SqlVarbinary(new byte[] {(byte) 0xff}), List.of(1, 2,
-                3), List.of(51, "baz"), ImmutableMap.builder()
-                .put("a", 2)
-                .put("b", 5)
-                .buildOrThrow(), 5e0, new SqlDecimal(BigInteger.valueOf(123400), 10, 2), (byte) -1, (short) 32767,
+                3), List.of(51, "baz"), map, 5e0, new SqlDecimal(BigInteger.valueOf(123400), 10, 2), (byte) -1, (short) 32767,
                 15L, 12.0f, new SqlDate(toIntExact(LocalDate.of(2025, 1, 1).toEpochDay())));
+
         List<Object> row2 = List.of(31, "somebody", false, new SqlVarbinary(new byte[] {(byte) 0x01, (byte) 0xaa}),
                 List.of(7, 8, 9), List.of(67, "qux"), ImmutableMap.builder()
                         .put("foo", 12)
@@ -615,7 +618,7 @@ public class TestIonFormat
                         .buildOrThrow(), 5e0, new SqlDecimal(BigInteger.valueOf(123400), 10, 2), (byte) 0, (short) -1
                 , 0L, 0.0f, new SqlDate(toIntExact(LocalDate.of(2025, 1, 1).toEpochDay())));
         String ionText = """
-                { magic_num:17, some_text:"something", is_summer:true, byte_clob:{{/w==}}, sequencer:[1,2,3], struction:{ foo:51, bar:"baz"}, map: {a: 2, b: 5}, double_value: 5e0, decimal_value: 1234.00, tiny_int: -1, small_int: 32767, big_int: 15, real_num: 12e0, date: 2025-01-01T00:00:00.000Z }
+                { magic_num:17, some_text:"something", is_summer:true, byte_clob:{{/w==}}, sequencer:[1,2,3], struction:{ foo:51, bar:"baz"}, map: {a: 2, b: 5, c: null}, double_value: 5e0, decimal_value: 1234.00, tiny_int: -1, small_int: 32767, big_int: 15, real_num: 12e0, date: 2025-01-01T00:00:00.000Z }
                 { magic_num:31, some_text:"somebody", is_summer:false, byte_clob:{{Aao=}}, sequencer:[7,8,9], struction:{ foo:67, bar:"qux"}, map: {foo: 12, bar: 50}, double_value: 5e0, decimal_value: 1234.00, tiny_int: 0, small_int: -1, big_int: 0, real_num: 0e0, date: 2025-01-01T00:00:00.000Z }
                 """;
 
@@ -692,22 +695,18 @@ public class TestIonFormat
     private void assertValues(RowType rowType, IonDecoderConfig config, String ionText, List<Object>... expected)
             throws IOException
     {
-        List<RowType.Field> fields = rowType.getFields();
-        List<Column> columns = IntStream.range(0, fields.size())
-                .boxed()
-                .map(i -> {
-                    final RowType.Field field = fields.get(i);
-                    return new Column(field.getName().get(), field.getType(), i);
-                })
-                .toList();
-        PageBuilder pageBuilder = new PageBuilder(expected.length, rowType.getFields().stream().map(RowType.Field::getType).toList());
-        IonDecoder decoder = IonDecoderFactory.buildDecoder(columns, config, pageBuilder);
+        List<Column> columns = new LinkedList<>();
+        for (RowType.Field field : rowType.getFields()) {
+            columns.add(new Column(field.getName().get(), field.getType(), columns.size()));
+        }
+
+        PageBuilder pageBuilder = new PageBuilder(expected.length, rowType.getTypeParameters());
+        IonDecoder decoder = new IonDecoder(columns, config);
 
         try (IonReader ionReader = IonReaderBuilder.standard().build(ionText)) {
             for (int i = 0; i < expected.length; i++) {
                 assertThat(ionReader.next()).isNotNull();
-                pageBuilder.declarePosition();
-                decoder.decode(ionReader);
+                decoder.decode(ionReader, pageBuilder);
             }
             assertThat(ionReader.next()).isNull();
         }
@@ -732,7 +731,7 @@ public class TestIonFormat
     {
         IonSystem system = IonSystemBuilder.standard().build();
         IonDatagram datagram = system.newDatagram();
-        IonEncoder encoder = IonEncoderFactory.buildEncoder(columns);
+        IonEncoder encoder = new IonEncoder(columns);
         IonWriter ionWriter = system.newWriter(datagram);
         encoder.encode(ionWriter, page);
         ionWriter.close();

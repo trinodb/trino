@@ -171,7 +171,7 @@ public class IonPageSourceSmokeTest
     public void testProjectedColumn()
             throws IOException
     {
-        final RowType spamType = RowType.rowType(field("nested_to_prune", INTEGER), field("eggs", INTEGER));
+        RowType spamType = RowType.rowType(field("nested_to_prune", INTEGER), field("eggs", INTEGER));
         List<HiveColumnHandle> tableColumns = List.of(
                 toHiveBaseColumnHandle("spam", spamType, 0),
                 toHiveBaseColumnHandle("ham", BOOLEAN, 1));
@@ -258,6 +258,23 @@ public class IonPageSourceSmokeTest
 
         fixture.writeIonTextFile("{ }");
         Assertions.assertThrows(TrinoException.class, fixture::getOptionalPageSource);
+    }
+
+    @Test
+    void testExceptionMessageForUnsupportedProperties()
+    {
+        TestFixture fixture = new TestFixture(FOO_BAR_COLUMNS)
+                .withSerdeProperty(IGNORE_MALFORMED, "true")
+                .withSerdeProperty("ion.foo.fail_on_overflow", "false");
+
+        try {
+            fixture.getOptionalFileWriter();
+            Assertions.fail("Expected exception to be thrown");
+        }
+        catch (TrinoException e) {
+            Assertions.assertTrue(e.getMessage().contains("ion.foo.fail_on_overflow = false"));
+            Assertions.assertTrue(e.getMessage().contains("ion.ignore_malformed = true"));
+        }
     }
 
     @ParameterizedTest
@@ -488,7 +505,7 @@ public class IonPageSourceSmokeTest
             writeIonTextFile(ionText);
 
             try (ConnectorPageSource pageSource = getPageSource()) {
-                final MaterializedResult result = MaterializedResult.materializeSourceDataStream(
+                MaterializedResult result = MaterializedResult.materializeSourceDataStream(
                         getSession(),
                         pageSource,
                         projections.stream().map(HiveColumnHandle::getType).toList());

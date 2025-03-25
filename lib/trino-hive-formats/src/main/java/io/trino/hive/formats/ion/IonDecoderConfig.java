@@ -26,7 +26,7 @@ import java.util.Map;
  *        a trino column will be correctly typed or coerced for that column.
  * @param caseSensitive whether field name matching should be case-sensitive or not.
  */
-public record IonDecoderConfig(Map<String, String> pathExtractors, Boolean strictTyping, Boolean caseSensitive)
+public record IonDecoderConfig(Map<String, String> pathExtractors, boolean strictTyping, boolean caseSensitive)
 {
     static IonDecoderConfig defaultConfig()
     {

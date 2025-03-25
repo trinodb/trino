@@ -25,14 +25,12 @@ import io.trino.hive.formats.compression.Codec;
 import io.trino.hive.formats.compression.CompressionKind;
 import io.trino.hive.formats.ion.IonDecoder;
 import io.trino.hive.formats.ion.IonDecoderConfig;
-import io.trino.hive.formats.ion.IonDecoderFactory;
 import io.trino.hive.formats.line.Column;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.Schema;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -48,9 +46,9 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.hive.formats.HiveClassNames.ION_SERDE_CLASS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectColumnDereferences;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
+import static java.util.Objects.requireNonNull;
 
 public class IonPageSourceFactory
         implements HivePageSourceFactory
@@ -60,7 +58,7 @@ public class IonPageSourceFactory
     @Inject
     public IonPageSourceFactory(TrinoFileSystemFactory trinoFileSystemFactory)
     {
-        this.trinoFileSystemFactory = trinoFileSystemFactory;
+        this.trinoFileSystemFactory = requireNonNull(trinoFileSystemFactory);
     }
 
     @Override
@@ -82,11 +80,7 @@ public class IonPageSourceFactory
         if (!ION_SERDE_CLASS.equals(schema.serializationLibraryName())) {
             return Optional.empty();
         }
-
-        if (IonSerDeProperties.hasUnsupportedProperty(schema.serdeProperties())) {
-            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Error creating Ion Input, Table contains unsupported SerDe properties for native Ion");
-        }
-
+        IonSerDeProperties.validatePropertySupport(schema.serdeProperties());
         checkArgument(acidInfo.isEmpty(), "Acid is not supported for Ion files");
 
         // Skip empty inputs
@@ -118,16 +112,13 @@ public class IonPageSourceFactory
             IonDecoderConfig decoderConfig = IonSerDeProperties.decoderConfigFor(schema.serdeProperties());
 
             return Optional.of(projectColumnDereferences(columns, baseColumns -> {
-                PageBuilder pageBuilder = new PageBuilder(baseColumns.stream()
-                        .map(HiveColumnHandle::getType)
-                        .toList());
                 List<Column> decoderColumns = baseColumns.stream()
                         .map(hc -> new Column(hc.getName(), hc.getType(), hc.getBaseHiveColumnIndex()))
                         .toList();
 
-                IonDecoder decoder = IonDecoderFactory.buildDecoder(decoderColumns, decoderConfig, pageBuilder);
+                IonDecoder decoder = new IonDecoder(decoderColumns, decoderConfig);
                 IonReader ionReader = IonReaderBuilder.standard().build(inputStream);
-                return new IonPageSource(ionReader, countingInputStream::getCount, decoder, pageBuilder);
+                return new IonPageSource(ionReader, countingInputStream::getCount, decoder);
             }));
         }
         catch (IOException e) {

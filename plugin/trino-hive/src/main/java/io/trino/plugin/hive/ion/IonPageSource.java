@@ -20,12 +20,14 @@ import io.trino.hive.formats.ion.IonDecoder;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
 
 import java.io.IOException;
 import java.util.OptionalLong;
 import java.util.function.LongSupplier;
 
 import static io.airlift.slice.SizeOf.instanceSize;
+import static java.util.Objects.requireNonNull;
 
 public class IonPageSource
         implements ConnectorPageSource
@@ -33,27 +35,25 @@ public class IonPageSource
     private static final int INSTANCE_SIZE = instanceSize(IonPageSource.class);
 
     private final IonReader ionReader;
-    private final LongSupplier counter;
+    private final LongSupplier completedBytes;
     private final PageBuilder pageBuilder;
     private final IonDecoder decoder;
     private long readTimeNanos;
     private int completedPositions;
     private boolean finished;
 
-    public IonPageSource(IonReader ionReader, LongSupplier counter, IonDecoder decoder, PageBuilder pageBuilder)
+    public IonPageSource(IonReader ionReader, LongSupplier completedBytes, IonDecoder decoder)
     {
-        this.ionReader = ionReader;
-        this.counter = counter;
-        this.decoder = decoder;
-        this.pageBuilder = pageBuilder;
-        this.completedPositions = 0;
-        this.readTimeNanos = 0;
+        this.ionReader = requireNonNull(ionReader);
+        this.completedBytes = requireNonNull(completedBytes);
+        this.decoder = requireNonNull(decoder);
+        this.pageBuilder = new PageBuilder(decoder.getColumnTypes());
     }
 
     @Override
     public long getCompletedBytes()
     {
-        return counter.getAsLong();
+        return completedBytes.getAsLong();
     }
 
     @Override
@@ -75,7 +75,7 @@ public class IonPageSource
     }
 
     @Override
-    public Page getNextPage()
+    public SourcePage getNextSourcePage()
     {
         while (!pageBuilder.isFull()) {
             if (!readNextValue()) {
@@ -87,7 +87,7 @@ public class IonPageSource
         Page page = pageBuilder.build();
         completedPositions += page.getPositionCount();
         pageBuilder.reset();
-        return page;
+        return SourcePage.create(page);
     }
 
     @Override
@@ -109,15 +109,13 @@ public class IonPageSource
     private boolean readNextValue()
     {
         long start = System.nanoTime();
-        final IonType type = ionReader.next();
+        IonType type = ionReader.next();
 
         if (type == null) {
             readTimeNanos += System.nanoTime() - start;
             return false;
         }
-
-        pageBuilder.declarePosition();
-        decoder.decode(ionReader);
+        decoder.decode(ionReader, pageBuilder);
 
         readTimeNanos += System.nanoTime() - start;
         return true;
