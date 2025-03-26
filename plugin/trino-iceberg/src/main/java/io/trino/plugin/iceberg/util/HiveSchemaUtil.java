@@ -50,6 +50,8 @@ public final class HiveSchemaUtil
             case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: UNKNOWN");
             // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
             case VARIANT -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: VARIANT");
+            case GEOMETRY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOMETRY");
+            case GEOGRAPHY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOGRAPHY");
             case LIST -> "array<%s>".formatted(convert(type.asListType().elementType()));
             case MAP -> "map<%s,%s>".formatted(convert(type.asMapType().keyType()), convert(type.asMapType().valueType()));
             case STRUCT -> "struct<%s>".formatted(type.asStructType().fields().stream()

@@ -174,6 +174,8 @@ public class PartitionData
             case LIST:
             case MAP:
             case STRUCT:
+            case GEOGRAPHY:
+            case GEOMETRY:
                 // unsupported
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type);

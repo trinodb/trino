@@ -109,6 +109,8 @@ public final class TypeConverter
                 // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
                 break;
             case UNKNOWN:
+            case GEOGRAPHY:
+            case GEOMETRY:
                 break;
         }
         throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
