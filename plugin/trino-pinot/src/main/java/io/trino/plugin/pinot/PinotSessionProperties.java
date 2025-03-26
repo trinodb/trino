@@ -44,54 +44,53 @@ public class PinotSessionProperties
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
-        sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(booleanProperty(
+        sessionProperties = ImmutableList.of(
+                booleanProperty(
                         GRPC_QUERY_ENFORCE_METADATA_EXCEPTION,
                         "When true, enforce metadata exception in gRPC query even when response type is metadata",
                         pinotConfig.isGrpcQueryEnforceMetadataException(),
-                        false))
-                .add(booleanProperty(
+                        false),
+                booleanProperty(
                         PREFER_BROKER_QUERIES,
                         "Prefer queries to broker even when parallel scan is enabled for aggregation queries",
                         pinotConfig.isPreferBrokerQueries(),
-                        false))
-                .add(booleanProperty(
+                        false),
+                booleanProperty(
                         FORBID_SEGMENT_QUERIES,
                         "Forbid segment queries",
                         pinotConfig.isForbidSegmentQueries(),
-                        false))
-                .add(integerProperty(
+                        false),
+                integerProperty(
                         RETRY_COUNT,
                         "Retry count for retriable pinot data fetch calls",
                         pinotConfig.getFetchRetryCount(),
-                        false))
-                .add(integerProperty(
+                        false),
+                integerProperty(
                         NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES,
                         "Max limit for non aggregate queries to the pinot broker",
                         pinotConfig.getNonAggregateLimitForBrokerQueries(),
-                        false))
-                .add(durationProperty(
+                        false),
+                durationProperty(
                         CONNECTION_TIMEOUT,
                         "Connection Timeout to talk to Pinot servers",
                         pinotConfig.getConnectionTimeout(),
-                        false))
-                .add(integerProperty(
+                        false),
+                integerProperty(
                         SEGMENTS_PER_SPLIT,
                         "Number of segments of the same host per split",
                         pinotConfig.getSegmentsPerSplit(),
                         value -> checkArgument(value > 0, "Number of segments per split must be more than zero"),
-                        false))
-                .add(booleanProperty(
+                        false),
+                booleanProperty(
                         AGGREGATION_PUSHDOWN_ENABLED,
                         "Enable aggregation pushdown",
                         pinotConfig.isAggregationPushdownEnabled(),
-                        false))
-                .add(booleanProperty(
+                        false),
+                booleanProperty(
                         COUNT_DISTINCT_PUSHDOWN_ENABLED,
                         "Enable count distinct pushdown",
                         pinotConfig.isCountDistinctPushdownEnabled(),
-                        false))
-                .build();
+                        false));
     }
 
     public static boolean isPreferBrokerQueries(ConnectorSession session)
