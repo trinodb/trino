@@ -392,7 +392,7 @@ public class BigQueryConfig
     }
 
     @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.skip-view-materialization is enabled")
-    public boolean isValidViewsWehnEnabledSkipViewMaterialization()
+    public boolean isValidViewsWhenEnabledSkipViewMaterialization()
     {
         return !skipViewMaterialization || viewsEnabled;
     }
