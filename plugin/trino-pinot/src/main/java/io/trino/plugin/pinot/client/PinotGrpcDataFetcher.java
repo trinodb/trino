@@ -291,10 +291,9 @@ public class PinotGrpcDataFetcher
                 }
                 Server.ServerResponse response = responseIterator.next();
                 String responseType = response.getMetadataMap().get(MetadataKeys.RESPONSE_TYPE);
-                if (responseType.equals(ResponseType.METADATA)) {
-                    if (!PinotSessionProperties.isGrpcQueryEnforceMetadataException(session)) {
-                        return endOfData();
-                    }
+                if (responseType.equals(ResponseType.METADATA)
+                        && !PinotSessionProperties.isGrpcQueryEnforceMetadataException(session)) {
+                    return endOfData();
                 }
                 ByteBuffer buffer = response.getPayload().asReadOnlyByteBuffer();
                 DataTable dataTable;
