@@ -20,8 +20,10 @@ import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import io.trino.plugin.pinot.PinotErrorCode;
 import io.trino.plugin.pinot.PinotException;
+import io.trino.plugin.pinot.PinotSessionProperties;
 import io.trino.plugin.pinot.PinotSplit;
 import io.trino.plugin.pinot.query.PinotProxyGrpcRequestBuilder;
+import io.trino.spi.connector.ConnectorSession;
 import jakarta.annotation.PreDestroy;
 import org.apache.pinot.common.config.GrpcConfig;
 import org.apache.pinot.common.datatable.DataTable;
@@ -60,9 +62,16 @@ public class PinotGrpcDataFetcher
     private boolean isPinotDataFetched;
     private final RowCountChecker rowCountChecker;
     private long estimatedMemoryUsageInBytes;
+    private final ConnectorSession session;
 
-    public PinotGrpcDataFetcher(PinotGrpcServerQueryClient pinotGrpcClient, PinotSplit split, String query, RowCountChecker rowCountChecker)
+    public PinotGrpcDataFetcher(
+            ConnectorSession session,
+            PinotGrpcServerQueryClient pinotGrpcClient,
+            PinotSplit split,
+            String query,
+            RowCountChecker rowCountChecker)
     {
+        this.session = requireNonNull(session, "session is null");
         this.pinotGrpcClient = requireNonNull(pinotGrpcClient, "pinotGrpcClient is null");
         this.split = requireNonNull(split, "split is null");
         this.query = requireNonNull(query, "query is null");
@@ -98,7 +107,7 @@ public class PinotGrpcDataFetcher
     {
         long startTimeNanos = System.nanoTime();
         String serverHost = split.getSegmentHost().orElseThrow(() -> new PinotException(PinotErrorCode.PINOT_INVALID_PQL_GENERATED, Optional.empty(), "Expected the segment split to contain the host"));
-        this.responseIterator = pinotGrpcClient.queryPinot(query, serverHost, split.getSegments());
+        this.responseIterator = pinotGrpcClient.queryPinot(query, serverHost, split.getSegments(), session);
         readTimeNanos += System.nanoTime() - startTimeNanos;
         isPinotDataFetched = true;
     }
@@ -136,9 +145,9 @@ public class PinotGrpcDataFetcher
         }
 
         @Override
-        public PinotDataFetcher create(String query, PinotSplit split)
+        public PinotDataFetcher create(ConnectorSession session, String query, PinotSplit split)
         {
-            return new PinotGrpcDataFetcher(queryClient, split, query, new RowCountChecker(limitForSegmentQueries, query));
+            return new PinotGrpcDataFetcher(session, queryClient, split, query, new RowCountChecker(limitForSegmentQueries, query));
         }
 
         @Override
@@ -239,7 +248,7 @@ public class PinotGrpcDataFetcher
             this.proxyUri = pinotGrpcServerQueryClientConfig.getProxyUri();
         }
 
-        public Iterator<PinotDataTableWithSize> queryPinot(String query, String serverHost, List<String> segments)
+        public Iterator<PinotDataTableWithSize> queryPinot(String query, String serverHost, List<String> segments, ConnectorSession session)
         {
             HostAndPort mappedHostAndPort = pinotHostMapper.getServerGrpcHostAndPort(serverHost, grpcPort);
             // GrpcQueryClient does not implement Closeable. The idle timeout is 30 minutes (grpc default).
@@ -257,19 +266,21 @@ public class PinotGrpcDataFetcher
                 grpcRequestBuilder.setHostName(mappedHostAndPort.getHost()).setPort(grpcPort);
             }
             Server.ServerRequest serverRequest = grpcRequestBuilder.build();
-            return new ResponseIterator(client.submit(serverRequest), query);
+            return new ResponseIterator(client.submit(serverRequest), query, session);
         }
 
-        public static class ResponseIterator
+        public class ResponseIterator
                 extends AbstractIterator<PinotDataTableWithSize>
         {
             private final Iterator<Server.ServerResponse> responseIterator;
             private final String query;
+            private final ConnectorSession session;
 
-            public ResponseIterator(Iterator<Server.ServerResponse> responseIterator, String query)
+            public ResponseIterator(Iterator<Server.ServerResponse> responseIterator, String query, ConnectorSession session)
             {
                 this.responseIterator = requireNonNull(responseIterator, "responseIterator is null");
                 this.query = requireNonNull(query, "query is null");
+                this.session = requireNonNull(session, "session is null");
             }
 
             @Override
@@ -281,7 +292,9 @@ public class PinotGrpcDataFetcher
                 Server.ServerResponse response = responseIterator.next();
                 String responseType = response.getMetadataMap().get(MetadataKeys.RESPONSE_TYPE);
                 if (responseType.equals(ResponseType.METADATA)) {
-                    return endOfData();
+                    if (!PinotSessionProperties.isGrpcQueryEnforceMetadataException(session)) {
+                        return endOfData();
+                    }
                 }
                 ByteBuffer buffer = response.getPayload().asReadOnlyByteBuffer();
                 DataTable dataTable;

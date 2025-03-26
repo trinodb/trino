@@ -37,54 +37,61 @@ public class PinotSessionProperties
     private static final String SEGMENTS_PER_SPLIT = "segments_per_split";
     private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     private static final String COUNT_DISTINCT_PUSHDOWN_ENABLED = "count_distinct_pushdown_enabled";
+    public static final String GRPC_QUERY_ENFORCE_METADATA_EXCEPTION = "grpc_query_enforce_metadata_exception";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
-        sessionProperties = ImmutableList.of(
-                booleanProperty(
+        sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(booleanProperty(
+                        GRPC_QUERY_ENFORCE_METADATA_EXCEPTION,
+                        "When true, enforce metadata exception in gRPC query even when response type is metadata",
+                        pinotConfig.isGrpcQueryEnforceMetadataException(),
+                        false))
+                .add(booleanProperty(
                         PREFER_BROKER_QUERIES,
                         "Prefer queries to broker even when parallel scan is enabled for aggregation queries",
                         pinotConfig.isPreferBrokerQueries(),
-                        false),
-                booleanProperty(
+                        false))
+                .add(booleanProperty(
                         FORBID_SEGMENT_QUERIES,
                         "Forbid segment queries",
                         pinotConfig.isForbidSegmentQueries(),
-                        false),
-                integerProperty(
+                        false))
+                .add(integerProperty(
                         RETRY_COUNT,
                         "Retry count for retriable pinot data fetch calls",
                         pinotConfig.getFetchRetryCount(),
-                        false),
-                integerProperty(
+                        false))
+                .add(integerProperty(
                         NON_AGGREGATE_LIMIT_FOR_BROKER_QUERIES,
                         "Max limit for non aggregate queries to the pinot broker",
                         pinotConfig.getNonAggregateLimitForBrokerQueries(),
-                        false),
-                durationProperty(
+                        false))
+                .add(durationProperty(
                         CONNECTION_TIMEOUT,
                         "Connection Timeout to talk to Pinot servers",
                         pinotConfig.getConnectionTimeout(),
-                        false),
-                integerProperty(
+                        false))
+                .add(integerProperty(
                         SEGMENTS_PER_SPLIT,
                         "Number of segments of the same host per split",
                         pinotConfig.getSegmentsPerSplit(),
                         value -> checkArgument(value > 0, "Number of segments per split must be more than zero"),
-                        false),
-                booleanProperty(
+                        false))
+                .add(booleanProperty(
                         AGGREGATION_PUSHDOWN_ENABLED,
                         "Enable aggregation pushdown",
                         pinotConfig.isAggregationPushdownEnabled(),
-                        false),
-                booleanProperty(
+                        false))
+                .add(booleanProperty(
                         COUNT_DISTINCT_PUSHDOWN_ENABLED,
                         "Enable count distinct pushdown",
                         pinotConfig.isCountDistinctPushdownEnabled(),
-                        false));
+                        false))
+                .build();
     }
 
     public static boolean isPreferBrokerQueries(ConnectorSession session)
@@ -128,6 +135,11 @@ public class PinotSessionProperties
         // This should never fail as this method would never be called unless aggregation pushdown is enabled
         verify(isAggregationPushdownEnabled(session), "%s must be enabled when %s is enabled", AGGREGATION_PUSHDOWN_ENABLED, COUNT_DISTINCT_PUSHDOWN_ENABLED);
         return session.getProperty(COUNT_DISTINCT_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isGrpcQueryEnforceMetadataException(ConnectorSession session)
+    {
+        return session.getProperty(GRPC_QUERY_ENFORCE_METADATA_EXCEPTION, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
