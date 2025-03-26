@@ -57,7 +57,8 @@ public class TestBigQueryConfig
                 .setQueryLabelFormat(null)
                 .setProxyEnabled(false)
                 .setProjectionPushdownEnabled(true)
-                .setMetadataParallelism(Runtime.getRuntime().availableProcessors()));
+                .setMetadataParallelism(Runtime.getRuntime().availableProcessors())
+                .setMaxParallelism(null));
     }
 
     @Test
@@ -86,6 +87,7 @@ public class TestBigQueryConfig
                 .put("bigquery.job.label-format", "$TRACE_TOKEN")
                 .put("bigquery.rpc-proxy.enabled", "true")
                 .put("bigquery.metadata.parallelism", "31")
+                .put("bigquery.max-parallelism", "100")
                 .put("bigquery.projection-pushdown-enabled", "false")
                 .buildOrThrow();
 
@@ -112,7 +114,8 @@ public class TestBigQueryConfig
                 .setQueryLabelFormat("$TRACE_TOKEN")
                 .setProxyEnabled(true)
                 .setProjectionPushdownEnabled(false)
-                .setMetadataParallelism(31);
+                .setMetadataParallelism(31)
+                .setMaxParallelism(100);
 
         assertFullMapping(properties, expected);
     }

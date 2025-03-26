@@ -65,6 +65,7 @@ public class BigQueryConfig
     private boolean proxyEnabled;
     private boolean projectionPushDownEnabled = true;
     private int metadataParallelism = Math.min(Runtime.getRuntime().availableProcessors(), MAX_METADATA_PARALLELISM);
+    private Optional<Integer> maxParallelism = Optional.empty();
 
     public Optional<String> getProjectId()
     {
@@ -382,6 +383,20 @@ public class BigQueryConfig
     public BigQueryConfig setMetadataParallelism(int metadataParallelism)
     {
         this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    @NotNull
+    public Optional<@Min(1) Integer> getMaxParallelism()
+    {
+        return maxParallelism;
+    }
+
+    @Config("bigquery.max-parallelism")
+    @ConfigDescription("The max number of partitions to split the data into")
+    public BigQueryConfig setMaxParallelism(Integer maxParallelism)
+    {
+        this.maxParallelism = Optional.ofNullable(maxParallelism);
         return this;
     }
 

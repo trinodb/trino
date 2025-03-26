@@ -211,6 +211,10 @@ a few caveats:
   - Enable using Apache Arrow serialization when reading data from BigQuery.
     Read this [section](bigquery-arrow-serialization-support) before using this feature.
   - `true`
+* - `bigquery.max-parallelism`
+  - The max number of partitions to split the data into. Reduce this number if
+    the default parallelism (number of workers x 3) is too high.
+  -
 * - `bigquery.channel-pool.initial-size`
   - The initial size of the connection pool, also known as a channel pool,
     used for gRPC communication.
