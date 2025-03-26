@@ -132,7 +132,7 @@ public class TestBigQueryConfig
                 new BigQueryConfig()
                         .setSkipViewMaterialization(true)
                         .setViewsEnabled(false),
-                "validViewsWehnEnabledSkipViewMaterialization",
+                "validViewsWhenEnabledSkipViewMaterialization",
                 "bigquery.views-enabled config property must be enabled when bigquery.skip-view-materialization is enabled",
                 AssertTrue.class);
 
