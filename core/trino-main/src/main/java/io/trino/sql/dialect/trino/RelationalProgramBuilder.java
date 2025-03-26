@@ -78,7 +78,9 @@ import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
@@ -635,11 +637,23 @@ public class RelationalProgramBuilder
         OperationAndMapping input = node.getSource().accept(this, context);
         String resultName = nameAllocator.newName();
 
-        // model output fields selection as a lambda (Block)
+        // the Output operation selects fields from the input, and optionally adds a spooling metadata symbol
+        checkState(node.getOutputSymbols().stream()
+                .allMatch(input.mapping()::containsKey) ||
+                (node.getOutputSymbols().subList(0, node.getOutputSymbols().size() - 1).stream()
+                        .allMatch(input.mapping()::containsKey) &&
+                        node.getColumnNames().getLast().equals(SPOOLING_METADATA_SYMBOL.name())));
+
         Block.Parameter fieldSelectorParameter = new Block.Parameter(
                 nameAllocator.newName(),
                 irType(relationRowType(trinoType(input.operation().result().type()))));
-        Block fieldSelectorBlock = fieldSelectorBlock("^outputFieldSelector", fieldSelectorParameter, input.mapping(), node.getOutputSymbols());
+        Block fieldSelectorBlock = fieldSelectorBlock(
+                "^outputFieldSelector",
+                fieldSelectorParameter,
+                input.mapping(),
+                node.getOutputSymbols().stream()
+                        .filter(input.mapping()::containsKey)
+                        .collect(toImmutableList()));
         valueMap.put(fieldSelectorParameter, fieldSelectorBlock);
 
         Output output = new Output(resultName, input.operation().result(), fieldSelectorBlock, node.getColumnNames());

@@ -89,6 +89,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
@@ -1130,6 +1131,50 @@ final class TestRelationalProgramBuilder
                                 rowOperation,
                                 returnOperation)),
                 ImmutableList.of("col_b", "col_a"));
+
+        RelationalProgramBuilder relationalProgramBuilder = new RelationalProgramBuilder(new ValueNameAllocator(), ImmutableMap.builder());
+        Block.Builder blockBuilder = new Block.Builder(Optional.empty(), ImmutableList.of());
+
+        outputNode.accept(relationalProgramBuilder, new Context(blockBuilder));
+        Block block = blockBuilder.build();
+
+        assertThat(block.operations()).isEqualTo(ImmutableList.of(VALUES_OPERATION, outputOperation));
+
+        assertThat(trinoType(block.getReturnedType())).isEqualTo(BOOLEAN);
+    }
+
+    @Test
+    public void testOutputWithSpoolingMetadata()
+    {
+        OutputNode outputNode = new OutputNode(
+                new PlanNodeId("output"),
+                VALUES_NODE,
+                ImmutableList.of("col_b", "col_a", SPOOLING_METADATA_SYMBOL.name()),
+                ImmutableList.of(new Symbol(BOOLEAN, "b"), new Symbol(BIGINT, "a"), SPOOLING_METADATA_SYMBOL));
+
+        Block.Parameter fieldReferenceParameter = new Block.Parameter(
+                "%10",
+                VALUES_OPERATION_ROW_TYPE);
+        FieldReference fieldReferenceOperationB = new FieldReference("%11", fieldReferenceParameter, 1, ImmutableMap.of());
+        FieldReference fieldReferenceOperationA = new FieldReference("%12", fieldReferenceParameter, 0, ImmutableMap.of());
+        Row rowOperation = new Row(
+                "%13",
+                ImmutableList.of(fieldReferenceOperationB.result(), fieldReferenceOperationA.result()),
+                ImmutableList.of(fieldReferenceOperationB.attributes(), fieldReferenceOperationA.attributes()));
+        Return returnOperation = new Return("%14", rowOperation.result(), rowOperation.attributes());
+
+        Output outputOperation = new Output(
+                "%9",
+                VALUES_OPERATION.result(),
+                new Block(
+                        Optional.of("^outputFieldSelector"),
+                        ImmutableList.of(fieldReferenceParameter),
+                        ImmutableList.of(
+                                fieldReferenceOperationB,
+                                fieldReferenceOperationA,
+                                rowOperation,
+                                returnOperation)),
+                ImmutableList.of("col_b", "col_a", SPOOLING_METADATA_SYMBOL.name()));
 
         RelationalProgramBuilder relationalProgramBuilder = new RelationalProgramBuilder(new ValueNameAllocator(), ImmutableMap.builder());
         Block.Builder blockBuilder = new Block.Builder(Optional.empty(), ImmutableList.of());

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.spi.StandardErrorCode.IR_ERROR;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.EmptyRowType.EMPTY_ROW;
@@ -69,8 +70,19 @@ public final class Output
         if (fieldSelector.parameters().size() != 1 ||
                 !trinoType(fieldSelector.parameters().getFirst().type()).equals(relationRowType(trinoType(input.type()))) ||
                 trinoType(fieldSelector.parameters().getFirst().type()).equals(EMPTY_ROW) ||
-                !(trinoType(fieldSelector.getReturnedType()) instanceof RowType) ||
-                ((RowType) trinoType(fieldSelector.getReturnedType())).getTypeParameters().size() != outputNames.size()) {
+                !(trinoType(fieldSelector.getReturnedType()) instanceof RowType rowType)) {
+            throw new TrinoException(IR_ERROR, "invalid field selection for Output operation");
+        }
+
+        // the Output operation selects fields from the input through the fieldSelector block,
+        // and optionally adds a spooling metadata symbol indicated by an additional name in the outputNames list
+        int selectedFieldsSize = rowType.getTypeParameters().size();
+        if (selectedFieldsSize == outputNames.size() - 1) {
+            if (!outputNames.getLast().equals(SPOOLING_METADATA_SYMBOL.name())) {
+                throw new TrinoException(IR_ERROR, "invalid spooling metadata field for Output operation");
+            }
+        }
+        else if (selectedFieldsSize != outputNames.size()) {
             throw new TrinoException(IR_ERROR, "invalid field selection for Output operation");
         }
 
