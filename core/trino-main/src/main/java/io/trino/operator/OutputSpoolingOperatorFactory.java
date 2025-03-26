@@ -20,7 +20,7 @@ import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperationTimer.OperationTiming;
-import io.trino.operator.OperatorSpoolingController.MetricSnapshot;
+import io.trino.operator.SpoolingController.MetricSnapshot;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
 import io.trino.server.protocol.spooling.SpooledBlock;
@@ -59,15 +59,13 @@ import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOper
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.HAS_LAST_OUTPUT;
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.HAS_OUTPUT;
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.NEEDS_INPUT;
+import static io.trino.operator.SpoolingController.Mode.INLINE;
 import static io.trino.operator.SpoolingController.Mode.SPOOL;
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.server.protocol.spooling.SpooledBlock.createNonSpooledPage;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInitialSegmentSize;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInliningMaxRows;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInliningMaxSize;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxSegmentSize;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.isInliningEnabled;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -182,7 +180,7 @@ public class OutputSpoolingOperatorFactory
     static class OutputSpoolingOperator
             implements Operator
     {
-        private final OperatorSpoolingController controller;
+        private final SpoolingController controller;
         private final ZoneId clientZoneId;
 
         enum State
@@ -210,12 +208,11 @@ public class OutputSpoolingOperatorFactory
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.clientZoneId = operatorContext.getSession().getTimeZoneKey().getZoneId();
-            this.controller = new OperatorSpoolingController(
-                    isInliningEnabled(operatorContext.getSession()),
-                    getInliningMaxRows(operatorContext.getSession()),
-                    getInliningMaxSize(operatorContext.getSession()).toBytes(),
-                    getInitialSegmentSize(operatorContext.getSession()).toBytes(),
-                    getMaxSegmentSize(operatorContext.getSession()).toBytes());
+            this.controller = new PipelineSpoolingController(
+                    operatorContext.getDriverContext().getPipelineContext(),
+                    new OperatorSpoolingController(
+                        getInitialSegmentSize(operatorContext.getSession()).toBytes(),
+                        getMaxSegmentSize(operatorContext.getSession()).toBytes()));
             this.userMemoryContext = operatorContext.newLocalUserMemoryContext(OutputSpoolingOperator.class.getSimpleName());
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
@@ -416,7 +413,7 @@ public class OutputSpoolingOperatorFactory
 
     private record OutputSpoolingInfoSupplier(
             OperationTiming spoolingTiming,
-            OperatorSpoolingController controller,
+            SpoolingController controller,
             AtomicLong encodedBytes)
             implements Supplier<OutputSpoolingInfo>
     {
@@ -430,8 +427,8 @@ public class OutputSpoolingOperatorFactory
         @Override
         public OutputSpoolingInfo get()
         {
-            MetricSnapshot inlined = controller.inlinedMetrics();
-            MetricSnapshot spooled = controller.spooledMetrics();
+            MetricSnapshot inlined = controller.getMetrics(INLINE);
+            MetricSnapshot spooled = controller.getMetrics(SPOOL);
 
             return new OutputSpoolingInfo(
                     succinctDuration(spoolingTiming.getWallNanos(), NANOSECONDS),
