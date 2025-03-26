@@ -269,7 +269,7 @@ public class PinotGrpcDataFetcher
             return new ResponseIterator(client.submit(serverRequest), query, session);
         }
 
-        public class ResponseIterator
+        public static class ResponseIterator
                 extends AbstractIterator<PinotDataTableWithSize>
         {
             private final Iterator<Server.ServerResponse> responseIterator;
