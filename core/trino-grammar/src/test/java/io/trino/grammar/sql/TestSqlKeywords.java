@@ -40,6 +40,7 @@ public class TestSqlKeywords
                         "ASC",
                         "AT",
                         "AUTHORIZATION",
+                        "AUTO",
                         "BEGIN",
                         "BERNOULLI",
                         "BETWEEN",

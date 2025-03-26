@@ -105,7 +105,7 @@ public class TestSqlParserErrorHandling
                 Arguments.of("SELECT a FROM a AS x TABLESAMPLE x ",
                         "line 1:34: mismatched input 'x'. Expecting: 'BERNOULLI', 'SYSTEM'"),
                 Arguments.of("SELECT a AS z FROM t GROUP BY CUBE (a), ",
-                        "line 1:41: mismatched input '<EOF>'. Expecting: '(', 'CUBE', 'GROUPING', 'ROLLUP', <expression>"),
+                        "line 1:41: mismatched input '<EOF>'. Expecting: '(', 'AUTO', 'CUBE', 'GROUPING', 'ROLLUP', <expression>"),
                 Arguments.of("SELECT a AS z FROM t WHERE x = 1 + ",
                         "line 1:36: mismatched input '<EOF>'. Expecting: <expression>"),
                 Arguments.of("SELECT a AS z FROM t WHERE a. ",
