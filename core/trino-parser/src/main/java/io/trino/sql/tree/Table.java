@@ -26,27 +26,34 @@ public class Table
 {
     private final QualifiedName name;
     private final Optional<QueryPeriod> queryPeriod;
+    private final Optional<String> branch;
 
     public Table(QualifiedName name)
     {
-        this(Optional.empty(), name, Optional.empty());
+        this(Optional.empty(), name, Optional.empty(), Optional.empty());
     }
 
     public Table(NodeLocation location, QualifiedName name)
     {
-        this(Optional.of(location), name, Optional.empty());
+        this(Optional.of(location), name, Optional.empty(), Optional.empty());
     }
 
-    public Table(NodeLocation location, QualifiedName name, QueryPeriod queryPeriod)
+    public Table(NodeLocation location, QualifiedName name, Optional<String> properties)
     {
-        this(Optional.of(location), name, Optional.of(queryPeriod));
+        this(Optional.of(location), name, Optional.empty(), properties);
     }
 
-    private Table(Optional<NodeLocation> location, QualifiedName name, Optional<QueryPeriod> queryPeriod)
+    public Table(NodeLocation location, QualifiedName name, QueryPeriod queryPeriod, Optional<String> branch)
+    {
+        this(Optional.of(location), name, Optional.of(queryPeriod), branch);
+    }
+
+    private Table(Optional<NodeLocation> location, QualifiedName name, Optional<QueryPeriod> queryPeriod, Optional<String> branch)
     {
         super(location);
         this.name = name;
         this.queryPeriod = queryPeriod;
+        this.branch = branch;
     }
 
     public QualifiedName getName()
@@ -75,6 +82,7 @@ public class Table
         return toStringHelper(this)
                 .addValue(name)
                 .addValue(queryPeriod)
+                .addValue(branch)
                 .toString();
     }
 
@@ -90,13 +98,14 @@ public class Table
 
         Table table = (Table) o;
         return Objects.equals(name, table.name) &&
-                Objects.equals(queryPeriod, table.getQueryPeriod());
+                Objects.equals(queryPeriod, table.getQueryPeriod()) &&
+                Objects.equals(branch, table.branch);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, queryPeriod);
+        return Objects.hash(name, queryPeriod, branch);
     }
 
     @Override
@@ -113,5 +122,10 @@ public class Table
     public Optional<QueryPeriod> getQueryPeriod()
     {
         return queryPeriod;
+    }
+
+    public Optional<String> getBranch()
+    {
+        return branch;
     }
 }
