@@ -897,6 +897,11 @@ public abstract class AstVisitor<R, C>
         return visitGroupingElement(node, context);
     }
 
+    protected R visitAutoGroupBy(AutoGroupBy node, C context)
+    {
+        return visitGroupingElement(node, context);
+    }
+
     protected R visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
     {
         return visitExpression(node, context);
