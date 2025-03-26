@@ -32,6 +32,7 @@ import io.trino.sql.tree.CommentCharacteristic;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
+import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -1034,6 +1035,7 @@ public final class SqlFormatter
                     if (!node.isDistinct()) {
                         builder.append("ALL ");
                     }
+                    appendCorresponding(node.getCorresponding());
                 }
             }
 
@@ -1049,6 +1051,7 @@ public final class SqlFormatter
             if (!node.isDistinct()) {
                 builder.append("ALL ");
             }
+            appendCorresponding(node.getCorresponding());
 
             processRelation(node.getRight(), indent);
 
@@ -1068,10 +1071,24 @@ public final class SqlFormatter
                     if (!node.isDistinct()) {
                         builder.append("ALL ");
                     }
+                    appendCorresponding(node.getCorresponding());
                 }
             }
 
             return null;
+        }
+
+        private void appendCorresponding(Optional<Corresponding> node)
+        {
+            node.ifPresent(corresponding -> {
+                builder.append("CORRESPONDING ");
+                if (!corresponding.getColumns().isEmpty()) {
+                    builder.append("BY ");
+                    builder.append(corresponding.getColumns().stream()
+                            .map(SqlFormatter::formatName)
+                            .collect(joining(", ", "(", ") ")));
+                }
+            });
         }
 
         @Override
