@@ -50,7 +50,6 @@ import java.util.function.ToLongFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.client.spooling.DataAttribute.EXPIRES_AT;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
@@ -61,7 +60,6 @@ import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOper
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.NEEDS_INPUT;
 import static io.trino.operator.SpoolingController.Mode.INLINE;
 import static io.trino.operator.SpoolingController.Mode.SPOOL;
-import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
 import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.server.protocol.spooling.SpooledBlock.createNonSpooledPage;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInitialSegmentSize;
@@ -100,26 +98,9 @@ public class OutputSpoolingOperatorFactory
 
         ImmutableList.Builder<OutputColumn> outputColumnBuilder = ImmutableList.builderWithExpectedSize(outputNode.getColumnNames().size());
         for (int i = 0; i < columnNames.size(); i++) {
-            if (outputSymbols.get(i).type().equals(SPOOLING_METADATA_TYPE)) {
-                continue;
-            }
             outputColumnBuilder.add(new OutputColumn(layout.get(outputSymbols.get(i)), columnNames.get(i), outputSymbols.get(i).type()));
         }
         return outputColumnBuilder.build();
-    }
-
-    public static Map<Symbol, Integer> layoutUnionWithSpooledMetadata(Map<Symbol, Integer> layout)
-    {
-        int maxChannelId = layout.values()
-                .stream()
-                .max(Integer::compareTo)
-                .orElseThrow();
-
-        verify(maxChannelId + 1 == layout.size(), "Max channel id %s is not equal to layout size: %s", maxChannelId, layout.size());
-        return ImmutableMap.<Symbol, Integer>builderWithExpectedSize(layout.size() + 1)
-                .putAll(layout)
-                .put(SPOOLING_METADATA_SYMBOL, maxChannelId + 1)
-                .buildOrThrow();
     }
 
     @Override
@@ -196,7 +177,6 @@ public class OutputSpoolingOperatorFactory
         private final LocalMemoryContext userMemoryContext;
         private final QueryDataEncoder queryDataEncoder;
         private final SpoolingManager spoolingManager;
-        private final Map<Symbol, Integer> layout;
         private final PageBuffer buffer;
         private final Block[] emptyBlocks;
         private final OperationTiming spoolingTiming = new OperationTiming();
@@ -216,7 +196,6 @@ public class OutputSpoolingOperatorFactory
             this.userMemoryContext = operatorContext.newLocalUserMemoryContext(OutputSpoolingOperator.class.getSimpleName());
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
-            this.layout = requireNonNull(layout, "layout is null");
             this.emptyBlocks = emptyBlocks(layout);
             this.buffer = PageBuffer.create(userMemoryContext);
 
@@ -341,7 +320,7 @@ public class OutputSpoolingOperatorFactory
         private Page emptySingleRowPage(Block block)
         {
             Block[] blocks = emptyBlocks;
-            blocks[layout.get(SPOOLING_METADATA_SYMBOL)] = block;
+            blocks[blocks.length - 1] = block;
             return new Page(blocks);
         }
 
@@ -354,13 +333,11 @@ public class OutputSpoolingOperatorFactory
 
         private static Block[] emptyBlocks(Map<Symbol, Integer> layout)
         {
-            Block[] blocks = new Block[layout.size()];
+            Block[] blocks = new Block[layout.size() + 1]; // last block contains spooled metadata
             for (Map.Entry<Symbol, Integer> entry : layout.entrySet()) {
-                if (!entry.getKey().type().equals(SPOOLING_METADATA_TYPE)) {
-                    blocks[entry.getValue()] = entry.getKey().type().createNullBlock();
-                }
+                blocks[entry.getValue()] = entry.getKey().type().createNullBlock();
             }
-
+            blocks[blocks.length - 1] = SPOOLING_METADATA_TYPE.createNullBlock();
             return blocks;
         }
 

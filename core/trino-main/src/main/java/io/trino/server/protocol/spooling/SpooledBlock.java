@@ -25,7 +25,6 @@ import io.trino.spi.spool.SpooledLocation;
 import io.trino.spi.spool.SpooledLocation.CoordinatorLocation;
 import io.trino.spi.spool.SpooledLocation.DirectLocation;
 import io.trino.spi.type.RowType;
-import io.trino.sql.planner.Symbol;
 
 import java.net.URI;
 import java.util.List;
@@ -48,9 +47,6 @@ public record SpooledBlock(Slice identifier, Optional<URI> directUri, Map<String
             new RowType.Field(Optional.of("directLocation"), VARCHAR),
             new RowType.Field(Optional.of("headers"), VARCHAR),
             new RowType.Field(Optional.of("metadata"), VARCHAR)));
-
-    public static final String SPOOLING_METADATA_COLUMN_NAME = "$spooling:metadata$";
-    public static final Symbol SPOOLING_METADATA_SYMBOL = new Symbol(SPOOLING_METADATA_TYPE, SPOOLING_METADATA_COLUMN_NAME);
 
     public static SpooledBlock deserialize(Page page)
     {
