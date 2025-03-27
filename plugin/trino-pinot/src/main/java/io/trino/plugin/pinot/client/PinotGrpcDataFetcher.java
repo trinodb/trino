@@ -20,7 +20,6 @@ import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import io.trino.plugin.pinot.PinotErrorCode;
 import io.trino.plugin.pinot.PinotException;
-import io.trino.plugin.pinot.PinotSessionProperties;
 import io.trino.plugin.pinot.PinotSplit;
 import io.trino.plugin.pinot.query.PinotProxyGrpcRequestBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -44,6 +43,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
+import static io.trino.plugin.pinot.PinotSessionProperties.isGrpcQueryEnforceMetadataException;
 import static java.lang.Boolean.FALSE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -266,7 +266,7 @@ public class PinotGrpcDataFetcher
                 grpcRequestBuilder.setHostName(mappedHostAndPort.getHost()).setPort(grpcPort);
             }
             Server.ServerRequest serverRequest = grpcRequestBuilder.build();
-            return new ResponseIterator(client.submit(serverRequest), query, session);
+            return new ResponseIterator(session, client.submit(serverRequest), query);
         }
 
         public static class ResponseIterator
@@ -276,7 +276,7 @@ public class PinotGrpcDataFetcher
             private final String query;
             private final ConnectorSession session;
 
-            public ResponseIterator(Iterator<Server.ServerResponse> responseIterator, String query, ConnectorSession session)
+            public ResponseIterator(ConnectorSession session, Iterator<Server.ServerResponse> responseIterator, String query)
             {
                 this.responseIterator = requireNonNull(responseIterator, "responseIterator is null");
                 this.query = requireNonNull(query, "query is null");
@@ -291,8 +291,7 @@ public class PinotGrpcDataFetcher
                 }
                 Server.ServerResponse response = responseIterator.next();
                 String responseType = response.getMetadataMap().get(MetadataKeys.RESPONSE_TYPE);
-                if (responseType.equals(ResponseType.METADATA)
-                        && !PinotSessionProperties.isGrpcQueryEnforceMetadataException(session)) {
+                if (responseType.equals(ResponseType.METADATA) && !isGrpcQueryEnforceMetadataException(session)) {
                     return endOfData();
                 }
                 ByteBuffer buffer = response.getPayload().asReadOnlyByteBuffer();

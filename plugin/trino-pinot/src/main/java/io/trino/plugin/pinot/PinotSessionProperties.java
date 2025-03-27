@@ -37,7 +37,7 @@ public class PinotSessionProperties
     private static final String SEGMENTS_PER_SPLIT = "segments_per_split";
     private static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
     private static final String COUNT_DISTINCT_PUSHDOWN_ENABLED = "count_distinct_pushdown_enabled";
-    public static final String GRPC_QUERY_ENFORCE_METADATA_EXCEPTION = "grpc_query_enforce_metadata_exception";
+    private static final String GRPC_QUERY_ENFORCE_METADATA_EXCEPTION = "grpc_query_enforce_metadata_exception";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -45,11 +45,6 @@ public class PinotSessionProperties
     public PinotSessionProperties(PinotConfig pinotConfig)
     {
         sessionProperties = ImmutableList.of(
-                booleanProperty(
-                        GRPC_QUERY_ENFORCE_METADATA_EXCEPTION,
-                        "When true, enforce metadata exception in gRPC query even when response type is metadata",
-                        pinotConfig.isGrpcQueryEnforceMetadataException(),
-                        false),
                 booleanProperty(
                         PREFER_BROKER_QUERIES,
                         "Prefer queries to broker even when parallel scan is enabled for aggregation queries",
@@ -90,6 +85,11 @@ public class PinotSessionProperties
                         COUNT_DISTINCT_PUSHDOWN_ENABLED,
                         "Enable count distinct pushdown",
                         pinotConfig.isCountDistinctPushdownEnabled(),
+                        false),
+                booleanProperty(
+                        GRPC_QUERY_ENFORCE_METADATA_EXCEPTION,
+                        "When true, enforce metadata exception in gRPC query even when response type is metadata",
+                        pinotConfig.isGrpcQueryEnforceMetadataException(),
                         false));
     }
 

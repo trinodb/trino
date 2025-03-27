@@ -49,8 +49,8 @@ public class TestPinotConfig
                         .setAggregationPushdownEnabled(true)
                         .setCountDistinctPushdownEnabled(true)
                         .setProxyEnabled(false)
-                        .setGrpcQueryEnforceMetadataException(false)
-                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
+                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE))
+                        .setGrpcQueryEnforceMetadataException(false));
     }
 
     @Test
@@ -88,8 +88,8 @@ public class TestPinotConfig
                 .setAggregationPushdownEnabled(false)
                 .setCountDistinctPushdownEnabled(false)
                 .setProxyEnabled(true)
-                .setGrpcQueryEnforceMetadataException(true)
-                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
+                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE))
+                .setGrpcQueryEnforceMetadataException(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

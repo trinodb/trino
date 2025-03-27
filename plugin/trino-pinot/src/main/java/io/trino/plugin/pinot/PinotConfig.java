@@ -278,6 +278,7 @@ public class PinotConfig
     }
 
     @Config("pinot.grpc.query.enforce-metadata-exception")
+    @ConfigDescription("When enabled, metadata exceptions from Pinot gRPC queries will be enforced, causing query failures instead of returning empty/partial results")
     public PinotConfig setGrpcQueryEnforceMetadataException(boolean grpcQueryEnforceMetadataException)
     {
         this.grpcQueryEnforceMetadataException = grpcQueryEnforceMetadataException;

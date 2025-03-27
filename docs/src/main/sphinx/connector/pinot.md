@@ -66,20 +66,20 @@ If `pinot.controller-urls` uses `https` scheme then TLS is enabled for all conne
 
 ### gRPC configuration properties
 
-| Property name                         | Required | Description                                                          |
-| ------------------------------------- | -------- | -------------------------------------------------------------------- |
-| `pinot.grpc.port`                     | No       | Pinot gRPC port, default to `8090`.                                  |
-| `pinot.grpc.max-inbound-message-size` | No       | Max inbound message bytes when init gRPC client, default is `128MB`. |
-| `pinot.grpc.use-plain-text`           | No       | Use plain text for gRPC communication, default to `true`.            |
-| `pinot.grpc.tls.keystore-type`        | No       | TLS keystore type for gRPC connection, default is `JKS`.             |
-| `pinot.grpc.tls.keystore-path`        | No       | TLS keystore file location for gRPC connection, default is empty.    |
-| `pinot.grpc.tls.keystore-password`    | No       | TLS keystore password, default is empty.                             |
-| `pinot.grpc.tls.truststore-type`      | No       | TLS truststore type for gRPC connection, default is `JKS`.           |
-| `pinot.grpc.tls.truststore-path`      | No       | TLS truststore file location for gRPC connection, default is empty.  |
-| `pinot.grpc.tls.truststore-password`  | No       | TLS truststore password, default is empty.                           |
-| `pinot.grpc.tls.ssl-provider`         | No       | SSL provider, default is `JDK`.                                      |
-| `pinot.grpc.proxy-uri`                | No       | Pinot Rest Proxy gRPC endpoint URI, default is null.                 |
-
+| Property name                         | Required | Description                                                                                                                                                        |
+| ------------------------------------- | -------- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pinot.grpc.port`                     | No       | Pinot gRPC port, default to `8090`.                                                                                                                                |
+| `pinot.grpc.max-inbound-message-size` | No       | Max inbound message bytes when init gRPC client, default is `128MB`.                                                                                               |
+| `pinot.grpc.use-plain-text`           | No       | Use plain text for gRPC communication, default to `true`.                                                                                                          |
+| `pinot.grpc.tls.keystore-type`        | No       | TLS keystore type for gRPC connection, default is `JKS`.                                                                                                           |
+| `pinot.grpc.tls.keystore-path`        | No       | TLS keystore file location for gRPC connection, default is empty.                                                                                                  |
+| `pinot.grpc.tls.keystore-password`    | No       | TLS keystore password, default is empty.                                                                                                                           |
+| `pinot.grpc.tls.truststore-type`      | No       | TLS truststore type for gRPC connection, default is `JKS`.                                                                                                         |
+| `pinot.grpc.tls.truststore-path`      | No       | TLS truststore file location for gRPC connection, default is empty.                                                                                                |
+| `pinot.grpc.tls.truststore-password`  | No       | TLS truststore password, default is empty.                                                                                                                         |
+| `pinot.grpc.tls.ssl-provider`         | No       | SSL provider, default is `JDK`.                                                                                                                                    |
+| `pinot.grpc.proxy-uri`                | No       | Pinot Rest Proxy gRPC endpoint URI, default is null.                                                                                                               |
+| `pinot.grpc.query.enforce-metadata-exception` | No | When enabled, metadata exceptions from Pinot gRPC queries will be enforced, causing query failures instead of returning empty/partial results. Default is `false`. |
 For more Apache Pinot TLS configurations, please also refer to [Configuring TLS/SSL](https://docs.pinot.apache.org/operators/tutorials/configuring-tls-ssl).
 
 You can use {doc}`secrets </security/secrets>` to avoid actual values in the catalog properties files.
