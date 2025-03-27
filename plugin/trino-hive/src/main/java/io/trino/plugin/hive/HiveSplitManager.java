@@ -486,7 +486,7 @@ public class HiveSplitManager
             return false;
         }
         return switch (storageFormat.get()) {
-            case AVRO, JSON -> true;
+            case AVRO, JSON, OPENX_JSON -> true;
             case ORC -> isUseOrcColumnNames(session);
             case PARQUET -> isUseParquetColumnNames(session);
             default -> false;
