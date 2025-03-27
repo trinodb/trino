@@ -70,6 +70,7 @@ class InlineSegmentIterator
     {
         if (iterator != null) {
             iterator.close();
+            iterator = null;
         }
     }
 }
