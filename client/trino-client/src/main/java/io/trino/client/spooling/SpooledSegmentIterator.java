@@ -84,11 +84,6 @@ class SpooledSegmentIterator
         }
     }
 
-    public long remaining()
-    {
-        return rowsCount - currentRow;
-    }
-
     @Override
     protected List<Object> computeNext()
     {
