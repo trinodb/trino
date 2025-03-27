@@ -156,7 +156,7 @@ final class TestLokiIntegration
     {
         Instant start = Instant.now().truncatedTo(ChronoUnit.DAYS).minus(Duration.ofHours(12));
         Instant end = start.plus(Duration.ofHours(4));
-        Instant firstLineTimestamp = start.truncatedTo(ChronoUnit.MILLIS);
+        Instant firstLineTimestamp = start.plus(Duration.ofMinutes(5)).truncatedTo(ChronoUnit.SECONDS);
 
         client.pushLogLine("line 1", firstLineTimestamp, ImmutableMap.of("test", "select_timestamp_query"));
         client.pushLogLine("line 2", firstLineTimestamp.plus(Duration.ofHours(1)), ImmutableMap.of("test", "select_timestamp_query"));
