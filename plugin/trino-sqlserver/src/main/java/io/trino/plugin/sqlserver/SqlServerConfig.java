@@ -23,6 +23,7 @@ public class SqlServerConfig
     private boolean bulkCopyForWrite;
     private boolean bulkCopyForWriteLockDestinationTable;
     private boolean storedProcedureTableFunctionEnabled;
+    private boolean synonymsEnabled;
 
     public boolean isBulkCopyForWrite()
     {
@@ -75,5 +76,18 @@ public class SqlServerConfig
     {
         this.storedProcedureTableFunctionEnabled = storedProcedureTableFunctionEnabled;
         return this;
+    }
+
+    @Config("sqlserver.synonyms.enabled")
+    @ConfigDescription("Allows SQL Server Synonym manipulation")
+    public SqlServerConfig setSynonymsEnabled(boolean enabled)
+    {
+        this.synonymsEnabled = enabled;
+        return this;
+    }
+
+    public boolean isSynonymsEnabled()
+    {
+        return synonymsEnabled;
     }
 }
