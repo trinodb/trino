@@ -16,7 +16,6 @@ package io.trino.sql.planner.planprinter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Joiner;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -162,8 +161,6 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
 import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
 import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
-import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_COLUMN_NAME;
-import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.spi.function.table.DescriptorArgument.NULL_DESCRIPTOR;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.ir.Booleans.TRUE;
@@ -551,7 +548,6 @@ public class PlanPrinter
         PartitioningScheme partitioningScheme = fragment.getOutputPartitioningScheme();
         List<String> layout = partitioningScheme.getOutputLayout().stream()
                 .map(anonymizer::anonymize)
-                .filter(value -> !value.equals(SPOOLING_METADATA_COLUMN_NAME))
                 .collect(toImmutableList());
         builder.append(indentString(1))
                 .append(format("Output layout: [%s]\n",
@@ -1427,26 +1423,16 @@ public class PlanPrinter
             NodeRepresentation nodeOutput = addNode(
                     node,
                     "Output",
-                    ImmutableMap.of("columnNames", formatCollection(Collections2.filter(node.getColumnNames(), this::isNonSpooledColumn), anonymizer::anonymizeColumn)),
+                    ImmutableMap.of("columnNames", formatCollection(node.getColumnNames(), anonymizer::anonymizeColumn)),
                     context);
             for (int i = 0; i < node.getColumnNames().size(); i++) {
                 String name = node.getColumnNames().get(i);
                 Symbol symbol = node.getOutputSymbols().get(i);
-
-                if (symbol.type().equals(SPOOLING_METADATA_TYPE)) {
-                    continue;
-                }
-
                 if (!name.equals(symbol.name())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymizeColumn(name), anonymizer.anonymize(symbol));
                 }
             }
             return processChildren(node, new Context(context.isInitialPlan()));
-        }
-
-        private boolean isNonSpooledColumn(String columnName)
-        {
-            return !columnName.equals(SPOOLING_METADATA_COLUMN_NAME);
         }
 
         @Override

@@ -15,6 +15,7 @@ package io.trino.operator.exchange;
 
 import io.trino.spi.Page;
 
+import java.util.Arrays;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
@@ -27,9 +28,11 @@ public class PageChannelSelector
     private static final Function<Page, Page> GET_LOADED_PAGE = Page::getLoadedPage;
 
     private final int[] channels;
+    private final boolean keepSpooledMetadata;
 
-    public PageChannelSelector(int... channels)
+    public PageChannelSelector(boolean keepSpooledMetadata, int... channels)
     {
+        this.keepSpooledMetadata = keepSpooledMetadata;
         this.channels = channels.clone();
         checkArgument(IntStream.of(channels).allMatch(channel -> channel >= 0), "channels must be positive");
     }
@@ -37,8 +40,13 @@ public class PageChannelSelector
     @Override
     public Page apply(Page page)
     {
+        int[] channelsToKeep = channels;
+        if (keepSpooledMetadata) {
+            channelsToKeep = Arrays.copyOf(channels, channels.length + 1);
+            channelsToKeep[channelsToKeep.length - 1] = page.getChannelCount() - 1; // keep last block of spooled metadata
+        }
         // Ensure the channels that are emitted are fully loaded and in the correct order
-        return page.getLoadedPage(channels);
+        return page.getLoadedPage(channelsToKeep);
     }
 
     public static Function<Page, Page> identitySelection()

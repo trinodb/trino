@@ -334,7 +334,6 @@ import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFacto
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.OperatorFactories.join;
 import static io.trino.operator.OperatorFactories.spillingJoin;
-import static io.trino.operator.OutputSpoolingOperatorFactory.layoutUnionWithSpooledMetadata;
 import static io.trino.operator.OutputSpoolingOperatorFactory.spooledOutputLayout;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -661,7 +660,7 @@ public class LocalExecutionPlanner
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
 
-        Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
+        Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(session.getQueryDataEncoding().isPresent(), outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
                 .map(Symbol::type)
@@ -991,15 +990,14 @@ public class LocalExecutionPlanner
                     .map(encoders::get)
                     .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
 
-            Map<Symbol, Integer> spooledLayout = layoutUnionWithSpooledMetadata(operation.layout);
             OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
-                    spooledLayout,
+                    operation.layout,
                     () -> encoderFactory.create(session, spooledOutputLayout(node, operation.layout)),
                     spoolingManager.orElseThrow());
 
-            return new PhysicalOperation(outputSpoolingOperatorFactory, spooledLayout, operation);
+            return new PhysicalOperation(outputSpoolingOperatorFactory, operation.layout, operation);
         }
 
         @Override
@@ -3601,7 +3599,7 @@ public class LocalExecutionPlanner
 
             PhysicalOperation source = node.getSource().accept(this, context);
 
-            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(node.getProjectedSymbols(), source.getLayout());
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(false, node.getProjectedSymbols(), source.getLayout());
 
             OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session, pagePreprocessor);
             return new PhysicalOperation(operatorFactory, makeLayout(node), source);
@@ -3625,7 +3623,7 @@ public class LocalExecutionPlanner
                     .collect(toImmutableList());
 
             List<Symbol> expectedLayout = node.getSource().getOutputSymbols();
-            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(false, expectedLayout, source.getLayout());
 
             OperatorFactory operatorFactory = MergeProcessorOperator.createOperatorFactory(
                     context.getNextOperatorId(),
@@ -3732,7 +3730,7 @@ public class LocalExecutionPlanner
                     () -> context.getTaskContext().getQueryMemoryReservation().toBytes());
 
             List<Symbol> expectedLayout = getOnlyElement(node.getInputs());
-            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
+            Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(false, expectedLayout, source.getLayout());
             context.addDriverFactory(
                     false,
                     new PhysicalOperation(
@@ -3813,7 +3811,8 @@ public class LocalExecutionPlanner
                 LocalExecutionPlanContext subContext = driverFactoryParameters.getSubContext();
 
                 List<Symbol> expectedLayout = node.getInputs().get(i);
-                Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(expectedLayout, source.getLayout());
+
+                Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(false, expectedLayout, source.getLayout());
 
                 context.addDriverFactory(
                         false,
@@ -4272,7 +4271,7 @@ public class LocalExecutionPlanner
         return !(target instanceof TableExecuteTarget);
     }
 
-    private static Function<Page, Page> enforceLoadedLayoutProcessor(List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
+    private static Function<Page, Page> enforceLoadedLayoutProcessor(boolean hasSpooledMetadata, List<Symbol> expectedLayout, Map<Symbol, Integer> inputLayout)
     {
         int[] channels = expectedLayout.stream()
                 .peek(symbol -> checkArgument(inputLayout.containsKey(symbol), "channel not found for symbol: %s", symbol))
@@ -4284,7 +4283,7 @@ public class LocalExecutionPlanner
             return PageChannelSelector.identitySelection();
         }
 
-        return new PageChannelSelector(channels);
+        return new PageChannelSelector(hasSpooledMetadata, channels);
     }
 
     private static List<Integer> getChannelsForSymbols(List<Symbol> symbols, Map<Symbol, Integer> layout)
