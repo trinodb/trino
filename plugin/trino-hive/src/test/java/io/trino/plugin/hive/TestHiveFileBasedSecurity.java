@@ -74,7 +74,7 @@ public class TestHiveFileBasedSecurity
         Session bob = getSession("bob");
         assertThatThrownBy(() -> queryRunner.execute(bob, "SELECT * FROM nation"))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageMatching(".*Access Denied: Cannot select from table tpch.nation.*");
+                .hasMessageMatching(".*Access Denied: Cannot select from columns \\[nationkey, regionkey, name, comment\\] in table or view tpch\\.nation");
     }
 
     @Test
