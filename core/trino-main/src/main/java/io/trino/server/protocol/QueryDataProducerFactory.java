@@ -13,28 +13,16 @@
  */
 package io.trino.server.protocol;
 
-import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.server.protocol.spooling.QueryDataEncoders;
 import io.trino.server.protocol.spooling.SpoolingQueryDataProducer;
-
-import static java.util.Objects.requireNonNull;
 
 public class QueryDataProducerFactory
 {
-    private final QueryDataEncoders encoders;
-
-    @Inject
-    public QueryDataProducerFactory(QueryDataEncoders encoders)
-    {
-        this.encoders = requireNonNull(encoders, "encoders is null");
-    }
-
     public QueryDataProducer create(Session session)
     {
         if (session.getQueryDataEncoding().isEmpty()) {
             return new JsonBytesQueryDataProducer();
         }
-        return new SpoolingQueryDataProducer(encoders.get(session.getQueryDataEncoding().get()));
+        return new SpoolingQueryDataProducer();
     }
 }
