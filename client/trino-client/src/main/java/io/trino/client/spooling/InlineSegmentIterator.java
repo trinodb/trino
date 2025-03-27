@@ -56,12 +56,23 @@ class InlineSegmentIterator
             }
         }
         if (currentRow == rowsCount) {
+            unload();
             return endOfData();
         }
 
         currentRow++;
         verify(iterator.hasNext(), "Iterator should have more rows, current: %s, count: %s", currentRow, rowsCount);
         return iterator.next();
+    }
+
+    private void unload()
+    {
+        try {
+            close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override
