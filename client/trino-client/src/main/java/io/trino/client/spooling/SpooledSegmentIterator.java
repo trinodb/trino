@@ -38,11 +38,11 @@ class SpooledSegmentIterator
     private final long rowsCount;
     private final SegmentLoader loader;
     private final QueryDataDecoder decoder;
+    private final Closer closer = Closer.create();
     private long currentRow;
     private boolean loaded;
     private boolean closed;
     private Iterator<List<Object>> iterator;
-    private Closer closer = Closer.create();
 
     public SpooledSegmentIterator(SpooledSegment spooledSegment, SegmentLoader loader, QueryDataDecoder decoder)
     {
