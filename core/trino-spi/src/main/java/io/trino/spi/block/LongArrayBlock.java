@@ -243,7 +243,7 @@ public final class LongArrayBlock
         return arrayOffset;
     }
 
-    long[] getRawValues()
+    public long[] getRawValues()
     {
         return values;
     }
