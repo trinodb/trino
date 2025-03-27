@@ -80,7 +80,7 @@ class TestResultRowsDecoder
             throws Exception
     {
         try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
-            assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(inlined("[[2137], [1337]]".getBytes(UTF_8), DataAttributes.empty())))))
+            assertThat(eagerlyMaterialize(decoder.toRows(fromSegments(inlined("[[2137], [1337]]".getBytes(UTF_8), DataAttributes.builder().set(DataAttribute.ROWS_COUNT, 2L).build())))))
                     .containsExactly(ImmutableList.of(2137), ImmutableList.of(1337));
         }
     }
