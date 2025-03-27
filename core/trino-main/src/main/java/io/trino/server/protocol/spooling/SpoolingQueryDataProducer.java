@@ -74,9 +74,10 @@ public class SpoolingQueryDataProducer
 
         try {
             for (Page page : rows.getPages()) {
+                DataAttributes attributes;
                 if (hasSpoolingMetadata(page, outputColumns.size())) {
                     SpooledBlock metadata = SpooledBlock.deserialize(page);
-                    DataAttributes attributes = metadata.attributes().toBuilder()
+                    attributes = metadata.attributes().toBuilder()
                             .set(ROW_OFFSET, currentOffset)
                             .build();
                     builder.withSegment(spooled(
@@ -89,13 +90,14 @@ public class SpoolingQueryDataProducer
                 }
                 else {
                     ByteArrayOutputStream output = new ByteArrayOutputStream();
-                    DataAttributes attributes = encoder.encodeTo(output, List.of(page))
+                    attributes = encoder.encodeTo(output, List.of(page))
                             .toBuilder()
                             .set(ROW_OFFSET, currentOffset)
+                            .set(ROWS_COUNT, (long) page.getPositionCount())
                             .build();
                     builder.withSegment(inlined(output.toByteArray(), attributes));
-                    currentOffset += page.getPositionCount();
                 }
+                currentOffset += attributes.get(ROWS_COUNT, Long.class);
             }
         }
         catch (IOException e) {
