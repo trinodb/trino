@@ -42,7 +42,8 @@ public class TestClickHouseConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ClickHouseConfig.class)
-                .setMapStringAsVarchar(false));
+                .setMapStringAsVarchar(false)
+                .setClusterName(null));
     }
 
     @Test
@@ -50,9 +51,11 @@ public class TestClickHouseConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("clickhouse.map-string-as-varchar", "true")
+                .put("clickhouse.cluster-name", "test")
                 .buildOrThrow();
 
         ClickHouseConfig expected = new ClickHouseConfig()
+                .setClusterName("test")
                 .setMapStringAsVarchar(true);
 
         assertFullMapping(properties, expected);
