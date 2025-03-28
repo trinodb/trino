@@ -159,7 +159,8 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                     {
                         return thriftMetastore;
                     }
-                }),
+                },
+                        new IcebergHiveCatalogConfig()),
                 useUniqueTableLocations,
                 false,
                 false,
