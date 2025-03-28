@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multiset;
@@ -574,7 +575,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         Table newMetastoreTable = Table.builder(table)
                 .setParameters(Maps.filterKeys(table.getParameters(), key -> !key.equals("trino_last_transaction_version")))
                 .build();
-        metastore.replaceTable(table.getDatabaseName(), table.getTableName(), newMetastoreTable, buildInitialPrivilegeSet(table.getOwner().orElseThrow()));
+        metastore.replaceTable(table.getDatabaseName(), table.getTableName(), newMetastoreTable, buildInitialPrivilegeSet(table.getOwner().orElseThrow()), ImmutableMap.of());
     }
 
     private Session sessionWithStoreTableMetadata(boolean storeTableMetadata)

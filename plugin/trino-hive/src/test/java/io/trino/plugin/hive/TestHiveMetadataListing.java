@@ -340,7 +340,7 @@ public class TestHiveMetadataListing
         }
 
         @Override
-        public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+        public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext)
         {
             throw new UnsupportedOperationException();
         }

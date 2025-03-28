@@ -14,6 +14,7 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import com.google.common.io.Resources;
@@ -1265,6 +1266,6 @@ public class TestDeltaLakeFileOperations
         Table newMetastoreTable = Table.builder(table)
                 .setParameters(filterKeys(table.getParameters(), key -> !key.equals("trino_last_transaction_version")))
                 .build();
-        metastore.replaceTable(table.getDatabaseName(), table.getTableName(), newMetastoreTable, buildInitialPrivilegeSet(table.getOwner().orElseThrow()));
+        metastore.replaceTable(table.getDatabaseName(), table.getTableName(), newMetastoreTable, buildInitialPrivilegeSet(table.getOwner().orElseThrow()), ImmutableMap.of());
     }
 }

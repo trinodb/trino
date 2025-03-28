@@ -434,7 +434,7 @@ public final class ThriftHiveMetastore
         if (acidWriteId.isPresent()) {
             modifiedTable.setWriteId(acidWriteId.getAsLong());
         }
-        alterTable(databaseName, tableName, modifiedTable);
+        alterTable(databaseName, tableName, modifiedTable, ImmutableMap.of());
 
         io.trino.metastore.Table table = fromMetastoreApiTable(modifiedTable);
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.columnStatistics().entrySet().stream()
@@ -962,7 +962,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table table)
+    public void alterTable(String databaseName, String tableName, Table table, Map<String, String> environmentContext)
     {
         if (!Objects.equals(databaseName, table.getDbName())) {
             validateObjectName(table.getDbName());
@@ -980,7 +980,10 @@ public final class ThriftHiveMetastore
                             // This prevents Hive 3.x from collecting basic table stats at table creation time.
                             // These stats are not useful by themselves and can take a very long time to collect when creating an
                             // external table over a large data set.
-                            context.setProperties(ImmutableMap.of("DO_NOT_UPDATE_STATS", "true"));
+                            context.setProperties(ImmutableMap.<String, String>builder()
+                                    .put("DO_NOT_UPDATE_STATS", "true")
+                                    .putAll(environmentContext)
+                                    .buildOrThrow());
                             client.alterTableWithEnvironmentContext(databaseName, tableName, table, context);
                         }
                         return null;

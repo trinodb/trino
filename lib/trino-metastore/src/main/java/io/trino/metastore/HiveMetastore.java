@@ -90,7 +90,7 @@ public interface HiveMetastore
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
      */
-    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
+    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext);
 
     void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
 
