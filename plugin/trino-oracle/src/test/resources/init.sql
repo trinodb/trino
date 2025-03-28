@@ -6,3 +6,6 @@ to fix this we have to change the number of processes of SPFILE
 */
 ALTER SYSTEM SET processes=1000 SCOPE=SPFILE;
 ALTER SYSTEM SET disk_asynch_io = FALSE SCOPE = SPFILE;
+
+-- disable audit log for reducing diskspace usage
+ALTER SYSTEM SET audit_trail=NONE SCOPE=SPFILE;
