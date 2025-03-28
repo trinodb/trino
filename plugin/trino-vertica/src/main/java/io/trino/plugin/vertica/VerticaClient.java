@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -56,6 +57,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -92,6 +94,10 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.vertica.VerticaTableStatisticsReader.readTableStatistics;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.JoinCondition.Operator.IDENTICAL;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
+import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.CharType.createCharType;
@@ -108,6 +114,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class VerticaClient
         extends BaseJdbcClient
@@ -431,8 +438,70 @@ public class VerticaClient
     }
 
     @Override
+    public boolean isTopNGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    /*
+    In Vertica null ordering is:
+        - INTEGER, INT, DATE/TIME: NULL has the smallest value.
+        - FLOAT, BOOLEAN, CHAR, VARCHAR, ARRAY, SET: NULL has the largest value
+    */
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return sortOrder.stream().allMatch(VerticaClient::consistentWithVerticaOrdering);
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String ordering = sortItem.sortOrder().isAscending() ? "ASC" : "DESC";
+                        return format("%s %s", quoted(sortItem.column().getColumnName()), ordering);
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+        });
+    }
+
+    @Override
     public OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return this.getMaxColumnNameLengthFromDatabaseMetaData(session);
+    }
+
+    public static boolean consistentWithVerticaOrdering(JdbcSortItem jdbcSortItem)
+    {
+        return switch (jdbcSortItem.column().getJdbcTypeHandle().jdbcType()) {
+            case Types.BINARY,
+                 Types.VARBINARY,
+                 Types.LONGVARBINARY,
+                 Types.BOOLEAN,
+                 Types.BIT,
+                 Types.CHAR,
+                 Types.VARCHAR,
+                 Types.LONGVARCHAR,
+                 Types.DOUBLE,
+                 Types.FLOAT,
+                 Types.REAL ->
+                    jdbcSortItem.sortOrder() == ASC_NULLS_LAST || jdbcSortItem.sortOrder() == DESC_NULLS_FIRST;
+            case Types.DATE,
+                 Types.TIME,
+                 Types.TIME_WITH_TIMEZONE,
+                 Types.TIMESTAMP,
+                 Types.TIMESTAMP_WITH_TIMEZONE,
+                 Types.INTEGER,
+                 Types.BIGINT,
+                 Types.SMALLINT,
+                 Types.TINYINT,
+                 Types.DECIMAL,
+                 Types.NUMERIC ->
+                    jdbcSortItem.sortOrder() == ASC_NULLS_FIRST || jdbcSortItem.sortOrder() == DESC_NULLS_LAST;
+            default -> false;
+        };
     }
 }
