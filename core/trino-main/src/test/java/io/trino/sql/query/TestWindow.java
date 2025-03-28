@@ -306,6 +306,19 @@ public class TestWindow
                             (2, ARRAY[1, 3, 2])
                         """);
 
+        assertThat(assertions.query(
+                """
+                SELECT *, COUNT(DISTINCT b) OVER w
+                FROM (VALUES ('x', true), ('x', false)) AS t(a, b)
+                WINDOW w AS (PARTITION BY a)
+                """))
+                .matches(
+                        """
+                        VALUES
+                            ('x', true, BIGINT '2'),
+                            ('x', false, BIGINT '2')
+                        """);
+
         // distinct with order by
         assertThat(assertions.query(
                 """
