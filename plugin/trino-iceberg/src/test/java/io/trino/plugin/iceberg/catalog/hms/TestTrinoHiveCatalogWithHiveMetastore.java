@@ -145,21 +145,24 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 new TrinoViewHiveMetastore(metastore, false, "trino-version", "Test"),
                 fileSystemFactory,
                 new TestingTypeManager(),
-                new HiveMetastoreTableOperationsProvider(fileSystemFactory, new ThriftMetastoreFactory()
-                {
-                    @Override
-                    public boolean isImpersonationEnabled()
-                    {
-                        verify(new ThriftMetastoreConfig().isImpersonationEnabled(), "This test wants to test the default behavior and assumes it's off");
-                        return false;
-                    }
+                new HiveMetastoreTableOperationsProvider(
+                        fileSystemFactory,
+                        new ThriftMetastoreFactory()
+                        {
+                            @Override
+                            public boolean isImpersonationEnabled()
+                            {
+                                verify(new ThriftMetastoreConfig().isImpersonationEnabled(), "This test wants to test the default behavior and assumes it's off");
+                                return false;
+                            }
 
-                    @Override
-                    public ThriftMetastore createMetastore(Optional<ConnectorIdentity> identity)
-                    {
-                        return thriftMetastore;
-                    }
-                }),
+                            @Override
+                            public ThriftMetastore createMetastore(Optional<ConnectorIdentity> identity)
+                            {
+                                return thriftMetastore;
+                            }
+                        },
+                        new IcebergHiveCatalogConfig()),
                 useUniqueTableLocations,
                 false,
                 false,
@@ -270,7 +273,8 @@ public class TestTrinoHiveCatalogWithHiveMetastore
                 Table.builder(metastoreTable)
                         .setParameter(TABLE_TYPE_PROP, tableType)
                         .build(),
-                NO_PRIVILEGES);
+                NO_PRIVILEGES,
+                ImmutableMap.of());
         closer.register(() -> metastore.dropTable(namespace, tableName, true));
         return Optional.of(lowerCaseTableTypeTable);
     }
