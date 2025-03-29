@@ -613,8 +613,9 @@ you should enable `exchange.hdfs.skip-directory-scheme-validation` in `exchange-
 when configure `exchange.base-directories` with a specific scheme instead of `hdfs` and the following steps 
 may be necessary.
 
-1. Configure the `AbstractFileSystem` implementation in `core-site.xml`.
-2. Add the relevant client JAR files into the directory `${Trino_HOME}/plugin/exchange-hdfs` 
+1. Configure the `fs.defaultFS` with specific scheme and
+the `AbstractFileSystem` implementation in `core-site.xml`.
+2. Add the relevant client JAR files into the directory `${Trino_HOME}/plugin/exchange-hdfs`
 on all Trino cluster nodes.
 
 (fte-exchange-local-filesystem)=
