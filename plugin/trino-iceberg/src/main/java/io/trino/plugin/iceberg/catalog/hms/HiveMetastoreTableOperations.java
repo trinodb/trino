@@ -36,9 +36,11 @@ import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergUtil.fixBrokenMetadataLocation;
+import static java.lang.Boolean.parseBoolean;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
+import static org.apache.iceberg.TableProperties.HIVE_LOCK_ENABLED;
 
 @NotThreadSafe
 public class HiveMetastoreTableOperations
@@ -46,11 +48,13 @@ public class HiveMetastoreTableOperations
 {
     private static final Logger log = Logger.get(HiveMetastoreTableOperations.class);
     private final ThriftMetastore thriftMetastore;
+    private final boolean lockEnabled;
 
     public HiveMetastoreTableOperations(
             FileIO fileIo,
             CachingHiveMetastore metastore,
             ThriftMetastore thriftMetastore,
+            boolean lockEnabled,
             ConnectorSession session,
             String database,
             String table,
@@ -59,6 +63,7 @@ public class HiveMetastoreTableOperations
     {
         super(fileIo, metastore, session, database, table, owner, location);
         this.thriftMetastore = requireNonNull(thriftMetastore, "thriftMetastore is null");
+        this.lockEnabled = lockEnabled;
     }
 
     @Override
@@ -84,11 +89,11 @@ public class HiveMetastoreTableOperations
     private void commitTableUpdate(Table table, TableMetadata metadata, BiFunction<Table, String, Table> tableUpdateFunction)
     {
         String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
-        long lockId = thriftMetastore.acquireTableExclusiveLock(
-                new AcidTransactionOwner(session.getUser()),
-                session.getQueryId(),
-                table.getDatabaseName(),
-                table.getTableName());
+
+        boolean lockEnabled = parseBoolean(table.getParameters().getOrDefault(HIVE_LOCK_ENABLED, Boolean.toString(this.lockEnabled)));
+        HiveLock hiveLock = lockEnabled ? new ThriftMetastoreLock(table) : new NoLock();
+        hiveLock.acquire();
+
         try {
             Table currentTable = fromMetastoreApiTable(thriftMetastore.getTable(database, table.getTableName())
                     .orElseThrow(() -> new TableNotFoundException(getSchemaTableName())));
@@ -114,6 +119,37 @@ public class HiveMetastoreTableOperations
             }
         }
         finally {
+            hiveLock.release();
+        }
+
+        shouldRefresh = true;
+    }
+
+    private class ThriftMetastoreLock
+            implements HiveLock
+    {
+        private long lockId;
+
+        private final Table table;
+
+        public ThriftMetastoreLock(Table table)
+        {
+            this.table = requireNonNull(table, "table is null");
+        }
+
+        @Override
+        public void acquire()
+        {
+            lockId = thriftMetastore.acquireTableExclusiveLock(
+                    new AcidTransactionOwner(session.getUser()),
+                    session.getQueryId(),
+                    table.getDatabaseName(),
+                    table.getTableName());
+        }
+
+        @Override
+        public void release()
+        {
             try {
                 thriftMetastore.releaseTableLock(lockId);
             }
@@ -125,7 +161,23 @@ public class HiveMetastoreTableOperations
                 log.error(e, "Failed to release lock %s when committing to table %s", lockId, table.getTableName());
             }
         }
+    }
 
-        shouldRefresh = true;
+    // HIVE-26882 requires HMS client 2 or later. Our HMS client is based on version 3.
+    private static class NoLock
+            implements HiveLock
+    {
+        @Override
+        public void acquire() {}
+
+        @Override
+        public void release() {}
+    }
+
+    private interface HiveLock
+    {
+        void acquire();
+
+        void release();
     }
 }
