@@ -35,8 +35,32 @@ public class TestConfluentSchemaRegistryConfig
         assertRecordedDefaults(recordDefaults(ConfluentSchemaRegistryConfig.class)
                 .setConfluentSchemaRegistryUrls(ImmutableSet.of())
                 .setConfluentSchemaRegistryClientCacheSize(1000)
+                .setConfluentSchemaRegistryUsername(null)
+                .setConfluentSchemaRegistryPassword(null)
                 .setEmptyFieldStrategy(IGNORE)
                 .setConfluentSubjectsCacheRefreshInterval(new Duration(1, SECONDS)));
+    }
+
+    @Test
+    public void testExplicitPropertyMappingsWithoutAuthorization()
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("kafka.confluent-schema-registry-url", "http://schema-registry-a:8081, http://schema-registry-b:8081")
+                .put("kafka.confluent-schema-registry-client-cache-size", "1500")
+                .put("kafka.confluent-schema-registry-auth-type", null)
+                .put("kafka.confluent-schema-registry-username", null)
+                .put("kafka.confluent-schema-registry-password", null)
+                .put("kafka.empty-field-strategy", "MARK")
+                .put("kafka.confluent-subjects-cache-refresh-interval", "2s")
+                .buildOrThrow();
+
+        ConfluentSchemaRegistryConfig expected = new ConfluentSchemaRegistryConfig()
+                .setConfluentSchemaRegistryUrls(ImmutableSet.of("http://schema-registry-a:8081", "http://schema-registry-b:8081"))
+                .setConfluentSchemaRegistryClientCacheSize(1500)
+                .setEmptyFieldStrategy(MARK)
+                .setConfluentSubjectsCacheRefreshInterval(new Duration(2, SECONDS));
+
+        assertFullMapping(properties, expected);
     }
 
     @Test
@@ -44,6 +68,9 @@ public class TestConfluentSchemaRegistryConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka.confluent-schema-registry-url", "http://schema-registry-a:8081, http://schema-registry-b:8081")
+                .put("kafka.confluent-schema-registry-auth-type", "BASIC_AUTH")
+                .put("kafka.confluent-schema-registry-username", "user")
+                .put("kafka.confluent-schema-registry-password", "31337")
                 .put("kafka.confluent-schema-registry-client-cache-size", "1500")
                 .put("kafka.empty-field-strategy", "MARK")
                 .put("kafka.confluent-subjects-cache-refresh-interval", "2s")
@@ -51,6 +78,8 @@ public class TestConfluentSchemaRegistryConfig
 
         ConfluentSchemaRegistryConfig expected = new ConfluentSchemaRegistryConfig()
                 .setConfluentSchemaRegistryUrls(ImmutableSet.of("http://schema-registry-a:8081", "http://schema-registry-b:8081"))
+                .setConfluentSchemaRegistryUsername("user")
+                .setConfluentSchemaRegistryPassword("31337")
                 .setConfluentSchemaRegistryClientCacheSize(1500)
                 .setEmptyFieldStrategy(MARK)
                 .setConfluentSubjectsCacheRefreshInterval(new Duration(2, SECONDS));
