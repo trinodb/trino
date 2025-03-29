@@ -228,6 +228,9 @@ subsequent requests to be consistent with the response headers received.
   - Instructs the client to reset `X-Trino-User` request header to its original
     value in subsequent client requests and remove `X-Trino-Original-User`
     to reset the authorization user back to the original user.
+* - `X-Trino-Set-Original-Roles`
+  - Instructs the client to set the roles of the original user in the
+    `X-Trino-Original-Roles` request header in subsequent client requests.
 * - `X-Trino-Set-Session`
   - The value of the `X-Trino-Set-Session` response header is a string of the
     form *property* = *value*. It instructs the client include session property

@@ -225,6 +225,7 @@ public class TestQueryInfo
                 Optional.of("set_path"),
                 Optional.of("set_authorization_user"),
                 false,
+                ImmutableSet.of(new SelectedRole(SelectedRole.Type.ROLE, Optional.of("original_role"))),
                 ImmutableMap.of("set_property", "set_value"),
                 ImmutableSet.of("reset_property"),
                 ImmutableMap.of("set_roles", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("role"))),

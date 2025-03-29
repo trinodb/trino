@@ -40,6 +40,7 @@ public class ClientSession
     private final Optional<String> user;
     private final Optional<String> sessionUser;
     private final Optional<String> authorizationUser;
+    private final Set<ClientSelectedRole> originalRoles;
     private final String source;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
@@ -82,6 +83,7 @@ public class ClientSession
             Optional<String> user,
             Optional<String> sessionUser,
             Optional<String> authorizationUser,
+            Set<ClientSelectedRole> originalRoles,
             String source,
             Optional<String> traceToken,
             Set<String> clientTags,
@@ -106,6 +108,7 @@ public class ClientSession
         this.user = requireNonNull(user, "user is null");
         this.sessionUser = requireNonNull(sessionUser, "sessionUser is null");
         this.authorizationUser = requireNonNull(authorizationUser, "authorizationUser is null");
+        this.originalRoles = ImmutableSet.copyOf(requireNonNull(originalRoles, "originalRoles is null"));
         this.source = requireNonNull(source, "source is null");
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
         this.clientTags = ImmutableSet.copyOf(requireNonNull(clientTags, "clientTags is null"));
@@ -173,6 +176,11 @@ public class ClientSession
     public Optional<String> getAuthorizationUser()
     {
         return authorizationUser;
+    }
+
+    public Set<ClientSelectedRole> getOriginalRoles()
+    {
+        return originalRoles;
     }
 
     public String getSource()
@@ -312,6 +320,7 @@ public class ClientSession
         private Optional<String> user = Optional.empty();
         private Optional<String> sessionUser = Optional.empty();
         private Optional<String> authorizationUser = Optional.empty();
+        private Set<ClientSelectedRole> originalRoles = ImmutableSet.of();
         private String source;
         private Optional<String> traceToken = Optional.empty();
         private Set<String> clientTags = ImmutableSet.of();
@@ -341,6 +350,7 @@ public class ClientSession
             user = clientSession.getUser();
             sessionUser = clientSession.getSessionUser();
             authorizationUser = clientSession.getAuthorizationUser();
+            originalRoles = clientSession.getOriginalRoles();
             source = clientSession.getSource();
             traceToken = clientSession.getTraceToken();
             clientTags = clientSession.getClientTags();
@@ -382,6 +392,12 @@ public class ClientSession
         public Builder authorizationUser(Optional<String> authorizationUser)
         {
             this.authorizationUser = authorizationUser;
+            return this;
+        }
+
+        public Builder originalRoles(Set<ClientSelectedRole> originalRoles)
+        {
+            this.originalRoles = originalRoles;
             return this;
         }
 
@@ -506,6 +522,7 @@ public class ClientSession
                     user,
                     sessionUser,
                     authorizationUser,
+                    originalRoles,
                     source,
                     traceToken,
                     clientTags,
