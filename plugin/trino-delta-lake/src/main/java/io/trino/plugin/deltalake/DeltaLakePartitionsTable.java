@@ -164,7 +164,7 @@ public class DeltaLakePartitionsTable
         PageListBuilder pageListBuilder = PageListBuilder.forTable(tableMetadata);
 
         Map<Map<String, Optional<String>>, DeltaLakePartitionStatistics> statisticsByPartition;
-        try (Stream<AddFileEntry> activeFiles = transactionLogAccess.loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> activeFiles = transactionLogAccess.loadActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), TupleDomain.all(), alwaysTrue())) {
             statisticsByPartition = getStatisticsByPartition(activeFiles);
         }
 

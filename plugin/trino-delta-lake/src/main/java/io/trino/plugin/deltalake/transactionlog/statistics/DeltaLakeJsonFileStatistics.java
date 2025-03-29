@@ -29,6 +29,7 @@ import io.trino.spi.type.Type;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,6 +55,7 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.floorDiv;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
+import static java.time.format.DateTimeFormatter.ISO_ZONED_DATE_TIME;
 
 public class DeltaLakeJsonFileStatistics
         implements DeltaLakeFileStatistics
@@ -175,7 +177,14 @@ public class DeltaLakeJsonFileStatistics
 
     private static Long readStatisticsTimestampWithZone(String timestamp)
     {
-        ZonedDateTime zonedDateTime = ZonedDateTime.parse(timestamp, JSON_STATISTICS_TIMESTAMP_FORMATTER);
+        ZonedDateTime zonedDateTime;
+        try {
+            zonedDateTime = LocalDateTime.parse(timestamp, JSON_STATISTICS_TIMESTAMP_FORMATTER).atZone(UTC);
+        }
+        catch (DateTimeParseException _) {
+            // TODO: avoid this exception-driven logic
+            zonedDateTime = ZonedDateTime.parse(timestamp, ISO_ZONED_DATE_TIME);
+        }
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
     }
 
