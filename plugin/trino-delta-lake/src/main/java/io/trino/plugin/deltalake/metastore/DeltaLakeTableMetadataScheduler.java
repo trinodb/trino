@@ -16,8 +16,8 @@ package io.trino.plugin.deltalake.metastore;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
-import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.metastore.Table;
@@ -41,23 +41,25 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.airlift.concurrent.AsyncSemaphore.processAll;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.airlift.concurrent.Threads.threadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isStoreTableMetadataInMetastoreEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMetadata;
+import static java.lang.Math.max;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.BinaryOperator.maxBy;
 
@@ -77,7 +79,7 @@ public class DeltaLakeTableMetadataScheduler
     private final boolean enabled;
     private final Duration scheduleInterval;
 
-    private ExecutorService executor;
+    private ListeningExecutorService executor;
     private ScheduledExecutorService scheduler;
     private final AtomicInteger failedCounts = new AtomicInteger();
 
@@ -117,7 +119,7 @@ public class DeltaLakeTableMetadataScheduler
     public void start()
     {
         if (enabled) {
-            executor = storeTableMetadataThreads == 0 ? newDirectExecutorService() : newFixedThreadPool(storeTableMetadataThreads, threadsNamed("store-table-metadata-%s"));
+            executor = listeningDecorator(newThreadPerTaskExecutor(virtualThreadsNamed("store-table-metadata-%d")));
             scheduler = newSingleThreadScheduledExecutor(daemonThreadsNamed("store-table-metadata"));
 
             scheduler.scheduleWithFixedDelay(() -> {
@@ -161,7 +163,10 @@ public class DeltaLakeTableMetadataScheduler
         }
 
         try {
-            executor.invokeAll(tasks).forEach(MoreFutures::getDone);
+            processAll(tasks, executor::submit, max(1, storeTableMetadataThreads), executor).get();
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException(e);
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

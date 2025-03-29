@@ -24,9 +24,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class HiveExecutorModule
         implements Module
@@ -44,7 +45,7 @@ public class HiveExecutorModule
     @ForHiveMetadata
     public ExecutorService createMetadataExecutor(CatalogName catalogName)
     {
-        return newCachedThreadPool(daemonThreadsNamed("hive-metadata-" + catalogName + "-%s"));
+        return newThreadPerTaskExecutor(virtualThreadsNamed("hive-metadata-" + catalogName + "-%d"));
     }
 
     @Provides
@@ -52,7 +53,7 @@ public class HiveExecutorModule
     @ForHiveSplitManager
     public ExecutorService createSplitSourceExecutor(CatalogName catalogName)
     {
-        return newCachedThreadPool(daemonThreadsNamed("hive-split-source-" + catalogName + "-%s"));
+        return newThreadPerTaskExecutor(virtualThreadsNamed("hive-split-source-" + catalogName + "-%d"));
     }
 
     @Provides

@@ -22,13 +22,15 @@ import com.google.inject.Singleton;
 import io.trino.spi.catalog.CatalogName;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static java.util.concurrent.Executors.newCachedThreadPool;
-import static java.util.concurrent.Executors.newFixedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class IcebergExecutorModule
         implements Module
@@ -46,7 +48,7 @@ public class IcebergExecutorModule
     @ForIcebergMetadata
     public ExecutorService createIcebergMetadataExecutor(CatalogName catalogName)
     {
-        return newCachedThreadPool(daemonThreadsNamed("iceberg-metadata-" + catalogName + "-%s"));
+        return newThreadPerTaskExecutor(virtualThreadsNamed("iceberg-metadata-" + catalogName + "-%s"));
     }
 
     @Provides
@@ -54,7 +56,7 @@ public class IcebergExecutorModule
     @ForIcebergSplitManager
     public ListeningExecutorService createSplitSourceExecutor(CatalogName catalogName)
     {
-        return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("iceberg-split-source-" + catalogName + "-%s")));
+        return listeningDecorator(newThreadPerTaskExecutor(virtualThreadsNamed("iceberg-split-source-" + catalogName + "-%s")));
     }
 
     @Provides
@@ -65,8 +67,13 @@ public class IcebergExecutorModule
         if (config.getSplitManagerThreads() == 0) {
             return newDirectExecutorService();
         }
-        return newFixedThreadPool(
+
+        return new ThreadPoolExecutor(
                 config.getSplitManagerThreads(),
-                daemonThreadsNamed("iceberg-split-manager-" + catalogName + "-%s"));
+                config.getSplitManagerThreads(),
+                0,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingDeque<>(),
+                virtualThreadsNamed("iceberg-split-manager-" + catalogName + "-%s"));
     }
 }
