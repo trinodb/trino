@@ -3695,6 +3695,10 @@ public class IcebergMetadata
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
 
         Table icebergTable = transaction.table();
+        Long snapshotIdBeforeRefreshCommit = icebergTable.currentSnapshot() != null
+                ? icebergTable.currentSnapshot().snapshotId()
+                : null;
+
         boolean isFullRefresh = fromSnapshotForRefresh.isEmpty();
         if (isFullRefresh) {
             // delete before insert .. simulating overwrite
@@ -3763,6 +3767,42 @@ public class IcebergMetadata
         commitUpdateAndTransaction(appendFiles, session, transaction, "refresh materialized view");
         transaction = null;
         fromSnapshotForRefresh = Optional.empty();
+
+        // cleanup old snapshot
+        if (snapshotIdBeforeRefreshCommit != null) {
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), icebergTable.io().properties());
+            List<Location> pathsToDelete = new ArrayList<>();
+            // deleteFunction is not accessed from multiple threads unless org.apache.iceberg.ExpireSnapshots.executeDeleteWith is used
+            Consumer<String> deleteFunction = path -> {
+                pathsToDelete.add(Location.of(path));
+                if (pathsToDelete.size() == DELETE_BATCH_SIZE) {
+                    try {
+                        fileSystem.deleteFiles(pathsToDelete);
+                        pathsToDelete.clear();
+                    }
+                    catch (IOException e) {
+                        throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during materialized view refresh", e);
+                    }
+                }
+            };
+
+            IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+            Table updatedIcebergTable = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
+            try {
+                updatedIcebergTable
+                        .expireSnapshots()
+                        .expireSnapshotId(snapshotIdBeforeRefreshCommit)
+                        // Explicitly set `.expireOlderThan` to current time otherwise snapshots from last 5 days are still retained as per https://github.com/apache/iceberg/blob/6e2eaf02f380ed8e3be7f58273d680b766897b18/core/src/main/java/org/apache/iceberg/RemoveSnapshots.java#L320
+                        .expireOlderThan(System.currentTimeMillis())
+                        .deleteWith(deleteFunction)
+                        .commit();
+
+                fileSystem.deleteFiles(pathsToDelete);
+            }
+            catch (IOException e) {
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete files during snapshot expiration", e);
+            }
+        }
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::path)
                 .collect(toImmutableList())));
