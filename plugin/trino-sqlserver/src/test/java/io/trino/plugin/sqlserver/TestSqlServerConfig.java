@@ -28,6 +28,7 @@ public class TestSqlServerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SqlServerConfig.class)
+                .setSynonymsEnabled(false)
                 .setBulkCopyForWrite(false)
                 .setBulkCopyForWriteLockDestinationTable(false)
                 .setSnapshotIsolationDisabled(false)
@@ -38,6 +39,7 @@ public class TestSqlServerConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("sqlserver.synonyms.enabled", "true")
                 .put("sqlserver.bulk-copy-for-write.enabled", "true")
                 .put("sqlserver.bulk-copy-for-write.lock-destination-table", "true")
                 .put("sqlserver.snapshot-isolation.disabled", "true")
@@ -45,6 +47,7 @@ public class TestSqlServerConfig
                 .buildOrThrow();
 
         SqlServerConfig expected = new SqlServerConfig()
+                .setSynonymsEnabled(true)
                 .setBulkCopyForWrite(true)
                 .setBulkCopyForWriteLockDestinationTable(true)
                 .setStoredProcedureTableFunctionEnabled(true)
