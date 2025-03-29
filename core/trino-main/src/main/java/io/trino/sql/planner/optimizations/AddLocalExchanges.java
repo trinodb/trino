@@ -542,6 +542,7 @@ public class AddLocalExchanges
                     node.getProperOutputs(),
                     Optional.of(child.getNode()),
                     node.isPruneWhenEmpty(),
+                    node.isPreferStreaming(),
                     node.getPassThroughSpecifications(),
                     node.getRequiredSymbols(),
                     node.getMarkerSymbols(),
