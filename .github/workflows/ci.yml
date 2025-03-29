@@ -526,8 +526,7 @@ jobs:
       - name: Maven Tests
         id: tests
         if: >-
-          matrix.modules != 'plugin/trino-singlestore'
-          && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
+          ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-2'))
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
@@ -629,13 +628,6 @@ jobs:
             -Dtesting.azure-abfs-access-key="${ABFS_ACCESSKEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.gcp-credentials-key="${GCP_CREDENTIALS_KEY}"
-      - name: Memsql Tests
-        id: tests-memsql
-        env:
-          MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
-        if: matrix.modules == 'plugin/trino-singlestore' && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.MEMSQL_LICENSE != '')
-        run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-singlestore -Dmemsql.license=${MEMSQL_LICENSE}
       - name: Cloud BigQuery Tests
         id: tests-bq
         env:
@@ -791,7 +783,6 @@ jobs:
               || steps.tests-azure.outcome == 'failure'
               || steps.tests-gcs.outcome == 'failure'
               || steps.tests-delta.outcome == 'failure'
-              || steps.tests-memsql.outcome == 'failure'
               || steps.tests-bq.outcome == 'failure'
               || steps.tests-bq-ci.outcome == 'failure'
               || steps.tests-bq-smoke.outcome == 'failure'
