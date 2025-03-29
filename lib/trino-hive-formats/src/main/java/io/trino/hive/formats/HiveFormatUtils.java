@@ -146,7 +146,10 @@ public final class HiveFormatUtils
     public static LocalDate parseHiveDate(String value)
     {
         value = value.trim();
-        int index = value.indexOf(" ");
+        int index = value.indexOf(' ');
+        if (index == -1) {
+            index = value.indexOf('T'); // ISO 8601 format
+        }
         if (index != -1) {
             value = value.substring(0, index);
         }
@@ -237,6 +240,7 @@ public final class HiveFormatUtils
 
     public static DecodedTimestamp parseHiveTimestamp(String value)
     {
+        value = value.trim();
         // Otherwise try default timestamp parsing
         // default parser uses Java util time
         LocalDateTime localDateTime;
