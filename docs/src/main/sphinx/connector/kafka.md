@@ -417,6 +417,20 @@ Inserts are not supported, and the only data format supported is AVRO.
   - Comma-separated list of URL addresses for the Confluent schema registry.
     For example, `http://schema-registry-1.example.org:8081,http://schema-registry-2.example.org:8081`
   -
+* - `kafka.confluent-schema-registry-auth-type`
+  - The type of authentication implemented on Confluent schema registry.
+    Allowed values are: `BASIC_AUTH` and `NONE`
+    * `NONE` - no authentication on schema registry is implemented
+    * `BASIC_AUTH` - Basic Auth user\password authentication is implemented
+  - `NONE`
+* - `kafka.confluent-schema-registry.basic-auth.username`
+  - Only if `kafka.confluent-schema-registry-auth-type` is set to `BASIC_AUTH`.
+    Sets the username to use for logging in Confluent schema registry.
+  - 
+* - `kafka.confluent-schema-registry.basic-auth.password`
+  - Only if `kafka.confluent-schema-registry-auth-type` is set to `BASIC_AUTH`.
+    Sets the password to use for logging in Confluent schema registry.
+  -
 * - `kafka.confluent-schema-registry-client-cache-size`
   - The maximum number of subjects that can be stored in the local cache. The
     cache stores the schemas locally by subjectId, and is provided by the
