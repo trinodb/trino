@@ -108,6 +108,8 @@ public final class TypeConverter
             case VARIANT:
                 // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
                 break;
+            case GEOMETRY:
+            case GEOGRAPHY:
             case UNKNOWN:
                 break;
         }
