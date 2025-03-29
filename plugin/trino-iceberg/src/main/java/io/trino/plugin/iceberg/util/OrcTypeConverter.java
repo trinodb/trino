@@ -87,6 +87,8 @@ public final class OrcTypeConverter
             }
             case VARIANT -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: VARIANT");
             case UNKNOWN -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: UNKNOWN");
+            case GEOMETRY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOMETRY");
+            case GEOGRAPHY -> throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: GEOGRAPHY");
             case STRUCT -> toOrcStructType(nextFieldTypeIndex, (StructType) type, attributes);
             case LIST -> toOrcListType(nextFieldTypeIndex, (ListType) type, attributes);
             case MAP -> toOrcMapType(nextFieldTypeIndex, (MapType) type, attributes);

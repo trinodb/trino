@@ -72,7 +72,6 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
-import org.apache.iceberg.types.Type.PrimitiveType;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -422,7 +421,13 @@ public final class IcebergUtil
     {
         NestedField fieldToUpdate = schema.findField(columnName);
         checkArgument(fieldToUpdate != null, "Field %s does not exist", columnName);
-        NestedField updatedField = NestedField.of(fieldToUpdate.fieldId(), fieldToUpdate.isOptional(), fieldToUpdate.name(), fieldToUpdate.type(), comment);
+        NestedField updatedField = NestedField.builder()
+                .withId(fieldToUpdate.fieldId())
+                .isOptional(fieldToUpdate.isOptional())
+                .withName(fieldToUpdate.name())
+                .ofType(fieldToUpdate.type())
+                .withDoc(comment)
+                .build();
         List<NestedField> newFields = schema.columns().stream()
                 .map(field -> (field.fieldId() == updatedField.fieldId()) ? updatedField : field)
                 .toList();
@@ -493,25 +498,31 @@ public final class IcebergUtil
 
         if (type.isNestedType()) {
             return primitiveFields(type.asNestedType().fields())
-                    .map(field -> Types.NestedField.of(field.fieldId(), field.isOptional(), nestedField.name() + "." + field.name(), field.type(), field.doc()));
+                    .map(field -> Types.NestedField.builder()
+                            .withId(field.fieldId())
+                            .isOptional(field.isOptional())
+                            .withName(nestedField.name() + "." + field.name())
+                            .ofType(field.type())
+                            .withDoc(field.doc())
+                            .build());
         }
 
         throw new IllegalStateException("Unsupported field type: " + nestedField);
     }
 
-    public static Map<Integer, PrimitiveType> primitiveFieldTypes(Schema schema)
+    public static Map<Integer, org.apache.iceberg.types.Type> primitiveFieldTypes(Schema schema)
     {
         return primitiveFieldTypes(schema.columns())
                 .collect(toImmutableMap(Entry::getKey, Entry::getValue));
     }
 
-    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(List<NestedField> nestedFields)
+    private static Stream<Entry<Integer, org.apache.iceberg.types.Type>> primitiveFieldTypes(List<NestedField> nestedFields)
     {
         return nestedFields.stream()
                 .flatMap(IcebergUtil::primitiveFieldTypes);
     }
 
-    private static Stream<Entry<Integer, PrimitiveType>> primitiveFieldTypes(NestedField nestedField)
+    private static Stream<Entry<Integer, org.apache.iceberg.types.Type>> primitiveFieldTypes(NestedField nestedField)
     {
         org.apache.iceberg.types.Type fieldType = nestedField.type();
         if (fieldType.isPrimitiveType()) {
@@ -520,6 +531,10 @@ public final class IcebergUtil
 
         if (fieldType.isNestedType()) {
             return primitiveFieldTypes(fieldType.asNestedType().fields());
+        }
+
+        if (fieldType.isVariantType()) {
+            return Stream.of(Map.entry(nestedField.fieldId(), fieldType.asVariantType()));
         }
 
         throw new IllegalStateException("Unsupported field type: " + nestedField);
@@ -823,7 +838,13 @@ public final class IcebergUtil
             if (!column.isHidden()) {
                 int index = icebergColumns.size() + 1;
                 org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(column.getType(), nextFieldId);
-                NestedField field = NestedField.of(index, column.isNullable(), column.getName(), type, column.getComment());
+                NestedField field = NestedField.builder()
+                        .withId(index)
+                        .isOptional(column.isNullable())
+                        .withName(column.getName())
+                        .ofType(type)
+                        .withDoc(column.getComment())
+                        .build();
                 icebergColumns.add(field);
             }
         }
@@ -838,7 +859,7 @@ public final class IcebergUtil
         for (ViewColumn column : columns) {
             Type trinoType = typeManager.getType(column.getType());
             org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(trinoType, nextFieldId);
-            NestedField field = NestedField.of(nextFieldId.getAndIncrement(), false, column.getName(), type, column.getComment().orElse(null));
+            NestedField field = NestedField.required(nextFieldId.getAndIncrement(), column.getName(), type, column.getComment().orElse(null));
             icebergColumns.add(field);
         }
         org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
@@ -1213,11 +1234,11 @@ public final class IcebergUtil
 
     public static List<org.apache.iceberg.types.Type> partitionTypes(
             List<PartitionField> partitionFields,
-            Map<Integer, org.apache.iceberg.types.Type.PrimitiveType> idToPrimitiveTypeMapping)
+            Map<Integer, org.apache.iceberg.types.Type> idToPrimitiveTypeMapping)
     {
         ImmutableList.Builder<org.apache.iceberg.types.Type> partitionTypeBuilder = ImmutableList.builder();
         for (PartitionField partitionField : partitionFields) {
-            org.apache.iceberg.types.Type.PrimitiveType sourceType = idToPrimitiveTypeMapping.get(partitionField.sourceId());
+            org.apache.iceberg.types.Type sourceType = idToPrimitiveTypeMapping.get(partitionField.sourceId());
             org.apache.iceberg.types.Type type = partitionField.transform().getResultType(sourceType);
             partitionTypeBuilder.add(type);
         }
