@@ -945,7 +945,7 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies the file system location URI for the table.
 * - `format_version`
   - Optionally specifies the format version of the Iceberg specification to use
-    for new tables; either `1` or `2`. Defaults to `2`. Version `2` is required
+    for new tables; either `1`, `2` or `3`. Defaults to `2`. Version `2` is required
     for row level deletes.
 * - `max_commit_retry`
   - Number of times to retry a commit before failing. Defaults to the value of 

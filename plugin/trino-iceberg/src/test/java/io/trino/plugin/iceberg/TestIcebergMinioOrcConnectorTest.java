@@ -29,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.Resources.getResource;
+import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkOrcFileSorting;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -50,7 +51,7 @@ public class TestIcebergMinioOrcConnectorTest
 
     public TestIcebergMinioOrcConnectorTest()
     {
-        super(ORC);
+        super(ORC, FORMAT_VERSION_SUPPORT_MAX);
     }
 
     @Override
@@ -65,6 +66,7 @@ public class TestIcebergMinioOrcConnectorTest
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
+                                .put("iceberg.format-version", "3")
                                 .put("fs.hadoop.enabled", "true")
                                 .put("fs.native-s3.enabled", "true")
                                 .put("s3.aws-access-key", MINIO_ACCESS_KEY)

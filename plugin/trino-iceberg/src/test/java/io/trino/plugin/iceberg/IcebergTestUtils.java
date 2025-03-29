@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -237,5 +238,17 @@ public final class IcebergTestUtils
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    public static List<String> listFiles(TrinoFileSystem trinoFileSystem, String location)
+            throws IOException
+    {
+        ImmutableList.Builder<String> files = ImmutableList.builder();
+        FileIterator fileIterator = trinoFileSystem.listFiles(Location.of(location));
+        while (fileIterator.hasNext()) {
+            FileEntry entry = fileIterator.next();
+            files.add(entry.location().fileName());
+        }
+        return files.build();
     }
 }

@@ -41,12 +41,12 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestIcebergParquetConnectorTest
+public abstract class BaseIcebergParquetConnectorTest
         extends BaseIcebergConnectorTest
 {
-    public TestIcebergParquetConnectorTest()
+    public BaseIcebergParquetConnectorTest(int formatVersion)
     {
-        super(PARQUET);
+        super(PARQUET, formatVersion);
     }
 
     @Override
