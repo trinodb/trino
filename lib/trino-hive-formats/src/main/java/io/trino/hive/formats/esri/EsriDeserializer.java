@@ -19,6 +19,7 @@ import com.esri.core.geometry.MapGeometry;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.hive.formats.line.Column;
@@ -33,6 +34,7 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
@@ -44,12 +46,18 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
+import static com.fasterxml.jackson.core.JsonToken.FIELD_NAME;
+import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
+import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
+import static com.fasterxml.jackson.core.JsonToken.VALUE_NULL;
+import static com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -73,40 +81,46 @@ import static java.lang.StrictMath.floorMod;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeZone.UTC;
 
 public final class EsriDeserializer
 {
     private static final VarHandle INT_HANDLE_BIG_ENDIAN = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
-    private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
     private static final String GEOMETRY_FIELD_NAME = "geometry";
     private static final String ATTRIBUTES_FIELD_NAME = "attributes";
     private static final DateTimeFormatter DATE_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-M-d").withZone(UTC_ZONE);
+            DateTimeFormatter.ofPattern("yyyy-M-d").withZone(UTC);
     private static final List<DateTimeFormatter> TIMESTAMP_FORMATTERS = List.of(
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(UTC_ZONE),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(UTC_ZONE),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(UTC_ZONE),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(UTC),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(UTC),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(UTC),
             DATE_FORMATTER);
 
-    private final int numColumns;
     private final int geometryColumn;
-    private final List<String> columnNames;
-    private final Map<String, Integer> columnNameToIndex;
-    private final List<Type> columnTypes;
+    private final List<Column> columns;
+    private final Map<String, Integer> columnIndex;
+    private final List<Type> types;
+    private final boolean[] fieldWritten;
 
     public EsriDeserializer(List<Column> columns)
     {
-        numColumns = columns.size();
-        columnNames = columns.stream().map(Column::name).collect(toImmutableList());
-        columnTypes = columns.stream().map(Column::type).collect(toImmutableList());
-        columnNameToIndex = createColumnNameToIndexMap();
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.types = columns.stream()
+                .map(Column::type)
+                .collect(toImmutableList());
+        this.fieldWritten = new boolean[columns.size()];
+
+        ImmutableMap.Builder<String, Integer> columnNameBuilder = ImmutableMap.builder();
+        for (int index = 0; index < columns.size(); index++) {
+            columnNameBuilder.put(columns.get(index).name().toLowerCase(ENGLISH), index);
+        }
+        columnIndex = columnNameBuilder.buildOrThrow();
 
         int geometryColumn = -1;
-        for (int i = 0; i < numColumns; i++) {
-            if (columnTypes.get(i) == VARBINARY) {
+        for (int i = 0; i < columns.size(); i++) {
+            if (columns.get(i).type() == VARBINARY) {
                 if (geometryColumn >= 0) {
                     throw new IllegalArgumentException("Multiple binary columns defined. Define only one binary column for geometries");
                 }
@@ -116,123 +130,124 @@ public final class EsriDeserializer
         this.geometryColumn = geometryColumn;
     }
 
-    private ImmutableMap<String, Integer> createColumnNameToIndexMap()
+    public List<Type> getTypes()
     {
-        ImmutableMap.Builder<String, Integer> mapBuilder = ImmutableMap.builder();
-        for (int i = 0; i < columnNames.size(); i++) {
-            mapBuilder.put(columnNames.get(i).toLowerCase(ENGLISH), i);
-        }
-
-        return mapBuilder.buildOrThrow();
+        return types;
     }
 
     public void deserialize(PageBuilder pageBuilder, JsonParser parser)
             throws IOException
     {
-        for (JsonToken token = parser.nextToken(); token != null && token != JsonToken.END_OBJECT; token = parser.nextToken()) {
-            if (token != JsonToken.START_OBJECT) {
+        if (parser.currentToken() != START_OBJECT) {
+            throw invalidJson("start of object expected");
+        }
+
+        Arrays.fill(fieldWritten, false);
+        while (nextObjectField(parser)) {
+            String fieldName = parser.currentName();
+            if (nextTokenRequired(parser) == VALUE_NULL) {
                 continue;
             }
-
-            if (GEOMETRY_FIELD_NAME.equals(parser.currentName())) {
-                if (geometryColumn > -1) {
-                    OGCGeometry ogcGeom = parseGeom(parser);
-                    if (ogcGeom != null) {
-                        byte[] esriShapeBytes = geometryToEsriShape(ogcGeom);
-                        VARBINARY.writeSlice(pageBuilder.getBlockBuilder(geometryColumn), Slices.wrappedBuffer(esriShapeBytes));
-                    }
-                }
-                else {
-                    parser.skipChildren();
-                }
+            if (GEOMETRY_FIELD_NAME.equals(fieldName)) {
+                parseGeometry(parser, pageBuilder);
             }
-            else if (ATTRIBUTES_FIELD_NAME.equals(parser.currentName())) {
-                for (JsonToken token2 = parser.nextToken(); token2 != null && token2 != JsonToken.END_OBJECT; token2 = parser.nextToken()) {
-                    String name = parser.getText().toLowerCase(ENGLISH);
-                    parser.nextToken();
-                    Integer fieldIndex = columnNameToIndex.get(name);
-                    if (fieldIndex != null) {
-                        Type columnType = columnTypes.get(fieldIndex);
-                        String columnName = columnNames.get(fieldIndex);
-                        serializeValue(parser, columnType, columnName, pageBuilder.getBlockBuilder(fieldIndex), true);
-                    }
-                }
+            else if (ATTRIBUTES_FIELD_NAME.equals(fieldName)) {
+                parseAttributes(parser, pageBuilder);
+            }
+            else {
+                skipCurrentValue(parser);
             }
         }
 
         pageBuilder.declarePosition();
 
-        for (int i = 0; i < numColumns; i++) {
-            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
-            if (blockBuilder.getPositionCount() != pageBuilder.getPositionCount()) {
-                blockBuilder.appendNull();
+        for (int i = 0; i < columns.size(); i++) {
+            if (!fieldWritten[i]) {
+                pageBuilder.getBlockBuilder(i).appendNull();
             }
         }
     }
 
-    private OGCGeometry parseGeom(JsonParser parser)
+    private BlockBuilder getBlockBuilderForWrite(PageBuilder pageBuilder, int fieldIndex)
     {
-        MapGeometry mapGeom = GeometryEngine.jsonToGeometry(parser);
-        return OGCGeometry.createFromEsriGeometry(mapGeom.getGeometry(), mapGeom.getSpatialReference());
+        // if the geometry column is already written, overwrite the last value
+        BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(fieldIndex);
+        if (fieldWritten[fieldIndex]) {
+            blockBuilder.resetTo(blockBuilder.getPositionCount() - 1);
+        }
+        fieldWritten[fieldIndex] = true;
+        return blockBuilder;
     }
 
-    private byte[] geometryToEsriShape(OGCGeometry ogcGeometry)
+    private void parseGeometry(JsonParser parser, PageBuilder pageBuilder)
+            throws IOException
     {
-        requireNonNull(ogcGeometry, "ogcGeometry must not be null");
+        if (parser.currentToken() != START_OBJECT) {
+            throw invalidJson("Geometry is not an object");
+        }
 
-        int wkid = ogcGeometry.SRID();
+        // if geometry is not mapped to a column, skip it
+        if (geometryColumn <= -1) {
+            skipCurrentValue(parser);
+            return;
+        }
 
-        OGCType ogcType;
-        String typeName = ogcGeometry.geometryType();
-        ogcType = switch (typeName) {
+        MapGeometry mapGeometry = GeometryEngine.jsonToGeometry(parser);
+        OGCGeometry ogcGeometry = OGCGeometry.createFromEsriGeometry(mapGeometry.getGeometry(), mapGeometry.getSpatialReference());
+        Geometry geometry = ogcGeometry.getEsriGeometry();
+        if (geometry == null) {
+            throw new IllegalArgumentException("Could not parse geometry");
+        }
+
+        byte[] shape = GeometryEngine.geometryToEsriShape(geometry);
+        if (shape == null) {
+            throw new IllegalArgumentException("Could not serialize geometry shape");
+        }
+
+        byte[] shapeHeader = new byte[4 + 1 + shape.length];
+        // write the Spatial Reference System Identifier (a.k.a, the well-known ID)
+        INT_HANDLE_BIG_ENDIAN.set(shapeHeader, 0, ogcGeometry.SRID());
+        // write the geometry type
+        OGCType ogcType = switch (ogcGeometry.geometryType()) {
             case "Point" -> OGCType.ST_POINT;
             case "LineString" -> OGCType.ST_LINESTRING;
             case "Polygon" -> OGCType.ST_POLYGON;
             case "MultiPoint" -> OGCType.ST_MULTIPOINT;
             case "MultiLineString" -> OGCType.ST_MULTILINESTRING;
             case "MultiPolygon" -> OGCType.ST_MULTIPOLYGON;
-            case null -> OGCType.UNKNOWN;
-            default -> OGCType.UNKNOWN;
+            case null, default -> OGCType.UNKNOWN;
         };
+        shapeHeader[4] = (byte) ogcType.getIndex();
+        // write the serialized shape
+        System.arraycopy(shape, 0, shapeHeader, 5, shape.length);
 
-        return serializeGeometry(ogcGeometry.getEsriGeometry(), wkid, ogcType);
+        // write the shape to the page
+        VARBINARY.writeSlice(getBlockBuilderForWrite(pageBuilder, geometryColumn), Slices.wrappedBuffer(shape));
     }
 
-    private static byte[] serializeGeometry(Geometry geometry, int wkid, OGCType type)
+    private void parseAttributes(JsonParser parser, PageBuilder pageBuilder)
+            throws IOException
     {
-        if (geometry == null) {
-            return null;
+        if (parser.currentToken() != START_OBJECT) {
+            throw invalidJson("Attributes is not an object");
         }
-        else {
-            byte[] shape = GeometryEngine.geometryToEsriShape(geometry);
-            if (shape == null) {
-                return null;
+        while (nextObjectField(parser)) {
+            String attributeName = parser.getText().toLowerCase(ENGLISH);
+            parser.nextToken();
+            Integer fieldIndex = columnIndex.get(attributeName);
+            if (fieldIndex != null) {
+                Column column = columns.get(fieldIndex);
+                parseAttribute(parser, column.type(), column.name(), getBlockBuilderForWrite(pageBuilder, fieldIndex), true);
             }
             else {
-                byte[] shapeWithData = new byte[shape.length + 4 + 1];
-                System.arraycopy(shape, 0, shapeWithData, 5, shape.length);
-
-                setWKID(shapeWithData, wkid);
-                setType(shapeWithData, type);
-
-                return shapeWithData;
+                skipCurrentValue(parser);
             }
         }
     }
 
-    private static void setWKID(byte[] geomref, int wkid)
+    private static void parseAttribute(JsonParser parser, Type columnType, String columnName, BlockBuilder builder, boolean nullOnParseError)
     {
-        INT_HANDLE_BIG_ENDIAN.set(geomref, 0, wkid);
-    }
-
-    private static void setType(byte[] geomref, OGCType type)
-    {
-        geomref[4] = (byte) type.getIndex();
-    }
-
-    private void serializeValue(JsonParser parser, Type columnType, String columnName, BlockBuilder builder, boolean nullOnParseError)
-    {
-        if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+        if (parser.getCurrentToken() == VALUE_NULL) {
             builder.appendNull();
             return;
         }
@@ -268,8 +283,7 @@ public final class EsriDeserializer
             else if (columnType instanceof TimestampType timestampType) {
                 Timestamp timestamp = parseTime(parser);
                 DecodedTimestamp decodedTimestamp = createDecodedTimestamp(timestamp);
-
-                createTimestampEncoder(timestampType, UTC).write(decodedTimestamp, builder);
+                createTimestampEncoder(timestampType, DateTimeZone.UTC).write(decodedTimestamp, builder);
             }
             else if (columnType instanceof VarcharType varcharType) {
                 columnType.writeSlice(builder, truncateToLength(Slices.utf8Slice(parser.getText()), varcharType));
@@ -325,10 +339,10 @@ public final class EsriDeserializer
     }
 
     // NOTE: It only supports UTC timezone.
-    private Date parseDate(JsonParser parser)
+    private static Date parseDate(JsonParser parser)
             throws IOException
     {
-        if (JsonToken.VALUE_NUMBER_INT.equals(parser.getCurrentToken())) {
+        if (VALUE_NUMBER_INT == parser.getCurrentToken()) {
             long epoch = parser.getLongValue();
             return new Date(epoch);
         }
@@ -336,21 +350,19 @@ public final class EsriDeserializer
         try {
             LocalDate localDate = LocalDate.parse(parser.getText(), DATE_FORMATTER);
             // Add 12 hours (43200000L milliseconds) to handle noon conversion
-            return new Date(localDate.atStartOfDay(UTC_ZONE)
+            return new Date(localDate.atStartOfDay(UTC)
                     .toInstant()
                     .toEpochMilli() + 43200000L);
         }
         catch (DateTimeParseException e) {
-            throw new IllegalArgumentException(
-                    String.format("Value '%s' cannot be parsed to a Date. Expected format: yyyy-MM-dd",
-                            parser.getText()), e);
+            throw new IllegalArgumentException(format("Value '%s' cannot be parsed to a Date. Expected format: yyyy-MM-dd", parser.getText()), e);
         }
     }
 
-    private Timestamp parseTime(JsonParser parser)
+    private static Timestamp parseTime(JsonParser parser)
             throws IOException
     {
-        if (JsonToken.VALUE_NUMBER_INT.equals(parser.getCurrentToken())) {
+        if (VALUE_NUMBER_INT == parser.getCurrentToken()) {
             long epoch = parser.getLongValue();
             return new Timestamp(epoch);
         }
@@ -364,11 +376,11 @@ public final class EsriDeserializer
                 Instant instant;
                 if (formatter.equals(DATE_FORMATTER)) {
                     LocalDate localDate = LocalDate.parse(dateStr, formatter);
-                    instant = localDate.atStartOfDay(UTC_ZONE).toInstant();
+                    instant = localDate.atStartOfDay(UTC).toInstant();
                 }
                 else {
                     LocalDateTime dateTime = LocalDateTime.parse(dateStr, formatter);
-                    instant = dateTime.atZone(UTC_ZONE).toInstant();
+                    instant = dateTime.atZone(UTC).toInstant();
                 }
                 return Timestamp.from(instant);
             }
@@ -377,7 +389,48 @@ public final class EsriDeserializer
             }
         }
 
-        throw new IllegalArgumentException(
-            String.format("Value '%s' cannot be parsed to a Timestamp", dateStr));
+        throw new IllegalArgumentException(format("Value '%s' cannot be parsed to a Timestamp", dateStr));
+    }
+
+    static boolean nextObjectField(JsonParser parser)
+            throws IOException
+    {
+        JsonToken token = nextTokenRequired(parser);
+        if (token == FIELD_NAME) {
+            return true;
+        }
+        if (token == END_OBJECT) {
+            return false;
+        }
+        throw invalidJson("field name expected, but was " + token);
+    }
+
+    static JsonToken nextTokenRequired(JsonParser parser)
+            throws IOException
+    {
+        JsonToken token = parser.nextToken();
+        if (token == null) {
+            throw invalidJson("object is truncated");
+        }
+        return token;
+    }
+
+    static void skipCurrentValue(JsonParser parser)
+            throws IOException
+    {
+        JsonToken valueToken = parser.currentToken();
+        if ((valueToken == START_ARRAY) || (valueToken == START_OBJECT)) {
+            // if the current token is a beginning of an array or object, move the stream forward
+            // skipping any child tokens till we're at the corresponding END_ARRAY or END_OBJECT token
+            parser.skipChildren();
+        }
+        // At the end of this function, the stream should be pointing to the last token that
+        // corresponds to the value being skipped. This way, the next call to nextToken
+        // will advance it to the next field name.
+    }
+
+    static IOException invalidJson(String message)
+    {
+        return new IOException("Invalid JSON: " + message);
     }
 }

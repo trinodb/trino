@@ -25,23 +25,27 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.INTERN_FIELD_NAMES;
+import static io.trino.hive.formats.esri.EsriDeserializer.invalidJson;
+import static io.trino.hive.formats.esri.EsriDeserializer.nextObjectField;
+import static io.trino.hive.formats.esri.EsriDeserializer.nextTokenRequired;
+import static io.trino.hive.formats.esri.EsriDeserializer.skipCurrentValue;
 import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 import static java.util.Objects.requireNonNull;
 
-public class EsriReader
+public final class EsriReader
         implements Closeable
 {
     private static final JsonFactory JSON_FACTORY = jsonFactoryBuilder()
             .disable(INTERN_FIELD_NAMES)
             .build();
+    private static final String FEATURES_NAME = "features";
 
     private final CountingInputStream inputStream;
     private final EsriDeserializer esriDeserializer;
-    private JsonParser parser;
+    private final JsonParser parser;
+
     private long readTimeNanos;
     private boolean closed;
-
-    private static final String FEATURES_ARRAY_NAME = "features";
 
     public EsriReader(InputStream inputStream, EsriDeserializer esriDeserializer)
             throws IOException
@@ -50,23 +54,29 @@ public class EsriReader
         this.inputStream = new CountingInputStream(inputStream);
         this.esriDeserializer = requireNonNull(esriDeserializer, "esriDeserializer is null");
 
-        this.initializeParser();
-    }
+        parser = JSON_FACTORY.createParser(this.inputStream);
+        if (nextTokenRequired(parser) != JsonToken.START_OBJECT) {
+            throw invalidJson("File must start with a JSON object");
+        }
 
-    private void initializeParser()
-            throws IOException
-    {
-        parser = JSON_FACTORY.createParser(inputStream);
-
-        // Find features array
-        while (true) {
-            JsonToken token = parser.nextToken();
-            if (token == null) {
-                return;
-            }
-            if (token == JsonToken.START_ARRAY &&
-                    FEATURES_ARRAY_NAME.equals(parser.currentName())) {
+        // Advance to the features field
+        while (nextObjectField(parser)) {
+            String fieldName = parser.currentName();
+            JsonToken fieldValue = nextTokenRequired(parser);
+            if (FEATURES_NAME.equals(fieldName)) {
+                // read the array start token
+                if (fieldValue == JsonToken.VALUE_NULL) {
+                    close();
+                    return;
+                }
+                if (fieldValue != JsonToken.START_ARRAY) {
+                    throw invalidJson("Features field must be an array");
+                }
                 break;
+            }
+            else {
+                // skip the field value
+                skipCurrentValue(parser);
             }
         }
     }
@@ -85,17 +95,20 @@ public class EsriReader
     public boolean next(PageBuilder pageBuilder)
             throws IOException
     {
-        long start = System.nanoTime();
+        if (closed) {
+            return false;
+        }
 
+        long start = System.nanoTime();
         try {
             JsonToken token = parser.nextToken();
-            if (token == JsonToken.START_OBJECT && parser.currentName() == null) {
-                esriDeserializer.deserialize(pageBuilder, parser);
-                return true;
-            }
-            else {
+            if (token == null || token == JsonToken.END_ARRAY) {
+                // everything after the features array is ignored
+                close();
                 return false;
             }
+            esriDeserializer.deserialize(pageBuilder, parser);
+            return true;
         }
         finally {
             long duration = System.nanoTime() - start;

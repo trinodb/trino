@@ -14,41 +14,27 @@
 package io.trino.hive.formats.esri;
 
 import io.trino.hive.formats.line.Column;
+import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestEsriReader
+class TestEsriReader
 {
-    @TempDir
-    Path tempDir;
-
     private static final List<Column> TEST_COLUMNS = List.of(
             new Column("id", BIGINT, 0),
             new Column("name", VARCHAR, 1),
             new Column("geometry", VARBINARY, 2));
-
-    private static PageBuilder createPageBuilder()
-    {
-        List<Type> types = TEST_COLUMNS.stream()
-                .map(Column::type)
-                .collect(toImmutableList());
-        return new PageBuilder(types);
-    }
 
     @Test
     void testReadSimpleFeatures()
@@ -81,140 +67,110 @@ public class TestEsriReader
                 }
                 """;
 
-        PageBuilder pageBuilder = createPageBuilder();
-        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
-
-        try (EsriReader reader = new EsriReader(
-                new ByteArrayInputStream(json.getBytes(UTF_8)),
-                deserializer)) {
-
-            assertThat(reader.next(pageBuilder)).isTrue();
-            assertThat(pageBuilder.getPositionCount()).isEqualTo(1);
-
-            assertThat(reader.next(pageBuilder)).isTrue();
-            assertThat(pageBuilder.getPositionCount()).isEqualTo(2);
-
-            assertThat(reader.next(pageBuilder)).isFalse();
-        }
+        Page page = readAll(json);
+        assertThat(page.getPositionCount()).isEqualTo(2);
     }
 
     @Test
-    void testEmptyFeatures() throws IOException {
+    void testEmptyFeatures()
+            throws IOException
+    {
         String json = """
                 {
                     "features": []
                 }
                 """;
 
-        PageBuilder pageBuilder = createPageBuilder();
-        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
-
-        try (EsriReader reader = new EsriReader(
-                new ByteArrayInputStream(json.getBytes(UTF_8)),
-                deserializer)) {
-            assertThat(reader.next(pageBuilder)).isFalse();
-        }
+        Page page = readAll(json);
+        assertThat(page.getPositionCount()).isZero();
     }
 
     @Test
-    void testNoFeaturesArray() throws IOException {
+    void testNullFeatures()
+            throws IOException
+    {
+        String json = """
+                {
+                    "features": null
+                }
+                """;
+
+        Page page = readAll(json);
+        assertThat(page.getPositionCount()).isZero();
+    }
+
+    @Test
+    void testNumberFeaturesFails()
+    {
+        String json = """
+                {
+                    "features": 42
+                }
+                """;
+
+        assertThatThrownBy(() -> new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), new EsriDeserializer(TEST_COLUMNS)))
+                .isInstanceOf(IOException.class)
+                .hasMessage("Invalid JSON: Features field must be an array");
+    }
+
+    @Test
+    void testObjectFeaturesFails()
+    {
+        String json = """
+                {
+                    "features": {}
+                }
+                """;
+
+        assertThatThrownBy(() -> new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), new EsriDeserializer(TEST_COLUMNS)))
+                .isInstanceOf(IOException.class)
+                .hasMessage("Invalid JSON: Features field must be an array");
+    }
+
+    @Test
+    void testNoFeaturesArray()
+            throws IOException
+    {
         String json = """
                 {
                     "someOtherField": []
                 }
                 """;
 
-        PageBuilder pageBuilder = createPageBuilder();
-        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
-
-        try (EsriReader reader = new EsriReader(
-                new ByteArrayInputStream(json.getBytes(UTF_8)),
-                deserializer)) {
-            assertThat(reader.next(pageBuilder)).isFalse();
-        }
+        Page page = readAll(json);
+        assertThat(page.getPositionCount()).isZero();
     }
 
     @Test
-    void testBytesReadCounter() throws IOException {
-        String json = """
-                {
-                    "features": [
-                        {
-                            "attributes": {
-                                "id": 1
-                            }
-                        }
-                    ]
-                }
-                """;
-
-        PageBuilder pageBuilder = createPageBuilder();
-        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
-
-        try (EsriReader reader = new EsriReader(
-                new ByteArrayInputStream(json.getBytes(UTF_8)),
-                deserializer)) {
-            reader.next(pageBuilder);
-            assertThat(reader.getBytesRead()).isPositive();
-        }
-    }
-
-    @Test
-    void testReadTimeNanos() throws IOException {
-        String json = """
-                {
-                    "features": [
-                        {
-                            "attributes": {
-                                "id": 1
-                            }
-                        }
-                    ]
-                }
-                """;
-
-        PageBuilder pageBuilder = createPageBuilder();
-        EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
-
-        try (EsriReader reader = new EsriReader(
-                new ByteArrayInputStream(json.getBytes(UTF_8)),
-                deserializer)) {
-            reader.next(pageBuilder);
-            assertThat(reader.getReadTimeNanos()).isPositive();
-        }
-    }
-
-    @Test
-    void testLargeFile() throws IOException {
-        Path jsonFile = tempDir.resolve("large.json");
+    void testLargeRead()
+            throws IOException
+    {
         StringBuilder jsonBuilder = new StringBuilder();
         jsonBuilder.append("{\"features\":[");
         for (int i = 0; i < 1000; i++) {
             if (i > 0) {
                 jsonBuilder.append(",");
             }
-            jsonBuilder.append(String.format("""
-                    {
-                        "attributes": {
-                            "id": %d,
-                            "name": "Feature %d"
-                        },
-                        "geometry": {
-                            "x": %d,
-                            "y": %d
-                        }
-                    }
-                    """, i, i, i * 10, i * 20));
+            jsonBuilder.append(String.format(
+                    """
+                            {
+                                "attributes": {
+                                    "id": %d,
+                                    "name": "Feature %d"
+                                },
+                                "geometry": {
+                                    "x": %d,
+                                    "y": %d
+                                }
+                            }
+                            """, i, i, i * 10, i * 20));
         }
         jsonBuilder.append("]}");
-        Files.writeString(jsonFile, jsonBuilder.toString());
 
-        PageBuilder pageBuilder = createPageBuilder();
         EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
+        PageBuilder pageBuilder = new PageBuilder(deserializer.getTypes());
 
-        try (EsriReader reader = new EsriReader(
-                Files.newInputStream(jsonFile),
-                deserializer)) {
+        try (EsriReader reader = new EsriReader(new ByteArrayInputStream(jsonBuilder.toString().getBytes(UTF_8)), deserializer)) {
             int count = 0;
             while (reader.next(pageBuilder)) {
                 count++;
@@ -224,21 +180,104 @@ public class TestEsriReader
     }
 
     @Test
-    void testClosedStatus() throws IOException {
+    void testTruncatedFeaturesAllowed()
+            throws IOException
+    {
         String json = """
                 {
-                    "features": []
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 1
+                            }
+                        }
+                    ]
+                    EVERYTHING AFTER ARRAY CLOSE IS IGNORED
+                """;
+
+        Page page = readAll(json);
+        assertThat(page.getPositionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void testDuplicateFeaturesIgnored()
+            throws IOException
+    {
+        String json = """
+                {
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 1
+                            }
+                        }
+                    ],
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 2
+                            }
+                        }
+                    ]
                 }
                 """;
 
+        Page page = readAll(json);
+        assertThat(page.getPositionCount()).isEqualTo(1);
+    }
+
+    @Test
+    void testNestedFeaturesIgnored()
+            throws IOException
+    {
+        String json = """
+                {
+                    "bad": {
+                        "features": [
+                            {
+                                "attributes": {
+                                    "id": 1
+                                }
+                            }
+                        ]
+                    },
+                    "features": [
+                        {
+                            "attributes": {
+                                "id": 77
+                            }
+                        }
+                    ]
+                }
+                """;
+
+        Page page = readAll(json);
+        assertThat(page.getPositionCount()).isEqualTo(1);
+        assertThat(BIGINT.getLong(page.getBlock(0), 0)).isEqualTo(77);
+    }
+
+    private static Page readAll(String json)
+            throws IOException
+    {
         EsriDeserializer deserializer = new EsriDeserializer(TEST_COLUMNS);
+        EsriReader reader = new EsriReader(new ByteArrayInputStream(json.getBytes(UTF_8)), deserializer);
+        PageBuilder pageBuilder = new PageBuilder(deserializer.getTypes());
+        try {
+            boolean closed = reader.isClosed();
+            while (reader.next(pageBuilder)) {
+                assertThat(closed).isFalse();
+                closed = reader.isClosed();
+            }
+        }
+        finally {
+            reader.close();
+            assertThat(reader.getBytesRead()).isPositive();
+            if (!pageBuilder.isEmpty()) {
+                assertThat(reader.getReadTimeNanos()).isPositive();
+            }
+            assertThat(reader.isClosed()).isTrue();
+        }
 
-        EsriReader reader = new EsriReader(
-                new ByteArrayInputStream(json.getBytes(UTF_8)),
-                deserializer);
-
-        assertThat(reader.isClosed()).isFalse();
-        reader.close();
-        assertThat(reader.isClosed()).isTrue();
+        return pageBuilder.build();
     }
 }

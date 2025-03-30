@@ -51,7 +51,7 @@ public class TestEsriTable
     }
 
     @Test
-    public void testCreateExternalTableWithData()
+    void testCreateExternalTableWithData()
             throws IOException
     {
         URL resourceLocation = Resources.getResource("esri/counties.json");
@@ -92,7 +92,7 @@ public class TestEsriTable
     }
 
 
-    private List<MaterializedRow> readExpectedResults(String resourcePath)
+    private static List<MaterializedRow> readExpectedResults(String resourcePath)
             throws IOException
     {
         URL resourceUrl = Resources.getResource(resourcePath);
