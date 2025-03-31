@@ -105,6 +105,15 @@ public class TestMetadataQueryOptimization
                                 ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L))))));
 
         assertPlan(
+                format("SELECT DISTINCT b, c FROM %s LIMIT 10", testTable),
+                session,
+                anyTree(values(
+                        ImmutableList.of("b", "c"),
+                        ImmutableList.of(
+                                ImmutableList.of(new Constant(INTEGER, 6L), new Constant(INTEGER, 7L)),
+                                ImmutableList.of(new Constant(INTEGER, 9L), new Constant(INTEGER, 10L))))));
+
+        assertPlan(
                 format("SELECT DISTINCT b, c FROM %s WHERE b > 7", testTable),
                 session,
                 anyTree(values(
