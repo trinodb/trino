@@ -43,31 +43,6 @@ public class TestConfluentSchemaRegistryConfig
     }
 
     @Test
-    public void testExplicitPropertyMappingsWithoutAuthorization()
-    {
-        Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("kafka.confluent-schema-registry-url", "http://schema-registry-a:8081, http://schema-registry-b:8081")
-                .put("kafka.confluent-schema-registry-client-cache-size", "1500")
-                .put("kafka.confluent-schema-registry-auth-type", "NONE")
-                .put("kafka.confluent-schema-registry-password", "")
-                .put("kafka.confluent-schema-registry-username", "")
-                .put("kafka.empty-field-strategy", "MARK")
-                .put("kafka.confluent-subjects-cache-refresh-interval", "2s")
-                .buildOrThrow();
-
-        ConfluentSchemaRegistryConfig expected = new ConfluentSchemaRegistryConfig()
-                .setConfluentSchemaRegistryUrls(ImmutableSet.of("http://schema-registry-a:8081", "http://schema-registry-b:8081"))
-                .setConfluentSchemaRegistryAuthType(ConfluentSchemaRegistryConfig.ConfluentSchemaRegistryAuthType.NONE)
-                .setConfluentSchemaRegistryPassword("")
-                .setConfluentSchemaRegistryUsername("")
-                .setConfluentSchemaRegistryClientCacheSize(1500)
-                .setEmptyFieldStrategy(MARK)
-                .setConfluentSubjectsCacheRefreshInterval(new Duration(2, SECONDS));
-
-        assertFullMapping(properties, expected);
-    }
-
-    @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
