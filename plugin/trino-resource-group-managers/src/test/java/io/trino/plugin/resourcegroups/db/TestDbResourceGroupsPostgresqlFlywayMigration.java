@@ -26,4 +26,14 @@ public class TestDbResourceGroupsPostgresqlFlywayMigration
         container.start();
         return container;
     }
+
+    @Override
+    protected final boolean tableExists(String tableName)
+    {
+        return jdbi.withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = :tableName")
+                        .bind("tableName", tableName)
+                        .mapTo(Long.class)
+                        .one()) > 0;
+    }
 }
