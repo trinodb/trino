@@ -142,6 +142,15 @@ final class TestIcebergS3TablesConnectorSmokeTest
 
     @Test
     @Override
+    public void testDeleteWithV3Format()
+    {
+        assertThatThrownBy(super::testDeleteWithV3Format)
+                .hasMessageContaining("Failed to create transaction")
+                .hasStackTraceContaining("Unsupported format version: v3");
+    }
+
+    @Test
+    @Override
     public void testRenameSchema()
     {
         assertThatThrownBy(super::testRenameSchema)
