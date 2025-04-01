@@ -110,6 +110,7 @@ public class TestQueryStateMachine
     private static final String QUERY = "sql";
     private static final URI LOCATION = URI.create("fake://fake-query");
     private static final List<Input> INPUTS = ImmutableList.of(new Input(
+            Optional.of("connectorName"),
             "connector",
             new CatalogVersion("default"),
             "schema",

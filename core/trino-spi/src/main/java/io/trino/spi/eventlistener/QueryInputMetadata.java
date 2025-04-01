@@ -30,6 +30,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class QueryInputMetadata
 {
+    private final Optional<String> connectorName;
     private final String catalogName;
     private final CatalogVersion catalogVersion;
     private final String schema;
@@ -43,6 +44,7 @@ public class QueryInputMetadata
     @JsonCreator
     @Unstable
     public QueryInputMetadata(
+            Optional<String> connectorName,
             String catalogName,
             CatalogVersion catalogVersion,
             String schema,
@@ -53,6 +55,7 @@ public class QueryInputMetadata
             OptionalLong physicalInputBytes,
             OptionalLong physicalInputRows)
     {
+        this.connectorName = requireNonNull(connectorName, "connectorName is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.catalogVersion = requireNonNull(catalogVersion, "catalogVersion is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -62,6 +65,12 @@ public class QueryInputMetadata
         this.connectorMetrics = requireNonNull(connectorMetrics, "connectorMetrics is null");
         this.physicalInputBytes = requireNonNull(physicalInputBytes, "physicalInputBytes is null");
         this.physicalInputRows = requireNonNull(physicalInputRows, "physicalInputRows is null");
+    }
+
+    @JsonProperty
+    public Optional<String> getConnectorName()
+    {
+        return connectorName;
     }
 
     @JsonProperty
