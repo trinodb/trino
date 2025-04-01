@@ -2389,12 +2389,16 @@ public class IcebergMetadata
     public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
-        Optional<Boolean> partitioned = icebergTableHandle.getPartitionSpecJson()
-                .map(partitionSpecJson -> PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), partitionSpecJson).isPartitioned());
+        List<String> partitionFields = icebergTableHandle.getPartitionSpecJson()
+                .map(partitionSpecJson -> PartitionSpecParser.fromJson(SchemaParser.fromJson(icebergTableHandle.getTableSchemaJson()), partitionSpecJson)
+                        .fields().stream()
+                        .map(field -> field.name() + ": " + field.transform())
+                        .collect(toImmutableList()))
+                .orElse(ImmutableList.of());
 
         return Optional.of(new IcebergInputInfo(
                 icebergTableHandle.getSnapshotId(),
-                partitioned,
+                partitionFields,
                 getFileFormat(icebergTableHandle.getStorageProperties()).name()));
     }
 
