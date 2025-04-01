@@ -200,7 +200,7 @@ public abstract class BaseMySqlConnectorTest
     public void testCreateTableWithPrimaryKey()
     {
         verifyCreateTableDefinition(
-                "(a bigint NOT NULL, b bigint, c bigint) with (primary_key = ARRAY['a'])",
+                "(a bigint NOT NULL, b bigint, c bigint) WITH (primary_key = ARRAY['a'])",
                 """
                 CREATE TABLE %s.%s.%s (
                    a bigint NOT NULL,
@@ -214,7 +214,7 @@ public abstract class BaseMySqlConnectorTest
         );
 
         verifyCreateTableDefinition(
-                "(a bigint NOT NULL, b bigint NOT NULL, c bigint) with (primary_key = ARRAY['a', 'b'])",
+                "(a bigint NOT NULL, b bigint NOT NULL, c bigint) WITH (primary_key = ARRAY['a', 'b'])",
                 """
                 CREATE TABLE %s.%s.%s (
                    a bigint NOT NULL,
@@ -241,12 +241,12 @@ public abstract class BaseMySqlConnectorTest
     {
         String tableName = "test_create_with_invalid_primary_key";
         // primary key must be not null
-        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['a'])",
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) WITH (primary_key = ARRAY['a'])",
                 "Primary key must be NOT NULL in MySQL");
         // primary key must exist in column list
-        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['d'])",
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) WITH (primary_key = ARRAY['d'])",
                 "Column 'd' specified in property 'primary_key' doesn't exist in table");
-        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) with (primary_key = ARRAY['A'])",
+        assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b bigint, c bigint) WITH (primary_key = ARRAY['A'])",
                 "Column 'A' specified in property 'primary_key' doesn't exist in table");
     }
 
