@@ -1,7 +1,8 @@
 markupsafe==2.1.5
-myst-parser==2.0.0
+myst-parser>=4.0.0
 pillow
-sphinx==7.3.7
-sphinx-material
+sphinx==8.2.3
+sphinx-immaterial
 sphinx-copybutton
 sphinxcontrib-jquery==4.1
+sphinx-sitemap

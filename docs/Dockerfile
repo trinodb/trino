@@ -10,11 +10,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM python:slim
+FROM python:3.12-slim
 
-# Required by pillow
-RUN apt update -y && apt install -y zlib1g-dev libjpeg-dev libxml2-dev libxslt-dev build-essential xsltproc
+# Install required dependencies
+RUN apt-get update -y && apt-get install -y \
+    zlib1g-dev \
+    libjpeg-dev \
+    libxml2-dev \
+    libxslt-dev \
+    build-essential \
+    xsltproc \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
+# Setup working directory and cache directory
 WORKDIR /docs
-ADD requirements.txt /docs
-RUN pip3 install -r requirements.txt
+RUN mkdir -p /.cache && chmod 777 /.cache
+
+# Install Python dependencies
+COPY requirements.txt /docs/
+RUN pip install --no-cache-dir -r requirements.txt
