@@ -112,6 +112,7 @@ abstract class BaseTestHiveOnDataLake
                                 .put("hive.metastore-refresh-interval", "1d")
                                 // This is required to reduce memory pressure to test writing large files
                                 .put("s3.streaming.part-size", HIVE_S3_STREAMING_PART_SIZE.toString())
+                                .put("hive.hive-views.enabled", "true")
                                 .buildOrThrow())
                 .build();
     }
@@ -131,6 +132,37 @@ abstract class BaseTestHiveOnDataLake
             throws Exception
     {
         hiveMinioDataLake.close();
+    }
+
+    @Test
+    public void testHiveViewColumnComment()
+    {
+        String tableName = "default.test_with_column_comment" + randomNameSuffix();
+        String viewName = "default.test_view_with_column_comment" + randomNameSuffix();
+        String partitionedViewName = "default.test_partitioned_view_with_column_comment" + randomNameSuffix();
+
+        hiveMinioDataLake.runOnHive(format("CREATE TABLE %s(id int, name string) PARTITIONED BY (ds date)", tableName));
+        hiveMinioDataLake.runOnHive(format("CREATE VIEW %s(id, name COMMENT 'comment', ds COMMENT 'test comment') AS SELECT * FROM %s", viewName, tableName));
+        hiveMinioDataLake.runOnHive(format("CREATE VIEW %s(name COMMENT 'comment', ds COMMENT 'test comment') PARTITIONED ON (ds) AS SELECT name, ds FROM %s", partitionedViewName, tableName));
+
+        assertThat(query("DESCRIBE " + viewName)).result()
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row("id", "integer", "", "")
+                        .row("name", "varchar", "", "comment")
+                        .row("ds", "date", "", "test comment")
+                        .build());
+
+        assertThat(query("DESCRIBE " + partitionedViewName)).result()
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row("name", "varchar", "", "comment")
+                        .row("ds", "date", "", "test comment")
+                        .build());
+
+        assertUpdate("DROP VIEW " + viewName);
+        assertUpdate("DROP VIEW " + partitionedViewName);
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
