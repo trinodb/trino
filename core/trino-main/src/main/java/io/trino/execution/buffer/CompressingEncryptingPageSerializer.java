@@ -84,7 +84,7 @@ public class CompressingEncryptingPageSerializer
     {
         output.startPage(page.getPositionCount(), toIntExact(page.getSizeInBytes()));
         writeRawPage(page, output, blockEncodingSerde);
-        return output.closePage();
+        return output.closePage().slice();
     }
 
     @Override
@@ -330,7 +330,7 @@ public class CompressingEncryptingPageSerializer
             uncompressedSize += length * Double.BYTES;
         }
 
-        public Slice closePage()
+        public SerializedPage closePage()
         {
             compress();
             encrypt();
@@ -353,8 +353,9 @@ public class CompressingEncryptingPageSerializer
                 buffer.reset();
             }
             buffers[buffers.length - 1] = null;
+            SerializedPage serializedPage = new SerializedPage(uncompressedSize, compressedSize, page);
             uncompressedSize = 0;
-            return page;
+            return serializedPage;
         }
 
         private void ensureCapacityFor(int bytes)
@@ -614,6 +615,14 @@ public class CompressingEncryptingPageSerializer
         {
             writeBytes(slice);
             return this;
+        }
+    }
+
+    private record SerializedPage(int uncompressedSize, int compressedSize, Slice slice)
+    {
+        private SerializedPage
+        {
+            requireNonNull(slice, "slice is null");
         }
     }
 
