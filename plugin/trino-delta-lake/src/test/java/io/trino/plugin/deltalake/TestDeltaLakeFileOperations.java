@@ -1055,6 +1055,33 @@ public class TestDeltaLakeFileOperations
     }
 
     @Test
+    public void testReadMultipartV2Checkpoint()
+            throws Exception
+    {
+        String tableName = "test_multipart_v2_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_v2_checkpoint").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+        assertFileSystemAccesses("SELECT * FROM " + tableName,
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", "InputFile.newStream"))
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.42f48375-5c72-4d2f-8dcc-7ce4d45e2d8c.json", "InputFile.length"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .addCopies(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.42f48375-5c72-4d2f-8dcc-7ce4d45e2d8c.json", "InputFile.newStream"), 2) // TODO (https://github.com/trinodb/trino/issues/18916) should be checked once per query
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000005.json", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000001.0000000004.9f573e40-495e-4fb5-9a86-638dbdf0909e.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000001.0000000004.9f573e40-495e-4fb5-9a86-638dbdf0909e.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000002.0000000004.72848a80-e6d1-40fd-b702-344ecbb4c2fa.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000002.0000000004.72848a80-e6d1-40fd-b702-344ecbb4c2fa.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000003.0000000004.93080a9b-6c0d-4a19-ac28-e3654e3096f9.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000003.0000000004.93080a9b-6c0d-4a19-ac28-e3654e3096f9.parquet", "InputFile.length"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000004.0000000004.994ab05a-4806-4f96-8e7b-5dcf653a8e48.parquet", "InputFile.newInput"))
+                        .add(new FileOperation(CHECKPOINT, "00000000000000000004.checkpoint.0000000004.0000000004.994ab05a-4806-4f96-8e7b-5dcf653a8e48.parquet", "InputFile.length"))
+                        .addCopies(new FileOperation(DATA, "no partition", "InputFile.newInput"), 4)
+                        .build());
+    }
+
+    @Test
     public void testV2CheckpointJson()
             throws Exception
     {
