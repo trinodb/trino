@@ -432,6 +432,16 @@
                                     <code>java.method.removed</code>
                                     <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int[])</old>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;java.lang.String&gt; io.trino.spi.eventlistener.QueryInputMetadata::getColumns()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>method void io.trino.spi.eventlistener.QueryInputMetadata::&lt;init&gt;(java.lang.String, io.trino.spi.connector.CatalogHandle.CatalogVersion, java.lang.String, java.lang.String, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.Object&gt;, io.trino.spi.metrics.Metrics, java.util.OptionalLong, java.util.OptionalLong)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

@@ -34,7 +34,7 @@ public class QueryInputMetadata
     private final CatalogVersion catalogVersion;
     private final String schema;
     private final String table;
-    private final List<String> columns;
+    private final List<Column> columns;
     private final Optional<Object> connectorInfo;
     private final Metrics connectorMetrics;
     private final OptionalLong physicalInputBytes;
@@ -47,7 +47,7 @@ public class QueryInputMetadata
             CatalogVersion catalogVersion,
             String schema,
             String table,
-            List<String> columns,
+            List<Column> columns,
             Optional<Object> connectorInfo,
             Metrics connectorMetrics,
             OptionalLong physicalInputBytes,
@@ -89,7 +89,7 @@ public class QueryInputMetadata
     }
 
     @JsonProperty
-    public List<String> getColumns()
+    public List<Column> getColumns()
     {
         return columns;
     }
@@ -117,4 +117,6 @@ public class QueryInputMetadata
     {
         return physicalInputRows;
     }
+
+    public record Column(String name, String type) {}
 }
