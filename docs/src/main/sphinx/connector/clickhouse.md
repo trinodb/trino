@@ -183,9 +183,12 @@ to the following table:
 * - ClickHouse type
   - Trino type
   - Notes
+* - `Bool`
+  - `BOOLEAN`
+  -
 * - `Int8`
   - `TINYINT`
-  - `TINYINT`, `BOOL`, `BOOLEAN`, and `INT1` are aliases of `Int8`
+  - `TINYINT` and `INT1` are aliases of `Int8`
 * - `Int16`
   - `SMALLINT`
   -  `SMALLINT` and `INT2` are aliases of `Int16`
@@ -262,11 +265,11 @@ to the following table:
   - ClickHouse type
   - Notes
 * - `BOOLEAN`
-  - `UInt8`
+  - `Bool`
   -
 * - `TINYINT`
   - `Int8`
-  - `TINYINT`, `BOOL`, `BOOLEAN`, and `INT1` are aliases of `Int8`
+  - `TINYINT` and `INT1` are aliases of `Int8`
 * - `SMALLINT`
   - `Int16`
   -  `SMALLINT` and `INT2` are aliases of `Int16`

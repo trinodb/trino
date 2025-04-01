@@ -486,7 +486,7 @@ public class TestClickHouseConnectorTest
                 .isEqualTo(format("" +
                         "CREATE TABLE clickhouse.tpch.%s (\n" +
                         "   id integer NOT NULL,\n" +
-                        "   x smallint NOT NULL,\n" +
+                        "   x boolean NOT NULL,\n" +
                         "   y varchar NOT NULL\n" +
                         ")\n" +
                         "WITH (\n" +
