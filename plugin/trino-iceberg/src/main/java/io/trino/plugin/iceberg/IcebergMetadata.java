@@ -391,6 +391,8 @@ import static org.apache.iceberg.ReachableFileUtil.statisticsFilesLocations;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
+import static org.apache.iceberg.SnapshotSummary.TOTAL_DATA_FILES_PROP;
+import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
 import static org.apache.iceberg.SnapshotSummary.TOTAL_RECORDS_PROP;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL;
@@ -2396,10 +2398,24 @@ public class IcebergMetadata
                         .collect(toImmutableList()))
                 .orElse(ImmutableList.of());
 
+        Map<String, String> summary = ImmutableMap.of();
+        if (icebergTableHandle.getSnapshotId().isPresent()) {
+            Table table = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
+            summary = table.snapshot(icebergTableHandle.getSnapshotId().get()).summary();
+        }
+        Optional<String> totalRecords = Optional.ofNullable(summary.get(TOTAL_RECORDS_PROP));
+        Optional<String> deletedRecords = Optional.ofNullable(summary.get(DELETED_RECORDS_PROP));
+        Optional<String> totalDataFiles = Optional.ofNullable(summary.get(TOTAL_DATA_FILES_PROP));
+        Optional<String> totalDeleteFiles = Optional.ofNullable(summary.get(TOTAL_DELETE_FILES_PROP));
+
         return Optional.of(new IcebergInputInfo(
                 icebergTableHandle.getSnapshotId(),
                 partitionFields,
-                getFileFormat(icebergTableHandle.getStorageProperties()).name()));
+                getFileFormat(icebergTableHandle.getStorageProperties()).name(),
+                totalRecords,
+                deletedRecords,
+                totalDataFiles,
+                totalDeleteFiles));
     }
 
     @Override

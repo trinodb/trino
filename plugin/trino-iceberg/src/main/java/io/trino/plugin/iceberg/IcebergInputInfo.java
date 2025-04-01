@@ -20,12 +20,23 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public record IcebergInputInfo(Optional<Long> snapshotId, List<String> partitionFields, String tableDefaultFileFormat)
+public record IcebergInputInfo(
+        Optional<Long> snapshotId,
+        List<String> partitionFields,
+        String tableDefaultFileFormat,
+        Optional<String> totalRecords,
+        Optional<String> deletedRecords,
+        Optional<String> totalDataFiles,
+        Optional<String> totalDeleteFiles)
 {
     public IcebergInputInfo
     {
         requireNonNull(snapshotId, "snapshotId is null");
         partitionFields = ImmutableList.copyOf(partitionFields);
         requireNonNull(tableDefaultFileFormat, "tableDefaultFileFormat is null");
+        requireNonNull(totalRecords, "totalRecords is null");
+        requireNonNull(deletedRecords, "deletedRecords is null");
+        requireNonNull(totalDataFiles, "totalDataFiles is null");
+        requireNonNull(totalDeleteFiles, "totalDeleteFiles is null");
     }
 }

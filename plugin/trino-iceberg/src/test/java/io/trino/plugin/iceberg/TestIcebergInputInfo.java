@@ -46,7 +46,7 @@ public class TestIcebergInputInfo
     {
         String tableName = "test_input_info_with_part_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey', 'truncate(name, 1)']) AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, ImmutableList.of("regionkey: identity", "name_trunc: truncate[1]"), "PARQUET");
+        assertInputInfo(tableName, ImmutableList.of("regionkey: identity", "name_trunc: truncate[1]"), "PARQUET", 9);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -55,7 +55,7 @@ public class TestIcebergInputInfo
     {
         String tableName = "test_input_info_without_part_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, ImmutableList.of(), "PARQUET");
+        assertInputInfo(tableName, ImmutableList.of(), "PARQUET", 1);
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -64,11 +64,11 @@ public class TestIcebergInputInfo
     {
         String tableName = "test_input_info_with_orc_file_format_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format = 'ORC') AS SELECT * FROM nation WHERE nationkey < 10", 10);
-        assertInputInfo(tableName, ImmutableList.of(), "ORC");
+        assertInputInfo(tableName, ImmutableList.of(), "ORC", 1);
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    private void assertInputInfo(String tableName, List<String> partitionFields, String expectedFileFormat)
+    private void assertInputInfo(String tableName, List<String> partitionFields, String expectedFileFormat, long dataFiles)
     {
         inTransaction(session -> {
             Metadata metadata = getQueryRunner().getPlannerContext().getMetadata();
@@ -84,7 +84,11 @@ public class TestIcebergInputInfo
             assertThat(icebergInputInfo).isEqualTo(new IcebergInputInfo(
                     icebergInputInfo.snapshotId(),
                     partitionFields,
-                    expectedFileFormat));
+                    expectedFileFormat,
+                    Optional.of("10"),
+                    Optional.empty(),
+                    Optional.of(String.valueOf(dataFiles)),
+                    Optional.of("0")));
         });
     }
 }
