@@ -97,6 +97,7 @@ public class DeltaLakeConfig
     private boolean deletionVectorsEnabled;
     private boolean deltaLogFileSystemCacheDisabled;
     private int metadataParallelism = 8;
+    private int checkpointProcessingParallelism = 4;
 
     public Duration getMetadataCacheTtl()
     {
@@ -598,6 +599,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setMetadataParallelism(int metadataParallelism)
     {
         this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    @Min(1)
+    public int getCheckpointProcessingParallelism()
+    {
+        return checkpointProcessingParallelism;
+    }
+
+    @ConfigDescription("Limits per table scan checkpoint files processing parallelism")
+    @Config("delta.checkpoint-processing.parallelism")
+    public DeltaLakeConfig setCheckpointProcessingParallelism(int checkpointProcessingParallelism)
+    {
+        this.checkpointProcessingParallelism = checkpointProcessingParallelism;
         return this;
     }
 }
