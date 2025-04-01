@@ -357,7 +357,7 @@ public class HiveSplitManager
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
                 }
                 if (partition.isEmpty()) {
-                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + hivePartition.getPartitionId());
+                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, format("Partition %s no longer exists for %s", hivePartition.getPartitionId(), tableName));
                 }
                 results.add(toPartitionMetadata(
                         typeManager,
