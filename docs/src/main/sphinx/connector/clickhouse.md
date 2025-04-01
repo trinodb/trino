@@ -230,6 +230,9 @@ to the following table:
 * - `DateTime[(timezone)]`
   - `TIMESTAMP(0) [WITH TIME ZONE]`
   -
+* - `DateTime64[n, (timezone)]`
+  - `TIMESTAMP(n) [WITH TIME ZONE]`
+  - `n` in [0-9]
 * - `IPv4`
   - `IPADDRESS`
   -
@@ -301,6 +304,12 @@ to the following table:
 * - `TIMESTAMP(0)`
   - `DateTime`
   -
+* - `TIMESTAMP(n)`
+  - `DateTime64(n)`
+  - `n` in [1-9] 
+* - `TIMESTAMP(n) WITH TIME ZONE`
+  - `DateTime64(n, [timezone])`
+  - `n` in [0-9]
 * - `UUID`
   - `UUID`
   -
