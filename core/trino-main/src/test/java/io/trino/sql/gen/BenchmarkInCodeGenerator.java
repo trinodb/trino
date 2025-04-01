@@ -24,12 +24,12 @@ import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import org.junit.jupiter.api.Test;
@@ -198,7 +198,7 @@ public class BenchmarkInCodeGenerator
                             ImmutableList.of(project),
                             Optional.empty(),
                             OptionalInt.empty())
-                    .apply(DynamicFilter.EMPTY);
+                    .apply(InternalDynamicFilter.EMPTY);
         }
     }
 
