@@ -448,8 +448,9 @@ public final class MetadataManager
     {
         CatalogHandle catalogHandle = handle.catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
-        return metadata.getInfo(handle.connectorHandle());
+        return metadata.getInfo(connectorSession, handle.connectorHandle());
     }
 
     @Override
