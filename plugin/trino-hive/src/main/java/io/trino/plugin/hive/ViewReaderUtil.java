@@ -45,9 +45,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.linkedin.coral.trino.rel2trino.functions.TrinoKeywordsConverter.quoteWordIfNotQuoted;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.PRESTO_VIEW_COMMENT;
@@ -244,11 +246,16 @@ public final class ViewReaderUtil
                 RelToTrinoConverter relToTrino = new RelToTrinoConverter(metastoreClient);
                 String trinoSql = relToTrino.convert(rel);
                 RelDataType rowType = rel.getRowType();
+
+                Map<String, String> columnComments = Stream.concat(table.getDataColumns().stream(), table.getPartitionColumns().stream())
+                        .filter(column -> column.getComment().isPresent())
+                        .collect(toImmutableMap(Column::getName, column -> column.getComment().get()));
+
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
                                 typeManager.fromSqlType(getTypeString(field.getType(), hiveViewsTimestampPrecision)).getTypeId(),
-                                Optional.empty()))
+                                Optional.ofNullable(columnComments.get(field.getName()))))
                         .collect(toImmutableList());
                 return new ConnectorViewDefinition(
                         trinoSql,
