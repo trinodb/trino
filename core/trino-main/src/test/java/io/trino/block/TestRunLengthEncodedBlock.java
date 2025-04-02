@@ -25,6 +25,8 @@ import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRunLengthEncodedBlock
@@ -43,9 +45,7 @@ public class TestRunLengthEncodedBlock
         Slice expectedValue = createExpectedValue(0);
         Block block = RunLengthEncodedBlock.create(createSingleValueBlock(expectedValue), positionCount);
         Slice[] expectedValues = new Slice[positionCount];
-        for (int position = 0; position < positionCount; position++) {
-            expectedValues[position] = expectedValue;
-        }
+        Arrays.fill(expectedValues, expectedValue);
         assertBlock(block, expectedValues);
     }
 
