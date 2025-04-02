@@ -42,7 +42,7 @@ public class TestTaskManagerConfig
                 .setThreadPerDriverSchedulerEnabled(true)
                 .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 2)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
-                .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
+                .setStatusRefreshMaxWait(new Duration(3, TimeUnit.SECONDS))
                 .setInfoUpdateInterval(new Duration(3, TimeUnit.SECONDS))
                 .setTaskTerminationTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setPerOperatorCpuTimerEnabled(true)
