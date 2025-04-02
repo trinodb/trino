@@ -114,7 +114,6 @@ public class DefaultThriftMetastoreClientFactory
                 hostname,
                 catalogName,
                 metastoreSupportsDateStatistics,
-                true,
                 chosenGetTableAlternative,
                 chosenTableParamAlternative,
                 chosenAlterTransactionalTableAlternative,
