@@ -1108,8 +1108,8 @@ public class TestPostgreSqlConnectorTest
                                     },
                                     TupleDomain.all(),
                                     ImmutableMap.of(
-                                            "id", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("id"),
-                                            "pfgnrtd", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().startsWith("_pfgnrtd_")))));
+                                            "pfgnrtd", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().startsWith("_pfgnrtd_"),
+                                            "id", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("id")))));
 
             assertThat(query("SELECT reverse(lower(varchar_col)) FROM " + table.getName()))
                     .skippingTypesCheck()
@@ -1171,8 +1171,8 @@ public class TestPostgreSqlConnectorTest
                                                     },
                                                     TupleDomain.all(),
                                                     ImmutableMap.of(
-                                                            "reverse_cola", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("_pfgnrtd_0"),
                                                             "reverse_colb", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("_pfgnrtd_1"),
+                                                            "reverse_cola", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("_pfgnrtd_0"),
                                                             "id", columnHandle -> ((JdbcColumnHandle) columnHandle).getColumnName().equals("id"))))));
         }
     }
