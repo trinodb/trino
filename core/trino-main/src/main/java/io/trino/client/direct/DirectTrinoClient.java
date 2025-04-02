@@ -43,10 +43,10 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
+import static io.trino.SystemSessionProperties.getExchangeCompressionCodec;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHING;
-import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
@@ -94,7 +94,7 @@ public class DirectTrinoClient
                 }
             });
 
-            PageDeserializer pageDeserializer = new PagesSerdeFactory(blockEncodingSerde, NONE).createDeserializer(Optional.empty());
+            PageDeserializer pageDeserializer = new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(dispatchQuery.getSession())).createDeserializer(Optional.empty());
             for (QueryState state = queryManager.getQueryState(queryId);
                     (state != FAILED) &&
                             !exchangeClient.isFinished() &&
