@@ -733,6 +733,46 @@ public class TestAccessControl
     }
 
     @Test
+    public void testAlterTableSetAuthorizationChangesOwnership()
+    {
+        reset();
+
+        String functionOwner = "function_owner";
+        String otherUser = "other_user";
+        CatalogSchemaFunctionName function = new CatalogSchemaFunctionName("memory", new SchemaFunctionName("default", "function_alter"));
+
+        Session functionOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(functionOwner))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        Session otherUserrSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser(otherUser))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        assertAccessAllowed(
+                functionOwnerSession,
+                "CREATE FUNCTION memory.default.function_alter (x integer) RETURNS bigint RETURN x + 42");
+        assertThat(systemSecurityMetadata.getFunctionOwner(function)).isEqualTo(functionOwner);
+
+        assertAccessAllowed(
+                functionOwnerSession,
+                "SELECT memory.default.function_alter(2)");
+
+        assertAccessAllowed(
+                functionOwnerSession,
+        "ALTER FUNCTION memory.default.function_alter SET AUTHORIZATION other_user");
+
+        assertThat(systemSecurityMetadata.getFunctionOwner(function)).isEqualTo(otherUser);
+        assertAccessAllowed(
+                otherUserrSession,
+                "SELECT memory.default.function_alter(2)");
+    }
+
+    @Test
     public void testViewFunctionAccessControl()
     {
         reset();

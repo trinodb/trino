@@ -230,6 +230,7 @@ import io.trino.sql.tree.With;
 import io.trino.sql.tree.WithQuery;
 import io.trino.sql.tree.ZeroOrMoreQuantifier;
 import io.trino.sql.tree.ZeroOrOneQuantifier;
+import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -3785,6 +3786,29 @@ public class TestSqlParser
                         "TABLE",
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false), new Identifier(location(1, 17), "bar", false), new Identifier(location(1, 21), "baz", false))),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 48), "qux", false))));
+    }
+
+    @Test
+    public void testAlterFunctionSetAuthorization()
+    {
+        assertThat(statement("ALTER FUNCTION foo.bar.baz SET AUTHORIZATION qux")).isEqualTo(
+                new SetAuthorizationStatement(
+                        location(1, 1),
+                        "FUNCTION",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 16), "foo", false), new Identifier(location(1, 20), "bar", false), new Identifier(location(1, 24), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 46), "qux", false))));
+        assertThat(statement("ALTER FUNCTION foo.bar.baz SET AUTHORIZATION USER qux")).isEqualTo(
+                new SetAuthorizationStatement(
+                        location(1, 1),
+                        "FUNCTION",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 16), "foo", false), new Identifier(location(1, 20), "bar", false), new Identifier(location(1, 24), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 51), "qux", false))));
+        assertThat(statement("ALTER FUNCTION foo.bar.baz SET AUTHORIZATION ROLE qux")).isEqualTo(
+                new SetAuthorizationStatement(
+                        location(1, 1),
+                        "FUNCTION",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 16), "foo", false), new Identifier(location(1, 20), "bar", false), new Identifier(location(1, 24), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 51), "qux", false))));
     }
 
     @Test

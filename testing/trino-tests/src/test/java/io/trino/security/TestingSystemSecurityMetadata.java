@@ -22,6 +22,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
 import io.trino.spi.function.CatalogSchemaFunctionName;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
@@ -297,6 +298,10 @@ class TestingSystemSecurityMetadata
         if (entityKindAndName.entityKind().equals("VIEW")) {
             checkArgument(principal.getType() == USER, "Only a user can be a view owner");
             viewOwners.put(new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), Identity.ofUser(principal.getName()));
+        }
+        else if (entityKindAndName.entityKind().equals("FUNCTION")) {
+            checkArgument(principal.getType() == USER, "Only a user can be a function owner");
+            functionOwners.put(new CatalogSchemaFunctionName(name.get(0), new SchemaFunctionName(name.get(1), name.get(2))), Identity.ofUser(principal.getName()));
         }
         else {
             throw new UnsupportedOperationException();
