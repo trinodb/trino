@@ -30,6 +30,7 @@ import io.trino.spi.connector.SourcePage;
 import io.trino.sql.gen.ExpressionProfiler;
 import io.trino.sql.gen.columnar.FilterEvaluator;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -235,9 +236,7 @@ public class PageProcessor
                 }
                 else {
                     page = null;
-                    for (int i = 0; i < previouslyComputedResults.length; i++) {
-                        previouslyComputedResults[i] = null;
-                    }
+                    Arrays.fill(previouslyComputedResults, null);
                     memoryContext.setBytes(0);
                 }
 
