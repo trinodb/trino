@@ -128,6 +128,7 @@ import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AllRows;
 import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.ColumnDefinition;
@@ -4417,7 +4418,7 @@ class StatementAnalyzer
             for (GroupingElement element : node.getGroupingElements()) {
                 try {
                     int product;
-                    if (element instanceof SimpleGroupBy) {
+                    if (element instanceof SimpleGroupBy || element instanceof AutoGroupBy) {
                         product = 1;
                     }
                     else if (element instanceof GroupingSets groupingSets) {
@@ -4471,6 +4472,32 @@ class StatementAnalyzer
 
                                 column = outputExpressions.get(toIntExact(ordinal - 1));
                                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                            }
+                            else {
+                                verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");
+                                analyzeExpression(column, scope);
+                            }
+
+                            ResolvedField field = analysis.getColumnReferenceFields().get(NodeRef.of(column));
+                            if (field != null) {
+                                sets.add(ImmutableList.of(ImmutableSet.of(field.getFieldId())));
+                            }
+                            else {
+                                analysis.recordSubqueries(node, analyzeExpression(column, scope));
+                                complexExpressions.add(column);
+                            }
+
+                            groupingExpressions.add(column);
+                        }
+                    }
+                    else if (groupingElement instanceof AutoGroupBy) {
+                        // Analyze non-aggregation outputs
+                        for (Expression column : outputExpressions) {
+                            if (column instanceof FunctionCall functionCall) {
+                                ResolvedFunction function = getResolvedFunction(functionCall);
+                                if (function.functionKind() == AGGREGATE) {
+                                    continue;
+                                }
                             }
                             else {
                                 verifyNoAggregateWindowOrGroupingFunctions(session, functionResolver, accessControl, column, "GROUP BY clause");

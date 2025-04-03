@@ -26,6 +26,7 @@ import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
+import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
@@ -1800,6 +1801,39 @@ public class TestSqlParser
                         new Table(QualifiedName.of("table1")),
                         Optional.empty(),
                         Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of())))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY AUTO",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(QualifiedName.of("table1")),
+                        Optional.empty(),
+                        Optional.of(new GroupBy(false, ImmutableList.of(new AutoGroupBy(location(1, 1))))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY ALL AUTO",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(QualifiedName.of("table1")),
+                        Optional.empty(),
+                        Optional.of(new GroupBy(false, ImmutableList.of(new AutoGroupBy(location(1, 1))))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertStatement("SELECT * FROM table1 GROUP BY DISTINCT AUTO",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        new Table(QualifiedName.of("table1")),
+                        Optional.empty(),
+                        Optional.of(new GroupBy(true, ImmutableList.of(new AutoGroupBy(location(1, 1))))),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),

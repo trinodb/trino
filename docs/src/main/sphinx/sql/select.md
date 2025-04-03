@@ -60,6 +60,7 @@ and `grouping_element` is one of
 ```text
 ()
 expression
+AUTO
 GROUPING SETS ( ( column [, ...] ) [, ...] )
 CUBE ( column [, ...] )
 ROLLUP ( column [, ...] )
