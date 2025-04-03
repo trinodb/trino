@@ -41,6 +41,7 @@ import org.apache.commons.math3.distribution.BetaDistribution;
 import org.apache.commons.math3.distribution.TDistribution;
 import org.apache.commons.math3.special.Erf;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.concurrent.ThreadLocalRandom;
@@ -853,7 +854,11 @@ public final class MathFunctions
 
         double factor = Math.pow(10, decimals);
         int sign = (num < 0) ? -1 : 1;
-        double rescaled = sign * num * factor;
+        double rescaled = BigDecimal.valueOf(num)
+                .multiply(BigDecimal.valueOf(sign))
+                .multiply(BigDecimal.valueOf(factor))
+                .doubleValue();
+
         long rescaledRound = Math.round(rescaled);
         if (rescaledRound != Long.MAX_VALUE) {
             return sign * (rescaledRound / factor);
