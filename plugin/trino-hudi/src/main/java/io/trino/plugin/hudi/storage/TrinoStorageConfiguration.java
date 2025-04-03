@@ -23,8 +23,11 @@ import java.util.Map;
 import static org.apache.hudi.common.config.HoodieStorageConfig.HOODIE_IO_FACTORY_CLASS;
 import static org.apache.hudi.common.config.HoodieStorageConfig.HOODIE_STORAGE_CLASS;
 
+/**
+ * {@link StorageConfiguration} implementation based on a config map
+ */
 public class TrinoStorageConfiguration
-        extends StorageConfiguration
+        extends StorageConfiguration<Map<String, String>>
 {
     private final Map<String, String> configMap;
 
@@ -47,19 +50,19 @@ public class TrinoStorageConfiguration
     }
 
     @Override
-    public StorageConfiguration newInstance()
+    public TrinoStorageConfiguration newInstance()
     {
         return new TrinoStorageConfiguration(new HashMap<>(configMap));
     }
 
     @Override
-    public Object unwrap()
+    public Map<String, String> unwrap()
     {
         return configMap;
     }
 
     @Override
-    public Object unwrapCopy()
+    public Map<String, String> unwrapCopy()
     {
         return new HashMap<>(configMap);
     }
@@ -77,7 +80,7 @@ public class TrinoStorageConfiguration
     }
 
     @Override
-    public StorageConfiguration getInline()
+    public TrinoStorageConfiguration getInline()
     {
         return newInstance();
     }

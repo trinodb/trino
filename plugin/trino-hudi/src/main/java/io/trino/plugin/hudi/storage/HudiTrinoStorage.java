@@ -38,6 +38,9 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
+/**
+ * {@link HoodieStorage} implementation based on {@link TrinoFileSystem}
+ */
 public class HudiTrinoStorage
         extends HoodieStorage
 {
@@ -47,7 +50,9 @@ public class HudiTrinoStorage
 
     private final TrinoFileSystem fileSystem;
 
-    public HudiTrinoStorage(TrinoFileSystem fileSystem, TrinoStorageConfiguration storageConf)
+    public HudiTrinoStorage(
+            TrinoFileSystem fileSystem,
+            TrinoStorageConfiguration storageConf)
     {
         super(storageConf);
         this.fileSystem = fileSystem;
@@ -83,7 +88,7 @@ public class HudiTrinoStorage
     @Override
     public String getScheme()
     {
-        // TODO(yihua): not used in read path
+        // TODO(yihua): this is not used in read path so returning a fake scheme is OK.
         return "file";
     }
 
@@ -100,7 +105,8 @@ public class HudiTrinoStorage
     }
 
     @Override
-    public short getDefaultReplication(StoragePath path)
+    public short getDefaultReplication(
+            StoragePath path)
     {
         return DEFAULT_REPLICATION;
     }
@@ -119,11 +125,12 @@ public class HudiTrinoStorage
     }
 
     @Override
-    public OutputStream create(StoragePath path,
-                               boolean overwrite,
-                               Integer bufferSize,
-                               Short replication,
-                               Long sizeThreshold)
+    public OutputStream create(
+            StoragePath path,
+            boolean overwrite,
+            Integer bufferSize,
+            Short replication,
+            Long sizeThreshold)
             throws IOException
     {
         return create(path, overwrite);
@@ -137,7 +144,10 @@ public class HudiTrinoStorage
     }
 
     @Override
-    public SeekableDataInputStream openSeekable(StoragePath path, int bufferSize, boolean wrapStream)
+    public SeekableDataInputStream openSeekable(
+            StoragePath path,
+            int bufferSize,
+            boolean wrapStream)
             throws IOException
     {
         return new TrinoSeekableDataInputStream(

@@ -25,6 +25,11 @@ import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
 
+/**
+ * {@link HoodieFileReaderFactory} implementation for Trino Hudi connector
+ * that is Hadoop-independent.
+ * Note that this reader factory is only used for reading log files and bootstrap files now.
+ */
 public class HudiTrinoFileReaderFactory
         extends HoodieFileReaderFactory
 {
@@ -36,24 +41,27 @@ public class HudiTrinoFileReaderFactory
     @Override
     protected HoodieFileReader newParquetFileReader(StoragePath path)
     {
-        throw new UnsupportedOperationException("HudiTrinoFileReaderFactory does not support Parquet file reader");
+        throw new UnsupportedOperationException(
+                "HudiTrinoFileReaderFactory does not support Parquet file reader");
     }
 
     @Override
-    protected HoodieFileReader newHFileFileReader(HoodieConfig hoodieConfig,
-                                                  StoragePath path,
-                                                  Option<Schema> schemaOption)
+    protected HoodieFileReader newHFileFileReader(
+            HoodieConfig hoodieConfig,
+            StoragePath path,
+            Option<Schema> schemaOption)
             throws IOException
     {
         return new HoodieNativeAvroHFileReader(storage, path, schemaOption);
     }
 
     @Override
-    protected HoodieFileReader newHFileFileReader(HoodieConfig hoodieConfig,
-                                                  StoragePath path,
-                                                  HoodieStorage storage,
-                                                  byte[] content,
-                                                  Option<Schema> schemaOption)
+    protected HoodieFileReader newHFileFileReader(
+            HoodieConfig hoodieConfig,
+            StoragePath path,
+            HoodieStorage storage,
+            byte[] content,
+            Option<Schema> schemaOption)
             throws IOException
     {
         return new HoodieNativeAvroHFileReader(this.storage, content, schemaOption);
@@ -62,14 +70,16 @@ public class HudiTrinoFileReaderFactory
     @Override
     protected HoodieFileReader newOrcFileReader(StoragePath path)
     {
-        throw new UnsupportedOperationException("HudiTrinoFileReaderFactory does not support ORC file reader");
+        throw new UnsupportedOperationException(
+                "HudiTrinoFileReaderFactory does not support ORC file reader");
     }
 
     @Override
-    public HoodieFileReader newBootstrapFileReader(HoodieFileReader skeletonFileReader,
-                                                   HoodieFileReader dataFileReader,
-                                                   Option<String[]> partitionFields,
-                                                   Object[] partitionValues)
+    public HoodieFileReader newBootstrapFileReader(
+            HoodieFileReader skeletonFileReader,
+            HoodieFileReader dataFileReader,
+            Option<String[]> partitionFields,
+            Object[] partitionValues)
     {
         return new HoodieAvroBootstrapFileReader(skeletonFileReader, dataFileReader, partitionFields, partitionValues);
     }

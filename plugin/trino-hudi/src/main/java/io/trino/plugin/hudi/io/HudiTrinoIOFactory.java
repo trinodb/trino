@@ -23,6 +23,10 @@ import org.apache.hudi.io.storage.HoodieIOFactory;
 import org.apache.hudi.storage.HoodieStorage;
 import org.apache.hudi.storage.StoragePath;
 
+/**
+ * {@link HoodieIOFactory} implementation for Trino Hudi connector
+ * that is Hadoop-independent.
+ */
 public class HudiTrinoIOFactory
         extends HoodieIOFactory
 {
@@ -46,7 +50,7 @@ public class HudiTrinoIOFactory
     @Override
     public FileFormatUtils getFileFormatUtils(HoodieFileFormat fileFormat)
     {
-        throw new UnsupportedOperationException("FileFormatUtils not supported in HudiTrinoIOFactory");
+        throw new UnsupportedOperationException("HudiTrinoIOFactory does not support FileFormatUtils");
     }
 
     @Override
@@ -56,13 +60,14 @@ public class HudiTrinoIOFactory
     }
 
     @Override
-    public HoodieStorage getStorage(StoragePath path,
-                                    boolean enableRetry,
-                                    long maxRetryIntervalMs,
-                                    int maxRetryNumbers,
-                                    long initialRetryIntervalMs,
-                                    String retryExceptions,
-                                    ConsistencyGuard consistencyGuard)
+    public HoodieStorage getStorage(
+            StoragePath path,
+            boolean enableRetry,
+            long maxRetryIntervalMs,
+            int maxRetryNumbers,
+            long initialRetryIntervalMs,
+            String retryExceptions,
+            ConsistencyGuard consistencyGuard)
     {
         return storage;
     }
