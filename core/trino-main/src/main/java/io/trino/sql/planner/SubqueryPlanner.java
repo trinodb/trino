@@ -134,6 +134,10 @@ class SubqueryPlanner
      */
     private <T extends io.trino.sql.tree.Expression> List<T> selectSubqueries(PlanBuilder subPlan, io.trino.sql.tree.Expression parent, List<T> candidates)
     {
+        if (candidates.isEmpty()) {
+            return ImmutableList.of();
+        }
+
         SuccessorsFunction<Node> recurse = expression -> {
             if (!(expression instanceof io.trino.sql.tree.Expression value) ||
                     (!analysis.isColumnReference(value) && // no point in following dereference chains
