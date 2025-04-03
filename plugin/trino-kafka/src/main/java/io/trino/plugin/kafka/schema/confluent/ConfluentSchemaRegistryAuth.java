@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
-import com.google.common.collect.ImmutableMap;
+import java.util.Map;
 
 public interface ConfluentSchemaRegistryAuth
 {
-    ImmutableMap<String, Object> getClientProperties();
+    Map<String, Object> getClientProperties();
 }
