@@ -13,16 +13,16 @@
  */
 package io.trino.server.protocol.retrieval;
 
-import io.trino.server.protocol.spooling.SpoolingConfig;
+import io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode;
 
-import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.STORAGE;
+import static io.trino.server.protocol.spooling.SpoolingConfig.SegmentRetrievalMode.COORDINATOR_PROXY;
 
-public class TestSpooledStorageRetrievalDistributedQueries
-        extends AbstractSpooledQueryDataRetrievalDistributedQueries
+public class TestCoordinatorProxyRetrievalModeSpooledQueries
+        extends AbstractRetrievalModeSpooledQueries
 {
     @Override
-    SpoolingConfig.SegmentRetrievalMode getSegmentRetrievalMode()
+    SegmentRetrievalMode getSegmentRetrievalMode()
     {
-        return STORAGE;
+        return COORDINATOR_PROXY;
     }
 }
