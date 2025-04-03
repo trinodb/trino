@@ -161,6 +161,9 @@ public class BigQueryQueryPageSource
     public SourcePage getNextSourcePage()
     {
         verify(pageBuilder.isEmpty());
+        if (!tableResultFuture.isDone()) {
+            return null;
+        }
         if (tableResult == null) {
             tableResult = getFutureValue(tableResultFuture);
         }
