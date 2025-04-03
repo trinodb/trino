@@ -72,12 +72,15 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.kafka.encoder.EncoderModule.encoderFactory;
+import static io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryConfig.ConfluentSchemaRegistryAuthType.BASIC_AUTH;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.isEqual;
 
 public class ConfluentModule
         extends AbstractConfigurationAwareModule
@@ -101,6 +104,7 @@ public class ConfluentModule
         binder.bind(ContentSchemaProvider.class).to(AvroConfluentContentSchemaProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
+
         // Each SchemaRegistry object should have a new instance of SchemaProvider
         newSetBinder(binder, SchemaProvider.class).addBinding().to(LazyLoadedProtobufSchemaProvider.class);
         binder.bind(DynamicMessageProvider.Factory.class).to(ConfluentSchemaRegistryDynamicMessageProvider.Factory.class).in(SINGLETON);
@@ -108,6 +112,15 @@ public class ConfluentModule
         binder.bind(TableDescriptionSupplier.class).toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, SchemaParser.class).addBinding("AVRO").to(AvroSchemaParser.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, SchemaParser.class).addBinding("PROTOBUF").to(LazyLoadedProtobufSchemaParser.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, BasicAuthConfig.class);
+
+        install(conditionalModule(
+                ConfluentSchemaRegistryConfig.class,
+                config -> config.getConfluentSchemaRegistryAuthType()
+                        .filter(isEqual(BASIC_AUTH))
+                        .isPresent(),
+                conditionalBinder -> configBinder(conditionalBinder).bindConfig(BasicAuthConfig.class)));
 
         closingBinder(binder)
                 .registerCloseable(SchemaRegistryClient.class);

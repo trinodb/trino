@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableMap;
@@ -20,10 +19,6 @@ import com.google.common.collect.ImmutableMap;
 public class ConfluentSchemaRegistryNoAuth
         implements ConfluentSchemaRegistryAuth
 {
-    public ConfluentSchemaRegistryNoAuth()
-    {
-    }
-
     @Override
     public ImmutableMap<String, Object> getClientProperties()
     {

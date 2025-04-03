@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.kafka.schema;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
+import io.trino.plugin.kafka.schema.confluent.BasicAuthConfig;
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryAuth;
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryBasicAuth;
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryConfig;
@@ -23,20 +23,22 @@ import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryConfig.Conf
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryNoAuth;
 import io.trino.plugin.kafka.schema.confluent.SchemaRegistryClientPropertiesProvider;
 
+import java.util.Optional;
+
 public class KafkaSchemaRegistryClientPropertiesProvider
         implements SchemaRegistryClientPropertiesProvider
 {
-    public final ConfluentSchemaRegistryAuthType authType;
-    public final ConfluentSchemaRegistryAuth auth;
+    private final ConfluentSchemaRegistryAuth auth;
 
     @Inject
-    public KafkaSchemaRegistryClientPropertiesProvider(ConfluentSchemaRegistryConfig confluentConfig)
+    public KafkaSchemaRegistryClientPropertiesProvider(
+            ConfluentSchemaRegistryConfig confluentConfig,
+            Optional<BasicAuthConfig> basicAuthConfig)
     {
-        this.authType = confluentConfig.getConfluentSchemaRegistryAuthType();
-        if (this.authType == ConfluentSchemaRegistryAuthType.BASIC_AUTH) {
+        if (basicAuthConfig.isPresent()) {
             auth = new ConfluentSchemaRegistryBasicAuth(
-                    confluentConfig.getConfluentSchemaRegistryUsername(),
-                    confluentConfig.getConfluentSchemaRegistryPassword());
+                   basicAuthConfig.get().getConfluentSchemaRegistryUsername(),
+                   basicAuthConfig.get().getConfluentSchemaRegistryPassword());
         }
         else {
             auth = new ConfluentSchemaRegistryNoAuth();
@@ -46,6 +48,8 @@ public class KafkaSchemaRegistryClientPropertiesProvider
     @Override
     public ImmutableMap<String, Object> getSchemaRegistryClientProperties()
     {
-        return auth.getClientProperties();
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        properties.putAll(auth.getClientProperties());
+        return properties.buildOrThrow();
     }
 }

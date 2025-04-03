@@ -11,7 +11,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.kafka.schema.confluent;
 import com.google.common.collect.ImmutableMap;
 
@@ -27,16 +26,6 @@ public class ConfluentSchemaRegistryBasicAuth
     {
         this.user = requireNonNull(user, "user is null");
         this.password = requireNonNull(password, "password is null");
-    }
-
-    public String getUser()
-    {
-        return user;
-    }
-
-    public String getPassword()
-    {
-        return password;
     }
 
     @Override
