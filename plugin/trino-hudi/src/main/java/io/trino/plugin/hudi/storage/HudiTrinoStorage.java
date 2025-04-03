@@ -33,8 +33,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
@@ -197,11 +199,14 @@ public class HudiTrinoStorage
             throws IOException
     {
         FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
-        List<StoragePathInfo> fileList = new ArrayList<>();
+        Set<StoragePathInfo> entryList = new HashSet<>();
         while (fileIterator.hasNext()) {
-            fileList.add(convertToPathInfo(fileIterator.next()));
+            entryList.add(getDirectEntryPathInfo(path, fileIterator.next()));
         }
-        return fileList;
+        if (entryList.isEmpty()) {
+            throw new FileNotFoundException("Path " + path + " does not exist");
+        }
+        return new ArrayList<>(entryList);
     }
 
     @Override
@@ -222,11 +227,16 @@ public class HudiTrinoStorage
     {
         FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
         List<StoragePathInfo> fileList = new ArrayList<>();
+        int count = 0;
         while (fileIterator.hasNext()) {
-            FileEntry entry = fileIterator.next();
-            if (filter.accept(new StoragePath(entry.location().toString()))) {
-                fileList.add(convertToPathInfo(entry));
+            StoragePathInfo pathInfo = getDirectEntryPathInfo(path, fileIterator.next());
+            count++;
+            if (filter.accept(pathInfo.getPath())) {
+                fileList.add(pathInfo);
             }
+        }
+        if (count == 0) {
+            throw new FileNotFoundException("Path " + path + " does not exist");
         }
         return fileList;
     }
@@ -286,5 +296,27 @@ public class HudiTrinoStorage
     public void close()
             throws IOException
     {
+    }
+
+    /**
+     * @param path      input directory
+     * @param fileEntry file entry that is in the input directory
+     * @return the path info of the file if the file entry is directly in the input directory,
+     * or the subdirectory in the input directory if the file entry is under the subdirectory
+     * or nested directory.
+     */
+    private StoragePathInfo getDirectEntryPathInfo(StoragePath path, FileEntry fileEntry)
+    {
+        StoragePathInfo pathInfo = convertToPathInfo(fileEntry);
+        while (!path.equals(pathInfo.getPath().getParent())) {
+            pathInfo = new StoragePathInfo(
+                    pathInfo.getPath().getParent(),
+                    0L,
+                    true,
+                    (short) 0,
+                    0L,
+                    pathInfo.getModificationTime());
+        }
+        return pathInfo;
     }
 }

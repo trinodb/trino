@@ -39,6 +39,7 @@ public class TrinoStorageConfiguration
     public TrinoStorageConfiguration(Map<String, String> configMap)
     {
         this.configMap = configMap;
+        this.configMap.putAll(getDefaultConfigs());
     }
 
     public static Map<String, String> getDefaultConfigs()
