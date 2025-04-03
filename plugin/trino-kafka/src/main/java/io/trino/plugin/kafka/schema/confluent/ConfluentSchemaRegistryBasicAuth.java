@@ -31,9 +31,9 @@ public class ConfluentSchemaRegistryBasicAuth
     @Override
     public ImmutableMap<String, Object> getClientProperties()
     {
-        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-        builder.put("basic.auth.credentials.source", "USER_INFO");
-        builder.put("basic.auth.user.info", user + ":" + password);
-        return builder.buildOrThrow();
+        return ImmutableMap.<String, Object>builder()
+                .put("basic.auth.credentials.source", "USER_INFO")
+                .put("basic.auth.user.info", user + ":" + password)
+                .buildOrThrow();
     }
 }

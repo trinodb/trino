@@ -18,8 +18,6 @@ import com.google.inject.Inject;
 import io.trino.plugin.kafka.schema.confluent.BasicAuthConfig;
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryAuth;
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryBasicAuth;
-import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryConfig;
-import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryConfig.ConfluentSchemaRegistryAuthType;
 import io.trino.plugin.kafka.schema.confluent.ConfluentSchemaRegistryNoAuth;
 import io.trino.plugin.kafka.schema.confluent.SchemaRegistryClientPropertiesProvider;
 
@@ -32,7 +30,6 @@ public class KafkaSchemaRegistryClientPropertiesProvider
 
     @Inject
     public KafkaSchemaRegistryClientPropertiesProvider(
-            ConfluentSchemaRegistryConfig confluentConfig,
             Optional<BasicAuthConfig> basicAuthConfig)
     {
         if (basicAuthConfig.isPresent()) {
