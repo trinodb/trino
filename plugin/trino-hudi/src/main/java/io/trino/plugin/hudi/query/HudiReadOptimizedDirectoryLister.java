@@ -81,7 +81,7 @@ public class HudiReadOptimizedDirectoryLister
     @Override
     public List<HudiFileStatus> listStatus(HudiPartitionInfo partitionInfo)
     {
-        LOG.debug("List partition: partitionInfo={}", partitionInfo);
+        LOG.debug("List partition: partitionInfo=%s", partitionInfo);
         return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
                 .map(HudiReadOptimizedDirectoryLister::getStoragePathInfo)
                 .map(fileEntry -> new HudiFileStatus(
