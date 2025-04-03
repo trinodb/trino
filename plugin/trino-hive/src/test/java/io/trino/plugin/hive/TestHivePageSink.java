@@ -118,8 +118,8 @@ public class TestHivePageSink
                 // CSV supports only the unbounded VARCHAR type, which is not provided by lineitem
                 continue;
             }
-            if (format == HiveStorageFormat.REGEX) {
-                // REGEX format is readonly
+            if (format == HiveStorageFormat.REGEX || format == HiveStorageFormat.ESRI) {
+                // REGEX and ESRI format is readonly
                 continue;
             }
             config.setHiveStorageFormat(format);
