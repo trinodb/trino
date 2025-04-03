@@ -64,19 +64,22 @@ public class TestOpaBatchAccessControlFiltering
                         {
                             "user": {
                                 "user": "user-one",
-                                "groups": []
+                                "groups": [],
+                                "extraCredentials": {}
                             }
                         },
                         {
                             "user": {
                                 "user": "user-two",
-                                "groups": []
+                                "groups": [],
+                                "extraCredentials": {}
                             }
                         },
                         {
                             "user": {
                                 "user": "user-three",
-                                "groups": []
+                                "groups": [],
+                                "extraCredentials": {}
                             }
                         }
                     ]
