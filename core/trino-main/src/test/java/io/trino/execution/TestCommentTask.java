@@ -73,7 +73,7 @@ public class TestCommentTask
     public void testCommentTableOnMaterializedView()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(materializedViewName), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(TABLE, asQualifiedName(materializedViewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -106,7 +106,7 @@ public class TestCommentTask
     public void testCommentViewOnMaterializedView()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(materializedViewName), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(setComment(VIEW, asQualifiedName(materializedViewName), Optional.of("new comment"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -167,7 +167,7 @@ public class TestCommentTask
     public void testCommentMaterializedViewColumn()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(materializedViewName), MATERIALIZED_VIEW_PROPERTIES, false, false);
         assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isTrue();
 
         QualifiedName columnName = qualifiedColumnName("existing_materialized_view", "test");

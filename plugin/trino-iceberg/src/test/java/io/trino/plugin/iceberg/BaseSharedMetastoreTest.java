@@ -20,9 +20,12 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseSharedMetastoreTest
@@ -257,6 +260,52 @@ public abstract class BaseSharedMetastoreTest
         assertQuery("SELECT * FROM " + icebergTableName, "VALUES (1, 'test')");
 
         assertUpdate("DROP TABLE " + icebergTableName);
+    }
+
+    @Test
+    public void testRedirectMaterializedView()
+    {
+        String viewName = "test_redirect_materialized_view";
+        try {
+            assertQuerySucceeds(format("CREATE MATERIALIZED VIEW iceberg.%s.%s AS SELECT nationkey, name FROM nation", testSchema, viewName));
+
+            assertThat(query(format("SELECT * FROM hive.%s.%s", testSchema, viewName)))
+                    .failure().hasMessageMatching(".* Table .* does not exist");
+
+            assertQuery(format("SELECT * FROM hive_with_redirections.%s.%s", testSchema, viewName), "SELECT nationkey, name FROM nation");
+
+            assertThat(query(format("DESCRIBE hive_with_redirections.%s.%s", testSchema, viewName))).result().projected("Column", "Type")
+                    .matches(resultBuilder(getSession(), VARCHAR, VARCHAR)
+                            .row("nationkey", "bigint")
+                            .row("name", "varchar")
+                            .build());
+
+            assertThat(
+                    ((String) computeActual(format("SHOW CREATE MATERIALIZED VIEW hive_with_redirections.%s.%s", testSchema, viewName)).getOnlyValue())
+                            .lines()
+                            .filter(line -> !line.contains("location = '"))
+                            .collect(joining("\n")))
+                    .isEqualTo(
+                            format(
+                                    """
+                                    CREATE MATERIALIZED VIEW iceberg.%s.%s
+                                    WITH (
+                                       format = 'PARQUET',
+                                       format_version = 2,
+                                       max_commit_retry = 4,
+                                       storage_schema = '%s'
+                                    ) AS
+                                    SELECT
+                                      nationkey
+                                    , name
+                                    FROM
+                                      nation""", testSchema, viewName, testSchema));
+
+            assertQuerySucceeds(format("DROP MATERIALIZED VIEW IF EXISTS hive_with_redirections.%s.%s", testSchema, viewName));
+        }
+        finally {
+            assertQuerySucceeds(format("DROP MATERIALIZED VIEW IF EXISTS iceberg.%s.%s", testSchema, viewName));
+        }
     }
 
     private long getLatestSnapshotId(String schema)

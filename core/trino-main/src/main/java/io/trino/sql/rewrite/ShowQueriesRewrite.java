@@ -106,6 +106,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.informationschema.InformationSchemaTable.COLUMNS;
 import static io.trino.connector.informationschema.InformationSchemaTable.SCHEMATA;
@@ -467,6 +468,14 @@ public final class ShowQueriesRewrite
                     targetTableName = redirection.redirectedTableName().orElse(tableName);
                 }
             }
+            else {
+                Optional<MaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, tableName);
+                if (viewDefinition.isEmpty()) {
+                    throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
+                }
+
+                targetTableName = viewDefinition.get().getViewName();
+            }
 
             if (!isMaterializedView && !isView) {
                 // We are using information_schema which may ignore errors when getting the list
@@ -543,18 +552,23 @@ public final class ShowQueriesRewrite
             List<Identifier> parts = node.getName().getOriginalParts().reversed();
             Identifier tableName = parts.get(0);
             Identifier schemaName = (parts.size() > 1) ? parts.get(1) : new Identifier(objectName.schemaName());
-            Identifier catalogName = (parts.size() > 2) ? parts.get(2) : new Identifier(objectName.catalogName());
 
-            accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
+            QualifiedObjectName viewName = viewDefinition.get().getViewName();
 
-            Map<String, Object> properties = metadata.getMaterializedViewProperties(session, objectName, viewDefinition.get());
-            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
+            verify(schemaName.getValue().equals(viewName.schemaName()));
+            verify(tableName.getValue().equals(viewName.objectName()));
+
+            accessControl.checkCanShowCreateTable(session.toSecurityContext(), viewName);
+
+            Map<String, Object> properties = metadata.getMaterializedViewProperties(session, viewName, viewDefinition.get());
+            CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, viewName.catalogName());
+
             Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(catalogHandle);
             List<Property> propertyNodes = toSqlProperties("materialized view " + objectName, INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);
 
             String sql = formatSql(new CreateMaterializedView(
                     node.getLocation().orElseThrow(),
-                    QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
+                    QualifiedName.of(ImmutableList.of(new Identifier(viewName.catalogName()), schemaName, tableName)),
                     query,
                     false,
                     false,
