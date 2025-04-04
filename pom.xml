@@ -188,7 +188,7 @@
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.docker.images.version>113</dep.docker.images.version>
-        <dep.drift.version>1.22</dep.drift.version>
+        <dep.drift.version>1.23</dep.drift.version>
         <dep.flyway.version>11.8.2</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
@@ -267,7 +267,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.121.Final</version>
+                <version>4.2.1.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
