@@ -36,13 +36,13 @@ public class TrinoStorageConfiguration
         this(getDefaultConfigs());
     }
 
-    public TrinoStorageConfiguration(Map<String, String> configMap)
+    TrinoStorageConfiguration(Map<String, String> configMap)
     {
         this.configMap = configMap;
         this.configMap.putAll(getDefaultConfigs());
     }
 
-    public static Map<String, String> getDefaultConfigs()
+    private static Map<String, String> getDefaultConfigs()
     {
         Map<String, String> configMap = new HashMap<>();
         configMap.put(HOODIE_IO_FACTORY_CLASS.key(), HudiTrinoIOFactory.class.getName());

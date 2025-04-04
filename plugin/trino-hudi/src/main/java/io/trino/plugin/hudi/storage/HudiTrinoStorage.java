@@ -39,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.Objects.requireNonNull;
 
 /**
  * {@link HoodieStorage} implementation based on {@link TrinoFileSystem}
@@ -56,24 +57,19 @@ public class HudiTrinoStorage
             TrinoFileSystem fileSystem,
             TrinoStorageConfiguration storageConf)
     {
-        super(storageConf);
-        this.fileSystem = fileSystem;
+        super(requireNonNull(storageConf));
+        this.fileSystem = requireNonNull(fileSystem);
     }
 
-    public static Location convertToLocation(StoragePath path)
+    private static Location convertToLocation(StoragePath path)
     {
         return Location.of(path.toString());
     }
 
-    public static StoragePath convertToPath(Location location)
-    {
-        return new StoragePath(location.toString());
-    }
-
-    public static StoragePathInfo convertToPathInfo(FileEntry fileEntry)
+    private static StoragePathInfo convertToPathInfo(FileEntry fileEntry)
     {
         return new StoragePathInfo(
-                convertToPath(fileEntry.location()),
+                new StoragePath(fileEntry.location().toString()),
                 fileEntry.length(),
                 false,
                 (short) 0,
@@ -90,7 +86,7 @@ public class HudiTrinoStorage
     @Override
     public String getScheme()
     {
-        // TODO(yihua): this is not used in read path so returning a fake scheme is OK.
+        // TODO: this is not used in read path so returning a fake scheme is OK.
         return "file";
     }
 

@@ -15,7 +15,6 @@ package io.trino.plugin.hudi.storage;
 
 import org.apache.hudi.io.storage.BaseTestStorageConfiguration;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -34,6 +33,6 @@ public class TestTrinoStorageConfiguration
     @Override
     protected Map<String, String> getConf(Map<String, String> conf)
     {
-        return new HashMap<>(conf);
+        return conf;
     }
 }
