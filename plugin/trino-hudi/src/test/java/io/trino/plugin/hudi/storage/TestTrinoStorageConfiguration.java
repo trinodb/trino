@@ -11,26 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi.model;
+package io.trino.plugin.hudi.storage;
 
-import static java.util.Objects.requireNonNull;
+import org.apache.hudi.io.storage.BaseTestStorageConfiguration;
 
-public enum HudiFileFormat
+import java.util.Map;
+
+public class TestTrinoStorageConfiguration
+        extends BaseTestStorageConfiguration<Map<String, String>>
 {
-    PARQUET(".parquet"),
-    HOODIE_LOG(".log"),
-    HFILE(".hfile"),
-    ORC(".orc");
-
-    private final String extension;
-
-    HudiFileFormat(String extension)
+    @Override
+    protected TrinoStorageConfiguration getStorageConfiguration(
+            Map<String, String> config)
     {
-        this.extension = requireNonNull(extension, "extension is null");
+        return new TrinoStorageConfiguration(config);
     }
 
-    public String getFileExtension()
+    @Override
+    protected Map<String, String> getConf(Map<String, String> config)
     {
-        return extension;
+        return config;
     }
 }
