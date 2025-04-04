@@ -29,6 +29,7 @@ import io.trino.spi.type.Type;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -44,6 +45,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.JSON
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_MICROS;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializeColumnValue;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.readPartitionTimestampWithZone;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
@@ -175,7 +177,18 @@ public class DeltaLakeJsonFileStatistics
 
     private static Long readStatisticsTimestampWithZone(String timestamp)
     {
-        ZonedDateTime zonedDateTime = ZonedDateTime.parse(timestamp, JSON_STATISTICS_TIMESTAMP_FORMATTER);
+        ZonedDateTime zonedDateTime;
+        try {
+            zonedDateTime = LocalDateTime.parse(timestamp, JSON_STATISTICS_TIMESTAMP_FORMATTER).atZone(UTC);
+        }
+        catch (DateTimeParseException _) {
+            // TODO: avoid this exception-driven logic
+            // When using `CREATE OR REPLACE TABLE` in Spark to change a column type from VARCHAR to TIMESTAMP,
+            // the checkpoint statistics possible stores the TIMESTAMP column in Spark's default format
+            // This fallback ensures compatibility with Spark's default TIMESTAMP format: 'yyyy-MM-dd HH:mm:ss',
+            // we read the precision to milliseconds by default.
+            return readPartitionTimestampWithZone(timestamp);
+        }
         return packDateTimeWithZone(zonedDateTime.toInstant().toEpochMilli(), UTC_KEY);
     }
 
