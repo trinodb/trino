@@ -64,6 +64,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.ION_OUTPUT_FORMAT;
 import static io.trino.metastore.AcidOperation.CREATE_TABLE;
 import static io.trino.metastore.Partitions.makePartName;
 import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
@@ -674,11 +675,13 @@ public class HiveWriterFactory
 
     public static String getFileExtension(HiveCompressionCodec compression, StorageFormat format)
     {
-        // text format files must have the correct extension when compressed
-        return compression.getHiveCompressionKind()
-                .filter(_ -> format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS))
-                .map(CompressionKind::getFileExtension)
-                .orElse("");
+        // text format files and ion format files must have the correct extension when compressed
+        return switch (format.getOutputFormat()) {
+            case ION_OUTPUT_FORMAT, HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS -> compression.getHiveCompressionKind()
+                    .map(CompressionKind::getFileExtension)
+                    .orElse("");
+            default -> "";
+        };
     }
 
     @VisibleForTesting

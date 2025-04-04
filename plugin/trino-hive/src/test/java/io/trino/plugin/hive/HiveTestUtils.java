@@ -36,6 +36,8 @@ import io.trino.operator.PagesIndexPageSorter;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.avro.AvroFileWriterFactory;
 import io.trino.plugin.hive.avro.AvroPageSourceFactory;
+import io.trino.plugin.hive.ion.IonFileWriterFactory;
+import io.trino.plugin.hive.ion.IonPageSourceFactory;
 import io.trino.plugin.hive.line.CsvFileWriterFactory;
 import io.trino.plugin.hive.line.CsvPageSourceFactory;
 import io.trino.plugin.hive.line.JsonFileWriterFactory;
@@ -57,6 +59,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
+import io.trino.plugin.hive.util.HiveTypeTranslator;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -178,6 +181,7 @@ public final class HiveTestUtils
                 .add(new RcFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
+                .add(new IonPageSourceFactory(fileSystemFactory))
                 .build();
     }
 
@@ -195,6 +199,7 @@ public final class HiveTestUtils
                 .add(new RcFileFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, hiveConfig))
                 .add(new OrcFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER, nodeVersion, new FileFormatDataSourceStats(), new OrcWriterConfig()))
                 .add(new ParquetFileWriterFactory(fileSystemFactory, nodeVersion, TESTING_TYPE_MANAGER, hiveConfig, new FileFormatDataSourceStats()))
+                .add(new IonFileWriterFactory(fileSystemFactory, TESTING_TYPE_MANAGER))
                 .build();
     }
 
@@ -284,6 +289,62 @@ public final class HiveTestUtils
         }
 
         throw new IllegalArgumentException("Unsupported type: " + type);
+    }
+
+    public static HiveColumnHandle toHiveBaseColumnHandle(String name, Type type, int ordinal)
+    {
+        return new HiveColumnHandle(
+                name,
+                ordinal,
+                HiveTypeTranslator.toHiveType(type),
+                type,
+                Optional.empty(),
+                HiveColumnHandle.ColumnType.REGULAR,
+                Optional.empty());
+    }
+
+    public static HiveColumnHandle projectedColumn(HiveColumnHandle baseColumn, String... path)
+    {
+        if (path.length == 0) {
+            throw new IllegalArgumentException("path must have at least one element");
+        }
+
+        final Type baseType = baseColumn.getBaseType();
+        Type type = baseType;
+        ImmutableList.Builder<Integer> derefBuilder = ImmutableList.builder();
+
+        for (String fieldName : path) {
+            if (type instanceof RowType rowType) {
+                List<RowType.Field> fields = rowType.getFields();
+                type = null;
+                for (int pos = 0; pos < fields.size(); pos++) {
+                    if (fields.get(pos).getName().get().equals(fieldName)) {
+                        derefBuilder.add(pos);
+                        type = fields.get(pos).getType();
+                        break;
+                    }
+                }
+                if (type == null) {
+                    throw new IllegalArgumentException(String.format("could not find field named: %s!", fieldName));
+                }
+            }
+            else {
+                throw new IllegalArgumentException("cannot step into non-RowType!");
+            }
+        }
+
+        return new HiveColumnHandle(
+                baseColumn.getBaseColumnName(),
+                baseColumn.getBaseHiveColumnIndex(),
+                HiveTypeTranslator.toHiveType(baseType),
+                baseType,
+                Optional.of(new HiveColumnProjectionInfo(
+                        derefBuilder.build(),
+                        ImmutableList.copyOf(path),
+                        HiveTypeTranslator.toHiveType(type),
+                        type)),
+                baseColumn.getColumnType(),
+                baseColumn.getComment());
     }
 
     private static UUID uuidFromBytes(byte[] bytes)
