@@ -21,7 +21,8 @@ import com.azure.core.util.TracingOptions;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -82,7 +83,7 @@ public class AzureFileSystemFactory
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
         this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
         this.connectionProvider = ConnectionProvider.create(applicationId, maxHttpRequests);
-        this.eventLoopGroup = new NioEventLoopGroup(maxHttpRequests);
+        this.eventLoopGroup = new MultiThreadIoEventLoopGroup(maxHttpRequests, NioIoHandler.newFactory());
         HttpClientOptions clientOptions = new HttpClientOptions();
         clientOptions.setTracingOptions(tracingOptions);
         clientOptions.setApplicationId(applicationId);
