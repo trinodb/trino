@@ -287,10 +287,12 @@ public class SqlServerClient
 
         return FULL_PUSHDOWN.apply(session, domain);
     };
+    private final boolean synonymsEnabled;
 
     @Inject
     public SqlServerClient(
             BaseJdbcConfig config,
+            SqlServerConfig sqlServerConfig,
             JdbcStatisticsConfig statisticsConfig,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
@@ -300,6 +302,7 @@ public class SqlServerClient
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
 
         this.statisticsEnabled = statisticsConfig.isEnabled();
+        this.synonymsEnabled = sqlServerConfig.isSynonymsEnabled();
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
@@ -343,6 +346,15 @@ public class SqlServerClient
                         .add(new ImplementSqlServerVariancePop())
                         // SQL Server doesn't have covar_samp and covar_pop functions so we can't implement pushdown for them
                         .build());
+    }
+
+    @Override
+    protected Optional<List<String>> getTableTypes()
+    {
+        if (synonymsEnabled) {
+            return Optional.of(ImmutableList.of("TABLE", "VIEW", "SYNONYM"));
+        }
+        return Optional.of(ImmutableList.of("TABLE", "VIEW"));
     }
 
     @Override

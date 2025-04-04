@@ -106,6 +106,10 @@ behavior of the connector and the issues queries to the database.
   - Control the automatic use of snapshot isolation for transactions issued by
       Trino in SQL Server. Defaults to `false`, which means that snapshot
       isolation is enabled.
+* - `sqlserver.synonyms.enabled=true`
+  - Include [synonyms](https://learn.microsoft.com/en-us/sql/relational-databases/synonyms/synonyms-database-engine?view=sql-server-ver16)
+      as queryable entities. Defaults to `false`, which means synonyms are not
+      included by default.
 :::
 
 ```{include} jdbc-case-insensitive-matching.fragment
