@@ -205,7 +205,7 @@
         <dep.parquet.version>1.15.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.6</dep.protobuf.version>
-        <dep.snowflake.version>3.23.1</dep.snowflake.version>
+        <dep.snowflake.version>3.23.2</dep.snowflake.version>
         <dep.swagger.version>2.2.29</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
         <dep.tcnative.version>2.0.70.Final</dep.tcnative.version>
