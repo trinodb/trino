@@ -897,6 +897,36 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void fastForwardBranch(Session session, TableHandle tableHandle, String from, String to)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<String> listBranches(Session session, QualifiedObjectName tableName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean branchExists(Session session, QualifiedObjectName tableName, String branch)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
@@ -987,13 +1017,16 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<String> branch)
     {
-        throw new UnsupportedOperationException();
+        if (startVersion.isPresent() || endVersion.isPresent()) {
+            throw new UnsupportedOperationException();
+        }
+        return noRedirection(getTableHandle(session, tableName));
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName table, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<String> branch)
     {
         throw new UnsupportedOperationException();
     }

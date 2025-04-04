@@ -111,6 +111,26 @@ public interface ConnectorMetadata
             ConnectorSession session,
             SchemaTableName tableName,
             Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion,
+            Optional<String> branch)
+    {
+        return getTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    /**
+     * Returns a table handle for the specified table name and version, or {@code null} if {@code tableName} relation does not exist
+     * or is not a table (e.g. is a view, or a materialized view).
+     *
+     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
+     * cannot be queried.
+     * @see #getView(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     */
+    @Nullable
+    default ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is not implemented");
@@ -1127,6 +1147,46 @@ public interface ConnectorMetadata
     default void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping functions");
+    }
+
+    /**
+     * Creates the specified branch.
+     */
+    default void createBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating branches");
+    }
+
+    /**
+     * Drops the specified branch.
+     */
+    default void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping branches");
+    }
+
+    /**
+     * Fast-forwards the specified branch.
+     */
+    default void fastForwardBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String from, String to)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support fast-forwarding branches");
+    }
+
+    /**
+     * Get all branches.
+     */
+    default Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Does the specified branch exist.
+     */
+    default boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
+    {
+        return listBranches(session, tableName).contains(branch);
     }
 
     /**

@@ -38,6 +38,7 @@ import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
@@ -56,6 +57,7 @@ import io.trino.sql.tree.DescribeOutput;
 import io.trino.sql.tree.Descriptor;
 import io.trino.sql.tree.DescriptorField;
 import io.trino.sql.tree.DoubleLiteral;
+import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
@@ -74,6 +76,7 @@ import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.ExplainFormat;
 import io.trino.sql.tree.ExplainType;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.Format;
 import io.trino.sql.tree.FrameBound;
@@ -184,6 +187,7 @@ import io.trino.sql.tree.SetRole;
 import io.trino.sql.tree.SetSession;
 import io.trino.sql.tree.SetSessionAuthorization;
 import io.trino.sql.tree.SetTimeZone;
+import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowFunctions;
@@ -1598,6 +1602,46 @@ public class TestSqlParser
         assertStatement("SELECT substring('%s', 2, 3)".formatted(givenString),
                 simpleQuery(selectList(
                         new FunctionCall(QualifiedName.of("substring"), Lists.newArrayList(new StringLiteral(givenString), new LongLiteral("2"), new LongLiteral("3"))))));
+    }
+
+    @Test
+    void testCreateBranch()
+    {
+        assertThat(statement("CREATE BRANCH b IN TABLE t"))
+                .isEqualTo(new CreateBranch(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 26), "t", false))),
+                        new Identifier(location(1, 15), "b", false)));
+    }
+
+    @Test
+    void testDropBranch()
+    {
+        assertThat(statement("DROP BRANCH b IN TABLE t"))
+                .isEqualTo(new DropBranch(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "t", false))),
+                        new Identifier(location(1, 13), "b", false)));
+    }
+
+    @Test
+    void testFastForwardBranch()
+    {
+        assertThat(statement("ALTER BRANCH from_branch IN TABLE t FAST FORWARD TO to_branch"))
+                .isEqualTo(new FastForwardBranch(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 35), "t", false))),
+                        new Identifier(location(1, 14), "from_branch", false),
+                        new Identifier(location(1, 53), "to_branch", false)));
+    }
+
+    @Test
+    void testShowBranches()
+    {
+        assertThat(statement("SHOW BRANCHES IN TABLE t"))
+                .isEqualTo(new ShowBranches(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "t", false)))));
     }
 
     @Test
@@ -3104,6 +3148,24 @@ public class TestSqlParser
 
         assertStatement("INSERT INTO a.\"b/c\".d (c1, c2) SELECT * FROM t",
                 new Insert(table, Optional.of(ImmutableList.of(identifier("c1"), identifier("c2"))), query));
+
+        assertThat(statement("INSERT INTO t @ dev VALUES 1"))
+                .isEqualTo(new Insert(
+                        location(1, 1),
+                        new Table(
+                                location(1, 1),
+                                QualifiedName.of(List.of(new Identifier(location(1, 13), "t", false))),
+                                Optional.of(new Identifier(location(1, 17), "dev", false))),
+                        Optional.empty(),
+                        new Query(
+                                location(1, 21),
+                                List.of(),
+                                List.of(),
+                                Optional.empty(),
+                                new Values(location(1, 21), List.of(new LongLiteral(location(1, 28), "1"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty())));
     }
 
     @Test
@@ -3121,6 +3183,15 @@ public class TestSqlParser
                                 ComparisonExpression.Operator.EQUAL,
                                 new Identifier(location(1, 21), "a", false),
                                 new Identifier(location(1, 25), "b", false)))));
+
+        assertThat(statement("DELETE FROM t @ dev"))
+                .isEqualTo(new Delete(
+                        location(1, 1),
+                        new Table(
+                                location(1, 1),
+                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "t", false))),
+                                Optional.of(new Identifier(location(1, 17), "dev", false))),
+                        Optional.empty()));
     }
 
     @Test
@@ -5999,6 +6070,19 @@ public class TestSqlParser
                         ImmutableList.of(
                                 new UpdateAssignment(new Identifier("bar"), new LongLiteral("23"))),
                         Optional.empty()));
+
+        assertThat(statement("UPDATE foo_table @ dev SET bar = 23"))
+                .isEqualTo(new Update(
+                        location(1, 1),
+                        new Table(
+                                location(1, 1),
+                                QualifiedName.of(List.of(new Identifier(location(1, 8), "foo_table", false))),
+                                Optional.of(new Identifier(location(1, 20), "dev", false))),
+                        ImmutableList.of(
+                                new UpdateAssignment(
+                                        new Identifier(location(1, 28), "bar", false),
+                                        new LongLiteral(location(1, 34), "23"))),
+                        Optional.empty()));
     }
 
     @Test
@@ -6006,7 +6090,7 @@ public class TestSqlParser
     {
         Expression rangeValue = new GenericLiteral(location(1, 37), "TIMESTAMP", "2021-03-01 00:00:01");
         QueryPeriod queryPeriod = new QueryPeriod(location(1, 17), QueryPeriod.RangeType.TIMESTAMP, rangeValue);
-        Table table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod);
+        Table table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod, Optional.empty());
         assertThat(statement("SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
                 .isEqualTo(
                         new Query(
@@ -6038,7 +6122,7 @@ public class TestSqlParser
 
         rangeValue = new StringLiteral(location(1, 35), "version1");
         queryPeriod = new QueryPeriod(new NodeLocation(1, 17), QueryPeriod.RangeType.VERSION, rangeValue);
-        table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod);
+        table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod, Optional.empty());
         assertThat(statement("SELECT * FROM t FOR VERSION AS OF 'version1'"))
                 .isEqualTo(
                         new Query(

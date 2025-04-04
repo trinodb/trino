@@ -987,6 +987,26 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to create the specified branch and tag in the table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateBranchAndTag(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        AccessDeniedException.denyCreateBranch(tableName.toString(), name);
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified branch and tag in the table.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropBranchAndTag(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String name)
+    {
+        AccessDeniedException.denyDropBranch(tableName.toString(), name);
+    }
+
+    /**
      * @return the event listeners provided by this system access control
      */
     default Iterable<EventListener> getEventListeners()

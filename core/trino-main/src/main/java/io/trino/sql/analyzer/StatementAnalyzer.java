@@ -306,6 +306,7 @@ import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_RETURN_TYPE;
+import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
@@ -578,7 +579,11 @@ class StatementAnalyzer
             Scope queryScope = analyze(insert.getQuery(), Optional.empty(), false);
 
             // verify the insert destination columns match the query
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
+            Optional<String> branch = insert.getTable().getBranch().map(Identifier::getValue);
+            if (branch.isPresent() && !metadata.branchExists(session, targetTable, branch.get())) {
+                throw semanticException(BRANCH_NOT_FOUND, insert, "Branch '%s' does not exist", branch.get());
+            }
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable, Optional.empty(), Optional.empty(), branch);
             Optional<TableHandle> targetTableHandle = redirection.tableHandle();
             targetTable = redirection.redirectedTableName().orElse(targetTable);
             if (targetTableHandle.isEmpty()) {
@@ -819,7 +824,11 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            Optional<String> branch = table.getBranch().map(Identifier::getValue);
+            if (branch.isPresent() && !metadata.branchExists(session, originalName, branch.get())) {
+                throw semanticException(BRANCH_NOT_FOUND, node, "Branch '%s' does not exist", branch.get());
+            }
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), Optional.empty(), branch);
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -3364,7 +3373,11 @@ class StatementAnalyzer
 
             analysis.setUpdateType("UPDATE");
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName);
+            Optional<String> branch = update.getTable().getBranch().map(Identifier::getValue);
+            if (branch.isPresent() && !metadata.branchExists(session, originalName, branch.get())) {
+                throw semanticException(BRANCH_NOT_FOUND, update, "Branch '%s' does not exist", branch.get());
+            }
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalName, Optional.empty(), Optional.empty(), branch);
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalName);
             TableHandle handle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -3491,10 +3504,14 @@ class StatementAnalyzer
             if (metadata.isView(session, originalTableName)) {
                 throw semanticException(NOT_SUPPORTED, merge, "Merging into views is not supported");
             }
+            Optional<String> branch = merge.getTargetTable().getBranch().map(Identifier::getValue);
+            if (branch.isPresent() && !metadata.branchExists(session, originalTableName, branch.get())) {
+                throw semanticException(BRANCH_NOT_FOUND, merge, "Branch '%s' does not exist", branch.get());
+            }
 
             analysis.setUpdateType("MERGE");
 
-            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName);
+            RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, originalTableName, Optional.empty(), Optional.empty(), branch);
             QualifiedObjectName tableName = redirection.redirectedTableName().orElse(originalTableName);
             TableHandle targetTableHandle = redirection.tableHandle()
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
@@ -5850,11 +5867,17 @@ class StatementAnalyzer
         private RedirectionAwareTableHandle getTableHandle(Table table, QualifiedObjectName name, Optional<Scope> scope)
         {
             if (table.getQueryPeriod().isPresent()) {
+                verify(table.getBranch().isEmpty(), "branch must be empty");
                 Optional<TableVersion> startVersion = extractTableVersion(table, table.getQueryPeriod().get().getStart(), scope);
                 Optional<TableVersion> endVersion = extractTableVersion(table, table.getQueryPeriod().get().getEnd(), scope);
-                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion);
+                return metadata.getRedirectionAwareTableHandle(session, name, startVersion, endVersion, Optional.empty());
             }
-            return metadata.getRedirectionAwareTableHandle(session, name);
+            if (table.getBranch().isPresent()) {
+                verify(table.getQueryPeriod().isEmpty(), "query period must be empty");
+                Optional<String> branch = table.getBranch().map(Identifier::getValue);
+                return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), Optional.empty(), branch);
+            }
+            return metadata.getRedirectionAwareTableHandle(session, name, Optional.empty(), Optional.empty(), Optional.empty());
         }
 
         /**

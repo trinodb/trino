@@ -70,8 +70,10 @@ statement
          (COMMENT string)?
          (WITH properties)?                                            #createTable
     | DROP TABLE (IF EXISTS)? qualifiedName                            #dropTable
-    | INSERT INTO qualifiedName columnAliases? rootQuery               #insertInto
-    | DELETE FROM qualifiedName (WHERE booleanExpression)?             #delete
+    | INSERT INTO qualifiedName ('@' branch=identifier)?
+       columnAliases? rootQuery                                        #insertInto
+    | DELETE FROM qualifiedName ('@' branch=identifier)?
+         (WHERE booleanExpression)?                                    #delete
     | TRUNCATE TABLE qualifiedName                                     #truncateTable
     | COMMENT ON TABLE qualifiedName IS (string | NULL)                #commentTable
     | COMMENT ON VIEW qualifiedName IS (string | NULL)                 #commentView
@@ -117,6 +119,11 @@ statement
     | CALL qualifiedName '(' (callArgument (',' callArgument)*)? ')'   #call
     | CREATE (OR REPLACE)? functionSpecification                       #createFunction
     | DROP FUNCTION (IF EXISTS)? functionDeclaration                   #dropFunction
+    | CREATE BRANCH identifier IN TABLE qualifiedName                  #createBranch
+    | DROP BRANCH identifier IN TABLE qualifiedName                    #dropBranch
+    | ALTER BRANCH from=identifier IN TABLE qualifiedName
+        FAST FORWARD TO to=identifier                                  #fastForwardBranch
+    | SHOW BRANCHES IN TABLE qualifiedName                             #showBranchs
     | CREATE ROLE name=identifier
         (WITH ADMIN grantor)?
         (IN catalog=identifier)?                                       #createRole
@@ -190,10 +197,11 @@ statement
     | DESCRIBE OUTPUT identifier                                       #describeOutput
     | SET PATH pathSpecification                                       #setPath
     | SET TIME ZONE (LOCAL | expression)                               #setTimeZone
-    | UPDATE qualifiedName
+    | UPDATE qualifiedName ('@' branch=identifier)?
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
-    | MERGE INTO qualifiedName (AS? identifier)?
+    | MERGE INTO
+        qualifiedName ('@' branch=identifier)? (AS? alias=identifier)?
         USING relation ON expression mergeCase+                        #merge
     ;
 
@@ -1002,11 +1010,11 @@ authorizationUser
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
     : ABSENT | ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT | AUTHORIZATION
-    | BEGIN | BERNOULLI | BOTH
+    | BEGIN | BERNOULLI | BOTH | BRANCH | BRANCHES
     | CALL | CALLED | CASCADE | CATALOG | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | CONDITIONAL | COPARTITION | COUNT | CURRENT
     | DATA | DATE | DAY | DECLARE | DEFAULT | DEFINE | DEFINER | DENY | DESC | DESCRIPTOR | DETERMINISTIC | DISTRIBUTED | DO | DOUBLE
     | ELSEIF | EMPTY | ENCODING | ERROR | EXCLUDING | EXECUTE | EXPLAIN
-    | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
+    | FAST | FETCH | FILTER | FINAL | FIRST | FOLLOWING | FORMAT | FORWARD | FUNCTION | FUNCTIONS
     | GRACE | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | IMMEDIATE | INCLUDING | INITIAL | INPUT | INTERVAL | INVOKER | IO | ITERATE | ISOLATION
@@ -1047,6 +1055,8 @@ BEGIN: 'BEGIN';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
 BOTH: 'BOTH';
+BRANCH: 'BRANCH';
+BRANCHES: 'BRANCHES';
 BY: 'BY';
 CALL: 'CALL';
 CALLED: 'CALLED';
@@ -1109,6 +1119,7 @@ EXISTS: 'EXISTS';
 EXPLAIN: 'EXPLAIN';
 EXTRACT: 'EXTRACT';
 FALSE: 'FALSE';
+FAST: 'FAST';
 FETCH: 'FETCH';
 FILTER: 'FILTER';
 FINAL: 'FINAL';
@@ -1116,6 +1127,7 @@ FIRST: 'FIRST';
 FOLLOWING: 'FOLLOWING';
 FOR: 'FOR';
 FORMAT: 'FORMAT';
+FORWARD: 'FORWARD';
 FROM: 'FROM';
 FULL: 'FULL';
 FUNCTION: 'FUNCTION';
