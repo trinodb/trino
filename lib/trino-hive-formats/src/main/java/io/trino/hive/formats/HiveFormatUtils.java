@@ -237,6 +237,7 @@ public final class HiveFormatUtils
 
     public static DecodedTimestamp parseHiveTimestamp(String value)
     {
+        value = value.trim();
         // Otherwise try default timestamp parsing
         // default parser uses Java util time
         LocalDateTime localDateTime;
