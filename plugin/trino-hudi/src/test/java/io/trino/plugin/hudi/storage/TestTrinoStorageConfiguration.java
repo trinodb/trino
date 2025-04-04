@@ -17,22 +17,19 @@ import org.apache.hudi.io.storage.BaseTestStorageConfiguration;
 
 import java.util.Map;
 
-/**
- * Tests {@link TrinoStorageConfiguration}
- */
 public class TestTrinoStorageConfiguration
         extends BaseTestStorageConfiguration<Map<String, String>>
 {
     @Override
     protected TrinoStorageConfiguration getStorageConfiguration(
-            Map<String, String> conf)
+            Map<String, String> config)
     {
-        return new TrinoStorageConfiguration(conf);
+        return new TrinoStorageConfiguration(config);
     }
 
     @Override
-    protected Map<String, String> getConf(Map<String, String> conf)
+    protected Map<String, String> getConf(Map<String, String> config)
     {
-        return conf;
+        return config;
     }
 }

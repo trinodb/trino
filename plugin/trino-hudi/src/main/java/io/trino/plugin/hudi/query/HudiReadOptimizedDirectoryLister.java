@@ -15,7 +15,6 @@ package io.trino.plugin.hudi.query;
 
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
-import io.trino.filesystem.FileEntry.Block;
 import io.trino.filesystem.Location;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
@@ -30,7 +29,6 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
 import org.apache.hudi.storage.StoragePathInfo;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -105,15 +103,6 @@ public class HudiReadOptimizedDirectoryLister
         if (fileSystemView != null && !fileSystemView.isClosed()) {
             fileSystemView.close();
         }
-    }
-
-    private static long blockSize(Optional<List<Block>> blocks)
-    {
-        return blocks.stream()
-                .flatMap(Collection::stream)
-                .mapToLong(Block::length)
-                .findFirst()
-                .orElse(0);
     }
 
     private static StoragePathInfo getStoragePathInfo(HoodieBaseFile baseFile)

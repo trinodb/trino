@@ -37,13 +37,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Test {@link HudiTrinoStorage}
- */
-public class TestHudiTrinoStorage
+public class TestTrinoHudiStorage
         extends TestHoodieStorageBase
 {
     private static TrinoFileSystem fileSystem;
@@ -57,13 +55,13 @@ public class TestHudiTrinoStorage
     }
 
     @Override
-    protected HoodieStorage getStorage(Object fs, Object conf)
+    protected HoodieStorage getStorage(Object fileSystem, Object config)
     {
-        return new HudiTrinoStorage((TrinoFileSystem) fs, (TrinoStorageConfiguration) conf);
+        return new TrinoHudiStorage((TrinoFileSystem) fileSystem, (TrinoStorageConfiguration) config);
     }
 
     @Override
-    protected TrinoFileSystem getFileSystem(Object conf)
+    protected TrinoFileSystem getFileSystem(Object config)
     {
         return fileSystem;
     }
@@ -240,7 +238,7 @@ public class TestHudiTrinoStorage
                 0, isDirectory, (short) 1, 1000000L, 10L);
     }
 
-    private void validatePathInfo(
+    private static void validatePathInfo(
             HoodieStorage storage,
             StoragePath path,
             byte[] data,
@@ -261,17 +259,17 @@ public class TestHudiTrinoStorage
         }
     }
 
-    private void validatePathInfoList(
+    private static void validatePathInfoList(
             List<StoragePathInfo> expected,
             List<StoragePathInfo> actual)
     {
         assertThat(actual.size()).isEqualTo(expected.size());
         List<StoragePathInfo> sortedExpected = expected.stream()
                 .sorted(Comparator.comparing(StoragePathInfo::getPath))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
         List<StoragePathInfo> sortedActual = actual.stream()
                 .sorted(Comparator.comparing(StoragePathInfo::getPath))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
         for (int i = 0; i < expected.size(); i++) {
             // We cannot use StoragePathInfo#equals as that only compares the path
             assertThat(sortedActual.get(i).getPath()).isEqualTo(sortedExpected.get(i).getPath());

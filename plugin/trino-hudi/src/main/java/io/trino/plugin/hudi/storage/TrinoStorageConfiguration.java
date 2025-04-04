@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hudi.storage;
 
-import io.trino.plugin.hudi.io.HudiTrinoIOFactory;
+import io.trino.plugin.hudi.io.TrinoHudiIoFactory;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.storage.StorageConfiguration;
 
@@ -45,8 +45,8 @@ public class TrinoStorageConfiguration
     private static Map<String, String> getDefaultConfigs()
     {
         Map<String, String> configMap = new HashMap<>();
-        configMap.put(HOODIE_IO_FACTORY_CLASS.key(), HudiTrinoIOFactory.class.getName());
-        configMap.put(HOODIE_STORAGE_CLASS.key(), HudiTrinoStorage.class.getName());
+        configMap.put(HOODIE_IO_FACTORY_CLASS.key(), TrinoHudiIoFactory.class.getName());
+        configMap.put(HOODIE_STORAGE_CLASS.key(), TrinoHudiStorage.class.getName());
         return configMap;
     }
 

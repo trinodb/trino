@@ -27,10 +27,10 @@ import org.apache.hudi.storage.StoragePath;
  * {@link HoodieIOFactory} implementation for Trino Hudi connector
  * that is Hadoop-independent.
  */
-public class HudiTrinoIOFactory
+public class TrinoHudiIoFactory
         extends HoodieIOFactory
 {
-    public HudiTrinoIOFactory(HoodieStorage storage)
+    public TrinoHudiIoFactory(HoodieStorage storage)
     {
         super(storage);
     }
@@ -44,13 +44,13 @@ public class HudiTrinoIOFactory
     @Override
     public HoodieFileWriterFactory getWriterFactory(HoodieRecord.HoodieRecordType recordType)
     {
-        throw new UnsupportedOperationException("HudiTrinoIOFactory does not support writers.");
+        throw new UnsupportedOperationException("TrinoHudiIoFactory does not support writers");
     }
 
     @Override
     public FileFormatUtils getFileFormatUtils(HoodieFileFormat fileFormat)
     {
-        throw new UnsupportedOperationException("HudiTrinoIOFactory does not support FileFormatUtils");
+        throw new UnsupportedOperationException("TrinoHudiIoFactory does not support FileFormatUtils");
     }
 
     @Override

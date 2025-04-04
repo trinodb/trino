@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi.storage;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -32,7 +33,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * {@link HoodieStorage} implementation based on {@link TrinoFileSystem}
  */
-public class HudiTrinoStorage
+public class TrinoHudiStorage
         extends HoodieStorage
 {
     private static final int DEFAULT_BLOCK_SIZE = (int) DataSize.of(32, MEGABYTE).toBytes();
@@ -53,7 +53,7 @@ public class HudiTrinoStorage
 
     private final TrinoFileSystem fileSystem;
 
-    public HudiTrinoStorage(
+    public TrinoHudiStorage(
             TrinoFileSystem fileSystem,
             TrinoStorageConfiguration storageConf)
     {
@@ -156,7 +156,7 @@ public class HudiTrinoStorage
     public OutputStream append(StoragePath path)
             throws IOException
     {
-        throw new UnsupportedOperationException("HudiTrinoStorage does not support append operation.");
+        throw new UnsupportedOperationException("TrinoHudiStorage does not support append operation");
     }
 
     @Override
@@ -202,7 +202,7 @@ public class HudiTrinoStorage
         if (entryList.isEmpty()) {
             throw new FileNotFoundException("Path " + path + " does not exist");
         }
-        return new ArrayList<>(entryList);
+        return ImmutableList.copyOf(entryList);
     }
 
     @Override
@@ -210,11 +210,11 @@ public class HudiTrinoStorage
             throws IOException
     {
         FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
-        List<StoragePathInfo> fileList = new ArrayList<>();
+        ImmutableList.Builder<StoragePathInfo> listBuilder = ImmutableList.builder();
         while (fileIterator.hasNext()) {
-            fileList.add(convertToPathInfo(fileIterator.next()));
+            listBuilder.add(convertToPathInfo(fileIterator.next()));
         }
-        return fileList;
+        return listBuilder.build();
     }
 
     @Override
@@ -222,34 +222,33 @@ public class HudiTrinoStorage
             throws IOException
     {
         FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
-        List<StoragePathInfo> fileList = new ArrayList<>();
+        ImmutableList.Builder<StoragePathInfo> listBuilder = ImmutableList.builder();
         int count = 0;
         while (fileIterator.hasNext()) {
             StoragePathInfo pathInfo = getDirectEntryPathInfo(path, fileIterator.next());
             count++;
             if (filter.accept(pathInfo.getPath())) {
-                fileList.add(pathInfo);
+                listBuilder.add(pathInfo);
             }
         }
         if (count == 0) {
             throw new FileNotFoundException("Path " + path + " does not exist");
         }
-        return fileList;
+        return listBuilder.build();
     }
 
     @Override
     public void setModificationTime(StoragePath path, long modificationTimeInMillisEpoch)
             throws IOException
     {
-        throw new UnsupportedOperationException(
-                "HudiTrinoStorage does not support setModificationTime operation.");
+        throw new UnsupportedOperationException("TrinoHudiStorage does not support setModificationTime operation");
     }
 
     @Override
     public List<StoragePathInfo> globEntries(StoragePath pathPattern, StoragePathFilter filter)
             throws IOException
     {
-        throw new UnsupportedOperationException("HudiTrinoStorage does not support globEntries operation.");
+        throw new UnsupportedOperationException("TrinoHudiStorage does not support globEntries operation");
     }
 
     @Override
@@ -301,7 +300,7 @@ public class HudiTrinoStorage
      * or the subdirectory in the input directory if the file entry is under the subdirectory
      * or nested directory.
      */
-    private StoragePathInfo getDirectEntryPathInfo(StoragePath path, FileEntry fileEntry)
+    private static StoragePathInfo getDirectEntryPathInfo(StoragePath path, FileEntry fileEntry)
     {
         StoragePathInfo pathInfo = convertToPathInfo(fileEntry);
         while (!path.equals(pathInfo.getPath().getParent())) {

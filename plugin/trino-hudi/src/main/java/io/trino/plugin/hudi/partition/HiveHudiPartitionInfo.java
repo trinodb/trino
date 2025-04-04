@@ -132,6 +132,8 @@ public class HiveHudiPartitionInfo
     public String toString()
     {
         return toStringHelper(this)
+                .add("databaseName", table.getDatabaseName())
+                .add("tableName", table.getTableName())
                 .add("hivePartitionName", hivePartitionName)
                 .add("hivePartitionKeys", hivePartitionKeys)
                 .toString();

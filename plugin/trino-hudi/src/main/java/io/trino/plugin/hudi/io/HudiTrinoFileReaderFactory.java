@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi.io;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.IndexedRecord;
 import org.apache.hudi.common.config.HoodieConfig;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.io.storage.HoodieAvroBootstrapFileReader;
@@ -39,14 +40,14 @@ public class HudiTrinoFileReaderFactory
     }
 
     @Override
-    protected HoodieFileReader newParquetFileReader(StoragePath path)
+    protected HoodieFileReader<IndexedRecord> newParquetFileReader(StoragePath path)
     {
         throw new UnsupportedOperationException(
                 "HudiTrinoFileReaderFactory does not support Parquet file reader");
     }
 
     @Override
-    protected HoodieFileReader newHFileFileReader(
+    protected HoodieFileReader<IndexedRecord> newHFileFileReader(
             HoodieConfig hoodieConfig,
             StoragePath path,
             Option<Schema> schemaOption)
@@ -56,7 +57,7 @@ public class HudiTrinoFileReaderFactory
     }
 
     @Override
-    protected HoodieFileReader newHFileFileReader(
+    protected HoodieFileReader<IndexedRecord> newHFileFileReader(
             HoodieConfig hoodieConfig,
             StoragePath path,
             HoodieStorage storage,
@@ -68,19 +69,23 @@ public class HudiTrinoFileReaderFactory
     }
 
     @Override
-    protected HoodieFileReader newOrcFileReader(StoragePath path)
+    protected HoodieFileReader<IndexedRecord> newOrcFileReader(StoragePath path)
     {
         throw new UnsupportedOperationException(
                 "HudiTrinoFileReaderFactory does not support ORC file reader");
     }
 
     @Override
-    public HoodieFileReader newBootstrapFileReader(
+    public HoodieFileReader<IndexedRecord> newBootstrapFileReader(
             HoodieFileReader skeletonFileReader,
             HoodieFileReader dataFileReader,
             Option<String[]> partitionFields,
             Object[] partitionValues)
     {
-        return new HoodieAvroBootstrapFileReader(skeletonFileReader, dataFileReader, partitionFields, partitionValues);
+        return new HoodieAvroBootstrapFileReader(
+                skeletonFileReader,
+                dataFileReader,
+                partitionFields,
+                partitionValues);
     }
 }

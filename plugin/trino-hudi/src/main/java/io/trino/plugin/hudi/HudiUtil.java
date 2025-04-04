@@ -23,7 +23,7 @@ import io.trino.metastore.HivePartition;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HivePartitionManager;
-import io.trino.plugin.hudi.storage.HudiTrinoStorage;
+import io.trino.plugin.hudi.storage.TrinoHudiStorage;
 import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
@@ -131,7 +131,7 @@ public final class HudiUtil
             String basePath)
     {
         return HoodieTableMetaClient.builder()
-                .setStorage(new HudiTrinoStorage(fileSystem, new TrinoStorageConfiguration()))
+                .setStorage(new TrinoHudiStorage(fileSystem, new TrinoStorageConfiguration()))
                 .setBasePath(basePath)
                 .build();
     }
