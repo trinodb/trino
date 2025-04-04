@@ -42,8 +42,7 @@ public class HudiTrinoFileReaderFactory
     @Override
     protected HoodieFileReader<IndexedRecord> newParquetFileReader(StoragePath path)
     {
-        throw new UnsupportedOperationException(
-                "HudiTrinoFileReaderFactory does not support Parquet file reader");
+        throw new UnsupportedOperationException("HudiTrinoFileReaderFactory does not support Parquet file reader");
     }
 
     @Override
@@ -71,8 +70,7 @@ public class HudiTrinoFileReaderFactory
     @Override
     protected HoodieFileReader<IndexedRecord> newOrcFileReader(StoragePath path)
     {
-        throw new UnsupportedOperationException(
-                "HudiTrinoFileReaderFactory does not support ORC file reader");
+        throw new UnsupportedOperationException("HudiTrinoFileReaderFactory does not support ORC file reader");
     }
 
     @Override
