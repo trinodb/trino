@@ -192,7 +192,8 @@ public class TestDeltaLakeSplitManager
                 deltaLakeConfig,
                 new FileFormatDataSourceStats(),
                 hdfsFileSystemFactory,
-                new ParquetReaderConfig())
+                new ParquetReaderConfig(),
+                newDirectExecutorService())
         {
             @Override
             public Stream<AddFileEntry> getActiveFiles(
@@ -214,7 +215,9 @@ public class TestDeltaLakeSplitManager
                 new NodeVersion("test_version"),
                 transactionLogAccess,
                 new FileFormatDataSourceStats(),
-                JsonCodec.jsonCodec(LastCheckpoint.class));
+                JsonCodec.jsonCodec(LastCheckpoint.class),
+                new DeltaLakeConfig(),
+                newDirectExecutorService());
 
         HiveMetastoreFactory hiveMetastoreFactory = HiveMetastoreFactory.ofInstance(createTestingFileHiveMetastore(new MemoryFileSystemFactory(), Location.of("memory:///")));
         DeltaLakeMetadataFactory metadataFactory = new DeltaLakeMetadataFactory(
