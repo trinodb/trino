@@ -1467,7 +1467,7 @@ public class TestIcebergV2
     {
         testMapValueSchemaChange("PARQUET", "map(array[1], array[NULL])");
         testMapValueSchemaChange("ORC", "map(array[1], array[row(NULL)])");
-        testMapValueSchemaChange("AVRO", "NULL");
+        testMapValueSchemaChange("AVRO", "map(array[1], array[row(NULL)])");
     }
 
     private void testMapValueSchemaChange(String format, String expectedValue)

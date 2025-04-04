@@ -8942,7 +8942,7 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.c varchar");
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.b");
 
-            String expected = format == ORC ? "CAST(array[row(NULL)] AS array(row(c varchar)))" : "CAST(NULL AS array(row(c varchar)))";
+            String expected = format == ORC || format == AVRO ? "CAST(array[row(NULL)] AS array(row(c varchar)))" : "CAST(NULL AS array(row(c varchar)))";
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES " + expected);
         }
