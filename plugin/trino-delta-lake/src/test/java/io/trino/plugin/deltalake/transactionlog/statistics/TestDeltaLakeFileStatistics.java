@@ -43,6 +43,8 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.Optional;
 import java.util.OptionalInt;
 
@@ -68,6 +70,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
 import static java.time.ZoneOffset.UTC;
+import static java.time.temporal.ChronoField.MILLI_OF_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeFileStatistics
@@ -81,6 +84,24 @@ public class TestDeltaLakeFileStatistics
         File statsFile = new File(getClass().getResource("all_type_statistics.json").toURI());
         DeltaLakeFileStatistics fileStatistics = objectMapper.readValue(statsFile, DeltaLakeJsonFileStatistics.class);
         testStatisticsValues(fileStatistics);
+    }
+
+    @Test
+    public void testParseSparkDefaultFormatTimestampStatistics()
+            throws Exception
+    {
+        File statsFile = new File(getClass().getResource("spark_default_format_timestamp_timezone_statistics.json").toURI());
+        DeltaLakeFileStatistics fileStatistics = objectMapper.readValue(statsFile, DeltaLakeJsonFileStatistics.class);
+        DateTimeFormatter formatter = new DateTimeFormatterBuilder()
+                .appendPattern("yyyy-MM-dd HH:mm:ss")
+                .optionalStart()
+                .appendFraction(MILLI_OF_SECOND, 0, 3, true)
+                .optionalEnd()
+                .toFormatter();
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("ts", TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), "ts", TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty()))).isEqualTo(Optional.of(packDateTimeWithZone(LocalDateTime.parse("1970-10-10 01:00:00", formatter).toInstant(UTC).toEpochMilli(), UTC_KEY)));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("ts_1", TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), "ts_1", TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty()))).isEqualTo(Optional.of(packDateTimeWithZone(LocalDateTime.parse("2000-10-10 01:00:00.1", formatter).toInstant(UTC).toEpochMilli(), UTC_KEY)));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("ts_2", TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), "ts_2", TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty()))).isEqualTo(Optional.of(packDateTimeWithZone(LocalDateTime.parse("2000-10-10 01:00:00.12", formatter).toInstant(UTC).toEpochMilli(), UTC_KEY)));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("ts_3", TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), "ts_3", TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty()))).isEqualTo(Optional.of(packDateTimeWithZone(LocalDateTime.parse("2000-10-10 01:00:00.123", formatter).toInstant(UTC).toEpochMilli(), UTC_KEY)));
     }
 
     @Test
@@ -108,6 +129,7 @@ public class TestDeltaLakeFileStatistics
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 TupleDomain.all(),
+                TupleDomain.all(),
                 Optional.empty());
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
         CheckpointEntryIterator protocolEntryIterator = new CheckpointEntryIterator(
@@ -123,6 +145,7 @@ public class TestDeltaLakeFileStatistics
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.empty());
         ProtocolEntry protocolEntry = getOnlyElement(protocolEntryIterator).getProtocol();
@@ -140,6 +163,7 @@ public class TestDeltaLakeFileStatistics
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all(),
                 TupleDomain.all(),
                 Optional.of(alwaysTrue()));
         DeltaLakeTransactionLogEntry matchingAddFileEntry = null;
