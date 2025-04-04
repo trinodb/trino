@@ -363,6 +363,7 @@ public class QueryMonitor
         return new QueryContext(
                 session.getUser(),
                 session.getOriginalUser(),
+                session.getOriginalRoles(),
                 session.getPrincipal(),
                 session.getEnabledRoles(),
                 session.getGroups(),
