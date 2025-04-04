@@ -69,6 +69,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -78,6 +79,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -95,6 +98,7 @@ import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
+import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -106,6 +110,7 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
 import static org.assertj.core.util.Files.fileNamesIn;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -1720,12 +1725,22 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6")).matches("VALUES 1, 2, 3, 4, 5, 6");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 7")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
 
+        // use temporal version syntax
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:09.907 UTC'")).matches("VALUES 1, 2, 3, 4, 5");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:14.248 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:26.526 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
+
         // Redo the time travel without _last_checkpoint file
         Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 5")).matches("VALUES 1, 2, 3, 4, 5");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6")).matches("VALUES 1, 2, 3, 4, 5, 6");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 7")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
+
+        // use temporal version syntax
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:09.907 UTC'")).matches("VALUES 1, 2, 3, 4, 5");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:14.248 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:26.526 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1759,6 +1774,57 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 1")).matches("VALUES (1, 2)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTimeTravelWithV2CheckpointUsingTemporal()
+            throws Exception
+    {
+        testTimeTravelWithV2CheckpointWithTemporalVersion("deltalake/v2_checkpoint_json_using_temporal", "2025-01-30 13:14:58.530 UTC", "2025-01-30 13:15:05.942 UTC");
+        testTimeTravelWithV2CheckpointWithTemporalVersion("deltalake/v2_checkpoint_parquet_using_temporal", "2025-01-31 02:35:49.788 UTC", "2025-01-31 02:36:28.433 UTC");
+    }
+
+    private void testTimeTravelWithV2CheckpointWithTemporalVersion(String resourceName, String v2TimestampWithZone, String v3TimestampWithZone)
+            throws Exception
+    {
+        String tableName = "test_time_travel_v2_checkpoint_using_temporal_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource(resourceName).toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Version 2 has v2 checkpoint
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + v2TimestampWithZone + "'")).matches("VALUES (1, 2), (3, 4)");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + v3TimestampWithZone + "'")).matches("VALUES (1, 2), (3, 4), (5, 6)");
+
+        // Redo the time travel without _last_checkpoint file
+        Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + v2TimestampWithZone + "'")).matches("VALUES (1, 2), (3, 4)");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + v3TimestampWithZone + "'")).matches("VALUES (1, 2), (3, 4), (5, 6)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    // TODO: using session property to control the maxLinearSearchSize
+    @Test
+    public void testTemporalTimeTravelUtilParallelSearch()
+            throws Exception
+    {
+        String tableName = "test_time_travel_util_parallel_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/v2_checkpoint_json_using_temporal").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        try (ExecutorService executorService = Executors.newCachedThreadPool()) {
+            // set maxLinearSearch force to the parallel search
+            assertThatThrownBy(() -> findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), 1738242898530L - 1L, executorService, 1))
+                    .hasMessage("No temporal version history at or before %s".formatted(Instant.ofEpochMilli(1738242898530L - 1L)));
+            assertThat(findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), 1738242898530L, executorService, 1)).isEqualTo(2);
+            assertThat(findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), 1738242905942L, executorService, 1)).isEqualTo(3);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     /**
