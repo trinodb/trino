@@ -228,8 +228,8 @@ public class TestTrinoHudiStorage
 
     private HoodieStorage getStorage()
     {
-        Object conf = getConf();
-        return getStorage(getFileSystem(conf), conf);
+        Object config = getConf();
+        return getStorage(getFileSystem(config), config);
     }
 
     private StoragePathInfo getStoragePathInfo(String subPath, boolean isDirectory)
@@ -285,9 +285,9 @@ public class TestTrinoHudiStorage
     private void prepareFilesOnStorage(HoodieStorage storage)
             throws IOException
     {
-        String dir = getTempDir();
+        String directory = getTempDir();
         for (String relativePath : RELATIVE_FILE_PATHS) {
-            storage.create(new StoragePath(dir, relativePath)).close();
+            storage.create(new StoragePath(directory, relativePath)).close();
         }
     }
 }
