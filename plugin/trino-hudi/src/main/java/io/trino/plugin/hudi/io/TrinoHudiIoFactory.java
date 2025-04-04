@@ -38,7 +38,7 @@ public class TrinoHudiIoFactory
     @Override
     public HoodieFileReaderFactory getReaderFactory(HoodieRecord.HoodieRecordType recordType)
     {
-        return new HudiTrinoFileReaderFactory(storage);
+        return new TrinoHudiFileReaderFactory(storage);
     }
 
     @Override

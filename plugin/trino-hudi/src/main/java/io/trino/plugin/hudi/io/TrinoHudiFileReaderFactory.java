@@ -31,10 +31,10 @@ import java.io.IOException;
  * that is Hadoop-independent.
  * Note that this reader factory is only used for reading log files and bootstrap files now.
  */
-public class HudiTrinoFileReaderFactory
+public class TrinoHudiFileReaderFactory
         extends HoodieFileReaderFactory
 {
-    public HudiTrinoFileReaderFactory(HoodieStorage storage)
+    public TrinoHudiFileReaderFactory(HoodieStorage storage)
     {
         super(storage);
     }
@@ -42,7 +42,7 @@ public class HudiTrinoFileReaderFactory
     @Override
     protected HoodieFileReader<IndexedRecord> newParquetFileReader(StoragePath path)
     {
-        throw new UnsupportedOperationException("HudiTrinoFileReaderFactory does not support Parquet file reader");
+        throw new UnsupportedOperationException("TrinoHudiFileReaderFactory does not support Parquet file reader");
     }
 
     @Override
@@ -70,7 +70,7 @@ public class HudiTrinoFileReaderFactory
     @Override
     protected HoodieFileReader<IndexedRecord> newOrcFileReader(StoragePath path)
     {
-        throw new UnsupportedOperationException("HudiTrinoFileReaderFactory does not support ORC file reader");
+        throw new UnsupportedOperationException("TrinoHudiFileReaderFactory does not support ORC file reader");
     }
 
     @Override
