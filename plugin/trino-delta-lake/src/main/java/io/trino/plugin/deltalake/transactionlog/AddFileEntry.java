@@ -87,7 +87,7 @@ public class AddFileEntry
             @Nullable Map<String, String> tags,
             Optional<DeletionVectorEntry> deletionVector)
     {
-        this.path = path;
+        this.path = requireNonNull(path, "path is null");
         this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
         this.canonicalPartitionValues = requireNonNull(canonicalPartitionValues, "canonicalPartitionValues is null");
         this.size = size;
