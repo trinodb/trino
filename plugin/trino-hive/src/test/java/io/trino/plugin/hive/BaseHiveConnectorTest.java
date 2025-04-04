@@ -5701,6 +5701,7 @@ public abstract class BaseHiveConnectorTest
             case TEXTFILE -> false;
             case CSV -> false;
             case REGEX -> false;
+            case GROK -> false;
         };
     }
 
@@ -9503,6 +9504,10 @@ public abstract class BaseHiveConnectorTest
             }
             if (hiveStorageFormat == REGEX) {
                 // REGEX format is read-only
+                continue;
+            }
+            if (hiveStorageFormat == HiveStorageFormat.GROK) {
+                // GROK format is read-only
                 continue;
             }
 
