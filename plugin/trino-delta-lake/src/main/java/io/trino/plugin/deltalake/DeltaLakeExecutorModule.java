@@ -22,9 +22,9 @@ import io.trino.spi.catalog.CatalogName;
 
 import java.util.concurrent.ExecutorService;
 
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 
 public class DeltaLakeExecutorModule
         implements Module
@@ -41,7 +41,7 @@ public class DeltaLakeExecutorModule
     @ForDeltaLakeMetadata
     public ExecutorService createMetadataExecutor(CatalogName catalogName)
     {
-        return newCachedThreadPool(daemonThreadsNamed("delta-metadata-" + catalogName + "-%s"));
+        return newThreadPerTaskExecutor(virtualThreadsNamed("delta-metadata-" + catalogName + "-%d"));
     }
 
     @Provides
@@ -49,6 +49,6 @@ public class DeltaLakeExecutorModule
     @ForDeltaLakeSplitManager
     public ExecutorService createSplitSourceExecutor(CatalogName catalogName)
     {
-        return newCachedThreadPool(daemonThreadsNamed("delta-split-source-" + catalogName + "-%s"));
+        return newThreadPerTaskExecutor(virtualThreadsNamed("delta-split-source-" + catalogName + "-%d"));
     }
 }
