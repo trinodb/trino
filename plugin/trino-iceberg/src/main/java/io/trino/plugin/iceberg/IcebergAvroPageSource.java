@@ -24,7 +24,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.avro.Avro;
 import org.apache.iceberg.avro.AvroIterable;
 import org.apache.iceberg.data.Record;
-import org.apache.iceberg.data.avro.DataReader;
+import org.apache.iceberg.data.avro.PlannedDataReader;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.mapping.NameMapping;
@@ -81,7 +81,7 @@ public class IcebergAvroPageSource
         Schema readSchema = fileSchema.select(columnNames);
         Avro.ReadBuilder builder = Avro.read(file)
                 .project(readSchema)
-                .createReaderFunc(DataReader::create)
+                .createReaderFunc(_ -> PlannedDataReader.create(readSchema))
                 .split(start, length);
         nameMapping.ifPresent(builder::withNameMapping);
         AvroIterable<Record> avroReader = builder.build();
