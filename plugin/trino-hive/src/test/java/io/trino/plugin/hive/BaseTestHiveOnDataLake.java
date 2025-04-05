@@ -1464,10 +1464,13 @@ abstract class BaseTestHiveOnDataLake
                 format("SELECT name FROM %s WHERE short_name1='PL1' AND short_name2='002'", fullyQualifiedTestTableName),
                 "VALUES 'POLAND_2'");
 
-        assertThatThrownBy(
-                () -> getQueryRunner().execute(
-                        format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='002' OR short_name2='001' )", fullyQualifiedTestTableName)))
-                .hasMessage("Column projection for column 'short_name2' failed. Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name2 IN ('001', '003')", fullyQualifiedTestTableName),
+                "VALUES 'POLAND_1', 'CZECH_1'");
+
+        assertQuery(
+                format("SELECT name FROM %s WHERE short_name1='PL1' AND ( short_name2='002' OR short_name2='001' )", fullyQualifiedTestTableName),
+                "VALUES 'POLAND_1', 'POLAND_2'");
 
         assertThatThrownBy(
                 () -> getQueryRunner().execute(
