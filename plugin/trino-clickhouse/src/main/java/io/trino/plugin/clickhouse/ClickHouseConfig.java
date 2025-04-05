@@ -16,6 +16,9 @@ package io.trino.plugin.clickhouse;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import jakarta.validation.constraints.NotNull;
+
+import java.util.Optional;
 
 @DefunctConfig("clickhouse.legacy-driver")
 public class ClickHouseConfig
@@ -33,6 +36,22 @@ public class ClickHouseConfig
     public ClickHouseConfig setMapStringAsVarchar(boolean mapStringAsVarchar)
     {
         this.mapStringAsVarchar = mapStringAsVarchar;
+        return this;
+    }
+
+    private Optional<String> clusterName = Optional.empty();
+
+    @NotNull
+    public Optional<String> getClusterName()
+    {
+        return clusterName;
+    }
+
+    @Config("clickhouse.cluster-name")
+    @ConfigDescription("ClickHouse cluster name")
+    public ClickHouseConfig setClusterName(String clusterName)
+    {
+        this.clusterName = Optional.ofNullable(clusterName);
         return this;
     }
 }
