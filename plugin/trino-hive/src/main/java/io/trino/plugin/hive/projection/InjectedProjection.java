@@ -13,13 +13,16 @@
  */
 package io.trino.plugin.hive.projection;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.canConvertSqlTypeToStringForParts;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.sqlScalarToString;
 import static java.util.Objects.requireNonNull;
@@ -43,11 +46,16 @@ final class InjectedProjection
         Domain domain = partitionValueFilter
                 .orElseThrow(() -> new InvalidProjectionException(columnName, "Injected projection requires single predicate for it's column in where clause"));
         Type type = domain.getType();
-        if (!domain.isNullableSingleValue() || !canConvertSqlTypeToStringForParts(type, true)) {
+        if (!(type instanceof VarcharType || type instanceof CharType)) {
+            throw new InvalidProjectionException(columnName, "Injected projection requires varchar or char type. Currently provided is " + type);
+        }
+
+        ValueSet values = domain.getValues();
+        if (!values.isDiscreteSet()) {
             throw new InvalidProjectionException(columnName, "Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
         }
-        return Optional.ofNullable(sqlScalarToString(type, domain.getNullableSingleValue(), null))
-                .map(ImmutableList::of)
-                .orElseThrow(() -> new InvalidProjectionException(columnName, type));
+        return values.getDiscreteSet().stream()
+                .map(value -> sqlScalarToString(type, value, null))
+                .collect(toImmutableList());
     }
 }
