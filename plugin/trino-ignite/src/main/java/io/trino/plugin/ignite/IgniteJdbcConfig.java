@@ -15,11 +15,9 @@ package io.trino.plugin.ignite;
 
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import jakarta.validation.constraints.AssertTrue;
-import org.apache.ignite.IgniteJdbcThinDriver;
+import org.apache.ignite.jdbc.IgniteJdbcDriver;
 
-import java.sql.SQLException;
-
-import static org.apache.ignite.internal.jdbc.thin.JdbcThinUtils.URL_PREFIX;
+import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 
 public class IgniteJdbcConfig
         extends BaseJdbcConfig
@@ -27,11 +25,6 @@ public class IgniteJdbcConfig
     @AssertTrue(message = "JDBC URL for Ignite connector should start with " + URL_PREFIX)
     public boolean isUrlValid()
     {
-        try {
-            return new IgniteJdbcThinDriver().acceptsURL(getConnectionUrl());
-        }
-        catch (SQLException e) {
-            return false;
-        }
+        return new IgniteJdbcDriver().acceptsURL(getConnectionUrl());
     }
 }

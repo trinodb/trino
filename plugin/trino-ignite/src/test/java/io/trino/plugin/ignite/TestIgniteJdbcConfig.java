@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
-import static org.apache.ignite.internal.jdbc.thin.JdbcThinUtils.URL_PREFIX;
+import static org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl.URL_PREFIX;
 
 public class TestIgniteJdbcConfig
 {

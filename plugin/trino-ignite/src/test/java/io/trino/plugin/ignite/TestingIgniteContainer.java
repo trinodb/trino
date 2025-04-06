@@ -37,7 +37,7 @@ public class TestingIgniteContainer
     @Override
     public String getDriverClassName()
     {
-        return "org.apache.ignite.IgniteJdbcThinDriver";
+        return "org.apache.ignite.jdbc.IgniteJdbcDriver";
     }
 
     @Override
