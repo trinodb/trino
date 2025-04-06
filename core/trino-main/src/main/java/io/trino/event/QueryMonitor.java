@@ -29,7 +29,6 @@ import io.trino.SessionRepresentation;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.eventlistener.EventListenerManager;
-import io.trino.execution.Column;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.Input;
 import io.trino.execution.QueryInfo;
@@ -91,7 +90,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -454,12 +452,14 @@ public class QueryMonitor
                     .reduce(Metrics.EMPTY, Metrics::mergeWith);
 
             inputs.add(new QueryInputMetadata(
+                    input.getConnectorName(),
                     input.getCatalogName(),
                     input.getCatalogVersion(),
                     input.getSchema(),
                     input.getTable(),
                     input.getColumns().stream()
-                            .map(Column::getName).collect(Collectors.toList()),
+                            .map(column -> new QueryInputMetadata.Column(column.getName(), column.getType()))
+                            .collect(toImmutableList()),
                     input.getConnectorInfo(),
                     connectorMetrics,
                     physicalInputBytes,

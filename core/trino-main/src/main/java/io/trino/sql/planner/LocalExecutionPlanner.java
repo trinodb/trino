@@ -161,6 +161,7 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
@@ -334,7 +335,6 @@ import static io.trino.operator.DistinctLimitOperator.DistinctLimitOperatorFacto
 import static io.trino.operator.HashArraySizeSupplier.incrementalLoadFactorHashArraySizeSupplier;
 import static io.trino.operator.OperatorFactories.join;
 import static io.trino.operator.OperatorFactories.spillingJoin;
-import static io.trino.operator.OutputSpoolingOperatorFactory.layoutUnionWithSpooledMetadata;
 import static io.trino.operator.OutputSpoolingOperatorFactory.spooledOutputLayout;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.TableFinishOperator.TableFinishOperatorFactory;
@@ -661,7 +661,7 @@ public class LocalExecutionPlanner
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
 
-        Function<Page, Page> pagePreprocessor = enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
+        Function<Page, Page> pagePreprocessor = isSpooledOutput(session, physicalOperation) ? LocalExecutionPlanner::validateSpooledLayoutProcessor : enforceLoadedLayoutProcessor(outputLayout, physicalOperation.getLayout());
 
         List<Type> outputTypes = outputLayout.stream()
                 .map(Symbol::type)
@@ -688,6 +688,14 @@ public class LocalExecutionPlanner
                 .forEach(LocalPlannerAware::localPlannerComplete);
 
         return new LocalExecutionPlan(context.getDriverFactories(), partitionedSourceOrder);
+    }
+
+    private static boolean isSpooledOutput(Session session, PhysicalOperation operation)
+    {
+        if (session.getQueryDataEncoding().isEmpty()) {
+            return false;
+        }
+        return operation.getOperatorFactories().getLast() instanceof OutputSpoolingOperatorFactory;
     }
 
     private static class LocalExecutionPlanContext
@@ -991,15 +999,14 @@ public class LocalExecutionPlanner
                     .map(encoders::get)
                     .orElseThrow(() -> new IllegalStateException("Spooled query encoding was not found"));
 
-            Map<Symbol, Integer> spooledLayout = layoutUnionWithSpooledMetadata(operation.layout);
             OutputSpoolingOperatorFactory outputSpoolingOperatorFactory = new OutputSpoolingOperatorFactory(
                     context.getNextOperatorId(),
                     node.getId(),
-                    spooledLayout,
+                    operation.layout,
                     () -> encoderFactory.create(session, spooledOutputLayout(node, operation.layout)),
                     spoolingManager.orElseThrow());
 
-            return new PhysicalOperation(outputSpoolingOperatorFactory, spooledLayout, operation);
+            return new PhysicalOperation(outputSpoolingOperatorFactory, operation.layout, operation);
         }
 
         @Override
@@ -4280,11 +4287,18 @@ public class LocalExecutionPlanner
                 .toArray();
 
         if (Arrays.equals(channels, range(0, inputLayout.size()).toArray())) {
-            // this is an identity mapping, simply ensuring that the page is fully loaded is sufficient
-            return PageChannelSelector.identitySelection();
+            return Function.identity();
         }
 
         return new PageChannelSelector(channels);
+    }
+
+    private static Page validateSpooledLayoutProcessor(Page page)
+    {
+        verify(page.getChannelCount() == 1, "Expected a single output channel when spooling");
+        verify(page.getPositionCount() == 1, "Expected a single output position when spooling");
+        verify(page.getBlock(0) instanceof RowBlock, "Expected a RowBlock for spooling metadata");
+        return page;
     }
 
     private static List<Integer> getChannelsForSymbols(List<Symbol> symbols, Map<Symbol, Integer> layout)

@@ -60,11 +60,6 @@ public final class RunLengthEncodedBlock
             return new RunLengthEncodedBlock(valueBlock, positionCount);
         }
 
-        // if the value is lazy be careful to not materialize it
-        if (value instanceof LazyBlock lazyBlock) {
-            return new LazyBlock(positionCount, () -> create(lazyBlock.getBlock(), positionCount));
-        }
-
         // unwrap the value
         ValueBlock valueBlock = value.getUnderlyingValueBlock();
         int valuePosition = value.getUnderlyingValuePosition(0);
@@ -230,23 +225,6 @@ public final class RunLengthEncodedBlock
         sb.append(", value=").append(value);
         sb.append('}');
         return sb.toString();
-    }
-
-    @Override
-    public boolean isLoaded()
-    {
-        return value.isLoaded();
-    }
-
-    @Override
-    public Block getLoadedBlock()
-    {
-        Block loadedValueBlock = value.getLoadedBlock();
-
-        if (loadedValueBlock == value) {
-            return this;
-        }
-        return create(loadedValueBlock, positionCount);
     }
 
     @Override

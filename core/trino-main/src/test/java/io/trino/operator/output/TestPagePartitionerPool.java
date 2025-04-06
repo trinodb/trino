@@ -30,7 +30,6 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.DriverContext;
 import io.trino.operator.Operator;
-import io.trino.operator.exchange.PageChannelSelector;
 import io.trino.operator.output.PartitionedOutputOperator.PartitionedOutputOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -48,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -169,7 +169,7 @@ public class TestPagePartitionerPool
                 0,
                 new PlanNodeId("0"),
                 ImmutableList.of(BIGINT),
-                PageChannelSelector.identitySelection(),
+                Function.identity(),
                 new BucketPartitionFunction((page, position) -> 0, new int[1]),
                 ImmutableList.of(0),
                 ImmutableList.of(),

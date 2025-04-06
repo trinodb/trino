@@ -128,9 +128,6 @@ public final class ArrayBlock
     public long getSizeInBytes()
     {
         if (sizeInBytes < 0) {
-            if (!values.isLoaded()) {
-                return getBaseSizeInBytes();
-            }
             calculateSize();
         }
         return sizeInBytes;
@@ -216,28 +213,6 @@ public final class ArrayBlock
     public String toString()
     {
         return "ArrayBlock{positionCount=" + getPositionCount() + '}';
-    }
-
-    @Override
-    public boolean isLoaded()
-    {
-        return values.isLoaded();
-    }
-
-    @Override
-    public ArrayBlock getLoadedBlock()
-    {
-        Block loadedValuesBlock = values.getLoadedBlock();
-
-        if (loadedValuesBlock == values) {
-            return this;
-        }
-        return createArrayBlockInternal(
-                arrayOffset,
-                positionCount,
-                valueIsNull,
-                offsets,
-                loadedValuesBlock);
     }
 
     @Override

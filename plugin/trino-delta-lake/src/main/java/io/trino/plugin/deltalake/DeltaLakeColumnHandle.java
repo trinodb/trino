@@ -60,6 +60,8 @@ public record DeltaLakeColumnHandle(
             field("position", BIGINT),
             field("partition", VARCHAR));
 
+    // Note: update `isMetadataColumnHandle` method when adding new metadata columns
+
     public static final String PATH_COLUMN_NAME = "$path";
     public static final Type PATH_TYPE = VARCHAR;
 
@@ -160,5 +162,10 @@ public record DeltaLakeColumnHandle(
     public static DeltaLakeColumnHandle mergeRowIdColumnHandle()
     {
         return new DeltaLakeColumnHandle(ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, OptionalInt.empty(), ROW_ID_COLUMN_NAME, MERGE_ROW_ID_TYPE, SYNTHESIZED, Optional.empty());
+    }
+
+    public static boolean isMetadataColumnHandle(DeltaLakeColumnHandle columnHandle)
+    {
+        return columnHandle.equals(fileModifiedTimeColumnHandle()) || columnHandle.equals(pathColumnHandle()) || columnHandle.equals(fileSizeColumnHandle());
     }
 }

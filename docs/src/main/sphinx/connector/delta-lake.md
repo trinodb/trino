@@ -662,6 +662,25 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+Use a `WHERE` clause with [metadata columns](delta-lake-special-columns) to filter
+which files are optimized.
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$file_modified_time" > date_trunc('day', CURRENT_TIMESTAMP);
+```
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$path" <> 'skipping-file-path'
+```
+
+```sql
+-- optimze files smaller than 1MB
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$file_size" <= 1024 * 1024
+```
+
 (delta-lake-alter-table-rename-to)=
 #### ALTER TABLE RENAME TO
 

@@ -17,6 +17,8 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 
+import static io.trino.plugin.singlestore.TestingSingleStoreServer.LATEST_TESTED_VERSION;
+
 public class TestSingleStoreLatestConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
@@ -24,7 +26,7 @@ public class TestSingleStoreLatestConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        TestingSingleStoreServer singleStoreServer = closeAfterClass(new TestingSingleStoreServer(TestingSingleStoreServer.LATEST_TESTED_TAG));
+        TestingSingleStoreServer singleStoreServer = closeAfterClass(new TestingSingleStoreServer(LATEST_TESTED_VERSION));
         return SingleStoreQueryRunner.builder(singleStoreServer)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();

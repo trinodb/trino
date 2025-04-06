@@ -77,7 +77,7 @@ public class PageProcessor
         this.projections = projections.stream()
                 .map(projection -> {
                     if (projection.getInputChannels().size() == 1 && projection.isDeterministic()) {
-                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction, projection instanceof InputPageProjection);
+                        return new DictionaryAwarePageProjection(projection, dictionarySourceIdFunction);
                     }
                     return projection;
                 })
@@ -318,7 +318,6 @@ public class PageProcessor
                     blocks[i] = previouslyComputedResults[i];
                 }
 
-                blocks[i] = blocks[i].getLoadedBlock();
                 pageSize += blocks[i].getSizeInBytes();
             }
             return ProcessBatchResult.processBatchSuccess(new Page(positionsBatch.size(), blocks));

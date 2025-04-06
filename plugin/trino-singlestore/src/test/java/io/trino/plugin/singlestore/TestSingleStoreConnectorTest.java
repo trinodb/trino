@@ -398,7 +398,7 @@ public class TestSingleStoreConnectorTest
     protected void verifySchemaNameLengthFailurePermissible(Throwable e)
     {
         // The error message says 60 char, but the actual limitation is 62
-        assertThat(e).hasMessageContaining("Distributed MemSQL requires the length of the database name to be at most 60 characters");
+        assertThat(e).hasMessageContaining("Distributed SingleStore requires the length of the database name to be at most 60 characters");
     }
 
     @Override

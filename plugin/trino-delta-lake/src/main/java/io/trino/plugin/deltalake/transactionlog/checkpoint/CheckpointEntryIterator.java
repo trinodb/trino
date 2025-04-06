@@ -77,7 +77,6 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
-import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
@@ -89,6 +88,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -515,7 +515,6 @@ public class CheckpointEntryIterator
             }
 
             // Materialize from Parquet the information needed to build the AddEntry instance
-            addBlock = addBlock.getLoadedBlock();
             SqlRow addEntryRow = getRow(addBlock, pagePosition);
             log.debug("Block %s has %s fields", addBlock, addEntryRow.getFieldCount());
             CheckpointFieldReader addReader = new CheckpointFieldReader(session, addEntryRow, addType.orElseThrow());
@@ -758,14 +757,7 @@ public class CheckpointEntryIterator
             // process page
             int blockIndex = 0;
             for (CheckpointFieldExtractor extractor : extractors) {
-                DeltaLakeTransactionLogEntry entry;
-                if (extractor instanceof AddFileEntryExtractor) {
-                    // Avoid unnecessary loading of the block in case there is a partition predicate mismatch for this add entry
-                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex));
-                }
-                else {
-                    entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex).getLoadedBlock());
-                }
+                DeltaLakeTransactionLogEntry entry = extractor.getEntry(session, pagePosition, page.getBlock(blockIndex));
                 if (entry != null) {
                     nextEntries.add(entry);
                 }

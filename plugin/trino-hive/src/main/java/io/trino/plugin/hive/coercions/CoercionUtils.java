@@ -35,7 +35,6 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
@@ -466,11 +465,6 @@ public final class CoercionUtils
         @Override
         public Block apply(Block block)
         {
-            if (block instanceof LazyBlock lazyBlock) {
-                // only load the top level block so non-coerced fields are not loaded
-                block = lazyBlock.getBlock();
-            }
-
             if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
                 RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
                 RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(

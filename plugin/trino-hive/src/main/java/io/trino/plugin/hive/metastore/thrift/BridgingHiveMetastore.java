@@ -247,9 +247,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext)
     {
-        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges));
+        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges), environmentContext);
     }
 
     @Override
@@ -292,7 +292,7 @@ public class BridgingHiveMetastore
                 .setOwner(Optional.of(principal.getName()))
                 .build();
 
-        delegate.alterTable(databaseName, tableName, toMetastoreApiTable(newTable));
+        delegate.alterTable(databaseName, tableName, toMetastoreApiTable(newTable), ImmutableMap.of());
     }
 
     @Override
@@ -360,7 +360,12 @@ public class BridgingHiveMetastore
 
     private void alterTable(String databaseName, String tableName, io.trino.hive.thrift.metastore.Table table)
     {
-        delegate.alterTable(databaseName, tableName, table);
+        delegate.alterTable(databaseName, tableName, table, ImmutableMap.of());
+    }
+
+    private void alterTable(String databaseName, String tableName, io.trino.hive.thrift.metastore.Table table, Map<String, String> context)
+    {
+        delegate.alterTable(databaseName, tableName, table, context);
     }
 
     @Override

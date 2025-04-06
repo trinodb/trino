@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi.block;
+package io.trino.plugin.iceberg;
 
-public interface LazyBlockLoader
+public class TestIcebergParquetV2ConnectorTest
+        extends BaseIcebergParquetConnectorTest
 {
-    /**
-     * Loads a lazy block. If possible lazy block loader should load top level {@link Block} only
-     * (in case of when loaded blocks are nested, e.g. for structural types).
-     */
-    Block load();
+    public TestIcebergParquetV2ConnectorTest()
+    {
+        super(2);
+    }
 }

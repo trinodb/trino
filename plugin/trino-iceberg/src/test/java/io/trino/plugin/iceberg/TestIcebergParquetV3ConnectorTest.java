@@ -11,19 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.tree;
+package io.trino.plugin.iceberg;
 
-public final class SetTableAuthorization
-        extends SetAuthorizationStatement
+public class TestIcebergParquetV3ConnectorTest
+        extends BaseIcebergParquetConnectorTest
 {
-    public SetTableAuthorization(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
+    public TestIcebergParquetV3ConnectorTest()
     {
-        super(location, source, principal);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetTableAuthorization(this, context);
+        super(3);
     }
 }

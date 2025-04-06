@@ -651,10 +651,10 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext)
     {
         try {
-            delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges);
+            delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges, environmentContext);
         }
         finally {
             invalidateTable(databaseName, tableName);

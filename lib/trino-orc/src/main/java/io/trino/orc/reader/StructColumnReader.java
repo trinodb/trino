@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.orc.OrcBlockFactory;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcReader;
@@ -29,8 +28,6 @@ import io.trino.orc.stream.BooleanInputStream;
 import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.LazyBlock;
-import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.RowType;
@@ -63,7 +60,6 @@ public class StructColumnReader
     private static final int INSTANCE_SIZE = instanceSize(StructColumnReader.class);
 
     private final OrcColumn column;
-    private final OrcBlockFactory blockFactory;
 
     private final Map<String, ColumnReader> structFields;
     private final RowType type;
@@ -83,7 +79,6 @@ public class StructColumnReader
             OrcColumn column,
             OrcReader.ProjectedLayout readLayout,
             AggregatedMemoryContext memoryContext,
-            OrcBlockFactory blockFactory,
             FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
@@ -92,7 +87,6 @@ public class StructColumnReader
         this.type = (RowType) type;
 
         this.column = requireNonNull(column, "column is null");
-        this.blockFactory = requireNonNull(blockFactory, "blockFactory is null");
 
         FieldMapper fieldMapper = fieldMapperFactory.create(column);
         ImmutableList.Builder<String> fieldNames = ImmutableList.builder();
@@ -115,7 +109,6 @@ public class StructColumnReader
                                     fieldStream,
                                     fieldLayout,
                                     memoryContext,
-                                    blockFactory,
                                     fieldMapperFactory));
                 }
             }
@@ -238,6 +231,7 @@ public class StructColumnReader
     }
 
     private Block[] getBlocks(int positionCount, int nonNullCount, boolean[] nullVector)
+            throws IOException
     {
         Block[] blocks = new Block[fieldNames.size()];
 
@@ -248,13 +242,11 @@ public class StructColumnReader
             if (columnReader != null) {
                 columnReader.prepareNextRead(nonNullCount);
 
-                LazyBlockLoader lazyBlockLoader = blockFactory.createLazyBlockLoader(columnReader::readBlock, true);
-                if (nullVector == null) {
-                    blocks[i] = new LazyBlock(positionCount, lazyBlockLoader);
+                Block block = columnReader.readBlock();
+                if (nullVector != null) {
+                    block = toNotNullSupressedBlock(positionCount, nullVector, block);
                 }
-                else {
-                    blocks[i] = new LazyBlock(positionCount, () -> toNotNullSupressedBlock(positionCount, nullVector, lazyBlockLoader.load()));
-                }
+                blocks[i] = block;
             }
             else {
                 blocks[i] = RunLengthEncodedBlock.create(type.getFields().get(i).getType(), null, positionCount);

@@ -181,6 +181,12 @@ LISTAGG( expression [, separator] [ON OVERFLOW overflow_behaviour])
     WITHIN GROUP (ORDER BY sort_item, [...]) [FILTER (WHERE condition)]
 ```
 
+:::{note}
+The `expression` value must evaluate to a string data type (`varchar`). You must
+explicitly cast non-string datatypes to `varchar` using `CAST(expression AS
+VARCHAR)` before you use them with `listagg`.
+:::
+
 If `separator` is not specified, the empty string will be used as `separator`.
 
 In its simplest form the function looks like:
@@ -196,6 +202,21 @@ and results in:
 csv_value
 -----------
 'a,b,c'
+```
+
+The following example casts the `v` column to `varchar`:
+
+```
+SELECT listagg(CAST(v AS VARCHAR), ',') WITHIN GROUP (ORDER BY v) csv_value
+FROM (VALUES 1, 3, 2) t(v);
+```
+
+and results in
+
+```
+csv_value
+-----------
+'1,2,3'
 ```
 
 The overflow behaviour is by default to throw an error in case that the length of the output

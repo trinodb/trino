@@ -377,7 +377,7 @@ public class BenchmarkColumnReaders
     {
         List<Block> blocks = new ArrayList<>();
         for (SourcePage page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
-            blocks.add(page.getBlock(0).getLoadedBlock());
+            blocks.add(page.getBlock(0));
         }
         return blocks;
     }

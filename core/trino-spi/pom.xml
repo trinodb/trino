@@ -356,6 +356,97 @@
                                     <old>method int io.trino.spi.type.RowType::relocateFlatVariableWidthOffsets(byte[], int, byte[], int)</old>
                                     <justification>Remove flat offsets relocation method since offsets are no longer stored in flat representations</justification>
                                 </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int[], int[])</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::getLoadedBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.ArrayBlock::isLoaded()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.Block::getLoadedBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.Block::isLoaded()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.DictionaryBlock::getLoadedBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.DictionaryBlock::isLoaded()</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.LazyBlock</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.LazyBlockEncoding</old>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>interface io.trino.spi.block.LazyBlockLoader</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.MapBlock::getLoadedBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.MapBlock::isLoaded()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::getLoadedBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.RowBlock::isLoaded()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RunLengthEncodedBlock::getLoadedBlock()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method boolean io.trino.spi.block.RunLengthEncodedBlock::isLoaded()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method io.trino.spi.Page io.trino.spi.Page::getLoadedPage(int[])</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.returnTypeTypeParametersChanged</code>
+                                    <old>method java.util.List&lt;java.lang.String&gt; io.trino.spi.eventlistener.QueryInputMetadata::getColumns()</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.parameterTypeParameterChanged</code>
+                                    <old>method void io.trino.spi.eventlistener.QueryInputMetadata::&lt;init&gt;(java.lang.String, io.trino.spi.connector.CatalogHandle.CatalogVersion, java.lang.String, java.lang.String, java.util.List&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.Object&gt;, io.trino.spi.metrics.Metrics, java.util.OptionalLong, java.util.OptionalLong)</old>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.Optional&lt;java.lang.Object&gt; io.trino.spi.connector.ConnectorMetadata::getInfo(io.trino.spi.connector.ConnectorTableHandle)</old>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

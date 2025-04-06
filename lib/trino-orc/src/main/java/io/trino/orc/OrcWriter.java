@@ -254,8 +254,6 @@ public final class OrcWriter
         }
 
         checkArgument(page.getChannelCount() == columnWriters.size());
-        // page should already be loaded, but double check
-        page = page.getLoadedPage();
 
         if (validationBuilder != null) {
             validationBuilder.addPage(page);

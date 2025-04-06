@@ -13,21 +13,22 @@
  */
 package io.trino.operator;
 
-import io.trino.operator.OperatorSpoolingController.MetricSnapshot;
+import io.trino.operator.SpoolingController.MetricSnapshot;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.atomic.AtomicLong;
 
 import static io.trino.operator.SpoolingController.Mode.BUFFER;
 import static io.trino.operator.SpoolingController.Mode.INLINE;
 import static io.trino.operator.SpoolingController.Mode.SPOOL;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
-class TestOperatorSpoolingController
+class TestSpoolingController
 {
     @Test
     public void testInlineFirstRowsUntilThresholdThenSpooling()
     {
-        var assertion = new OutputSpoolingControllerAssertions(
-                new OperatorSpoolingController(true, 100, 1000, 900, 16000));
+        var assertion = new SpoolingControllerAssertions(new PipelineSpoolingController(new AtomicLong(), new AtomicLong(), true, 100, 1000, new OperatorSpoolingController(900, 16000)));
 
         assertion
                 .verifyNextMode(10, 100, INLINE)
@@ -50,8 +51,7 @@ class TestOperatorSpoolingController
     @Test
     public void testSpoolingTargetSize()
     {
-        var assertion = new OutputSpoolingControllerAssertions(
-                new OperatorSpoolingController(false, 0, 0, 512, 2048));
+        var assertion = new SpoolingControllerAssertions(new PipelineSpoolingController(new AtomicLong(), new AtomicLong(), false, 0, 0, new OperatorSpoolingController(512, 2048)));
 
         assertion
                 .verifyNextMode(100, 511, BUFFER) // still under the initial segment target
@@ -78,34 +78,36 @@ class TestOperatorSpoolingController
     @Test
     public void testSpoolingEncoderEfficiency()
     {
-        var assertion = new OutputSpoolingControllerAssertions(
-                new OperatorSpoolingController(false, 0, 0, 32, 100));
-
+        var assertion = new SpoolingControllerAssertions(new PipelineSpoolingController(new AtomicLong(), new AtomicLong(), false, 0, 0, new OperatorSpoolingController(32, 1000)));
         assertion
                 .verifyNextMode(1000, 31, BUFFER)
                 .verifyBuffered(1000, 31)
                 .verifyNextMode(1000, 31, SPOOL)
                 .verifySpooled(1, 2000, 62)
-                .verifyEmptyBuffer()
                 .verifySpooledSegmentTarget(64)
+                .verifyEmptyBuffer()
                 .verifyNextMode(100, 80, SPOOL)
-                .verifyNextMode(100, 47, BUFFER) // over segment size
                 .verifySpooled(2, 2100, 142)
+                .verifySpooledSegmentTarget(128)
+                .verifyEmptyBuffer()
+                .verifyNextMode(100, 47, BUFFER) // over segment size
                 .verifyBuffered(100, 47)
                 .verifyNextMode(54, 1, BUFFER)
-                .verifySpooledSegmentTarget(100)
                 .verifyNextMode(100, 80, SPOOL)
+                .verifySpooledSegmentTarget(256)
+                .verifyEmptyBuffer()
                 .verifyNextMode(100, 43, BUFFER)
                 .verifyNextMode(1, 1, BUFFER)
                 .verifyNextMode(100, 1, BUFFER)
-                .verifyNextMode(100, 80, SPOOL)
+                .verifyNextMode(100, 211, SPOOL)
                 .verifyEmptyBuffer()
-                .verifySpooled(4, 2655, 395);
+                .verifySpooled(4, 2655, 526)
+                .verifySpooledSegmentTarget(512);
     }
 
-    private record OutputSpoolingControllerAssertions(OperatorSpoolingController controller)
+    private record SpoolingControllerAssertions(SpoolingController controller)
     {
-        public OutputSpoolingControllerAssertions verifyNextMode(int positionCount, int rawSizeInBytes, OperatorSpoolingController.Mode expected)
+        public SpoolingControllerAssertions verifyNextMode(int positionCount, int rawSizeInBytes, SpoolingController.Mode expected)
         {
             assertThat(controller.nextMode(positionCount, rawSizeInBytes))
                     .isEqualTo(expected);
@@ -113,9 +115,9 @@ class TestOperatorSpoolingController
             return this;
         }
 
-        private OutputSpoolingControllerAssertions verifyInlined(int inlinedPages, int inlinedPositions, int inlinedRawBytes)
+        private SpoolingControllerAssertions verifyInlined(int inlinedPages, int inlinedPositions, int inlinedRawBytes)
         {
-            MetricSnapshot inlined = controller.inlinedMetrics();
+            MetricSnapshot inlined = controller.getMetrics(INLINE);
             assertThat(inlined.pages())
                     .describedAs("Inlined pages")
                     .isEqualTo(inlinedPages);
@@ -131,9 +133,9 @@ class TestOperatorSpoolingController
             return this;
         }
 
-        private OutputSpoolingControllerAssertions verifySpooled(int spooledPages, int spooledPositions, int spooledRawBytes)
+        private SpoolingControllerAssertions verifySpooled(int spooledPages, int spooledPositions, int spooledRawBytes)
         {
-            MetricSnapshot spooled = controller.spooledMetrics();
+            MetricSnapshot spooled = controller.getMetrics(SPOOL);
             assertThat(spooled.pages())
                     .describedAs("Spooled pages")
                     .isEqualTo(spooledPages);
@@ -149,9 +151,9 @@ class TestOperatorSpoolingController
             return this;
         }
 
-        private OutputSpoolingControllerAssertions verifyBuffered(int bufferedPositions, int bufferSize)
+        private SpoolingControllerAssertions verifyBuffered(int bufferedPositions, int bufferSize)
         {
-            MetricSnapshot buffered = controller.bufferedMetrics();
+            MetricSnapshot buffered = controller.getMetrics(BUFFER);
             assertThat(buffered.positions())
                     .describedAs("Buffered positions")
                     .isEqualTo(bufferedPositions);
@@ -162,16 +164,16 @@ class TestOperatorSpoolingController
             return this;
         }
 
-        private OutputSpoolingControllerAssertions verifySpooledSegmentTarget(long size)
+        private SpoolingControllerAssertions verifySpooledSegmentTarget(long size)
         {
-            assertThat(controller.getCurrentSpooledSegmentTarget())
+            assertThat(controller.unwrap(OperatorSpoolingController.class).getCurrentSpooledSegmentTarget())
                     .describedAs("Spooled segment target")
                     .isEqualTo(size);
 
             return this;
         }
 
-        private OutputSpoolingControllerAssertions verifyEmptyBuffer()
+        private SpoolingControllerAssertions verifyEmptyBuffer()
         {
             return this.verifyBuffered(0, 0);
         }

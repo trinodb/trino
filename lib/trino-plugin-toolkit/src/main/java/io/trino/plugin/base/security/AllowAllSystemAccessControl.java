@@ -195,13 +195,13 @@ public class AllowAllSystemAccessControl
     public void checkCanDropColumn(SystemSecurityContext context, CatalogSchemaTableName table) {}
 
     @Override
+    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal) {}
+
+    @Override
     public void checkCanRenameColumn(SystemSecurityContext context, CatalogSchemaTableName table) {}
 
     @Override
     public void checkCanAlterColumn(SystemSecurityContext context, CatalogSchemaTableName table) {}
-
-    @Override
-    public void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal) {}
 
     @Override
     public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
@@ -358,6 +358,9 @@ public class AllowAllSystemAccessControl
     {
         return ImmutableMap.of();
     }
+
+    @Override
+    public void checkCanSetEntityAuthorization(SystemSecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal) {}
 
     @Override
     public void shutdown() {}

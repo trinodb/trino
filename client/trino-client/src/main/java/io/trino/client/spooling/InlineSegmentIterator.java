@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
 // Accessible through the InlineSegment.toIterator
@@ -31,12 +32,15 @@ class InlineSegmentIterator
 {
     private InlineSegment segment;
     private final QueryDataDecoder decoder;
+    private final long rowsCount;
     private CloseableIterator<List<Object>> iterator;
+    private long currentRow;
 
     public InlineSegmentIterator(InlineSegment segment, QueryDataDecoder decoder)
     {
         this.segment = requireNonNull(segment, "segment is null");
         this.decoder = requireNonNull(decoder, "decoder is null");
+        this.rowsCount = segment.getRowsCount();
     }
 
     @Override
@@ -51,11 +55,24 @@ class InlineSegmentIterator
                 throw new UncheckedIOException(e);
             }
         }
-
-        if (iterator.hasNext()) {
-            return iterator.next();
+        if (currentRow == rowsCount) {
+            unload();
+            return endOfData();
         }
-        return endOfData();
+
+        currentRow++;
+        verify(iterator.hasNext(), "Iterator should have more rows, current: %s, count: %s", currentRow, rowsCount);
+        return iterator.next();
+    }
+
+    private void unload()
+    {
+        try {
+            close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     @Override
@@ -64,6 +81,7 @@ class InlineSegmentIterator
     {
         if (iterator != null) {
             iterator.close();
+            iterator = null;
         }
     }
 }

@@ -20,13 +20,12 @@ import io.airlift.units.Duration;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.OperationTimer.OperationTiming;
-import io.trino.operator.OperatorSpoolingController.MetricSnapshot;
+import io.trino.operator.SpoolingController.MetricSnapshot;
 import io.trino.server.protocol.OutputColumn;
 import io.trino.server.protocol.spooling.QueryDataEncoder;
-import io.trino.server.protocol.spooling.SpooledBlock;
+import io.trino.server.protocol.spooling.SpooledMetadataBlock;
 import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
-import io.trino.spi.block.Block;
 import io.trino.spi.spool.SpooledSegmentHandle;
 import io.trino.spi.spool.SpoolingContext;
 import io.trino.spi.spool.SpoolingManager;
@@ -34,6 +33,7 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -50,7 +50,6 @@ import java.util.function.ToLongFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.client.spooling.DataAttribute.EXPIRES_AT;
 import static io.trino.client.spooling.DataAttribute.ROWS_COUNT;
@@ -59,15 +58,10 @@ import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOper
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.HAS_LAST_OUTPUT;
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.HAS_OUTPUT;
 import static io.trino.operator.OutputSpoolingOperatorFactory.OutputSpoolingOperator.State.NEEDS_INPUT;
+import static io.trino.operator.SpoolingController.Mode.INLINE;
 import static io.trino.operator.SpoolingController.Mode.SPOOL;
-import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_SYMBOL;
-import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
-import static io.trino.server.protocol.spooling.SpooledBlock.createNonSpooledPage;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInitialSegmentSize;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInliningMaxRows;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getInliningMaxSize;
 import static io.trino.server.protocol.spooling.SpoolingSessionProperties.getMaxSegmentSize;
-import static io.trino.server.protocol.spooling.SpoolingSessionProperties.isInliningEnabled;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -102,26 +96,9 @@ public class OutputSpoolingOperatorFactory
 
         ImmutableList.Builder<OutputColumn> outputColumnBuilder = ImmutableList.builderWithExpectedSize(outputNode.getColumnNames().size());
         for (int i = 0; i < columnNames.size(); i++) {
-            if (outputSymbols.get(i).type().equals(SPOOLING_METADATA_TYPE)) {
-                continue;
-            }
             outputColumnBuilder.add(new OutputColumn(layout.get(outputSymbols.get(i)), columnNames.get(i), outputSymbols.get(i).type()));
         }
         return outputColumnBuilder.build();
-    }
-
-    public static Map<Symbol, Integer> layoutUnionWithSpooledMetadata(Map<Symbol, Integer> layout)
-    {
-        int maxChannelId = layout.values()
-                .stream()
-                .max(Integer::compareTo)
-                .orElseThrow();
-
-        verify(maxChannelId + 1 == layout.size(), "Max channel id %s is not equal to layout size: %s", maxChannelId, layout.size());
-        return ImmutableMap.<Symbol, Integer>builderWithExpectedSize(layout.size() + 1)
-                .putAll(layout)
-                .put(SPOOLING_METADATA_SYMBOL, maxChannelId + 1)
-                .buildOrThrow();
     }
 
     @Override
@@ -182,7 +159,7 @@ public class OutputSpoolingOperatorFactory
     static class OutputSpoolingOperator
             implements Operator
     {
-        private final OperatorSpoolingController controller;
+        private final SpoolingController controller;
         private final ZoneId clientZoneId;
 
         enum State
@@ -198,9 +175,7 @@ public class OutputSpoolingOperatorFactory
         private final LocalMemoryContext userMemoryContext;
         private final QueryDataEncoder queryDataEncoder;
         private final SpoolingManager spoolingManager;
-        private final Map<Symbol, Integer> layout;
         private final PageBuffer buffer;
-        private final Block[] emptyBlocks;
         private final OperationTiming spoolingTiming = new OperationTiming();
         private final AtomicLong encodedBytes = new AtomicLong();
 
@@ -210,17 +185,14 @@ public class OutputSpoolingOperatorFactory
         {
             this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
             this.clientZoneId = operatorContext.getSession().getTimeZoneKey().getZoneId();
-            this.controller = new OperatorSpoolingController(
-                    isInliningEnabled(operatorContext.getSession()),
-                    getInliningMaxRows(operatorContext.getSession()),
-                    getInliningMaxSize(operatorContext.getSession()).toBytes(),
-                    getInitialSegmentSize(operatorContext.getSession()).toBytes(),
-                    getMaxSegmentSize(operatorContext.getSession()).toBytes());
+            this.controller = new PipelineSpoolingController(
+                    operatorContext.getDriverContext().getPipelineContext(),
+                    new OperatorSpoolingController(
+                        getInitialSegmentSize(operatorContext.getSession()).toBytes(),
+                        getMaxSegmentSize(operatorContext.getSession()).toBytes()));
             this.userMemoryContext = operatorContext.newLocalUserMemoryContext(OutputSpoolingOperator.class.getSimpleName());
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
-            this.layout = requireNonNull(layout, "layout is null");
-            this.emptyBlocks = emptyBlocks(layout);
             this.buffer = PageBuffer.create(userMemoryContext);
 
             operatorContext.setInfoSupplier(new OutputSpoolingInfoSupplier(spoolingTiming, controller, encodedBytes));
@@ -253,7 +225,7 @@ public class OutputSpoolingOperatorFactory
                     buffer.add(page);
                     yield null;
                 }
-                case INLINE -> createNonSpooledPage(page);
+                case INLINE -> inline(page);
             };
 
             if (outputPage != null) {
@@ -331,7 +303,7 @@ public class OutputSpoolingOperatorFactory
                 }
 
                 // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
-                return emptySingleRowPage(SpooledBlock.forLocation(spoolingManager.location(segmentHandle), attributes).serialize());
+                return SpooledMetadataBlock.forSpooledLocation(spoolingManager.location(segmentHandle), attributes).serialize();
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -341,11 +313,23 @@ public class OutputSpoolingOperatorFactory
             }
         }
 
-        private Page emptySingleRowPage(Block block)
+        private Page inline(Page page)
         {
-            Block[] blocks = emptyBlocks;
-            blocks[layout.get(SPOOLING_METADATA_SYMBOL)] = block;
-            return new Page(blocks);
+            OperationTimer overallTimer = new OperationTimer(false);
+            try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                DataAttributes attributes = queryDataEncoder.encodeTo(output, List.of(page))
+                        .toBuilder()
+                        .set(ROWS_COUNT, (long) page.getPositionCount())
+                        .build();
+                encodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
+                return SpooledMetadataBlock.forInlineData(attributes, output.toByteArray()).serialize();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            finally {
+                overallTimer.end(spoolingTiming);
+            }
         }
 
         static long reduce(List<Page> page, ToLongFunction<Page> reduce)
@@ -353,18 +337,6 @@ public class OutputSpoolingOperatorFactory
             return page.stream()
                     .mapToLong(reduce)
                     .sum();
-        }
-
-        private static Block[] emptyBlocks(Map<Symbol, Integer> layout)
-        {
-            Block[] blocks = new Block[layout.size()];
-            for (Map.Entry<Symbol, Integer> entry : layout.entrySet()) {
-                if (!entry.getKey().type().equals(SPOOLING_METADATA_TYPE)) {
-                    blocks[entry.getValue()] = entry.getKey().type().createNullBlock();
-                }
-            }
-
-            return blocks;
         }
 
         @Override
@@ -416,7 +388,7 @@ public class OutputSpoolingOperatorFactory
 
     private record OutputSpoolingInfoSupplier(
             OperationTiming spoolingTiming,
-            OperatorSpoolingController controller,
+            SpoolingController controller,
             AtomicLong encodedBytes)
             implements Supplier<OutputSpoolingInfo>
     {
@@ -430,8 +402,8 @@ public class OutputSpoolingOperatorFactory
         @Override
         public OutputSpoolingInfo get()
         {
-            MetricSnapshot inlined = controller.inlinedMetrics();
-            MetricSnapshot spooled = controller.spooledMetrics();
+            MetricSnapshot inlined = controller.getMetrics(INLINE);
+            MetricSnapshot spooled = controller.getMetrics(SPOOL);
 
             return new OutputSpoolingInfo(
                     succinctDuration(spoolingTiming.getWallNanos(), NANOSECONDS),

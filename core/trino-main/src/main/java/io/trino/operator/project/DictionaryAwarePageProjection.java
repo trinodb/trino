@@ -19,7 +19,6 @@ import io.trino.operator.Work;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.DictionaryId;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
@@ -37,21 +36,17 @@ import static java.util.Objects.requireNonNull;
 public class DictionaryAwarePageProjection
         implements PageProjection
 {
-    private static final DriverYieldSignal NON_YIELDING_SIGNAL = new DriverYieldSignal();
-
     private final PageProjection projection;
     private final Function<DictionaryBlock, DictionaryId> sourceIdFunction;
-    private final boolean produceLazyBlock;
 
     private Block lastInputDictionary;
     private Optional<Block> lastOutputDictionary;
     private long lastDictionaryUsageCount;
 
-    public DictionaryAwarePageProjection(PageProjection projection, Function<DictionaryBlock, DictionaryId> sourceIdFunction, boolean produceLazyBlock)
+    public DictionaryAwarePageProjection(PageProjection projection, Function<DictionaryBlock, DictionaryId> sourceIdFunction)
     {
         this.projection = requireNonNull(projection, "projection is null");
         this.sourceIdFunction = sourceIdFunction;
-        this.produceLazyBlock = produceLazyBlock;
         verify(projection.isDeterministic(), "projection must be deterministic");
         verify(projection.getInputChannels().size() == 1, "projection must have only one input");
     }
@@ -86,7 +81,6 @@ public class DictionaryAwarePageProjection
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
         private final SelectedPositions selectedPositions;
-        private final boolean produceLazyBlock;
 
         private Block block;
         private Block result;
@@ -100,23 +94,14 @@ public class DictionaryAwarePageProjection
             this.session = session;
             this.block = block;
             this.selectedPositions = requireNonNull(selectedPositions, "selectedPositions is null");
-            this.produceLazyBlock = DictionaryAwarePageProjection.this.produceLazyBlock && !block.isLoaded();
 
-            if (produceLazyBlock) {
-                this.yieldSignal = NON_YIELDING_SIGNAL;
-            }
-            else {
-                this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
-                setupDictionaryBlockProjection();
-            }
+            this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
+            setupDictionaryBlockProjection();
         }
 
         @Override
         public boolean process()
         {
-            if (produceLazyBlock) {
-                return true;
-            }
             return processInternal();
         }
 
@@ -189,22 +174,12 @@ public class DictionaryAwarePageProjection
         @Override
         public Block getResult()
         {
-            if (produceLazyBlock) {
-                return new LazyBlock(selectedPositions.size(), () -> {
-                    setupDictionaryBlockProjection();
-                    checkState(processInternal(), "processInternal() yielded");
-                    checkState(result != null, "result has not been generated");
-                    return result.getLoadedBlock();
-                });
-            }
             checkState(result != null, "result has not been generated");
             return result;
         }
 
         private void setupDictionaryBlockProjection()
         {
-            block = block.getLoadedBlock();
-
             Optional<Block> dictionary = Optional.empty();
             if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
                 dictionary = Optional.of(runLengthEncodedBlock.getValue());

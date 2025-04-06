@@ -101,7 +101,7 @@ public final class Page
         if (sizeInBytes < 0) {
             sizeInBytes = 0;
             for (Block block : blocks) {
-                long blockSizeInBytes = block.getLoadedBlock().getSizeInBytes();
+                long blockSizeInBytes = block.getSizeInBytes();
                 if (blockSizeInBytes < 0) {
                     throw new IllegalStateException(format("Block sizeInBytes is negative (%s)", blockSizeInBytes));
                 }
@@ -208,65 +208,6 @@ public final class Page
             }
         }
         return relatedDictionaryBlocks;
-    }
-
-    /**
-     * Returns a page that assures all data is in memory.
-     * May return the same page if all page data is already in memory.
-     * <p>
-     * This allows streaming data sources to skip sections that are not
-     * accessed in a query.
-     */
-    public Page getLoadedPage()
-    {
-        for (int i = 0; i < blocks.length; i++) {
-            Block loaded = blocks[i].getLoadedBlock();
-            if (loaded != blocks[i]) {
-                // Transition to new block creation mode after the first newly loaded block is encountered
-                Block[] loadedBlocks = blocks.clone();
-                loadedBlocks[i++] = loaded;
-                for (; i < blocks.length; i++) {
-                    loadedBlocks[i] = blocks[i].getLoadedBlock();
-                }
-                return wrapBlocksWithoutCopy(positionCount, loadedBlocks);
-            }
-        }
-        // No newly loaded blocks
-        return this;
-    }
-
-    public Page getLoadedPage(int column)
-    {
-        return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column].getLoadedBlock()});
-    }
-
-    public Page getLoadedPage(int... columns)
-    {
-        requireNonNull(columns, "columns is null");
-
-        Block[] blocks = new Block[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            blocks[i] = this.blocks[columns[i]].getLoadedBlock();
-        }
-        return wrapBlocksWithoutCopy(positionCount, blocks);
-    }
-
-    public Page getLoadedPage(int[] columns, int[] eagerlyLoadedColumns)
-    {
-        requireNonNull(columns, "columns is null");
-
-        for (int column : eagerlyLoadedColumns) {
-            this.blocks[column] = this.blocks[column].getLoadedBlock();
-        }
-        if (retainedSizeInBytes != -1 && eagerlyLoadedColumns.length > 0) {
-            updateRetainedSize();
-        }
-        Block[] blocks = new Block[columns.length];
-        for (int i = 0; i < columns.length; i++) {
-            blocks[i] = this.blocks[columns[i]];
-        }
-
-        return wrapBlocksWithoutCopy(positionCount, blocks);
     }
 
     @Override

@@ -15,7 +15,6 @@ package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionIsIdentical;
@@ -103,7 +102,6 @@ public class UnnestingPositionsAppender
                 transitionToDirect();
                 delegate.append(positions, valueBlock);
             }
-            case LazyBlock ignore -> throw new IllegalArgumentException("Unsupported block type: " + source.getClass().getSimpleName());
         }
     }
 
@@ -149,7 +147,6 @@ public class UnnestingPositionsAppender
             case RunLengthEncodedBlock runLengthEncodedBlock -> delegate.append(0, runLengthEncodedBlock.getValue());
             case DictionaryBlock dictionaryBlock -> delegate.append(dictionaryBlock.getId(position), dictionaryBlock.getDictionary());
             case ValueBlock valueBlock -> delegate.append(position, valueBlock);
-            case LazyBlock ignore -> throw new IllegalArgumentException("Unsupported block type: " + source.getClass().getSimpleName());
         }
     }
 

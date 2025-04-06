@@ -11,19 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.tree;
+package org.apache.iceberg.deletes;
 
-public final class SetViewAuthorization
-        extends SetAuthorizationStatement
+import java.nio.ByteBuffer;
+
+public class TrinoRoaringPositionBitmap
+        extends RoaringPositionBitmap
 {
-    public SetViewAuthorization(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
+    public static TrinoRoaringPositionBitmap deserialize(ByteBuffer buffer)
     {
-        super(location, source, principal);
-    }
-
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
-    {
-        return visitor.visitSetViewAuthorization(this, context);
+        TrinoRoaringPositionBitmap bitmap = new TrinoRoaringPositionBitmap();
+        bitmap.setAll(RoaringPositionBitmap.deserialize(buffer));
+        return bitmap;
     }
 }

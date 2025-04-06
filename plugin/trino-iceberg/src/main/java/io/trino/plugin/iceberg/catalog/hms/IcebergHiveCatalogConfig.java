@@ -11,19 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.sql.tree;
+package io.trino.plugin.iceberg.catalog.hms;
 
-public final class SetSchemaAuthorization
-        extends SetAuthorizationStatement
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+
+public class IcebergHiveCatalogConfig
 {
-    public SetSchemaAuthorization(NodeLocation location, QualifiedName source, PrincipalSpecification principal)
+    private boolean lockingEnabled = true;
+
+    public boolean getLockingEnabled()
     {
-        super(location, source, principal);
+        return lockingEnabled;
     }
 
-    @Override
-    public <R, C> R accept(AstVisitor<R, C> visitor, C context)
+    @Config("iceberg.hive-catalog.locking-enabled")
+    @ConfigDescription("Acquire locks when updating tables")
+    public IcebergHiveCatalogConfig setLockingEnabled(boolean lockingEnabled)
     {
-        return visitor.visitSetSchemaAuthorization(this, context);
+        this.lockingEnabled = lockingEnabled;
+        return this;
     }
 }

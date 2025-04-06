@@ -96,6 +96,7 @@ import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Map.entry;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -1005,18 +1006,271 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testPathColumn()
     {
-        try (TestTable table = newTrinoTable("test_path_column", "(x VARCHAR)")) {
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+        try (TestTable table = newTrinoTable("test_path_column", "(x VARCHAR, part VARCHAR) WITH (partitioned_by = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first', 'a#sharp'", 1);
             String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName());
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
-            String secondFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE x = 'second'");
+            assertThat(firstFilePath.contains("a#sharp")).isFalse();
+            assertThat(firstFilePath.contains("a%23sharp")).isTrue();
 
-            // Verify predicate correctness on $path column
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", "VALUES 'first'");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" <> '" + firstFilePath + "'", "VALUES 'second'");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IN ('" + firstFilePath + "', '" + secondFilePath + "')", "VALUES ('first'), ('second')");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL", "VALUES ('first'), ('second')");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'a%23sharp'", 1);
+            String secondFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE x = 'second'");
+            assertThat(secondFilePath.contains("a%23sharp")).isFalse();
+            assertThat(secondFilePath.contains("a%2523sharp")).isTrue();
+
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE part = 'a#sharp'", "VALUES 'first'");
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE part = 'a%23sharp'", "VALUES 'second'");
+
+            // Verify predicate correctness on $path column, and check it is pusheddown
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'"))
+                    .matches("VALUES CAST('first' AS VARCHAR)")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" <> '" + firstFilePath + "'"))
+                    .matches("VALUES CAST('second' AS VARCHAR)")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" IN ('" + firstFilePath + "', '" + secondFilePath + "')"))
+                    .matches("VALUES (CAST('first' AS VARCHAR)), (CAST('second' AS VARCHAR))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL"))
+                    .matches("VALUES (CAST('first' AS VARCHAR)), (CAST('second' AS VARCHAR))")
+                    .isFullyPushedDown();
             assertQueryReturnsEmptyResult("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NULL");
+
+            assertQuery("SHOW STATS FOR (SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "')",
+                    "VALUES " +
+                            "('x', 11.0, 1.0, 0.0, null, null, null)," +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = 'not exist'", 0);
+            assertQuery("SELECT x FROM " + table.getName(),  "VALUES 'first', 'second'");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", 1);
+            assertQuery("SELECT x FROM " + table.getName(), "VALUES 'second'");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET x = 'update' WHERE \"$path\" = '" + secondFilePath + "'", 1);
+            assertQuery("SELECT x FROM " + table.getName(), "VALUES 'update'");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithPathColumn()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_path_column", "(id integer)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 4", 1);
+
+            String firstPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 1");
+            String secondPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2");
+            String thirdPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3");
+            String fourthPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4");
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + firstPath + "' OR \"$path\" = '" + secondPath + "'");
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + thirdPath + "' OR \"$path\" = '" + fourthPath + "'");
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+            throws Exception
+    {
+        ZonedDateTime beforeTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+        MILLISECONDS.sleep(1);
+        try (TestTable table = newTrinoTable("test_file_modified_time_", "(col) AS VALUES 1")) {
+            // Describe output should not have the $file_modified_time hidden column
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('col', 'integer', '', '')");
+
+            ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + table.getName());
+            ZonedDateTime afterTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+            assertThat(fileModifiedTime).isBetween(beforeTime, afterTime);
+
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
+            ZonedDateTime anotherFileModifiedTime = (ZonedDateTime) computeScalar("SELECT max(\"$file_modified_time\") FROM " + table.getName());
+            assertThat(fileModifiedTime)
+                    .isNotEqualTo(anotherFileModifiedTime);
+            assertThat(anotherFileModifiedTime).isAfter(fileModifiedTime); // to detect potential clock backward adjustment
+
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IN (from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'), from_iso8601_timestamp('" + anotherFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" <> from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')"))
+                    .matches("VALUES 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NOT NULL"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NULL"))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+
+            assertQuery("SHOW STATS FOR (SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))",
+                    "VALUES " +
+                            "('col', null, 1.0, 0.0, null, 1, 1), " +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + beforeTime.format(ISO_OFFSET_DATE_TIME) + "')", 0);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 1, 2");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')", 1);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 2");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET col = 100 WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + anotherFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')", 1);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 100");
+
+            // EXPLAIN triggers stats calculation and also rendering
+            assertQuerySucceeds("EXPLAIN SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithFileModifiedTimeColumn()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_file_modified_time_", "(id INT)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 4", 1);
+
+            ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
+            ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
+            ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
+            ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+            // Sanity check
+            assertThat(List.of(firstFileModifiedTime, secondFileModifiedTime, thirdFileModifiedTime, fourthFileModifiedTime))
+                    .doesNotHaveDuplicates();
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            MILLISECONDS.sleep(1);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
+    public void testFileSizeHiddenColumn()
+    {
+        try (TestTable table = newTrinoTable("test_file_size_column", "(val VARCHAR)")) {
+            String tableName = table.getName();
+
+            // Describe output should not have the $file_size hidden column
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('val', 'varchar', '', '')");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1234567890'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345678901234567890'", 1);
+
+            long firstFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1'");
+            long secondFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345'");
+            long thirdFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1234567890'");
+            long fourthFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345678901234567890'");
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" = " + firstFileSize))
+                    .matches("VALUES CAST('1' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + firstFileSize + " AND \"$file_size\" <= " + thirdFileSize))
+                    .matches("VALUES CAST('12345' AS VARCHAR), CAST('1234567890' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + secondFileSize + " AND \"$file_size\" <= " + fourthFileSize))
+                    .matches("VALUES CAST('1234567890' AS VARCHAR), CAST('12345678901234567890' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertQuery("SHOW STATS FOR (SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + thirdFileSize + ")",
+                    "VALUES " +
+                            "('val', 36.0, 1.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_size\" = 0", 0);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES '1', '12345', '1234567890', '12345678901234567890'");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_size\" = " + firstFileSize, 1);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES '12345', '1234567890', '12345678901234567890'");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET val = 'update' WHERE \"$file_size\" = " + secondFileSize, 1);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES 'update', '1234567890', '12345678901234567890'");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithFileSizeColumn()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_file_size_", "(val VARCHAR)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1234567890'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345678901234567890'", 1);
+
+            long secondFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345'");
+            long thirdFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1234567890'");
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            MILLISECONDS.sleep(1);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " + "\"$file_size\" <= " + secondFileSize);
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " + "\"$file_size\" >= " + thirdFileSize);
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
         }
     }
 
@@ -3541,7 +3795,7 @@ public class TestDeltaLakeConnectorTest
                 // delete filter applied on partitioned field and on synthesized field
                 "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
                 "address = 'Antioch' AND \"$file_size\" > 0",
-                false);
+                true);
         testDeleteWithFilter(
                 // delete filter applied on function over partitioned field
                 "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
