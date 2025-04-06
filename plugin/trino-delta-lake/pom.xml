@@ -189,17 +189,7 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>aws-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
             <artifactId>glue</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>utils</artifactId>
         </dependency>
 
         <dependency>

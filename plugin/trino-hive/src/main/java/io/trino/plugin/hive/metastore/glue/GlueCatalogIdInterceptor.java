@@ -13,9 +13,11 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.inject.Inject;
-import software.amazon.awssdk.awscore.AwsRequest;
+import software.amazon.awssdk.core.SdkRequest;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.services.glue.model.BatchCreatePartitionRequest;
 import software.amazon.awssdk.services.glue.model.BatchGetPartitionRequest;
 import software.amazon.awssdk.services.glue.model.BatchUpdatePartitionRequest;
@@ -47,31 +49,26 @@ import software.amazon.awssdk.services.glue.model.UpdateUserDefinedFunctionReque
 
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
-public class GlueContext
+public class GlueCatalogIdInterceptor
+        implements ExecutionInterceptor
 {
     private final Optional<String> catalogId;
 
     @Inject
-    public GlueContext(GlueHiveMetastoreConfig config)
+    GlueCatalogIdInterceptor(GlueHiveMetastoreConfig config)
     {
-        this(config.getCatalogId());
+        this.catalogId = config.getCatalogId();
     }
 
-    public GlueContext(Optional<String> catalogId)
+    @Override
+    public SdkRequest modifyRequest(Context.ModifyRequest context, ExecutionAttributes executionAttributes)
     {
-        this.catalogId = requireNonNull(catalogId, "catalogId is null");
+        SdkRequest.Builder builder = context.request().toBuilder();
+        catalogId.ifPresent(id -> setCatalogId(builder, id));
+        return builder.build();
     }
 
-    @CanIgnoreReturnValue
-    public <B extends AwsRequest.Builder> B configureClient(B baseRequestBuilder)
-    {
-        catalogId.ifPresent(id -> setCatalogId(baseRequestBuilder, id));
-        return baseRequestBuilder;
-    }
-
-    private static void setCatalogId(AwsRequest.Builder request, String catalogId)
+    private static void setCatalogId(SdkRequest.Builder request, String catalogId)
     {
         switch (request) {
             case GetDatabasesRequest.Builder builder -> builder.catalogId(catalogId);
