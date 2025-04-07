@@ -2204,7 +2204,7 @@
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-xml</artifactId>
-                <version>4.0.4</version>
+                <version>4.1.0</version>
             </dependency>
 
             <dependency>
