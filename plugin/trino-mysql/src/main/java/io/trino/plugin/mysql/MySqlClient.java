@@ -114,11 +114,11 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
@@ -220,6 +220,7 @@ import static java.lang.String.join;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
 public class MySqlClient
@@ -1284,23 +1285,25 @@ public class MySqlClient
     public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, RemoteTableName remoteTableName)
     {
         SchemaTableName tableName = new SchemaTableName(remoteTableName.getCatalogName().orElse(null), remoteTableName.getTableName());
-        List<JdbcColumnHandle> columns = getColumns(session, tableName, remoteTableName);
+        Map<String, JdbcColumnHandle> columns = getColumns(session, tableName, remoteTableName).stream()
+                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
         try (Connection connection = connectionFactory.openConnection(session)) {
             DatabaseMetaData metaData = connection.getMetaData();
 
-            ResultSet primaryKeys = metaData.getPrimaryKeys(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName());
+            ResultSet primaryKeysResult = metaData.getPrimaryKeys(remoteTableName.getCatalogName().orElse(null), remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName());
 
-            Set<String> primaryKeyNames = new HashSet<>();
-            while (primaryKeys.next()) {
-                primaryKeyNames.add(primaryKeys.getString("COLUMN_NAME"));
+            Map<Short, String> primaryKeys = new TreeMap<>();
+            while (primaryKeysResult.next()) {
+                primaryKeys.put(primaryKeysResult.getShort("KEY_SEQ"), primaryKeysResult.getString("COLUMN_NAME"));
             }
-            if (primaryKeyNames.isEmpty()) {
+            if (primaryKeys.isEmpty()) {
                 return ImmutableList.of();
             }
+
             ImmutableList.Builder<JdbcColumnHandle> primaryKeysBuilder = ImmutableList.builder();
-            for (JdbcColumnHandle columnHandle : columns) {
-                String name = columnHandle.getColumnName();
-                if (!primaryKeyNames.contains(name)) {
+            for (String name : primaryKeys.values()) {
+                JdbcColumnHandle columnHandle = columns.get(name);
+                if (columnHandle == null) {
                     continue;
                 }
                 JdbcTypeHandle handle = columnHandle.getJdbcTypeHandle();
