@@ -303,4 +303,64 @@ public class TestDeltaLakeSchemaSupport
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(RowType.anonymous(ImmutableList.of(TIMESTAMP_TZ_SECONDS)))).hasMessage("Unsupported type: timestamp(0) with time zone");
         assertThatCode(() -> DeltaLakeSchemaSupport.validateType(new ArrayType(TIMESTAMP_TZ_SECONDS))).hasMessage("Unsupported type: timestamp(0) with time zone");
     }
+
+    @Test
+    public void testRenameSkipStatsColumns()
+    {
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("a,b,c", "a", "renamed"))
+                .isEqualTo("renamed,b,c");
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("a,b,c", "not_found", "renamed"))
+                .isEqualTo("a,b,c");
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("case_sensitive", "Case_Sensitive", "renamed"))
+                .isEqualTo("case_sensitive");
+
+        // Source column name contains a comma that requires escaping
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("`a,comma`", "a,comma", "a,renamed"))
+                .isEqualTo("`a,renamed`");
+
+        // Target column name contains a comma that requires escaping
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("a", "a", "a,comma"))
+                .isEqualTo("`a,comma`");
+
+        // Delta Lake allows leaf fields of a struct type in delta.dataSkippingStatsColumns
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("r.nested", "not_exists", "renamed"))
+                .isEqualTo("r.nested");
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("r.nested1,r.nested2,abc,`r.nested1`", "r", "renamed"))
+                .isEqualTo("renamed.nested1,renamed.nested2,abc,`r.nested1`");
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("r.nested1,r.nested2,abc,`r.nested`", "r.nested", "renamed"))
+                .isEqualTo("r.nested1,r.nested2,abc,renamed");
+        assertThat(DeltaLakeSchemaSupport.renameSkipStatsColumn("abc,`r.nested`.a,`r.nested`.b", "r.nested", "r.renamed"))
+                .isEqualTo("abc,`r.renamed`.a,`r.renamed`.b");
+    }
+
+    @Test
+    public void testDropSkipStatsColumns()
+    {
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("a,b,c", "a"))
+                .isEqualTo("b,c");
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("a,b,c", "not_found"))
+                .isEqualTo("a,b,c");
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("case_sensitive", "Case_Sensitive"))
+                .isEqualTo("case_sensitive");
+
+        // Target column name contains a comma that requires escaping
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("`a,comma`", "a,comma"))
+                .isEmpty();
+
+        // Non-dropped table should preserve the escaped character
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("a,`b,comma`", "a"))
+                .isEqualTo("`b,comma`");
+
+        // Drop with row type and contain special character
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("a,r.nested1,r.nested2,`r.nested1`", "not_found"))
+                .isEqualTo("a,r.nested1,r.nested2,`r.nested1`");
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("a,r.nested1,r.nested2,`r.nested1`", "R.Nested1"))
+                .isEqualTo("a,r.nested1,r.nested2,`r.nested1`");
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("a,r.nested1,r.nested2,`r.nested1`", "r"))
+                .isEqualTo("a,`r.nested1`");
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("a,r.nested1,r.nested2,`r.nested1`", "r.nested1"))
+                .isEqualTo("a,r.nested1,r.nested2");
+        assertThat(DeltaLakeSchemaSupport.dropSkipStatsColumn("a,`r.s#x`.nested1,`r.s#x`.nested2", "r.s#x"))
+                .isEqualTo("a");
+    }
 }

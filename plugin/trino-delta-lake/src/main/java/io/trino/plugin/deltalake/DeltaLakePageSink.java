@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.TypeOperators;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.deltalake.DataFileInfo.DataFileType.DATA;
 
@@ -39,7 +40,8 @@ public class DeltaLakePageSink
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
-            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping,
+            Optional<String> dataSkippingStatsColumnsProperty)
     {
         super(
                 typeOperators,
@@ -54,7 +56,8 @@ public class DeltaLakePageSink
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                dataSkippingStatsColumnsProperty);
     }
 
     @Override
