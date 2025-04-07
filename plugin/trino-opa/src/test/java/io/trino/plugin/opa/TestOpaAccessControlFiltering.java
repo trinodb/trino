@@ -75,7 +75,8 @@ public class TestOpaAccessControlFiltering
                             "resource": {
                                 "user": {
                                     "user": "user-one",
-                                    "groups": []
+                                    "groups": [],
+                                    "extraCredentials": {}
                                 }
                             }
                         }
@@ -87,7 +88,8 @@ public class TestOpaAccessControlFiltering
                             "resource": {
                                 "user": {
                                     "user": "user-two",
-                                    "groups": []
+                                    "groups": [],
+                                    "extraCredentials": {}
                                 }
                             }
                         }

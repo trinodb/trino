@@ -232,7 +232,8 @@ public class TestOpaAccessControl
                     "resource": {
                         "user": {
                             "user": "dummy-user",
-                            "groups": ["some-group"]
+                            "groups": ["some-group"],
+                            "extraCredentials": {}
                         }
                     }
                 }
@@ -677,7 +678,8 @@ public class TestOpaAccessControl
                     "context": {
                         "identity": {
                             "user": "test_user",
-                            "groups": ["some_group"]
+                            "groups": ["some_group"],
+                            "extraCredentials": {}
                         },
                         "softwareStack": {
                             "trinoVersion": "%s"
