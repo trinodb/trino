@@ -555,6 +555,8 @@ To prevent unauthorized users from accessing data, this procedure is disabled by
 default. The procedure is enabled only when
 `iceberg.register-table-procedure.enabled` is set to `true`.
 
+Ensure tables are registered using their prior storage path, and avoid associating multiple tables with identical locations.
+
 (iceberg-unregister-table)=
 #### Unregister table
 
