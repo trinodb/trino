@@ -198,6 +198,22 @@ public abstract class BaseIcebergSystemTables
     }
 
     @Test
+    public void testPartitionsTableAfterAddColumn()
+    {
+        try (TestTable table = newTrinoTable("test_partitions_new_column", "AS SELECT 1 col")) {
+            assertThat(computeScalar("SELECT data.col FROM \"" + table.getName() + "$partitions\""))
+                    .isEqualTo(new MaterializedRow(DEFAULT_PRECISION, 1, 1, 0L, null));
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col int");
+
+            assertThat(computeScalar("SELECT data.col FROM \"" + table.getName() + "$partitions\""))
+                    .isEqualTo(new MaterializedRow(DEFAULT_PRECISION, 1, 1, 0L, null));
+            assertThat(computeScalar("SELECT data.new_col FROM \"" + table.getName() + "$partitions\""))
+                    .isNull();
+        }
+    }
+
+    @Test
     public void testPartitionsTableOnDropColumn()
     {
         MaterializedResult resultAfterDrop = computeActual("SELECT * from test_schema.\"test_table_drop_column$partitions\"");
