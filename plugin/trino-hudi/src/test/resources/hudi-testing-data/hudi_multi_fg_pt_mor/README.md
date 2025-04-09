@@ -30,6 +30,7 @@ test("Create table multi filegroup partitioned mor") {
         // directly write to new parquet file
         spark.sql(s"set hoodie.parquet.small.file.limit=0")
         spark.sql(s"set hoodie.metadata.compact.max.delta.commits=1")
+        spark.sql(s"set hoodie.metadata.index.column.stats.enable=true")
         // 2 filegroups per partition
         spark.sql(s"insert into $tableName values(1, 'a1', 10, 1000, 'SG'),(2, 'a2', 10, 1000, 'US')")
         spark.sql(s"insert into $tableName values(3, 'a3', 10, 1001, 'SG'),(4, 'a3', 10, 1001, 'US')")
