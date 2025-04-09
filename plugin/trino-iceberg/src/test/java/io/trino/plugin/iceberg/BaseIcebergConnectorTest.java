@@ -4236,7 +4236,14 @@ public abstract class BaseIcebergConnectorTest
                             // total_size is not exactly deterministic, so grab whatever value there is
                             "(SELECT total_size FROM \"test_partitions_with_conflict$partitions\"), " +
                             "CAST(" +
-                            " NULL AS row(" +
+                            "  ROW (" +
+                            (partitioned ? "" : "  NULL, ") +
+                            "    NULL, " +
+                            "    NULL, " +
+                            "    NULL, " +
+                            "    NULL " +
+                            "  ) " +
+                            " AS row(" +
                             (partitioned ? "" : "    p row(min integer, max integer, null_count bigint, nan_count bigint), ") +
                             "    row_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
                             "    record_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
