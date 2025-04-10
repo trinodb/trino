@@ -130,18 +130,14 @@ event-listener.config-files=etc/openlineage-event-listener.properties,...
     - Description
     - Default
 *
-    - openlineage-event-listener.transport
+    - openlineage-event-listener.transport.type
     - Type of transport to use when emitting lineage information. 
       See [](supported-transport-types) for list of available options with
       descriptions.
     - `CONSOLE`
 *
-    - openlineage-event-listener.trino.host
-    - Trino hostname. Used to render Job Namespace in OpenLineage. Required.
-    - None.
-*
-    - openlineage-event-listener.trino.port
-    - Trino port. Used to render Job Namespace in OpenLineage. Required.
+    - openlineage-event-listener.trino.uri
+    - Required Trino URL with host and port. Used to render Job Namespace in OpenLineage.
     - None.
 *
     - openlineage-event-listener.trino.include-query-types
