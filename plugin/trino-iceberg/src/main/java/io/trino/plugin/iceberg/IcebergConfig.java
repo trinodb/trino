@@ -52,8 +52,7 @@ import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES_DEFAULT;
 public class IcebergConfig
 {
     public static final int FORMAT_VERSION_SUPPORT_MIN = 1;
-    private static final int FORMAT_VERSION_DEFAULT = 2;
-    public static final int FORMAT_VERSION_SUPPORT_MAX = 3;
+    public static final int FORMAT_VERSION_SUPPORT_MAX = 2;
     public static final String EXTENDED_STATISTICS_CONFIG = "iceberg.extended-statistics.enabled";
     public static final String EXTENDED_STATISTICS_DESCRIPTION = "Enable collection (ANALYZE) and use of extended statistics.";
     public static final String COLLECT_EXTENDED_STATISTICS_ON_WRITE_DESCRIPTION = "Collect extended statistics during writes";
@@ -75,7 +74,7 @@ public class IcebergConfig
     private boolean registerTableProcedureEnabled;
     private boolean addFilesProcedureEnabled;
     private Optional<String> hiveCatalogName = Optional.empty();
-    private int formatVersion = FORMAT_VERSION_DEFAULT;
+    private int formatVersion = FORMAT_VERSION_SUPPORT_MAX;
     private Duration expireSnapshotsMinRetention = new Duration(7, DAYS);
     private Duration removeOrphanFilesMinRetention = new Duration(7, DAYS);
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);

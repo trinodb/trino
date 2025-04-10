@@ -19,9 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
-import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystem;
-import io.trino.filesystem.TrinoInput;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider.ReaderPageSourceWithRowPositions;
 import io.trino.plugin.iceberg.delete.EqualityDeleteFilter.EqualityDeleteFilterBuilder;
@@ -54,12 +51,10 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
-import static io.trino.plugin.iceberg.delete.DeletionVectors.readDeletionVector;
 import static io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Future.State.SUCCESS;
-import static org.apache.iceberg.FileFormat.PUFFIN;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 
@@ -74,7 +69,6 @@ public class DeleteManager
     }
 
     public Optional<RowPredicate> getDeletePredicate(
-            TrinoFileSystem fileSystem,
             String dataFilePath,
             long dataSequenceNumber,
             List<DeleteFile> deleteFiles,
@@ -97,7 +91,7 @@ public class DeleteManager
             }
         }
 
-        Optional<RowPredicate> positionDeletes = createPositionDeleteFilter(fileSystem, dataFilePath, positionDeleteFiles, readerPageSourceWithRowPositions, deletePageSourceProvider)
+        Optional<RowPredicate> positionDeletes = createPositionDeleteFilter(dataFilePath, positionDeleteFiles, readerPageSourceWithRowPositions, deletePageSourceProvider)
                 .map(filter -> filter.createPredicate(readColumns, dataSequenceNumber));
         Optional<RowPredicate> equalityDeletes = createEqualityDeleteFilter(equalityDeleteFiles, tableSchema, deletePageSourceProvider).stream()
                 .map(filter -> filter.createPredicate(readColumns, dataSequenceNumber))
@@ -120,7 +114,6 @@ public class DeleteManager
     }
 
     private Optional<DeleteFilter> createPositionDeleteFilter(
-            TrinoFileSystem fileSystem,
             String dataFilePath,
             List<DeleteFile> positionDeleteFiles,
             ReaderPageSourceWithRowPositions readerPageSourceWithRowPositions,
@@ -148,21 +141,11 @@ public class DeleteManager
         LongBitmapDataProvider deletedRows = new Roaring64Bitmap();
         for (DeleteFile deleteFile : positionDeleteFiles) {
             if (shouldLoadPositionDeleteFile(deleteFile, startRowPosition, endRowPosition)) {
-                if (deleteFile.format() == PUFFIN) {
-                    try (TrinoInput input = fileSystem.newInputFile(Location.of(deleteFile.path())).newInput()) {
-                        readDeletionVector(input, deleteFile.recordCount(), deleteFile.contentOffset(), deleteFile.contentSizeInBytes(), deletedRows);
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
+                try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, deleteDomain)) {
+                    readPositionDeletes(pageSource, targetPath, deletedRows);
                 }
-                else {
-                    try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, deleteDomain)) {
-                        readPositionDeletes(pageSource, targetPath, deletedRows);
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
                 }
             }
         }

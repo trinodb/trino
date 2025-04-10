@@ -95,7 +95,6 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
-import static io.trino.plugin.iceberg.IcebergTestUtils.listFiles;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -682,69 +681,18 @@ public class TestIcebergV2
     }
 
     @Test
-    void testRemoveOrphanDeletionVectors()
-            throws Exception
-    {
-        Session singleWriterPerTask = Session.builder(getSession())
-                .setSystemProperty("task_min_writer_count", "1")
-                .build();
-
-        Session shortRetentionUnlocked = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", "expire_snapshots_min_retention", "0s")
-                .setCatalogSessionProperty("iceberg", "remove_orphan_files_min_retention", "0s")
-                .build();
-
-        try (TestTable table = newTrinoTable("expire_snapshots_dv", "(x int) WITH (format_version = 3)", List.of("1", "2"))) {
-            Table icebergTable = loadTable(table.getName());
-            String dataLocation = icebergTable.location() + "/data";
-
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
-            assertThat(listFiles(fileSystemFactory.create(SESSION), dataLocation))
-                    .anyMatch(file -> file.endsWith(".puffin"));
-
-            assertUpdate(singleWriterPerTask, "ALTER TABLE " + table.getName() + " EXECUTE optimize");
-            computeActual(shortRetentionUnlocked, "ALTER TABLE " + table.getName() + " EXECUTE expire_snapshots(retention_threshold => '0s')");
-            computeActual(shortRetentionUnlocked, "ALTER TABLE " + table.getName() + " EXECUTE remove_orphan_files(retention_threshold => '0s')");
-            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 2");
-
-            assertThat(listFiles(fileSystemFactory.create(SESSION), dataLocation))
-                    .noneMatch(file -> file.endsWith(".puffin"));
-        }
-    }
-
-    @Test
-    public void testUpgradeTableToV3FromTrino()
+    public void testUpgradeTableToV2FromTrino()
     {
         String tableName = "test_upgrade_table_to_v2_from_trino_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
-
-        // v1 -> v2
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2");
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
-
-        // v2 -> v3
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 3");
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(3);
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
     @Test
-    public void testUpgradeTableFromV1ToV3()
-    {
-        String tableName = "test_upgrade_table_from_v1_to_v3_from_trino_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
-
-        // v1 -> v3
-        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 3");
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(3);
-        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
-    }
-
-    @Test
-    public void testDowngradingFromV2Fails()
+    public void testDowngradingV2TableToV1Fails()
     {
         String tableName = "test_downgrading_v2_table_to_v1_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
@@ -757,32 +705,13 @@ public class TestIcebergV2
     }
 
     @Test
-    public void testDowngradingFromV3Fails()
-    {
-        String tableName = "test_downgrading_from_v3_fails_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 3) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(3);
-
-        assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2"))
-                .failure()
-                .hasMessage("Failed to set new property values")
-                .rootCause()
-                .hasMessage("Cannot downgrade v3 table to v2");
-        assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
-                .failure()
-                .hasMessage("Failed to set new property values")
-                .rootCause()
-                .hasMessage("Cannot downgrade v3 table to v1");
-    }
-
-    @Test
     public void testUpgradingToInvalidVersionFails()
     {
         String tableName = "test_upgrading_to_invalid_version_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
-                .failure().hasMessage("line 1:79: Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 3");
+                .failure().hasMessage("line 1:79: Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
     }
 
     @Test
@@ -1483,21 +1412,6 @@ public class TestIcebergV2
             assertThat(query("SELECT * FROM " + table.getName()))
                     .as("Format: %s", format)
                     .matches("SELECT CAST(" + expectedValue + " AS map(integer, row(new_field integer)))");
-        }
-    }
-
-    @Test
-    void testPositionDeleteAndDeletionVector()
-    {
-        try (TestTable table = newTrinoTable("test_delete_v2_v3", "(x int) WITH (format_version = 2)", List.of("1", "2", "3", "4"))) {
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
-            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES format_version = 3");
-
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 2", 1);
-            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 3, 4");
-
-            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 3", 1);
-            assertThat(query("SELECT * FROM " + table.getName())).matches("VALUES 4");
         }
     }
 

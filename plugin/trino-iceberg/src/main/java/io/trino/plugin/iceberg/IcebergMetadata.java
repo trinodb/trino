@@ -47,7 +47,6 @@ import io.trino.plugin.hive.HiveWrittenPartitions;
 import io.trino.plugin.iceberg.aggregation.DataSketchStateSerializer;
 import io.trino.plugin.iceberg.aggregation.IcebergThetaSketchForStats;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
-import io.trino.plugin.iceberg.delete.PositionDeleteFiles;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesFromTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergAddFilesHandle;
@@ -139,7 +138,6 @@ import org.apache.datasketches.theta.CompactSketch;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.ContentFile;
-import org.apache.iceberg.ContentFileParsers;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.DeleteFile;
@@ -306,7 +304,6 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPER
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
-import static io.trino.plugin.iceberg.IcebergTableProperties.validateFormatVersion;
 import static io.trino.plugin.iceberg.IcebergUtil.buildPath;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.checkFormatForProperty;
@@ -405,7 +402,6 @@ import static org.apache.iceberg.TableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static org.apache.iceberg.TableProperties.PARQUET_BLOOM_FILTER_COLUMN_ENABLED_PREFIX;
 import static org.apache.iceberg.TableProperties.WRITE_DATA_LOCATION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
-import static org.apache.iceberg.TableUtil.formatVersion;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.types.TypeUtil.indexParents;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
@@ -416,8 +412,8 @@ public class IcebergMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
     private static final Pattern PATH_PATTERN = Pattern.compile("(.*)/[^/]+");
-    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 3;
-    private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 3;
+    private static final int OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION = 2;
+    private static final int CLEANING_UP_PROCEDURES_MAX_SUPPORTED_TABLE_VERSION = 2;
     private static final String RETENTION_THRESHOLD = "retention_threshold";
     private static final String UNKNOWN_SNAPSHOT_TOKEN = "UNKNOWN";
     public static final Set<String> UPDATABLE_TABLE_PROPERTIES = ImmutableSet.<String>builder()
@@ -1287,7 +1283,7 @@ public class IcebergMetadata
                             "to use unique table locations for every table.", location));
                 }
             }
-            return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), ImmutableList.of(), retryMode);
+            return newWritableTableHandle(tableMetadata.getTable(), transaction.table(), retryMode);
         }
         catch (IOException e) {
             throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed checking new table's location: " + location, e);
@@ -1394,7 +1390,7 @@ public class IcebergMetadata
 
         beginTransaction(icebergTable);
 
-        return newWritableTableHandle(table.getSchemaTableName(), icebergTable, ImmutableList.of(), retryMode);
+        return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
     }
 
     private List<String> getChildNamespaces(ConnectorSession session, String parentNamespace)
@@ -1410,21 +1406,15 @@ public class IcebergMetadata
                 .collect(toImmutableList());
     }
 
-    private IcebergWritableTableHandle newWritableTableHandle(
-            SchemaTableName name,
-            Table table,
-            List<PositionDeleteFiles> previousDeleteFiles,
-            RetryMode retryMode)
+    private IcebergWritableTableHandle newWritableTableHandle(SchemaTableName name, Table table, RetryMode retryMode)
     {
         return new IcebergWritableTableHandle(
                 name,
-                formatVersion(table),
                 SchemaParser.toJson(table.schema()),
                 transformValues(table.specs(), PartitionSpecParser::toJson),
                 table.spec().specId(),
                 getSupportedSortFields(table.schema(), table.sortOrder()),
                 getProjectedColumns(table.schema(), typeManager),
-                previousDeleteFiles,
                 table.location(),
                 getFileFormat(table),
                 table.properties(),
@@ -3042,11 +3032,7 @@ public class IcebergMetadata
     @Override
     public Optional<ConnectorPartitioningHandle> getUpdateLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        Optional<ConnectorTableLayout> insertLayout = getInsertLayout(session, tableHandle);
-        if (insertLayout.isEmpty() || insertLayout.get().getPartitioning().isEmpty()) {
-            return Optional.of(new IcebergPartitioningHandle(true, List.of()));
-        }
-        return insertLayout
+        return getInsertLayout(session, tableHandle)
                 .flatMap(ConnectorTableLayout::getPartitioning)
                 .map(IcebergPartitioningHandle.class::cast)
                 .map(IcebergPartitioningHandle::forUpdate);
@@ -3063,34 +3049,8 @@ public class IcebergMetadata
 
         beginTransaction(icebergTable);
 
-        List<PositionDeleteFiles> previousDeleteFiles = loadPreviousDeleteFiles(icebergTable);
-        IcebergWritableTableHandle insertHandle = newWritableTableHandle(table.getSchemaTableName(), icebergTable, previousDeleteFiles, retryMode);
+        IcebergWritableTableHandle insertHandle = newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
         return new IcebergMergeTableHandle(table, insertHandle);
-    }
-
-    private static List<PositionDeleteFiles> loadPreviousDeleteFiles(Table icebergTable)
-    {
-        int formatVersion = formatVersion(icebergTable);
-        validateFormatVersion(formatVersion);
-        if (formatVersion < 3) {
-            return ImmutableList.of();
-        }
-
-        ImmutableList.Builder<PositionDeleteFiles> rewritableDeletes = ImmutableList.builder();
-        try (CloseableIterable<FileScanTask> iterator = icebergTable.newScan().planFiles()) {
-            for (FileScanTask task : iterator) {
-                rewritableDeletes.add(new PositionDeleteFiles(
-                        task.file().location(),
-                        task.spec().specId(),
-                        task.deletes().stream()
-                                .map(deleteFile -> ContentFileParsers.toJson(deleteFile, task.spec()))
-                                .collect(toImmutableList())));
-            }
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        return rewritableDeletes.build();
     }
 
     @Override
@@ -3166,21 +3126,10 @@ public class IcebergMetadata
                 case POSITION_DELETES -> {
                     FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
                             .withPath(task.path())
-                            .withFormat(task.fileFormat())
+                            .withFormat(task.fileFormat().toIceberg())
                             .ofPositionDeletes()
                             .withFileSizeInBytes(task.fileSizeInBytes())
                             .withMetrics(task.metrics().metrics());
-
-                    if (task.fileFormat() == FileFormat.PUFFIN) {
-                        deleteBuilder.withRecordCount(task.metrics().recordCount());
-                        deleteBuilder.withContentOffset(task.deletionVectorContentOffset().orElseThrow(() -> new IllegalStateException("deletionVectorContentOffset is missing while constructing deletion vector")));
-                        deleteBuilder.withContentSizeInBytes(task.deletionVectorContentSize().orElseThrow(() -> new IllegalStateException("deletionVectorContentSize is missing while constructing deletion vector")));
-                        deleteBuilder.withReferencedDataFile(task.referencedDataFile().orElseThrow(() -> new IllegalStateException("referencedDataFile is missing while constructing deletion vector")));
-                        for (String rewrittenDeleteFile : task.deletionVectorFiles()) {
-                            rowDelta.removeDeletes((DeleteFile) ContentFileParsers.fromJson(rewrittenDeleteFile, partitionSpec));
-                        }
-                    }
-
                     task.fileSplitOffsets().ifPresent(deleteBuilder::withSplitOffsets);
                     if (!partitionSpec.fields().isEmpty()) {
                         String partitionDataJson = task.partitionDataJson()
@@ -3194,7 +3143,7 @@ public class IcebergMetadata
                 case DATA -> {
                     DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                             .withPath(task.path())
-                            .withFormat(task.fileFormat())
+                            .withFormat(task.fileFormat().toIceberg())
                             .withFileSizeInBytes(task.fileSizeInBytes())
                             .withMetrics(task.metrics().metrics());
                     if (!icebergTable.spec().fields().isEmpty()) {
@@ -3731,8 +3680,7 @@ public class IcebergMetadata
             fromSnapshotForRefresh = Optional.of(Long.parseLong(sourceTable.getValue()));
         }
 
-        List<PositionDeleteFiles> rewritableDeletes = loadPreviousDeleteFiles(icebergTable);
-        return newWritableTableHandle(table.getSchemaTableName(), icebergTable, rewritableDeletes, retryMode);
+        return newWritableTableHandle(table.getSchemaTableName(), icebergTable, retryMode);
     }
 
     @Override

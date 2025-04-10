@@ -312,14 +312,6 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .hasMessageMatching("Failed to load table: (.*)");
     }
 
-    @Test
-    @Override
-    public void testDeleteWithV3Format()
-    {
-        assertThatThrownBy(super::testDeleteWithV3Format)
-                .hasMessageMatching("Unsupported format version: v3.*");
-    }
-
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
