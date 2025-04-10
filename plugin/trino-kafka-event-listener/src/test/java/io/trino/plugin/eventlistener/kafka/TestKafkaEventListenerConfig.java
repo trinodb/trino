@@ -64,7 +64,7 @@ final class TestKafkaEventListenerConfig
                 .put("kafka-event-listener.split-completed-event.topic", "split_completed")
                 .put("kafka-event-listener.client-id", "dashboard-cluster")
                 .put("kafka-event-listener.excluded-fields", "payload,ioMetadata,groups,cpuTimeDistribution")
-                .put("kafka-event-listener.client-config-overrides", "foo=bar,baz=yoo")
+                .put("kafka-event-listener.client-config-overrides", "foo=bar,baz=yoo,sasl.jaas.config=\"org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';\"")
                 .put("kafka-event-listener.request-timeout", "3s")
                 .put("kafka-event-listener.env-var-prefix", "INSIGHTS_")
                 .put("kafka-event-listener.anonymization.enabled", "true")
@@ -82,7 +82,7 @@ final class TestKafkaEventListenerConfig
                 .setSplitCompletedTopicName("split_completed")
                 .setClientId("dashboard-cluster")
                 .setExcludedFields(Set.of("payload", "ioMetadata", "groups", "cpuTimeDistribution"))
-                .setKafkaClientOverrides("foo=bar,baz=yoo")
+                .setKafkaClientOverrides("foo=bar,baz=yoo,sasl.jaas.config=\"org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';\"")
                 .setRequestTimeout(new Duration(3, TimeUnit.SECONDS))
                 .setEnvironmentVariablePrefix("INSIGHTS_")
                 .setTerminateOnInitializationFailure(false);
@@ -133,6 +133,12 @@ final class TestKafkaEventListenerConfig
         overrides = conf.getKafkaClientOverrides();
         assertThat(overrides)
                 .containsExactly(entry("buffer.memory", "444555"), entry("compression.type", "zstd"));
+
+        // check setting value with =
+        conf.setKafkaClientOverrides("sasl.jaas.config=\"org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';\"");
+        overrides = conf.getKafkaClientOverrides();
+        assertThat(overrides)
+                .containsExactly(entry("sasl.jaas.config", "\"org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';\""));
 
         // check empty trailing param
         conf.setKafkaClientOverrides("buffer.memory=555777,");

@@ -33,7 +33,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class KafkaEventListenerConfig
 {
-    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator("=");
+    // for the map splitter we need to only look for first = to make sure values like "key=value=1" are not split and instead passed as is (e.g. JAAS config of the form sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';")
+    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator(Splitter.on("=").trimResults().omitEmptyStrings().limit(2));
 
     private boolean anonymizationEnabled;
     private boolean publishCreatedEvent = true;
