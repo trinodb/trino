@@ -14,10 +14,15 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -25,9 +30,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class TestKafkaEventListenerConfig
 {
@@ -45,15 +48,19 @@ final class TestKafkaEventListenerConfig
                 .setBrokerEndpoints(null)
                 .setClientId(null)
                 .setExcludedFields(Set.of())
-                .setKafkaClientOverrides("")
                 .setRequestTimeout(new Duration(10, TimeUnit.SECONDS))
                 .setTerminateOnInitializationFailure(true)
+                .setResourceConfigFiles(List.of())
                 .setEnvironmentVariablePrefix(null));
     }
 
     @Test
     void testExplicitPropertyMappings()
+            throws IOException
     {
+        Path resource1 = Files.createTempFile(null, null);
+        Path resource2 = Files.createTempFile(null, null);
+
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("kafka-event-listener.publish-created-event", "false")
                 .put("kafka-event-listener.publish-completed-event", "false")
@@ -64,11 +71,11 @@ final class TestKafkaEventListenerConfig
                 .put("kafka-event-listener.split-completed-event.topic", "split_completed")
                 .put("kafka-event-listener.client-id", "dashboard-cluster")
                 .put("kafka-event-listener.excluded-fields", "payload,ioMetadata,groups,cpuTimeDistribution")
-                .put("kafka-event-listener.client-config-overrides", "foo=bar,baz=yoo,sasl.jaas.config=\"org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';\"")
                 .put("kafka-event-listener.request-timeout", "3s")
                 .put("kafka-event-listener.env-var-prefix", "INSIGHTS_")
                 .put("kafka-event-listener.anonymization.enabled", "true")
                 .put("kafka-event-listener.terminate-on-initialization-failure", "false")
+                .put("kafka-event-listener.config.resources", resource1.toString() + "," + resource2.toString())
                 .buildOrThrow();
 
         KafkaEventListenerConfig expected = new KafkaEventListenerConfig()
@@ -82,9 +89,9 @@ final class TestKafkaEventListenerConfig
                 .setSplitCompletedTopicName("split_completed")
                 .setClientId("dashboard-cluster")
                 .setExcludedFields(Set.of("payload", "ioMetadata", "groups", "cpuTimeDistribution"))
-                .setKafkaClientOverrides("foo=bar,baz=yoo,sasl.jaas.config=\"org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';\"")
                 .setRequestTimeout(new Duration(3, TimeUnit.SECONDS))
                 .setEnvironmentVariablePrefix("INSIGHTS_")
+                .setResourceConfigFiles(ImmutableList.of(resource1.toString(), resource2.toString()))
                 .setTerminateOnInitializationFailure(false);
 
         assertFullMapping(properties, expected);
@@ -113,44 +120,5 @@ final class TestKafkaEventListenerConfig
         conf.setExcludedFields(Set.of(" ", ""));
         excludedFields = conf.getExcludedFields();
         assertThat(excludedFields).isEmpty();
-    }
-
-    @Test
-    void testKafkaClientOverrides()
-    {
-        KafkaEventListenerConfig conf = new KafkaEventListenerConfig();
-        // check default
-        Map<String, String> overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides).isEmpty();
-
-        // check setting just one
-        conf.setKafkaClientOverrides("buffer.memory=444555");
-        overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides).containsExactly(entry("buffer.memory", "444555"));
-
-        // check setting multiple
-        conf.setKafkaClientOverrides("buffer.memory=444555, compression.type=zstd");
-        overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides)
-                .containsExactly(entry("buffer.memory", "444555"), entry("compression.type", "zstd"));
-
-        // check setting value with =
-        conf.setKafkaClientOverrides("sasl.jaas.config=\"org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';\"");
-        overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides)
-                .containsExactly(entry("sasl.jaas.config", "\"org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';\""));
-
-        // check empty trailing param
-        conf.setKafkaClientOverrides("buffer.memory=555777,");
-        overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides).containsExactly(entry("buffer.memory", "555777"));
-
-        conf.setKafkaClientOverrides(",, ,");
-        overrides = conf.getKafkaClientOverrides();
-        assertThat(overrides).isEmpty();
-
-        // check missing = throws
-        assertThatThrownBy(() -> conf.setKafkaClientOverrides("invalid,buffer.memory=555777"))
-                .isInstanceOf(IllegalArgumentException.class);
     }
 }

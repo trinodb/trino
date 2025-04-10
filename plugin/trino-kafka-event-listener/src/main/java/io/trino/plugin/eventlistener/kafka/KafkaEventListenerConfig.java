@@ -14,28 +14,31 @@
 
 package io.trino.plugin.eventlistener.kafka;
 
-import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
+import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
+import java.io.File;
 import java.util.Collections;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+@DefunctConfig("kafka-event-listener.client-config-overrides")
 public class KafkaEventListenerConfig
 {
-    // for the map splitter we need to only look for first = to make sure values like "key=value=1" are not split and instead passed as is (e.g. JAAS config of the form sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required username='trino_eventlistener' password='zzzzzz';")
-    private static final Splitter.MapSplitter MAP_SPLITTER = Splitter.on(",").trimResults().omitEmptyStrings().withKeyValueSeparator(Splitter.on("=").trimResults().omitEmptyStrings().limit(2));
-
     private boolean anonymizationEnabled;
     private boolean publishCreatedEvent = true;
     private boolean publishCompletedEvent = true;
@@ -46,10 +49,10 @@ public class KafkaEventListenerConfig
     private String brokerEndpoints;
     private Optional<String> clientId = Optional.empty();
     private Set<String> excludedFields = Collections.emptySet();
-    private Map<String, String> kafkaClientOverrides = Collections.emptyMap();
     private Duration requestTimeout = new Duration(10, SECONDS);
     private boolean terminateOnInitializationFailure = true;
     private Optional<String> environmentVariablePrefix = Optional.empty();
+    private List<File> resourceConfigFiles = ImmutableList.of();
 
     public boolean isAnonymizationEnabled()
     {
@@ -178,19 +181,6 @@ public class KafkaEventListenerConfig
         return this;
     }
 
-    public Map<String, String> getKafkaClientOverrides()
-    {
-        return this.kafkaClientOverrides;
-    }
-
-    @ConfigDescription("Comma-separated list of key-value pairs to specify kafka client config overrides. E.g.: 'buffer.memory=67108864,compression.type=zstd'")
-    @Config("kafka-event-listener.client-config-overrides")
-    public KafkaEventListenerConfig setKafkaClientOverrides(String kafkaClientOverrides)
-    {
-        this.kafkaClientOverrides = MAP_SPLITTER.split(requireNonNull(kafkaClientOverrides, "kafkaClientOverrides is null"));
-        return this;
-    }
-
     @MinDuration("1ms")
     public Duration getRequestTimeout()
     {
@@ -229,6 +219,22 @@ public class KafkaEventListenerConfig
     public KafkaEventListenerConfig setEnvironmentVariablePrefix(String environmentVariablePrefix)
     {
         this.environmentVariablePrefix = Optional.ofNullable(environmentVariablePrefix);
+        return this;
+    }
+
+    @NotNull
+    public List<@FileExists File> getResourceConfigFiles()
+    {
+        return resourceConfigFiles;
+    }
+
+    @Config("kafka-event-listener.config.resources")
+    @ConfigDescription("Optional config files")
+    public KafkaEventListenerConfig setResourceConfigFiles(List<String> files)
+    {
+        this.resourceConfigFiles = files.stream()
+                .map(File::new)
+                .collect(toImmutableList());
         return this;
     }
 
