@@ -55,6 +55,7 @@ public class BigQueryStorageArrowPageSource
     private final BigQueryArrowBufferAllocator bufferAllocator;
     private final BigQuerySplit split;
     private final PageBuilder pageBuilder;
+    private final ReadRowsHelper readRowsHelper;
     private final Iterator<ReadRowsResponse> responses;
 
     private CompletableFuture<ReadRowsResponse> nextResponse;
@@ -76,7 +77,8 @@ public class BigQueryStorageArrowPageSource
         requireNonNull(columns, "columns is null");
         Schema schema = deserializeSchema(split.schemaString());
         log.debug("Starting to read from %s", split.streamName());
-        responses = new ReadRowsHelper(bigQueryReadClient, split.streamName(), maxReadRowsRetries).readRows();
+        readRowsHelper = new ReadRowsHelper(bigQueryReadClient, split.streamName(), maxReadRowsRetries);
+        responses = readRowsHelper.readRows();
         nextResponse = CompletableFuture.supplyAsync(this::getResponse, executor);
         this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(typeManager, schema, columns);
         this.pageBuilder = new PageBuilder(columns.stream()
@@ -143,6 +145,7 @@ public class BigQueryStorageArrowPageSource
     {
         bigQueryArrowToPageConverter.close();
         nextResponse.cancel(true);
+        readRowsHelper.close();
         bigQueryReadClient.close();
     }
 
