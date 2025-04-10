@@ -334,6 +334,7 @@ public abstract class BaseJdbcClient
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
+                boolean autoIncrement = "YES".equals(resultSet.getString("IS_AUTOINCREMENT"));
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
                 // skip unsupported column types
@@ -343,6 +344,7 @@ public abstract class BaseJdbcClient
                         .setColumnType(mapping.getType())
                         .setNullable(nullable)
                         .setComment(comment)
+                        .setAutoIncrement(autoIncrement)
                         .build()));
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
