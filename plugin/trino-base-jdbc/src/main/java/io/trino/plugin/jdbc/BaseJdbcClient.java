@@ -336,6 +336,7 @@ public abstract class BaseJdbcClient
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
                 Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+                Map<String, Object> columnProperties = getColumnProperties(resultSet);
                 // skip unsupported column types
                 columnMapping.ifPresent(mapping -> columns.add(JdbcColumnHandle.builder()
                         .setColumnName(columnName)
@@ -343,6 +344,7 @@ public abstract class BaseJdbcClient
                         .setColumnType(mapping.getType())
                         .setNullable(nullable)
                         .setComment(comment)
+                        .setColumnProperties(columnProperties)
                         .build()));
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
@@ -364,6 +366,16 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    /**
+     * Extract column property from DatabaseMetaData.
+     * The default implementation returns an empty map and each connector needs to provide its own implementation.
+     */
+    public Map<String, Object> getColumnProperties(ResultSet resultSet)
+            throws SQLException
+    {
+        return ImmutableMap.of();
     }
 
     @Override
