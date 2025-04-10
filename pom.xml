@@ -306,7 +306,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.17</version>
+                <version>2.31.19</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
