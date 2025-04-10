@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcMetadataFactory;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.TimestampTimeZoneDomain;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
@@ -40,6 +41,7 @@ import java.util.Properties;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindColumnPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 
 public class MySqlClientModule
@@ -49,12 +51,14 @@ public class MySqlClientModule
     protected void setup(Binder binder)
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(MySqlClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, JdbcMetadataFactory.class).setBinding().to(MySqlJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setBulkListColumns(true));
         newOptionalBinder(binder, TimestampTimeZoneDomain.class).setBinding().toInstance(TimestampTimeZoneDomain.UTC_ONLY);
         configBinder(binder).bindConfig(MySqlJdbcConfig.class);
         configBinder(binder).bindConfig(MySqlConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         bindTablePropertiesProvider(binder, MySqlTableProperties.class);
+        bindColumnPropertiesProvider(binder, MySqlColumnProperties.class);
         install(new DecimalModule());
         install(new JdbcJoinPushdownSupportModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);

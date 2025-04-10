@@ -40,11 +40,12 @@ public final class JdbcColumnHandle
     private final Type columnType;
     private final boolean nullable;
     private final Optional<String> comment;
+    private final boolean autoIncrement;
 
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty(), false);
     }
 
     /**
@@ -57,13 +58,15 @@ public final class JdbcColumnHandle
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("autoIncrement") boolean autoIncrement)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
+        this.autoIncrement = autoIncrement;
     }
 
     @JsonProperty
@@ -94,6 +97,12 @@ public final class JdbcColumnHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonProperty
+    public boolean isAutoIncrement()
+    {
+        return autoIncrement;
     }
 
     public ColumnMetadata getColumnMetadata()
@@ -147,6 +156,7 @@ public final class JdbcColumnHandle
         // columnType is not accounted for as the instances are cached (by TypeRegistry) and shared
         return INSTANCE_SIZE
                 + sizeOf(nullable)
+                + sizeOf(autoIncrement)
                 + estimatedSizeOf(columnName)
                 + sizeOf(comment, SizeOf::estimatedSizeOf)
                 + jdbcTypeHandle.getRetainedSizeInBytes();
@@ -169,6 +179,7 @@ public final class JdbcColumnHandle
         private Type columnType;
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
+        private boolean autoIncrement;
 
         public Builder() {}
 
@@ -179,6 +190,7 @@ public final class JdbcColumnHandle
             this.columnType = handle.getColumnType();
             this.nullable = handle.isNullable();
             this.comment = handle.getComment();
+            this.autoIncrement = handle.isAutoIncrement();
         }
 
         public Builder setColumnName(String columnName)
@@ -211,6 +223,12 @@ public final class JdbcColumnHandle
             return this;
         }
 
+        public Builder setAutoIncrement(boolean autoIncrement)
+        {
+            this.autoIncrement = autoIncrement;
+            return this;
+        }
+
         public JdbcColumnHandle build()
         {
             return new JdbcColumnHandle(
@@ -218,7 +236,8 @@ public final class JdbcColumnHandle
                     jdbcTypeHandle,
                     columnType,
                     nullable,
-                    comment);
+                    comment,
+                    autoIncrement);
         }
     }
 }
