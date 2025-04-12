@@ -16,17 +16,22 @@ package io.trino.execution.buffer;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 
-import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 
-public class TestingPagesSerdeFactory
-        extends PagesSerdeFactory
+public final class TestingPagesSerdes
 {
+    private TestingPagesSerdes() {}
+
     private static final InternalBlockEncodingSerde BLOCK_ENCODING_SERDE = new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER);
 
-    public TestingPagesSerdeFactory()
+    public static PagesSerdeFactory createTestingPagesSerdeFactory()
     {
-        // compression should be enabled in as many tests as possible
-        super(BLOCK_ENCODING_SERDE, LZ4);
+        return createTestingPagesSerdeFactory(NONE);
+    }
+
+    public static PagesSerdeFactory createTestingPagesSerdeFactory(CompressionCodec compressionCodec)
+    {
+        return new PagesSerdeFactory(BLOCK_ENCODING_SERDE, compressionCodec);
     }
 }

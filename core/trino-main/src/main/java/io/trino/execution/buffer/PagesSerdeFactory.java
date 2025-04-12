@@ -39,7 +39,8 @@ public class PagesSerdeFactory
     private final CompressionCodec compressionCodec;
     private final int blockSizeInBytes;
 
-    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec)
+    // created via PagesSerdes.create*
+    PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec)
     {
         this(blockEncodingSerde, compressionCodec, SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES);
     }

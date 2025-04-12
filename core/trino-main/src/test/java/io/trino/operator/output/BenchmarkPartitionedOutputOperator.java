@@ -38,7 +38,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -93,6 +92,7 @@ import static io.trino.block.BlockAssertions.createRandomLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -442,7 +442,7 @@ public class BenchmarkPartitionedOutputOperator
             PartitionFunction partitionFunction = new BucketPartitionFunction(
                     new HashBucketFunction(new PrecomputedHashGenerator(0), partitionCount),
                     IntStream.range(0, partitionCount).toArray());
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressionCodec);
+            PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(compressionCodec);
 
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 

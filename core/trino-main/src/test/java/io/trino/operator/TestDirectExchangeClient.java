@@ -39,7 +39,6 @@ import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
@@ -76,7 +75,9 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.execution.TestSqlTaskExecution.TASK_ID;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.exchange.ExchangeId.createRandomExchangeId;
@@ -103,7 +104,7 @@ public class TestDirectExchangeClient
     {
         scheduler = newScheduledThreadPool(4, daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         pageBufferClientCallbackExecutor = Executors.newSingleThreadExecutor();
-        serdeFactory = new TestingPagesSerdeFactory();
+        serdeFactory = createTestingPagesSerdeFactory(LZ4);
     }
 
     @AfterAll
