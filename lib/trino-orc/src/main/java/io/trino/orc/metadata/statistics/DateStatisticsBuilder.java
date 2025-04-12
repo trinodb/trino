@@ -30,7 +30,7 @@ public class DateStatisticsBuilder
 
     public DateStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder)
     {
-        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is nulll");
+        this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is null");
     }
 
     @Override
