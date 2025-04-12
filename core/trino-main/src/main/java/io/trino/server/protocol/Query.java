@@ -42,7 +42,6 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.execution.StageId;
 import io.trino.execution.buffer.PageDeserializer;
-import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.operator.DirectExchangeClientSupplier;
 import io.trino.server.ExternalUriInfo;
@@ -86,10 +85,10 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.SystemSessionProperties.getExchangeCompressionCodec;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHING;
+import static io.trino.execution.buffer.PagesSerdes.createExchangePagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
 import static io.trino.server.protocol.ProtocolUtil.toStatementStats;
@@ -262,7 +261,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        deserializer = new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(session))
+        deserializer = createExchangePagesSerdeFactory(blockEncodingSerde, session)
                 .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
 
