@@ -101,6 +101,10 @@ image](/installation/containers) uses the path `/usr/lib/trino/plugin`.
 
 Restart Trino to use the plugin. 
 
+The [trino-packages project](https://github.com/trinodb/trino-packages) contains
+example projects to create a tarball and Docker image with a selection of
+plugins by installing only the desired plugins.
+
 (plugins-removal)=
 ## Removal
 
