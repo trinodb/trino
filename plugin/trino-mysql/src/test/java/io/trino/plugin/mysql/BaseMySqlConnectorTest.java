@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.mysql.cj.jdbc.exceptions.MysqlDataTruncation;
 import io.trino.Session;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +44,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -62,6 +65,7 @@ public abstract class BaseMySqlConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_JOIN_PUSHDOWN,
                  SUPPORTS_MERGE,
+                 SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_ROW_LEVEL_UPDATE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                  SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
@@ -69,7 +73,6 @@ public abstract class BaseMySqlConnectorTest
                  SUPPORTS_AGGREGATION_PUSHDOWN_COVARIANCE,
                  SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                  SUPPORTS_ARRAY,
-                 SUPPORTS_COMMENT_ON_COLUMN,
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                  SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
@@ -417,16 +420,162 @@ public abstract class BaseMySqlConnectorTest
 
     @Test
     public void testColumnComment()
+            throws SQLException
     {
-        // TODO add support for setting comments on existing column and replace the test with io.trino.testing.BaseConnectorTest#testCommentColumn
+        String tableName = "test_column_comment" + randomNameSuffix();
+        onRemoteDatabase().execute(format(
+                """
+                    CREATE TABLE tpch.%s (
+                    col1 bigint unsigned AUTO_INCREMENT PRIMARY KEY COMMENT 'test comment',
+                    col2 decimal(10,2) UNSIGNED DEFAULT 100,
+                    col3 varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+                    col4 timestamp(6) DEFAULT CURRENT_TIMESTAMP(6),
+                    col5 text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
+                    col6 blob NOT NULL,
+                    col7 json NOT NULL,
+                    col8 datetime(6) NOT NULL,
+                    col9 enum('aaa', 'bbb', 'ccc'))
+                """,
+                tableName));
 
-        onRemoteDatabase().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
+        assertThat(query(format("SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", tableName)))
+                .skippingTypesCheck()
+                .matches(
+                    """
+                            VALUES
+                            ('col1', 'test comment'),
+                            ('col2', null),
+                            ('col3', null),
+                            ('col4', null),
+                            ('col5', null),
+                            ('col6', null),
+                            ('col7', null),
+                            ('col8', null),
+                            ('col9', null)
+                        """);
 
-        assertQuery(
-                "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
-                "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
+        String query = format(
+                """
+                SELECT
+                    column_default,
+                    is_nullable,
+                    data_type,
+                    character_maximum_length,
+                    character_octet_length,
+                    numeric_precision,
+                    numeric_scale,
+                    datetime_precision,
+                    character_set_name,
+                    collation_name,
+                    column_type,
+                    column_key,
+                    extra,
+                    generation_expression
+                FROM
+                    information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'
+                """,
+                tableName);
 
-        assertUpdate("DROP TABLE test_column_comment");
+        // The default character set of mysql5.7 is latin1 and the collation is latin1_swedish_ci
+        // The default character set of mysql8 is utf8mb4 and the collation is utf8mb4_0900_ai_ci
+        String mysqlVersion = mySqlServer.executeQuery("SELECT VERSION()").iterator().next();
+
+        List<String> mysql8ColumnInfo = ImmutableList.<String>builder()
+                .add("null|NO|bigint|null|null|20|0|null|null|null|bigint unsigned|PRI|auto_increment|")
+                .add("100.00|YES|decimal|null|null|10|2|null|null|null|decimal(10,2) unsigned|||")
+                .add("null|YES|varchar|32|128|null|null|null|utf8mb4|utf8mb4_unicode_ci|varchar(32)|||")
+                .add("CURRENT_TIMESTAMP(6)|YES|timestamp|null|null|null|null|6|null|null|timestamp(6)||DEFAULT_GENERATED|")
+                .add("null|YES|text|65535|65535|null|null|null|utf8mb4|utf8mb4_bin|text|||")
+                .add("null|NO|blob|65535|65535|null|null|null|null|null|blob|||")
+                .add("null|NO|json|null|null|null|null|null|null|null|json|||")
+                .add("null|NO|datetime|null|null|null|null|6|null|null|datetime(6)|||")
+                .add("null|YES|enum|3|12|null|null|null|utf8mb4|utf8mb4_0900_ai_ci|enum('aaa','bbb','ccc')|||")
+                .build();
+
+        List<String> mysql57ColumnInfo = ImmutableList.<String>builder()
+                .add("null|NO|bigint|null|null|20|0|null|null|null|bigint(20) unsigned|PRI|auto_increment|")
+                .add("100.00|YES|decimal|null|null|10|2|null|null|null|decimal(10,2) unsigned|||")
+                .add("null|YES|varchar|32|128|null|null|null|utf8mb4|utf8mb4_unicode_ci|varchar(32)|||")
+                .add("CURRENT_TIMESTAMP(6)|NO|timestamp|null|null|null|null|6|null|null|timestamp(6)|||")
+                .add("null|YES|text|65535|65535|null|null|null|utf8mb4|utf8mb4_bin|text|||")
+                .add("null|NO|blob|65535|65535|null|null|null|null|null|blob|||")
+                .add("null|NO|json|null|null|null|null|null|null|null|json|||")
+                .add("null|NO|datetime|null|null|null|null|6|null|null|datetime(6)|||")
+                .add("null|YES|enum|3|3|null|null|null|latin1|latin1_swedish_ci|enum('aaa','bbb','ccc')|||")
+                .build();
+
+        // Test the property values for each column after the table is created
+        if (mysqlVersion.startsWith("5")) {
+            assertThat(mySqlServer.executeQuery(query))
+                    .containsAll(mysql57ColumnInfo);
+        } else {
+            assertThat(mySqlServer.executeQuery(query))
+                    .containsAll(mysql8ColumnInfo);
+        }
+
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col1 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col1 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col1 IS 'test comment in col1'", tableName));
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col2 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col2 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col2 IS 'test comment in col2'", tableName));
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col3 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col3 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col3 IS 'test comment in col3'", tableName));
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col4 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col4 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col4 IS 'test comment in col4'", tableName));
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col5 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col5 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col5 IS 'test comment in col5'", tableName));
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col6 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col6 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col6 IS 'test comment in col6'", tableName));
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col7 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col7 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col7 IS 'test comment in col7'", tableName));
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col8 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col8 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col8 IS 'test comment in col8'", tableName));
+
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col9 IS ''", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col9 IS NULL", tableName));
+        assertUpdate(format("COMMENT ON COLUMN tpch.%s.col9 IS 'test comment in col9'", tableName));
+
+        // Test the property values of each column after the column comments are modified
+        if (mysqlVersion.startsWith("5")) {
+            assertThat(mySqlServer.executeQuery(query))
+                    .containsAll(mysql57ColumnInfo);
+        } else {
+            assertThat(mySqlServer.executeQuery(query))
+                    .containsAll(mysql8ColumnInfo);
+        }
+
+        assertThat(query(format("SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = '%s'", tableName)))
+                .skippingTypesCheck()
+                .matches(
+                        """
+                                VALUES
+                                ('col1', 'test comment in col1'),
+                                ('col2', 'test comment in col2'),
+                                ('col3', 'test comment in col3'),
+                                ('col4', 'test comment in col4'),
+                                ('col5', 'test comment in col5'),
+                                ('col6', 'test comment in col6'),
+                                ('col7', 'test comment in col7'),
+                                ('col8', 'test comment in col8'),
+                                ('col9', 'test comment in col9')
+                            """);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

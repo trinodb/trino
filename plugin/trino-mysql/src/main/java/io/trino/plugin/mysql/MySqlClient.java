@@ -106,6 +106,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLSyntaxErrorException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
@@ -120,6 +121,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -222,6 +225,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toMap;
 
 public class MySqlClient
         extends BaseJdbcClient
@@ -470,6 +474,70 @@ public class MySqlClient
                 quoted(handle.asPlainTable().getRemoteTableName()),
                 mysqlVarcharLiteral(comment.orElse(NO_COMMENT))); // An empty character removes the existing comment in MySQL
         execute(session, sql);
+    }
+
+    @Override
+    public void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
+    {
+        StringBuilder columnDefinition = new StringBuilder();
+        try (Connection connection = connectionFactory.openConnection(session);
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(format(
+                        "SELECT column_name, column_type, column_default, is_nullable, character_set_name, collation_name, extra FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'",
+                        handle.asPlainTable().getSchemaTableName().getSchemaName(),
+                        handle.asPlainTable().getSchemaTableName().getTableName()))) {
+            while (resultSet.next()) {
+                if (resultSet.getString("COLUMN_NAME").equalsIgnoreCase(column.getColumnName())) {
+                    List<String> columnNames = ImmutableList.of("COLUMN_TYPE", "COLUMN_DEFAULT", "IS_NULLABLE", "CHARACTER_SET_NAME", "COLLATION_NAME", "EXTRA");
+                    Map<String, String> columnInfo = columnNames.stream()
+                            .collect(toMap(identity(), columnName -> {
+                                try {
+                                    return resultSet.getString(columnName) == null ? "" : resultSet.getString(columnName);
+                                }
+                                catch (SQLException e) {
+                                    throw new TrinoException(JDBC_ERROR, e);
+                                }
+                            }));
+
+                    // MySQL 8.0.13 starts to support DEFAULT value for JSON datatype
+                    if (columnInfo.get("COLUMN_TYPE").equalsIgnoreCase("json") && !columnInfo.get("COLUMN_DEFAULT").isEmpty()) {
+                        Pattern pattern = Pattern.compile("\\{[^}]*\\}");
+                        Matcher matcher = pattern.matcher(columnInfo.get("COLUMN_DEFAULT"));
+                        if (matcher.find()) {
+                            columnInfo.put("COLUMN_DEFAULT", "('" + matcher.group() + "')");
+                        }
+                    }
+
+                    if (columnInfo.get("COLUMN_TYPE").contains("enum") && !columnInfo.get("COLUMN_DEFAULT").isEmpty()) {
+                        columnInfo.put("COLUMN_DEFAULT", "'" + columnInfo.get("COLUMN_DEFAULT") + "'");
+                    }
+
+                    if (!columnInfo.get("EXTRA").equalsIgnoreCase("auto_increment")) {
+                        columnInfo.put("EXTRA", "");
+                    }
+
+                    columnDefinition.append(format("%s %s %s %s %s %s %s",
+                            quoted(column.getColumnName()),
+                            columnInfo.get("COLUMN_TYPE"),
+                            columnInfo.get("IS_NULLABLE").equalsIgnoreCase("YES") ? "" : "NOT NULL",
+                            columnInfo.get("EXTRA"),
+                            columnInfo.get("COLUMN_DEFAULT").isEmpty() ? "" : "DEFAULT " + columnInfo.get("COLUMN_DEFAULT"),
+                            columnInfo.get("CHARACTER_SET_NAME").isEmpty() ? "" : "CHARACTER SET " + columnInfo.get("CHARACTER_SET_NAME"),
+                            columnInfo.get("COLLATION_NAME").isEmpty() ? "" : "COLLATE " + columnInfo.get("COLLATION_NAME")));
+                    break;
+                }
+            }
+
+            String sql = format(
+                    "ALTER TABLE %s MODIFY %s COMMENT %s",
+                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    columnDefinition,
+                    mysqlVarcharLiteral(comment.orElse(NO_COMMENT)));
+            execute(session, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override

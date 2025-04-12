@@ -13,16 +13,21 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.ZoneId;
+import java.util.Set;
 
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
@@ -94,6 +99,29 @@ public class TestingMySqlServer
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public Set<String> executeQuery(String sql)
+            throws SQLException
+    {
+        ImmutableSet.Builder<String> set = ImmutableSet.builder();
+
+        try (Connection connection = DriverManager.getConnection(container.getJdbcUrl(), container.getUsername(), container.getPassword());
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
+            int columnCount = rs.getMetaData().getColumnCount();
+
+            while (rs.next()) {
+                ImmutableList.Builder<String> builder = ImmutableList.builder();
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnValue = rs.getString(i) == null ? "null" : rs.getString(i);
+                    builder.add(columnValue);
+                }
+                set.add(Joiner.on('|').join(builder.build()));
+            }
+
+            return set.build();
         }
     }
 
