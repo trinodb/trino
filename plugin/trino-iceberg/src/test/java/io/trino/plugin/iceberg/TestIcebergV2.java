@@ -68,7 +68,6 @@ import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -133,6 +132,7 @@ public class TestIcebergV2
                 .build();
 
         metastore = getHiveMetastore(queryRunner);
+        fileSystemFactory = getFileSystemFactory(queryRunner);
 
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data")));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
@@ -140,12 +140,6 @@ public class TestIcebergV2
                 .buildOrThrow());
 
         return queryRunner;
-    }
-
-    @BeforeAll
-    public void initFileSystemFactory()
-    {
-        fileSystemFactory = getFileSystemFactory(getDistributedQueryRunner());
     }
 
     @Test
