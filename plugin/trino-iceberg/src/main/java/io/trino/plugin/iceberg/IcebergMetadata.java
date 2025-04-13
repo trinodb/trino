@@ -2976,8 +2976,15 @@ public class IcebergMetadata
         if (handle.getSnapshotId().isEmpty()) {
             // No snapshot, table is empty
             verify(
-                    computedStatistics.isEmpty(),
-                    "Unexpected computed statistics that cannot be attached to a snapshot because none exists: %s",
+                    computedStatistics.size() == 1,
+                    "The computedStatistics size must be 1: %s",
+                    computedStatistics);
+            ComputedStatistics statistics = getOnlyElement(computedStatistics);
+            verify(statistics.getGroupingColumns().isEmpty() &&
+                            statistics.getGroupingValues().isEmpty() &&
+                            statistics.getColumnStatistics().isEmpty() &&
+                            statistics.getTableStatistics().isEmpty(),
+                    "Unexpected non-empty statistics that cannot be attached to a snapshot because none exists: %s",
                     computedStatistics);
 
             commitTransaction(transaction, "statistics collection");
