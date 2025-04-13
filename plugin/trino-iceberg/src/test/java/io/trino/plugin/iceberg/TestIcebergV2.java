@@ -29,7 +29,9 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -54,6 +56,7 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortField;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
@@ -91,6 +94,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.IcebergTestUtils.listFiles;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
@@ -122,6 +126,7 @@ public class TestIcebergV2
 {
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -133,6 +138,7 @@ public class TestIcebergV2
 
         metastore = getHiveMetastore(queryRunner);
         fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
 
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data")));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
@@ -1553,6 +1559,41 @@ public class TestIcebergV2
             assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
         }
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testAnalyzeNoSnapshot()
+    {
+        String table = "test_analyze_no_snapshot" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(Types.NestedField.of(1, true, "x", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        String expectedStats = """
+                VALUES
+                ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
+                (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
+                """;
+
+        assertThat(query("SHOW STATS FOR " + table))
+                .skippingTypesCheck()
+                .matches(expectedStats);
+
+        assertUpdate("ANALYZE " + table);
+
+        assertThat(query("SHOW STATS FOR " + table))
+                .skippingTypesCheck()
+                .matches(expectedStats);
+
+        catalog.dropTable(SESSION, schemaTableName);
     }
 
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)
