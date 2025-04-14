@@ -712,7 +712,9 @@ public class TrinoRestCatalog
             return Optional.empty();
         }
         catch (RESTException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to load view '%s'".formatted(viewName.getTableName()), e);
+            throw new TrinoException(ICEBERG_CATALOG_ERROR,
+                    "Failed to load view '%s', the configuration 'iceberg.rest-catalog.view-endpoints-enabled' is '%s'".formatted(viewName.getTableName(),
+                    restSessionCatalog.properties().getOrDefault("view-endpoints-supported", "false")), e);
         }
     }
 
