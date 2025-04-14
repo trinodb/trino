@@ -48,6 +48,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.DoubleSymmetricDistribution;
+import io.trino.spi.eventlistener.DynamicFilterDomainStatistics;
 import io.trino.spi.eventlistener.LongDistribution;
 import io.trino.spi.eventlistener.LongSymmetricDistribution;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
@@ -238,6 +239,7 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -353,9 +355,21 @@ public class QueryMonitor
                 getStageOutputBufferUtilizations(queryInfo),
                 getStageOutputBufferMetrics(queryInfo),
                 getStageTaskStatistics(queryInfo),
+                getDynamicFilterDomainStats(queryInfo),
                 memoize(() -> operatorStats.stream().map(operatorStatsCodec::toJson).toList()),
                 ImmutableList.copyOf(queryInfo.getQueryStats().getOptimizerRulesSummaries()),
                 serializedPlanNodeStatsAndCosts);
+    }
+
+    private static List<DynamicFilterDomainStatistics> getDynamicFilterDomainStats(QueryInfo queryInfo)
+    {
+        return queryInfo.getQueryStats().getDynamicFiltersStats().getDynamicFilterDomainStats()
+                .stream()
+                .map(stats -> new DynamicFilterDomainStatistics(
+                        stats.getDynamicFilterId().toString(),
+                        stats.getSimplifiedDomain(),
+                        stats.getCollectionDuration().map(io.airlift.units.Duration::toJavaTime)))
+                .collect(toImmutableList());
     }
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType, RetryPolicy retryPolicy)

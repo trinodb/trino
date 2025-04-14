@@ -159,6 +159,7 @@ public final class TestUtils
                 Collections.emptyList(),
                 Collections.emptyList(),
                 Collections.emptyList(),
+                Collections.emptyList(),
                 Optional.empty());
 
         queryFailureInfo = Optional.of(
