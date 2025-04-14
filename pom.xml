@@ -427,7 +427,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>25.2.2</version>
+                <version>25.2.3</version>
             </dependency>
 
             <dependency>
