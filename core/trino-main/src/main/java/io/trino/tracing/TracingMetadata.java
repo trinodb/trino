@@ -1375,6 +1375,51 @@ public class TracingMetadata
     }
 
     @Override
+    public void createBranch(Session session, TableHandle tableHandle, String branch, Map<String, Object> properties)
+    {
+        Span span = startSpan("createBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.createBranch(session, tableHandle, branch, properties);
+        }
+    }
+
+    @Override
+    public void dropBranch(Session session, TableHandle tableHandle, String branch)
+    {
+        Span span = startSpan("dropBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.dropBranch(session, tableHandle, branch);
+        }
+    }
+
+    @Override
+    public void fastForwardBranch(Session session, TableHandle tableHandle, String sourceBranch, String targetBranch)
+    {
+        Span span = startSpan("fastForwardBranch", tableHandle);
+        try (var _ = scopedSpan(span)) {
+            delegate.fastForwardBranch(session, tableHandle, sourceBranch, targetBranch);
+        }
+    }
+
+    @Override
+    public Collection<String> listBranches(Session session, QualifiedObjectName tableName)
+    {
+        Span span = startSpan("listBranches", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.listBranches(session, tableName);
+        }
+    }
+
+    @Override
+    public boolean branchExists(Session session, QualifiedObjectName tableName, String branch)
+    {
+        Span span = startSpan("branchExists", tableName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.branchExists(session, tableName, branch);
+        }
+    }
+
+    @Override
     public void createMaterializedView(
             Session session,
             QualifiedObjectName viewName,
@@ -1498,20 +1543,20 @@ public class TracingMetadata
     }
 
     @Override
-    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<String> branch)
     {
         Span span = startSpan("getRedirectionAwareTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
-            return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion);
+            return delegate.getRedirectionAwareTableHandle(session, tableName, startVersion, endVersion, branch);
         }
     }
 
     @Override
-    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion)
+    public Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion, Optional<String> branch)
     {
         Span span = startSpan("getTableHandle", tableName);
         try (var _ = scopedSpan(span)) {
-            return delegate.getTableHandle(session, tableName, startVersion, endVersion);
+            return delegate.getTableHandle(session, tableName, startVersion, endVersion, branch);
         }
     }
 

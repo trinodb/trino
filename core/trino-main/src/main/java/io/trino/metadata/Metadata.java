@@ -758,6 +758,16 @@ public interface Metadata
 
     void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken);
 
+    void createBranch(Session session, TableHandle tableHandle, String branch, Map<String, Object> properties);
+
+    void dropBranch(Session session, TableHandle tableHandle, String branch);
+
+    void fastForwardBranch(Session session, TableHandle tableHandle, String sourceBranch, String targetBranch);
+
+    Collection<String> listBranches(Session session, QualifiedObjectName tableName);
+
+    boolean branchExists(Session session, QualifiedObjectName tableName, String branch);
+
     /**
      * Creates the specified materialized view with the specified view definition.
      */
@@ -835,12 +845,22 @@ public interface Metadata
     /**
      * Get the target table handle after performing redirection with a table version.
      */
-    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(
+            Session session,
+            QualifiedObjectName tableName,
+            Optional<TableVersion> startVersion,
+            Optional<TableVersion> endVersion,
+            Optional<String> branch);
 
     /**
      * Returns a table handle for the specified table name with a specified version
      */
-    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+    Optional<TableHandle> getTableHandle(
+            Session session,
+            QualifiedObjectName tableName,
+            Optional<TableVersion> startVersion,
+            Optional<TableVersion> endVersion,
+            Optional<String> branch);
 
     /**
      * Returns maximum number of tasks that can be created while writing data to specific connector.
