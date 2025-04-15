@@ -524,7 +524,8 @@ public class DeltaLakeMetadata
         try {
             TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation, version);
             // Lack of concurrency for given query is currently guaranteed by DeltaLakeMetadata
-            checkState(latestTableVersions.put(table, snapshot.getVersion()) == null || atVersion.isPresent(), "latestTableVersions changed concurrently for %s", table);
+            Long currentVersion = latestTableVersions.put(table, snapshot.getVersion());
+            checkState(currentVersion == null || currentVersion == snapshot.getVersion() || atVersion.isPresent(), "latestTableVersions changed concurrently for %s", table);
             queriedSnapshots.put(new QueriedTable(table, snapshot.getVersion()), snapshot);
             return snapshot;
         }
