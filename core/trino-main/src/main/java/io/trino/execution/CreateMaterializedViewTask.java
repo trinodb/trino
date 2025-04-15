@@ -157,6 +157,7 @@ public class CreateMaterializedViewTask
                 });
 
         MaterializedViewDefinition definition = new MaterializedViewDefinition(
+                name,
                 sql,
                 session.getCatalog(),
                 session.getSchema(),
