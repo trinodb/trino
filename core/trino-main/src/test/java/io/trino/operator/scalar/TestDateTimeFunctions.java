@@ -97,8 +97,8 @@ public class TestDateTimeFunctions
         long timeIncrement = TimeUnit.MINUTES.toMillis(53);
         // We expect UTC millis later on so we have to use UTC chronology
         for (long millis = ISOChronology.getInstanceUTC().getDateTimeMillis(2000, 6, 15, 0, 0, 0, 0);
-                millis < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
-                millis += timeIncrement) {
+             millis < ISOChronology.getInstanceUTC().getDateTimeMillis(2016, 6, 15, 0, 0, 0, 0);
+             millis += timeIncrement) {
             Instant instant = Instant.ofEpochMilli(millis);
             assertCurrentDateAtInstant(kievTimeZoneKey, instant);
             assertCurrentDateAtInstant(bahiaBanderasTimeZoneKey, instant);
@@ -430,6 +430,39 @@ public class TestDateTimeFunctions
 
             assertThat(assertions.function("last_day_of_month", "TIMESTAMP '2019-08-31 23:59:59.999 " + timeZone + "'"))
                     .matches("DATE '2019-8-31'");
+        });
+    }
+
+    @Test
+    public void testLastDayOfWeekOfMonth()
+    {
+        assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2020-02-01 23:59:59.999' AS timestamp(3))", "7"))
+                .matches("TIMESTAMP '2020-02-23 00:00:00.000'"); // Last Sunday of February 2020
+
+        assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2020-05-23 14:15:16.000' AS timestamp(3))", "1"))
+                .matches("TIMESTAMP '2020-05-25 00:00:00.000'"); // Last Monday of May 2020
+
+        assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2020-05-23 14:15:16.000' AS timestamp(3))", "7"))
+                .matches("TIMESTAMP '2020-05-31 00:00:00.000'"); // Last Sunday of May 2020
+
+        assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2020-02-23 14:15:16.000' AS timestamp(3))", "6"))
+                .matches("TIMESTAMP '2020-02-29 00:00:00.000'"); // Last Saturday of February 2020 (leap year)
+
+        assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2019-02-23 14:15:16.000' AS timestamp(3))", "4"))
+                .matches("TIMESTAMP '2019-02-28 00:00:00.000'"); // Last Thursday of February 2019
+
+        assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2020-04-23 14:15:16.000' AS timestamp(3))", "3"))
+                .matches("TIMESTAMP '2020-04-29 00:00:00.000'"); // Last Wednesday of April 2020
+
+        ImmutableList.of("+05:45", "+00:00", "-05:45", "Asia/Tokyo", "Europe/London", "America/Los_Angeles").forEach(timeZone -> {
+            assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2020-07-15 17:00:00.000 " + timeZone + "' AS timestamp(3))", "1"))
+                    .matches("TIMESTAMP '2020-07-27 00:00:00.000'"); // Last Monday of July 2020
+
+            assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2020-09-01 00:00:00.000 " + timeZone + "' AS timestamp(3))", "5"))
+                    .matches("TIMESTAMP '2020-09-25 00:00:00.000'"); // Last Friday of September 2020
+
+            assertThat(assertions.function("last_day_of_week_of_month", "CAST(TIMESTAMP '2020-02-01 23:59:59.999 " + timeZone + "' AS timestamp(3))", "7"))
+                    .matches("TIMESTAMP '2020-02-23 00:00:00.000'"); // Last Sunday of February 2020
         });
     }
 
