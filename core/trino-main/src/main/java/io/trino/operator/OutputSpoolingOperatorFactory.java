@@ -160,7 +160,8 @@ public class OutputSpoolingOperatorFactory
         private final SpoolingManager spoolingManager;
         private final PageBuffer buffer;
         private final OperationTiming spoolingTiming = new OperationTiming();
-        private final AtomicLong encodedBytes = new AtomicLong();
+        private final AtomicLong spooledEncodedBytes = new AtomicLong();
+        private final AtomicLong inlinedEncodedBytes = new AtomicLong();
 
         private Page outputPage;
 
@@ -179,7 +180,7 @@ public class OutputSpoolingOperatorFactory
             this.buffer = PageBuffer.create(aggregatedMemoryContext.newLocalMemoryContext(OutputSpoolingOperator.class.getSimpleName() + ".buffer"));
             this.localMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(OutputSpoolingOperator.class.getSimpleName());
 
-            operatorContext.setInfoSupplier(new OutputSpoolingInfoSupplier(spoolingTiming, controller, encodedBytes));
+            operatorContext.setInfoSupplier(new OutputSpoolingInfoSupplier(spoolingTiming, controller, inlinedEncodedBytes, spooledEncodedBytes));
         }
 
         @Override
@@ -283,7 +284,7 @@ public class OutputSpoolingOperatorFactory
                         .set(EXPIRES_AT, expiresAt)
                         .build();
 
-                encodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
+                spooledEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
 
                 if (finished) {
                     controller.execute(SPOOL, rows, size); // final buffer
@@ -308,7 +309,7 @@ public class OutputSpoolingOperatorFactory
                         .toBuilder()
                         .set(ROWS_COUNT, (long) page.getPositionCount())
                         .build();
-                encodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
+                inlinedEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
                 return SpooledMetadataBlock.forInlineData(attributes, output.toByteArray()).serialize();
             }
             catch (IOException e) {
@@ -386,14 +387,16 @@ public class OutputSpoolingOperatorFactory
     private record OutputSpoolingInfoSupplier(
             OperationTiming spoolingTiming,
             SpoolingController controller,
-            AtomicLong encodedBytes)
+            AtomicLong inlinedEncodedBytes,
+            AtomicLong spooledEncodedBytes)
             implements Supplier<OutputSpoolingInfo>
     {
         private OutputSpoolingInfoSupplier
         {
             requireNonNull(spoolingTiming, "spoolingTiming is null");
             requireNonNull(controller, "controller is null");
-            requireNonNull(encodedBytes, "encodedBytes is null");
+            requireNonNull(inlinedEncodedBytes, "inlinedEncodedBytes is null");
+            requireNonNull(spooledEncodedBytes, "spooledEncodedBytes is null");
         }
 
         @Override
@@ -408,10 +411,11 @@ public class OutputSpoolingOperatorFactory
                     inlined.pages(),
                     inlined.positions(),
                     inlined.size(),
+                    inlinedEncodedBytes.get(),
                     spooled.pages(),
                     spooled.positions(),
                     spooled.size(),
-                    encodedBytes.get());
+                    spooledEncodedBytes.get());
         }
     }
 
@@ -421,6 +425,7 @@ public class OutputSpoolingOperatorFactory
             long inlinedPages,
             long inlinedPositions,
             long inlinedRawBytes,
+            long inlinedEncodedBytes,
             long spooledPages,
             long spooledPositions,
             long spooledRawBytes,
@@ -442,6 +447,7 @@ public class OutputSpoolingOperatorFactory
                     inlinedPages + other.inlinedPages(),
                     inlinedPositions + other.inlinedPositions,
                     inlinedRawBytes + other.inlinedRawBytes,
+                    inlinedEncodedBytes + other.inlinedEncodedBytes,
                     spooledPages + other.spooledPages,
                     spooledPositions + other.spooledPositions,
                     spooledRawBytes + other.spooledRawBytes,
@@ -451,7 +457,7 @@ public class OutputSpoolingOperatorFactory
         @JsonProperty
         public double getEncodedToRawBytesRatio()
         {
-            return 1.0 * spooledEncodedBytes / spooledRawBytes;
+            return 1.0 * (spooledEncodedBytes + inlinedEncodedBytes) / (spooledRawBytes + inlinedRawBytes);
         }
 
         @Override
@@ -469,6 +475,7 @@ public class OutputSpoolingOperatorFactory
                     .add("inlinedPages", inlinedPages)
                     .add("inlinedPositions", inlinedPositions)
                     .add("inlinedRawBytes", inlinedRawBytes)
+                    .add("inlinedEncodedBytes", inlinedEncodedBytes)
                     .add("spooledPages", spooledPages)
                     .add("spooledPositions", spooledPositions)
                     .add("spooledRawBytes", spooledRawBytes)
