@@ -275,8 +275,8 @@ public final class DateTimeFunctions
         }
 
         ZonedDateTime zonedDatetime;
-        if (parsedDatetime instanceof ZonedDateTime) {
-            zonedDatetime = (ZonedDateTime) parsedDatetime;
+        if (parsedDatetime instanceof ZonedDateTime zonDateTime) {
+            zonedDatetime = zonDateTime;
         }
         else {
             zonedDatetime = ((LocalDateTime) parsedDatetime).atZone(session.getTimeZoneKey().getZoneId());

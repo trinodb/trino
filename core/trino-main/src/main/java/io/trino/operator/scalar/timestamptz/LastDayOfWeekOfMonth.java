@@ -36,7 +36,6 @@ public class LastDayOfWeekOfMonth
 
     private LastDayOfWeekOfMonth() {}
 
-
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfWeekOfMonth(
