@@ -120,6 +120,14 @@ public abstract class BaseSqlServerConnectorTest
         }
     }
 
+    @Test
+    public void testSynonyms()
+    {
+        try (TestSynonym synonym = new TestSynonym(onRemoteDatabase(), "test_synonym", "FOR ORDERS")) {
+            assertQueryFails("SELECT orderkey FROM " + synonym.getName(), "line 1:22: Table 'sqlserver.*' does not exist");
+        }
+    }
+
     @Override
     protected void verifyAddNotNullColumnToNonEmptyTableFailurePermissible(Throwable e)
     {
