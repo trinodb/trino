@@ -945,7 +945,7 @@ entityKind
     ;
 
 grantObject
-    : entityKind? qualifiedName
+    : (BRANCH branch=identifier IN)? entityKind? qualifiedName
     ;
 
 ownedEntityKind

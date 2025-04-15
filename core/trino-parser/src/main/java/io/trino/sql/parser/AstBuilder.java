@@ -1691,7 +1691,8 @@ class AstBuilder
         return new GrantObject(
                 location,
                 context.entityKind() == null ? Optional.empty() : Optional.of(context.entityKind().getText()),
-                getQualifiedName(context.qualifiedName()));
+                getQualifiedName(context.qualifiedName()),
+                getIdentifierIfPresent(context.branch));
     }
 
     @Override
