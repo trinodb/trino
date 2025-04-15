@@ -38,7 +38,9 @@ public record DataFileInfo(
 
     public DataFileInfo
     {
+        requireNonNull(path, "path is null");
         requireNonNull(dataFileType, "dataFileType is null");
+        requireNonNull(partitionValues, "partitionValues is null");
         requireNonNull(statistics, "statistics is null");
         requireNonNull(deletionVector, "deletionVector is null");
     }
