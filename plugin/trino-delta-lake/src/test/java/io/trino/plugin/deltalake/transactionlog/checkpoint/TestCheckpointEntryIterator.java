@@ -430,11 +430,11 @@ public class TestCheckpointEntryIterator
                 REGULAR,
                 Optional.empty());
 
-        // "{""numRecords"":1,""minValues"":{""id"":3,""id2"":7},""maxValues"":{""id"":3,""id2"":7},""nullCount"":{""id"":0,""id2"":0}}"
+        // "{"numRecords":1,"minValues":{"id":3,"id2":7},"maxValues":{"id":3,"id2":7},"nullCount":{"id":0,"id2":0}}"
         String addFilePath1 = "part-00000-0199254b-146e-48bb-afe8-a7e9be067d2c-c000.snappy.parquet";
-        // "{""numRecords"":1,""minValues"":{""id"":null,""id2"":null},""maxValues"":{""id"":null,""id2"":null},""nullCount"":{""id"":1,""id2"":1}}"
+        // "{"numRecords":1,"minValues":{"id":null,"id2":null},"maxValues":{"id":null,"id2":null},"nullCount":{"id":1,"id2":1}}"
         String addFilePath2 = "part-00000-c5c7f285-c008-4bc9-897e-5e6296ca92fa-c000.snappy.parquet";
-        // "{""numRecords"":3,""minValues"":{""id"":0,""id2"":1},""maxValues"":{""id"":3,""id2"":4},""nullCount"":{""id"":0,""id2"":0}}"
+        // "{"numRecords":3,"minValues":{"id":0,"id2":1},"maxValues":{"id":3,"id2":4},"nullCount":{"id":0,"id2":0}}"
         String addFilePath3 = "part-00000-6951e6ec-f8d3-4d17-9154-621a959a63d1-c000.snappy.parquet";
 
         CheckpointEntryIterator iterator = createCheckpointEntryIterator(
