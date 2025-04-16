@@ -28,6 +28,8 @@ import io.trino.spi.type.Type;
 import java.util.List;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -137,6 +139,8 @@ class TpchPageSource
     private static class TpchSourcePage
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(TpchSourcePage.class);
+
         private Page page;
         private final boolean[] loaded;
         private long sizeInBytes;
@@ -162,12 +166,17 @@ class TpchPageSource
         @Override
         public long getRetainedSizeInBytes()
         {
-            return page.getRetainedSizeInBytes();
+            return INSTANCE_SIZE +
+                    sizeOf(loaded) +
+                    page.getRetainedSizeInBytes();
         }
 
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(loaded, sizeOf(loaded));
+            consumer.accept(page, Page.getInstanceSizeInBytes(page.getChannelCount()));
             for (int i = 0; i < page.getChannelCount(); i++) {
                 page.getBlock(i).retainedBytesForEachPart(consumer);
             }

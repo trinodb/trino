@@ -66,6 +66,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -467,6 +468,8 @@ public class OrcRecordReader
     private class OrcSourcePage
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(OrcSourcePage.class);
+
         private final int expectedPageId = currentPageId;
         private final Block[] blocks = new Block[columnReaders.length + (appendRowNumberColumn ? 1 : 0)];
         private final int rowNumberColumnIndex = appendRowNumberColumn ? columnReaders.length : -1;
@@ -478,6 +481,7 @@ public class OrcRecordReader
         public OrcSourcePage(int positionCount)
         {
             selectedPositions = new SelectedPositions(positionCount, null);
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
         }
 
         @Override
@@ -498,9 +502,19 @@ public class OrcRecordReader
             return retainedSizeInBytes;
         }
 
+        private long shallowRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(blocks) +
+                    selectedPositions.retainedSizeInBytes();
+        }
+
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(blocks, sizeOf(blocks));
+            consumer.accept(selectedPositions, selectedPositions.retainedSizeInBytes());
             for (Block block : blocks) {
                 if (block != null) {
                     block.retainedBytesForEachPart(consumer);
@@ -557,7 +571,7 @@ public class OrcRecordReader
         public void selectPositions(int[] positions, int offset, int size)
         {
             selectedPositions = selectedPositions.selectPositions(positions, offset, size);
-            retainedSizeInBytes = 0;
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
@@ -571,6 +585,13 @@ public class OrcRecordReader
 
     private record SelectedPositions(int positionCount, @Nullable int[] positions)
     {
+        private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
+
+        public long retainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(positions);
+        }
+
         @CheckReturnValue
         public Block apply(Block block)
         {
