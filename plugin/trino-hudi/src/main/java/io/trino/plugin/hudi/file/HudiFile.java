@@ -11,19 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi.query;
+package io.trino.plugin.hudi.file;
 
-import io.trino.plugin.hudi.partition.HudiPartitionInfo;
-import org.apache.hudi.common.model.FileSlice;
-
-import java.io.Closeable;
-import java.util.List;
-import java.util.Optional;
-
-public interface HudiDirectoryLister
-        extends Closeable
+public interface HudiFile
 {
-    List<FileSlice> listStatus(HudiPartitionInfo partitionInfo, String commitTime);
+    String getPath();
 
-    Optional<HudiPartitionInfo> getPartitionInfo(String partition);
+    long getFileSize();
+
+    long getModificationTime();
+
+    long getStart();
+
+    long getLength();
 }
