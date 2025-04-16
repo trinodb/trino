@@ -11,19 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hudi.file;
+package io.trino.plugin.hudi.util;
 
-public interface HudiFile
+import io.trino.spi.block.BlockBuilder;
+
+public interface SynthesizedColumnStrategy
 {
-    String getPath();
-
-    String getFileName();
-
-    long getFileSize();
-
-    long getModificationTime();
-
-    long getStart();
-
-    long getLength();
+    void appendToBlock(BlockBuilder blockBuilder);
 }

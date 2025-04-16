@@ -44,7 +44,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -69,7 +68,6 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 
 public class HudiAvroSerializer
 {
@@ -91,64 +89,49 @@ public class HudiAvroSerializer
     private final List<HiveColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private final Schema schema;
+    private final SynthesizedColumnHandler synthesizedColumnHandler;
 
-    public HudiAvroSerializer(List<HiveColumnHandle> columnHandles)
+    public HudiAvroSerializer(List<HiveColumnHandle> columnHandles, SynthesizedColumnHandler synthesizedColumnHandler)
     {
         this.columnHandles = columnHandles;
         this.columnTypes = columnHandles.stream().map(HiveColumnHandle::getType).toList();
-        this.schema = constructSchema(columnHandles.stream().map(HiveColumnHandle::getName).toList(),
-                columnHandles.stream().map(HiveColumnHandle::getHiveType).toList(), false);
+        // Fetches projected schema
+        this.schema = constructSchema(
+                columnHandles.stream().filter(ch -> !ch.isHidden()).map(HiveColumnHandle::getName).toList(),
+                columnHandles.stream().filter(ch -> !ch.isHidden()).map(HiveColumnHandle::getHiveType).toList(),
+                false);
+        this.synthesizedColumnHandler = synthesizedColumnHandler;
     }
 
-    public IndexedRecord serialize(SourcePage page, int position)
+    public IndexedRecord serialize(SourcePage sourcePage, int position)
     {
         IndexedRecord record = new GenericData.Record(schema);
         for (int i = 0; i < columnTypes.size(); i++) {
-            Object value = getValue(page, i, position);
+            Object value = getValue(sourcePage, i, position);
             record.put(i, value);
         }
         return record;
     }
 
-    public Object getValue(SourcePage page, int channel, int position)
+    public Object getValue(SourcePage sourcePage, int channel, int position)
     {
-        return columnTypes.get(channel).getObjectValue(null, page.getBlock(channel), position);
+        return columnTypes.get(channel).getObjectValue(null, sourcePage.getBlock(channel), position);
     }
 
-    public void buildRecordInPage(PageBuilder pageBuilder, IndexedRecord record,
-            Map<Integer, String> partitionValueMap, boolean SkipMetaColumns)
+    public void buildRecordInPage(PageBuilder pageBuilder, IndexedRecord record)
     {
         pageBuilder.declarePosition();
-        int startChannel = SkipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
         int blockSeq = 0;
-        int nonPartitionChannel = startChannel;
-        for (int channel = startChannel; channel < columnTypes.size() + partitionValueMap.size(); channel++, blockSeq++) {
+        for (int channel = 0; channel < columnTypes.size(); channel++, blockSeq++) {
             BlockBuilder output = pageBuilder.getBlockBuilder(blockSeq);
-            if (partitionValueMap.containsKey(channel)) {
-                appendTo(VarcharType.VARCHAR, partitionValueMap.get(channel), output);
+            HiveColumnHandle columnHandle = columnHandles.get(channel);
+            if (synthesizedColumnHandler.isSynthesizedColumn(columnHandle)) {
+                synthesizedColumnHandler.getColumnStrategy(columnHandle).appendToBlock(output);
             }
             else {
-                appendTo(columnTypes.get(nonPartitionChannel), record.get(nonPartitionChannel), output);
-                nonPartitionChannel++;
-            }
-        }
-    }
-
-    public void buildRecordInPage(PageBuilder pageBuilder, SourcePage page, int position,
-            Map<Integer, String> partitionValueMap, boolean SkipMetaColumns)
-    {
-        pageBuilder.declarePosition();
-        int startChannel = SkipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
-        int blockSeq = 0;
-        int nonPartitionChannel = startChannel;
-        for (int channel = startChannel; channel < columnTypes.size() + partitionValueMap.size(); channel++, blockSeq++) {
-            BlockBuilder output = pageBuilder.getBlockBuilder(blockSeq);
-            if (partitionValueMap.containsKey(channel)) {
-                appendTo(VarcharType.VARCHAR, partitionValueMap.get(channel), output);
-            }
-            else {
-                appendTo(columnTypes.get(nonPartitionChannel), getValue(page, nonPartitionChannel, position), output);
-                nonPartitionChannel++;
+                // Record may not be projected, get index from it
+                int fieldPosInSchema = record.getSchema().getField(columnHandle.getName()).pos();
+                appendTo(columnTypes.get(channel), record.get(fieldPosInSchema), output);
             }
         }
     }

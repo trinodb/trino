@@ -19,6 +19,7 @@ import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.file.HudiBaseFile;
+import io.trino.plugin.hudi.file.HudiLogFile;
 import io.trino.spi.TrinoException;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieBaseFile;
@@ -52,7 +53,7 @@ public class HudiSplitFactory
     public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime)
     {
         if (fileSlice.isEmpty()) {
-            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice.toString()));
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice));
         }
 
         if (fileSlice.getLogFiles().findAny().isEmpty()) {
@@ -104,7 +105,7 @@ public class HudiSplitFactory
         return Collections.singletonList(
                 new HudiSplit(
                         baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
-                        fileSlice.getLogFiles().map(e -> e.getPath().toString()).toList(),
+                        fileSlice.getLogFiles().map(HudiLogFile::of).toList(),
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
