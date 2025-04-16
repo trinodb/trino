@@ -14,14 +14,21 @@
 package io.trino.plugin.hudi.split;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.units.DataSize;
 import io.trino.plugin.hive.HivePartitionKey;
-import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.HudiTableHandle;
+import io.trino.plugin.hudi.file.HudiBaseFile;
 import io.trino.spi.TrinoException;
+import org.apache.hudi.common.model.FileSlice;
+import org.apache.hudi.common.model.HoodieBaseFile;
+import org.apache.hudi.common.util.Option;
 
+import java.util.Collections;
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -29,6 +36,7 @@ import static java.util.Objects.requireNonNull;
 public class HudiSplitFactory
 {
     private static final double SPLIT_SLOP = 1.1;   // 10% slop/overflow allowed in bytes per split while generating splits
+    private static final long MIN_BLOCK_SIZE = DataSize.of(32, MEGABYTE).toBytes();
 
     private final HudiTableHandle hudiTableHandle;
     private final HudiSplitWeightProvider hudiSplitWeightProvider;
@@ -41,53 +49,65 @@ public class HudiSplitFactory
         this.hudiSplitWeightProvider = requireNonNull(hudiSplitWeightProvider, "hudiSplitWeightProvider is null");
     }
 
-    public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, HudiFileStatus fileStatus)
+    public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime)
     {
-        if (fileStatus.isDirectory()) {
-            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid location: %s", fileStatus.location()));
+        if (fileSlice.isEmpty()) {
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice.toString()));
         }
 
-        long fileSize = fileStatus.length();
+        if (fileSlice.getLogFiles().findAny().isEmpty()) {
+            // Base file only
+            checkArgument(fileSlice.getBaseFile().isPresent(),
+                    "Hudi base file must exist if there is no log file in the file slice");
+            HoodieBaseFile baseFile = fileSlice.getBaseFile().get();
+            long fileSize = baseFile.getFileSize();
 
-        if (fileSize == 0) {
-            return ImmutableList.of(new HudiSplit(
-                    fileStatus.location().toString(),
-                    0,
-                    fileSize,
-                    fileSize,
-                    fileStatus.modificationTime(),
-                    hudiTableHandle.getRegularPredicates(),
-                    partitionKeys,
-                    hudiSplitWeightProvider.calculateSplitWeight(fileSize)));
+            if (fileSize == 0) {
+                return ImmutableList.of(new HudiSplit(
+                        HudiBaseFile.of(baseFile),
+                        Collections.emptyList(),
+                        commitTime,
+                        hudiTableHandle.getRegularPredicates(),
+                        partitionKeys,
+                        hudiSplitWeightProvider.calculateSplitWeight(fileSize)
+                ));
+            }
+
+            ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
+            long splitSize = Math.max(MIN_BLOCK_SIZE, baseFile.getPathInfo().getBlockSize());
+
+            long bytesRemaining = fileSize;
+            while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
+                splits.add(new HudiSplit(
+                        HudiBaseFile.of(baseFile, fileSize - bytesRemaining, splitSize),
+                        Collections.emptyList(),
+                        commitTime,
+                        hudiTableHandle.getRegularPredicates(),
+                        partitionKeys,
+                        hudiSplitWeightProvider.calculateSplitWeight(splitSize)));
+                bytesRemaining -= splitSize;
+            }
+            if (bytesRemaining > 0) {
+                splits.add(new HudiSplit(
+                        HudiBaseFile.of(baseFile, fileSize - bytesRemaining, bytesRemaining),
+                        Collections.emptyList(),
+                        commitTime,
+                        hudiTableHandle.getRegularPredicates(),
+                        partitionKeys,
+                        hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining)));
+            }
+            return splits.build();
         }
 
-        ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
-        long splitSize = fileStatus.blockSize();
-
-        long bytesRemaining = fileSize;
-        while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
-            splits.add(new HudiSplit(
-                    fileStatus.location().toString(),
-                    fileSize - bytesRemaining,
-                    splitSize,
-                    fileSize,
-                    fileStatus.modificationTime(),
-                    hudiTableHandle.getRegularPredicates(),
-                    partitionKeys,
-                    hudiSplitWeightProvider.calculateSplitWeight(splitSize)));
-            bytesRemaining -= splitSize;
-        }
-        if (bytesRemaining > 0) {
-            splits.add(new HudiSplit(
-                    fileStatus.location().toString(),
-                    fileSize - bytesRemaining,
-                    bytesRemaining,
-                    fileSize,
-                    fileStatus.modificationTime(),
-                    hudiTableHandle.getRegularPredicates(),
-                    partitionKeys,
-                    hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining)));
-        }
-        return splits.build();
+        // Base and log files
+        Option<HoodieBaseFile> baseFileOption = fileSlice.getBaseFile();
+        return Collections.singletonList(
+                new HudiSplit(
+                        baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
+                        fileSlice.getLogFiles().map(e -> e.getPath().toString()).toList(),
+                        commitTime,
+                        hudiTableHandle.getRegularPredicates(),
+                        partitionKeys,
+                        hudiSplitWeightProvider.calculateSplitWeight(fileSlice.getTotalFileSize())));
     }
 }

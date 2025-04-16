@@ -42,6 +42,7 @@ public class HudiSessionProperties
         implements SessionPropertiesProvider
 {
     private static final String COLUMNS_TO_HIDE = "columns_to_hide";
+    private static final String METADATA_TABLE_ENABLED = "metadata_enabled";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
@@ -71,6 +72,11 @@ public class HudiSessionProperties
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value),
+                booleanProperty(
+                        METADATA_TABLE_ENABLED,
+                        "For Hudi tables prefer to fetch the list of files from its metadata table",
+                        hudiConfig.isMetadataEnabled(),
+                        false),
                 booleanProperty(
                         USE_PARQUET_COLUMN_NAMES,
                         "Access parquet columns using names from the file. If disabled, then columns are accessed using index.",
@@ -144,6 +150,11 @@ public class HudiSessionProperties
     public static List<String> getColumnsToHide(ConnectorSession session)
     {
         return (List<String>) session.getProperty(COLUMNS_TO_HIDE, List.class);
+    }
+
+    public static boolean isHudiMetadataTableEnabled(ConnectorSession session)
+    {
+        return session.getProperty(METADATA_TABLE_ENABLED, Boolean.class);
     }
 
     public static boolean shouldUseParquetColumnNames(ConnectorSession session)

@@ -13,8 +13,7 @@
  */
 package io.trino.plugin.hudi.query;
 
-import io.airlift.log.Logger;
-import io.airlift.units.DataSize;
+import com.google.common.collect.ImmutableList;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
@@ -22,14 +21,14 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HiveHudiPartitionInfo;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
+import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
+import org.apache.hudi.common.config.HoodieMetadataConfig;
+import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.model.FileSlice;
-import org.apache.hudi.common.model.HoodieBaseFile;
-import org.apache.hudi.common.model.HoodieFileGroupId;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
-import org.apache.hudi.storage.StoragePathInfo;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,28 +37,28 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-public class HudiReadOptimizedDirectoryLister
+public class HudiSnapshotDirectoryLister
         implements HudiDirectoryLister
 {
-    private static final Logger LOG = Logger.get(HudiReadOptimizedDirectoryLister.class);
-
     private final HoodieTableFileSystemView fileSystemView;
     private final List<Column> partitionColumns;
     private final Map<String, HudiPartitionInfo> allPartitionInfoMap;
 
-    public HudiReadOptimizedDirectoryLister(
+    public HudiSnapshotDirectoryLister(
             HudiTableHandle tableHandle,
             HoodieTableMetaClient metaClient,
+            boolean enableMetadataTable,
             HiveMetastore hiveMetastore,
             Table hiveTable,
             List<HiveColumnHandle> partitionColumnHandles,
             List<String> hivePartitionNames,
-            boolean ignoreAbsentPartitions)
+            String commitTime)
     {
-        this.fileSystemView = new HoodieTableFileSystemView(
-                metaClient,
-                metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants(),
-                ignoreAbsentPartitions);
+        HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
+                .enable(enableMetadataTable)
+                .build();
+        this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(
+                new HoodieLocalEngineContext(new TrinoStorageConfiguration()), metaClient, metadataConfig);
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.allPartitionInfoMap = hivePartitionNames.stream()
                 .collect(Collectors.toMap(
@@ -76,15 +75,9 @@ public class HudiReadOptimizedDirectoryLister
     @Override
     public List<FileSlice> listStatus(HudiPartitionInfo partitionInfo, String commitTime)
     {
-        LOG.debug("List partition: partitionInfo=%s", partitionInfo);
-        String partition = partitionInfo.getRelativePartitionPath();
-        return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
-                .map(baseFile -> new FileSlice(
-                        new HoodieFileGroupId(partition, baseFile.getFileId()),
-                        baseFile.getCommitTime(),
-                        baseFile,
-                        Collections.emptyList()))
+        ImmutableList<FileSlice> collect = fileSystemView.getLatestFileSlicesBeforeOrOn(partitionInfo.getRelativePartitionPath(), commitTime, false)
                 .collect(toImmutableList());
+        return collect;
     }
 
     @Override
@@ -99,13 +92,5 @@ public class HudiReadOptimizedDirectoryLister
         if (fileSystemView != null && !fileSystemView.isClosed()) {
             fileSystemView.close();
         }
-    }
-
-    private static StoragePathInfo getStoragePathInfo(HoodieBaseFile baseFile)
-    {
-        if (baseFile.getBootstrapBaseFile().isPresent()) {
-            return baseFile.getBootstrapBaseFile().get().getPathInfo();
-        }
-        return baseFile.getPathInfo();
     }
 }

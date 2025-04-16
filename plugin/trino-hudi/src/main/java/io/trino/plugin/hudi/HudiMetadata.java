@@ -16,6 +16,7 @@ package io.trino.plugin.hudi;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
@@ -23,6 +24,8 @@ import io.trino.metastore.Table;
 import io.trino.metastore.TableInfo;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hudi.storage.TrinoHudiStorage;
+import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -40,6 +43,9 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
+import org.apache.hudi.common.table.HoodieTableConfig;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.storage.StoragePath;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -119,15 +125,20 @@ public class HudiMetadata
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
         }
         Location location = Location.of(table.get().getStorage().getLocation());
-        if (!hudiMetadataExists(fileSystemFactory.create(session), location)) {
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        if (!hudiMetadataExists(fileSystem, location)) {
             throw new TrinoException(HUDI_BAD_DATA, "Location of table %s does not contain Hudi table metadata: %s".formatted(tableName, location));
         }
+        StoragePath metaLocation = new StoragePath(table.get().getStorage().getLocation(), HoodieTableMetaClient.METAFOLDER_NAME);
+        HoodieTableConfig tableConfig = new HoodieTableConfig(new TrinoHudiStorage(fileSystem, new TrinoStorageConfiguration()), metaLocation, null, null, null);
+        String preCombineField = tableConfig.getPreCombineField();
 
         return new HudiTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
                 table.get().getStorage().getLocation(),
                 COPY_ON_WRITE,
+                preCombineField,
                 getPartitionKeyColumnHandles(table.get(), typeManager),
                 TupleDomain.all(),
                 TupleDomain.all());
