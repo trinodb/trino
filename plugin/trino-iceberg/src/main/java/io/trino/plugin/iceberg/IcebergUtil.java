@@ -101,6 +101,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.builderWithExpectedSize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -257,12 +258,14 @@ public final class IcebergUtil
 
     public static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager)
     {
+        schema = removeEmptyStructType(schema);
         Map<Integer, NestedField> indexById = TypeUtil.indexById(schema.asStruct());
         return getProjectedColumns(schema, typeManager, indexById, indexById.keySet() /* project all columns */);
     }
 
     public static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager, Set<Integer> fieldIds)
     {
+        schema = removeEmptyStructType(schema);
         Map<Integer, NestedField> indexById = TypeUtil.indexById(schema.asStruct());
         return getProjectedColumns(schema, typeManager, indexById, fieldIds /* project selected columns */);
     }
@@ -394,13 +397,31 @@ public final class IcebergUtil
     public static List<IcebergColumnHandle> getTopLevelColumns(Schema schema, TypeManager typeManager)
     {
         return schema.columns().stream()
+                .filter(Predicate.not(IcebergUtil::isEmptyStructType))
                 .map(column -> getColumnHandle(column, typeManager))
                 .collect(toImmutableList());
     }
 
+    // Remove unsupported empty field struct type from schema
+    public static Schema removeEmptyStructType(Schema schema)
+    {
+        List<String> columns = schema.columns().stream()
+                .filter(Predicate.not(IcebergUtil::isEmptyStructType))
+                .map(Types.NestedField::name)
+                .collect(toImmutableList());
+        checkState(!columns.isEmpty(), "Empty schema");
+        return schema.select(columns);
+    }
+
+    // Iceberg allows struct type column with emtpy fields
+    private static boolean isEmptyStructType(NestedField column)
+    {
+        return column.type() instanceof StructType type && type.fields().isEmpty();
+    }
+
     public static List<ColumnMetadata> getColumnMetadatas(Schema schema, TypeManager typeManager)
     {
-        List<NestedField> icebergColumns = schema.columns();
+        List<NestedField> icebergColumns = removeEmptyStructType(schema).columns();
         ImmutableList.Builder<ColumnMetadata> columns = builderWithExpectedSize(icebergColumns.size() + 2);
 
         icebergColumns.stream()
