@@ -168,6 +168,7 @@ public class ResourceHudiTablesInitializer
         STOCK_TICKS_COW(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
         STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
         HUDI_STOCK_TICKS_MOR(metadataStockTicksRegularColumns(), metadataStockTicksPartitionColumns(), metadataStockTicksPartitions()),
+        HUDI_MULTI_FG_PT_MOR(hudiMultiFgRegularColumns(), hudiMultiFgPartitionsColumn(), hudiMultiFgPartitions()),
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
@@ -201,6 +202,30 @@ public class ResourceHudiTablesInitializer
         private static Map<String, String> metadataStockTicksPartitions()
         {
             return ImmutableMap.of("date=2018-08-31", "2018/08/31");
+        }
+
+        private static List<Column> hudiMultiFgRegularColumns()
+        {
+            return ImmutableList.of(
+                    column("id", HIVE_INT),
+                    column("name", HIVE_STRING),
+                    column("price", HIVE_DOUBLE),
+                    column("ts", HIVE_LONG)
+            );
+        }
+
+        private static List<Column> hudiMultiFgPartitionsColumn()
+        {
+            return ImmutableList.of(
+                    column("country", HIVE_STRING)
+            );
+        }
+
+        private static Map<String, String> hudiMultiFgPartitions()
+        {
+            return ImmutableMap.of(
+                    "country=SG", "country=SG",
+                    "country=US", "country=US");
         }
 
         private final List<Column> regularColumns;

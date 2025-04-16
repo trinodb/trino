@@ -109,7 +109,9 @@ public class HudiSplitSource
                             "Failed to generate splits for " + table.getSchemaTableName(), throwable));
                     queue.finish();
                 },
-                latestCommitTime);
+                latestCommitTime,
+                enableMetadataTable,
+                metaClient);
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
     }
 

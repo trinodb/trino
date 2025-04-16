@@ -27,12 +27,12 @@ public class HudiPredicates
     private final TupleDomain<HiveColumnHandle> partitionColumnPredicates;
     private final TupleDomain<HiveColumnHandle> regularColumnPredicates;
 
-    public static HudiPredicates from(TupleDomain<ColumnHandle> predicate)
+    public static HudiPredicates from(TupleDomain<? extends ColumnHandle> predicate)
     {
         Map<HiveColumnHandle, Domain> partitionColumnPredicates = new HashMap<>();
         Map<HiveColumnHandle, Domain> regularColumnPredicates = new HashMap<>();
 
-        Optional<Map<ColumnHandle, Domain>> domains = predicate.getDomains();
+        Optional<? extends Map<? extends ColumnHandle, Domain>> domains = predicate.getDomains();
         domains.ifPresent(columnHandleDomainMap -> columnHandleDomainMap.forEach((key, value) -> {
             HiveColumnHandle columnHandle = (HiveColumnHandle) key;
             if (columnHandle.isPartitionKey()) {

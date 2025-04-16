@@ -52,6 +52,11 @@ public class HudiSplitFactory
 
     public List<HudiSplit> createSplits(List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime)
     {
+        return createHudiSplits(hudiTableHandle, partitionKeys, fileSlice, commitTime, hudiSplitWeightProvider);
+    }
+
+    public static List<HudiSplit> createHudiSplits(HudiTableHandle hudiTableHandle, List<HivePartitionKey> partitionKeys, FileSlice fileSlice, String commitTime, HudiSplitWeightProvider hudiSplitWeightProvider)
+    {
         if (fileSlice.isEmpty()) {
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice));
         }
@@ -97,18 +102,16 @@ public class HudiSplitFactory
                         partitionKeys,
                         hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining)));
             }
-            return splits.build();
         }
 
         // Base and log files
         Option<HoodieBaseFile> baseFileOption = fileSlice.getBaseFile();
-        return Collections.singletonList(
-                new HudiSplit(
-                        baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
-                        fileSlice.getLogFiles().map(HudiLogFile::of).toList(),
-                        commitTime,
-                        hudiTableHandle.getRegularPredicates(),
-                        partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(fileSlice.getTotalFileSize())));
+        return ImmutableList.of(new HudiSplit(
+                baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
+                fileSlice.getLogFiles().map(HudiLogFile::of).toList(),
+                commitTime,
+                hudiTableHandle.getRegularPredicates(),
+                partitionKeys,
+                hudiSplitWeightProvider.calculateSplitWeight(fileSlice.getTotalFileSize())));
     }
 }

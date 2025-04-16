@@ -20,13 +20,16 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.time.ZonedDateTime;
 
+import static io.trino.plugin.hudi.HudiSessionProperties.METADATA_TABLE_ENABLED;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
@@ -154,6 +157,33 @@ public class TestHudiSmokeTest
         assertThat(toInputFile(path).exists()).isTrue();
         path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_STOCK_TICKS_MOR + " WHERE volume = 6794");
         assertThat(toInputFile(path).exists()).isTrue();
+    }
+
+    @Test
+    public void testPartitionPruningReadMultiFgPartitionedMORTableVer8()
+    {
+        Session session = withMetadataEnabled(getSession());
+        getQueryRunner().execute(session, "SET SESSION hudi.metadata_enabled=true");
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG'");
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // With Partition pruning, only 2 splits in the partition should be returned
+        assertThat(prunedSplits).isEqualTo(2);
+    }
+
+    @Test
+    public void testColStatsFileSkipping()
+    {
+        Session session = withMetadataEnabled(getSession());
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG' AND name='a1'");
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // With colstats file skipping, only 1 split should be returned
+        assertThat(prunedSplits).isEqualTo(1);
     }
 
     @Test
@@ -386,5 +416,12 @@ public class TestHudiSmokeTest
                 .getInstance(TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"))
                 .newInputFile(Location.of(path));
+    }
+
+    private static Session withMetadataEnabled(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), METADATA_TABLE_ENABLED, "true")
+                .build();
     }
 }
