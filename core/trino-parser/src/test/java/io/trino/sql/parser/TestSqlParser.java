@@ -1807,35 +1807,65 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty()));
 
-        assertStatement("SELECT * FROM table1 GROUP BY AUTO",
-                simpleQuery(
-                        selectList(new AllColumns()),
-                        new Table(QualifiedName.of("table1")),
+        assertThat(statement("SELECT * FROM table1 GROUP BY AUTO"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty(),
-                        Optional.of(new GroupBy(false, ImmutableList.of(new AutoGroupBy(location(1, 1))))),
-                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8), Optional.empty(), ImmutableList.of()))),
+                                Optional.of(new Table(location(1, 15), qualifiedName(location(1, 15), "table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(location(1, 31), false, ImmutableList.of(new AutoGroupBy(location(1, 31))))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
 
-        assertStatement("SELECT * FROM table1 GROUP BY ALL AUTO",
-                simpleQuery(
-                        selectList(new AllColumns()),
-                        new Table(QualifiedName.of("table1")),
+        assertThat(statement("SELECT * FROM table1 GROUP BY ALL AUTO"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty(),
-                        Optional.of(new GroupBy(false, ImmutableList.of(new AutoGroupBy(location(1, 1))))),
-                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8), Optional.empty(), ImmutableList.of()))),
+                                Optional.of(new Table(location(1, 15), qualifiedName(location(1, 15), "table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(location(1, 31), false, ImmutableList.of(new AutoGroupBy(location(1, 35))))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
 
-        assertStatement("SELECT * FROM table1 GROUP BY DISTINCT AUTO",
-                simpleQuery(
-                        selectList(new AllColumns()),
-                        new Table(QualifiedName.of("table1")),
+        assertThat(statement("SELECT * FROM table1 GROUP BY DISTINCT AUTO"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty(),
-                        Optional.of(new GroupBy(true, ImmutableList.of(new AutoGroupBy(location(1, 1))))),
-                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8), Optional.empty(), ImmutableList.of()))),
+                                Optional.of(new Table(location(1, 15), qualifiedName(location(1, 15), "table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(location(1, 31), true, ImmutableList.of(new AutoGroupBy(location(1, 40))))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));

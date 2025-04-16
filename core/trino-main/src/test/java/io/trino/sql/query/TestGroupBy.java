@@ -253,5 +253,80 @@ public class TestGroupBy
                 GROUP BY DISTINCT AUTO
                 """))
                 .matches("VALUES (BIGINT '2')");
+
+        // ROLLUP
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY AUTO, ROLLUP(b)
+                """))
+                .matches("VALUES (1, BIGINT '10'), (1, BIGINT '20'), (1, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL AUTO, ROLLUP(b)
+                """))
+                .matches("VALUES (1, BIGINT '10'), (1, BIGINT '20'), (1, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY DISTINCT AUTO, ROLLUP(a)
+                """))
+                .matches("VALUES (1, BIGINT '30')");
+
+        // CUBE
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY AUTO, CUBE(b)
+                """))
+                .matches("VALUES (1, BIGINT '10'), (1, BIGINT '20'), (1, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL AUTO, CUBE(b)
+                """))
+                .matches("VALUES (1, BIGINT '10'), (1, BIGINT '20'), (1, BIGINT '30')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY DISTINCT AUTO, CUBE(a)
+                """))
+                .matches("VALUES (1, BIGINT '30')");
+
+        // GROUPING SETS
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY AUTO, GROUPING SETS((b))
+                """))
+                .matches("VALUES (1, BIGINT '10'), (1, BIGINT '20')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY ALL AUTO, GROUPING SETS((b))
+                """))
+                .matches("VALUES (1, BIGINT '10'), (1, BIGINT '20')");
+
+        assertThat(assertions.query(
+                """
+                SELECT a, sum(b)
+                FROM (VALUES (1, 10), (1, 20)) t(a, b)
+                GROUP BY DISTINCT AUTO, GROUPING SETS((a))
+                """))
+                .matches("VALUES (1, BIGINT '30')");
     }
 }
