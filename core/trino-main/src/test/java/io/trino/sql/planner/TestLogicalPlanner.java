@@ -2580,6 +2580,18 @@ public class TestLogicalPlanner
                                         .right(exchange(tableScan("nation"))))))));
     }
 
+    @Test
+    public void testRewriteExcludeColumnsFunctionToProjection()
+    {
+        assertPlan("""
+                   SELECT *
+                   FROM TABLE(system.builtin.exclude_columns(
+                       INPUT => TABLE(orders),
+                       COLUMNS => DESCRIPTOR(comment)))
+                   """,
+                output(tableScan("orders")));
+    }
+
     private Session noJoinReordering()
     {
         return Session.builder(getPlanTester().getDefaultSession())

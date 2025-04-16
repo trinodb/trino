@@ -67,7 +67,7 @@ public final class Standard
 {
     private static final Logger log = Logger.get(Standard.class);
     private static final int COLLECTOR_UI_PORT = 16686;
-    private static final int COLLECTOR_GRPC_PORT = 4317;
+    private static final int COLLECTOR_HTTP_PORT = 4318;
 
     public static final String CONTAINER_HEALTH_D = "/etc/health.d/";
     public static final String CONTAINER_CONF_ROOT = "/docker/trino-product-tests/";
@@ -165,7 +165,7 @@ public final class Standard
                 });
 
         portBinder.exposePort(container, COLLECTOR_UI_PORT); // UI port
-        portBinder.exposePort(container, COLLECTOR_GRPC_PORT);  // OpenTelemetry over gRPC
+        portBinder.exposePort(container, COLLECTOR_HTTP_PORT);  // OpenTelemetry over HTTP
         return container;
     }
 
@@ -287,8 +287,9 @@ public final class Standard
                     """
                     #!/bin/bash
                     echo 'tracing.enabled=true' >> '%1$s'
-                    echo 'tracing.exporter.endpoint=http://opentracing-collector.docker.cluster:%2$d' >> '%1$s'
-                    """.formatted(CONTAINER_TRINO_CONFIG_PROPERTIES, COLLECTOR_GRPC_PORT),
+                    echo 'tracing.exporter.protocol=http/protobuf' >> '%1$s'
+                    echo 'tracing.exporter.endpoint=http://opentracing-collector.docker.cluster:%2$d/v1/traces' >> '%1$s'
+                    """.formatted(CONTAINER_TRINO_CONFIG_PROPERTIES, COLLECTOR_HTTP_PORT),
                     UTF_8);
             container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-tracing.sh");
         }

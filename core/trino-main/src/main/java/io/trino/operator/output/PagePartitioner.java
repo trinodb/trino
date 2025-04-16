@@ -28,6 +28,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.util.Ciphers;
@@ -192,7 +193,7 @@ public class PagePartitioner
      * that amount in {@link #outputSizeReportedBeforeRelease}. If the {@link PagePartitioner} is reused after having reported buffered bytes eagerly,
      * we then have to subtract that same amount from the subsequent output bytes to avoid double counting them.
      */
-    public void prepareForRelease(OperatorContext operatorContext)
+    public Metrics prepareForRelease(OperatorContext operatorContext)
     {
         long bufferedSizeInBytes = 0;
         long outputSizeInBytes = 0;
@@ -215,6 +216,7 @@ public class PagePartitioner
         outputSizeInBytes = adjustFlushedOutputSizeWithEagerlyReportedBytes(outputSizeInBytes);
         bufferedSizeInBytes = adjustEagerlyReportedBytesWithBufferedBytesOnRelease(bufferedSizeInBytes);
         operatorContext.recordOutput(outputSizeInBytes + bufferedSizeInBytes, 0 /* no new positions */);
+        return serializer.getAndResetMetrics();
     }
 
     public void partitionPageByRow(Page page)
@@ -526,5 +528,10 @@ public class PagePartitioner
         }
         retainedSizeInBytes += serializer.getRetainedSizeInBytes();
         memoryContext.setBytes(retainedSizeInBytes);
+    }
+
+    public Metrics getMetrics()
+    {
+        return serializer.getMetrics();
     }
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>242</version>
+        <version>251</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -180,7 +180,7 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>326</dep.airlift.version>
+        <dep.airlift.version>331</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
@@ -189,7 +189,7 @@
         <dep.confluent.version>7.8.0</dep.confluent.version>
         <dep.docker.images.version>110</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>11.5.0</dep.flyway.version>
+        <dep.flyway.version>11.7.1</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
@@ -198,16 +198,15 @@
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
         <dep.iceberg.version>1.8.1</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
-        <dep.joda.version>2.13.1</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
-        <dep.okio.version>3.10.2</dep.okio.version>
+        <dep.okio.version>3.11.0</dep.okio.version>
         <dep.parquet.version>1.15.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.6</dep.protobuf.version>
-        <dep.snowflake.version>3.23.1</dep.snowflake.version>
-        <dep.swagger.version>2.2.29</dep.swagger.version>
+        <dep.snowflake.version>3.23.2</dep.snowflake.version>
+        <dep.swagger.version>2.2.30</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
         <dep.tcnative.version>2.0.70.Final</dep.tcnative.version>
         <dep.tempto.version>202</dep.tempto.version>
@@ -235,7 +234,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.57.0</version>
+                <version>26.59.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -307,7 +306,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.10</version>
+                <version>2.31.22</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -315,7 +314,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>3.12.0</version>
+                <version>4.0.0</version>
             </dependency>
 
             <dependency>
@@ -428,7 +427,7 @@
             <dependency>
                 <groupId>com.exasol</groupId>
                 <artifactId>exasol-jdbc</artifactId>
-                <version>25.2.2</version>
+                <version>25.2.3</version>
             </dependency>
 
             <dependency>
@@ -446,7 +445,7 @@
             <dependency>
                 <groupId>com.github.docker-java</groupId>
                 <artifactId>docker-java-api</artifactId>
-                <version>3.4.2</version>
+                <version>3.5.0</version>
             </dependency>
 
             <dependency>
@@ -458,7 +457,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.8.0</version>
+                <version>6.8.1</version>
             </dependency>
 
             <dependency>
@@ -470,7 +469,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>3.1.0</version>
+                <version>3.1.1</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -484,7 +483,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.12.1</version>
+                <version>2.13.0</version>
             </dependency>
 
             <dependency>
@@ -538,7 +537,7 @@
             <dependency>
                 <groupId>com.microsoft.sqlserver</groupId>
                 <artifactId>mssql-jdbc</artifactId>
-                <version>12.8.1.jre11</version>
+                <version>12.10.0.jre11</version>
             </dependency>
 
             <dependency>
@@ -556,7 +555,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>10.0.2</version>
+                <version>10.2</version>
             </dependency>
 
             <dependency>
@@ -611,7 +610,7 @@
             <dependency>
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
-                <version>2.18.0</version>
+                <version>2.19.0</version>
             </dependency>
 
             <dependency>
@@ -906,13 +905,13 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.7.4</version>
+                <version>3.7.5</version>
             </dependency>
 
             <dependency>
                 <groupId>io.projectreactor.netty</groupId>
                 <artifactId>reactor-netty-core</artifactId>
-                <version>1.1.28</version>
+                <version>1.1.29</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -1177,6 +1176,13 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-jdbc</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-jdbc</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -2193,7 +2199,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.49.1</version>
+                <version>3.49.2</version>
             </dependency>
 
             <dependency>
@@ -2205,7 +2211,7 @@
             <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-xml</artifactId>
-                <version>4.0.4</version>
+                <version>4.1.0</version>
             </dependency>
 
             <dependency>
@@ -2705,6 +2711,21 @@
                                 </conflictingDependencies>
                                 <packages>
                                     <package>shaded.parquet.it.unimi.dsi.fastutil</package>
+                                </packages>
+                            </exception>
+                            <exception>
+                                <conflictingDependencies>
+                                    <dependency>
+                                        <groupId>org.apache.orc</groupId>
+                                        <artifactId>orc-core</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>org.apache.orc</groupId>
+                                        <artifactId>orc-format</artifactId>
+                                    </dependency>
+                                </conflictingDependencies>
+                                <packages>
+                                    <package>org.apache.orc</package>
                                 </packages>
                             </exception>
                             <exception>

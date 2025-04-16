@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.FileWriter;
+import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Metrics;
 
 import java.util.List;
@@ -22,6 +24,15 @@ import java.util.Optional;
 public interface IcebergFileWriter
         extends FileWriter
 {
+    FileFormat fileFormat();
+
+    String location();
+
+    default List<String> rewrittenDeleteFiles()
+    {
+        return ImmutableList.of();
+    }
+
     FileMetrics getFileMetrics();
 
     record FileMetrics(Metrics metrics, Optional<List<Long>> splitOffsets) {}

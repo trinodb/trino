@@ -100,6 +100,11 @@ public class Query
         return client.isResetAuthorizationUser();
     }
 
+    public Set<ClientSelectedRole> getSetOriginalRoles()
+    {
+        return client.getSetOriginalRoles();
+    }
+
     public Map<String, String> getSetSessionProperties()
     {
         return client.getSetSessionProperties();

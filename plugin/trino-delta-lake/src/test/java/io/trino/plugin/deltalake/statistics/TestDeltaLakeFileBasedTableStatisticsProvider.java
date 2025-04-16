@@ -50,6 +50,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -86,7 +87,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 new DeltaLakeConfig(),
                 fileFormatDataSourceStats,
                 HDFS_FILE_SYSTEM_FACTORY,
-                new ParquetReaderConfig());
+                new ParquetReaderConfig(),
+                newDirectExecutorService());
 
         statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         tableStatisticsProvider = new FileBasedTableStatisticsProvider(

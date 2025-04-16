@@ -136,7 +136,8 @@ public class MemoryPagesStore
 
     public synchronized void purge(long tableId)
     {
-        tables.remove(tableId);
+        TableData tableData = tables.remove(tableId);
+        currentBytes = currentBytes - tableData.getPages().stream().mapToLong(Page::getRetainedSizeInBytes).sum();
     }
 
     public synchronized void cleanUp(Set<Long> activeTableIds)

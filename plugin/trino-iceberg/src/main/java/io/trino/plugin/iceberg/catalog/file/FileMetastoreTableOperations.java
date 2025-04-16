@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.catalog.file;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Table;
@@ -87,7 +88,7 @@ public class FileMetastoreTableOperations
         PrincipalPrivileges privileges = table.getOwner().map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
 
         try {
-            metastore.replaceTable(database, table.getTableName(), updatedTable, privileges);
+            metastore.replaceTable(database, table.getTableName(), updatedTable, privileges, ImmutableMap.of());
         }
         catch (RuntimeException e) {
             if (e instanceof TrinoException trinoException &&

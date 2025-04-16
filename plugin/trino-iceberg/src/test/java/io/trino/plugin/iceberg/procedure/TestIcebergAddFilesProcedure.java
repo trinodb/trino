@@ -468,7 +468,7 @@ final class TestIcebergAddFilesProcedure
     }
 
     @Test
-    void testAddFilesToPartitionTabtestAddFilesToPartitionTableWithLocationleWithLocation()
+    void testAddFilesToPartitionTableWithLocation()
     {
         String hiveTableName = "test_add_files_location_" + randomNameSuffix();
         String icebergTableName = "test_add_files_location_" + randomNameSuffix();

@@ -32,6 +32,7 @@ public class TestInput
     public void testRoundTrip()
     {
         Input expected = new Input(
+                Optional.of("connectorName"),
                 "connectorId",
                 new CatalogVersion("default"),
                 "schema",

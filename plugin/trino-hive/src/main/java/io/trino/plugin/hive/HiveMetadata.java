@@ -808,7 +808,7 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
+    public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         List<String> partitionIds = hiveTableHandle.getPartitions()
@@ -2945,7 +2945,7 @@ public class HiveMetadata
                     }
 
                     ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager, this::redirectTable, metadataProvider, hiveViewsRunAsInvoker, hiveViewsTimestampPrecision)
-                            .decodeViewData(view.getViewOriginalText().orElseThrow(), view, catalogName);
+                            .decodeViewData(view.getViewOriginalText(), view, catalogName);
                     // use owner field from table metadata if it exists
                     if (view.getOwner().isPresent() && !definition.isRunAsInvoker()) {
                         definition = new ConnectorViewDefinition(
