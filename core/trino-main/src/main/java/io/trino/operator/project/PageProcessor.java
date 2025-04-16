@@ -38,11 +38,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
 import static io.trino.operator.WorkProcessor.ProcessState.yielded;
@@ -143,6 +146,8 @@ public class PageProcessor
     private class ProjectSelectedPositions
             implements WorkProcessor.Process<Page>
     {
+        private static final long INSTANCE_SIZE = instanceSize(ProjectSelectedPositions.class);
+
         private final ConnectorSession session;
         private final DriverYieldSignal yieldSignal;
         private final LocalMemoryContext memoryContext;
@@ -259,27 +264,43 @@ public class PageProcessor
 
         private void updateRetainedSize()
         {
-            // TODO: This is an estimate without knowing anything about the SourcePage implementation details. SourcePage
-            // should expose this information directly
-            retainedSizeInBytes = Page.getInstanceSizeInBytes(page.getChannelCount());
-            // increment the size only when it is the first reference
-            ReferenceCountMap referenceCountMap = new ReferenceCountMap();
-            page.retainedBytesForEachPart((object, size) -> {
-                if (referenceCountMap.incrementAndGet(object) == 1) {
-                    retainedSizeInBytes += size;
-                }
-            });
+            RetainedBytesByPartVisitor visitor = new RetainedBytesByPartVisitor();
+
+            page.retainedBytesForEachPart(visitor);
+
             for (Block previouslyComputedResult : previouslyComputedResults) {
                 if (previouslyComputedResult != null) {
-                    previouslyComputedResult.retainedBytesForEachPart((object, size) -> {
-                        if (referenceCountMap.incrementAndGet(object) == 1) {
-                            retainedSizeInBytes += size;
-                        }
-                    });
+                    previouslyComputedResult.retainedBytesForEachPart(visitor);
                 }
             }
 
+            retainedSizeInBytes = INSTANCE_SIZE +
+                    selectedPositions.getRetainedSizeInBytes() +
+                    sizeOf(previouslyComputedResults) +
+                    visitor.getRetainedSizeInBytes();
+
             memoryContext.setBytes(retainedSizeInBytes);
+        }
+
+        private static final class RetainedBytesByPartVisitor
+                implements ObjLongConsumer<Object>
+        {
+            private final ReferenceCountMap referenceCountMap = new ReferenceCountMap();
+            private long retainedSizeInBytes;
+
+            public long getRetainedSizeInBytes()
+            {
+                return retainedSizeInBytes;
+            }
+
+            @Override
+            public void accept(Object object, long size)
+            {
+                // increment the size only when it is the first reference
+                if (referenceCountMap.incrementAndGetWithExtraIdentity(object, size) == 1) {
+                    retainedSizeInBytes += size;
+                }
+            }
         }
 
         private ProcessBatchResult processBatch(int batchSize)
