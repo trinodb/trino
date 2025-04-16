@@ -2017,6 +2017,8 @@ public class IcebergMetadata
 
         // Table.snapshot method returns null if there is no matching snapshot
         Snapshot snapshot = requireNonNull(icebergTable.snapshot(optimizeHandle.snapshotId().get()), "snapshot is null");
+        // Set dataSequenceNumber to avoid contention between OPTIMIZE and concurrent writing of equality deletes
+        rewriteFiles.dataSequenceNumber(snapshot.sequenceNumber());
         rewriteFiles.validateFromSnapshot(snapshot.snapshotId());
         commitUpdateAndTransaction(rewriteFiles, session, transaction, "optimize");
 

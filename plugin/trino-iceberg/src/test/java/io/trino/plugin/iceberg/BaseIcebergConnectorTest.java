@@ -5621,6 +5621,42 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testOptimizeFilesDoNotInheritSequenceNumber()
+            throws IOException
+    {
+        String tableName = "test_optimize_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+        // Verify that delete file exists
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '1'");
+
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+        List<IcebergEntry> activeEntries = getIcebergEntries(tableName);
+        assertThat(activeEntries).hasSize(3);
+
+        // New rewritten data file should not inherit sequence number as it is a rewrite
+        assertThat(activeEntries.stream().filter(entry -> entry.status() == 1))
+                .hasSize(1)
+                .allMatch(entry -> entry.sequenceNumber() == 2 && entry.fileSequenceNumber() == 3);
+
+        // Other files should inherit sequence number
+        assertThat(activeEntries.stream().filter(entry -> entry.status() == 2))
+                .hasSize(2)
+                .allMatch(entry -> entry.sequenceNumber().equals(entry.fileSequenceNumber()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT * FROM nation WHERE nationkey != 7");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testOptimizeSnapshot()
     {
         String tableName = "test_optimize_snapshot_" + randomNameSuffix();
@@ -5710,6 +5746,17 @@ public abstract class BaseIcebergConnectorTest
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }
+
+    private List<IcebergEntry> getIcebergEntries(String tableName)
+    {
+        return computeActual(format("SELECT status, data_file.file_path, sequence_number, file_sequence_number FROM \"%s$entries\"", tableName))
+                .getMaterializedRows()
+                .stream()
+                .map(row -> new IcebergEntry((int) row.getField(0), (String) row.getField(1), (Long) row.getField(2), (Long) row.getField(3)))
+                .collect(toImmutableList());
+    }
+
+    private record IcebergEntry(int status, String filePath, Long sequenceNumber, Long fileSequenceNumber) {}
 
     protected String getTableLocation(String tableName)
     {
