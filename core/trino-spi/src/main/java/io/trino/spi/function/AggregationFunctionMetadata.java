@@ -19,6 +19,7 @@ import io.trino.spi.type.TypeSignature;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.StringJoiner;
 
 import static java.util.Objects.requireNonNull;
@@ -28,11 +29,16 @@ public class AggregationFunctionMetadata
 {
     private final boolean orderSensitive;
     private final List<TypeSignature> intermediateTypes;
+    private final Optional<AggregationDecomposition> decomposition;
 
-    private AggregationFunctionMetadata(boolean orderSensitive, List<TypeSignature> intermediateTypes)
+    private AggregationFunctionMetadata(boolean orderSensitive, List<TypeSignature> intermediateTypes, Optional<AggregationDecomposition> decomposition)
     {
         this.orderSensitive = orderSensitive;
         this.intermediateTypes = List.copyOf(requireNonNull(intermediateTypes, "intermediateTypes is null"));
+        this.decomposition = requireNonNull(decomposition, "decomposition is null");
+        if (decomposition.isPresent() && intermediateTypes.isEmpty()) {
+            throw new IllegalArgumentException("intermediateTypes must be set when decomposition is present");
+        }
     }
 
     public boolean isOrderSensitive()
@@ -43,6 +49,11 @@ public class AggregationFunctionMetadata
     public boolean isDecomposable()
     {
         return !intermediateTypes.isEmpty();
+    }
+
+    public Optional<AggregationDecomposition> getDecomposition()
+    {
+        return decomposition;
     }
 
     public List<TypeSignature> getIntermediateTypes()
@@ -68,6 +79,7 @@ public class AggregationFunctionMetadata
     {
         private boolean orderSensitive;
         private final List<TypeSignature> intermediateTypes = new ArrayList<>();
+        private Optional<AggregationDecomposition> decomposition = Optional.empty();
 
         private AggregationFunctionMetadataBuilder() {}
 
@@ -89,9 +101,15 @@ public class AggregationFunctionMetadata
             return this;
         }
 
+        public AggregationFunctionMetadataBuilder decomposition(AggregationDecomposition decomposition)
+        {
+            this.decomposition = Optional.of(requireNonNull(decomposition, "decomposition is null"));
+            return this;
+        }
+
         public AggregationFunctionMetadata build()
         {
-            return new AggregationFunctionMetadata(orderSensitive, intermediateTypes);
+            return new AggregationFunctionMetadata(orderSensitive, intermediateTypes, decomposition);
         }
     }
 }

@@ -175,7 +175,8 @@ public class SetOperationNodeTranslator
                     false,
                     Optional.empty(),
                     Optional.empty(),
-                    Optional.empty()));
+                    Optional.empty(),
+                    false));
         }
 
         return singleAggregation(idAllocator.getNextId(),

@@ -44,8 +44,6 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
-import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @State(Scope.Thread)
@@ -155,8 +153,8 @@ public class BenchmarkDecimalAggregation
         private Page createValues(TestingFunctionResolution functionResolution, Type type)
         {
             TestingAggregationFunction implementation = functionResolution.getAggregateFunction(function, fromTypes(type));
-            partialAggregatorFactory = implementation.createAggregatorFactory(PARTIAL, ImmutableList.of(0), OptionalInt.empty());
-            finalAggregatorFactory = implementation.createAggregatorFactory(FINAL, ImmutableList.of(0), OptionalInt.empty());
+            partialAggregatorFactory = implementation.createPartialAggregatorFactory(ImmutableList.of(0), OptionalInt.empty());
+            finalAggregatorFactory = implementation.createFinalAggregatorFactory(0, OptionalInt.empty());
 
             return new Page(createRandomBlockForType(type, ELEMENT_COUNT, nullRate));
         }
