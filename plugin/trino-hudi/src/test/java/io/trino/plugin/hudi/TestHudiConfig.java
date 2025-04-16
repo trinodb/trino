@@ -42,7 +42,7 @@ public class TestHudiConfig
                 .setSplitGeneratorParallelism(4)
                 .setPerTransactionMetastoreCacheMaximumSize(2000)
                 .setQueryPartitionFilterRequired(false)
-                .setIgnoreAbsentPartitions(false));
+                .setMetadataEnabled(false));
     }
 
     @Test
@@ -60,7 +60,7 @@ public class TestHudiConfig
                 .put("hudi.split-generator-parallelism", "32")
                 .put("hudi.per-transaction-metastore-cache-maximum-size", "1000")
                 .put("hudi.query-partition-filter-required", "true")
-                .put("hudi.ignore-absent-partitions", "true")
+                .put("hudi.metadata-enabled", "true")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
@@ -75,7 +75,7 @@ public class TestHudiConfig
                 .setSplitGeneratorParallelism(32)
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
                 .setQueryPartitionFilterRequired(true)
-                .setIgnoreAbsentPartitions(true);
+                .setMetadataEnabled(true);
 
         assertFullMapping(properties, expected);
     }

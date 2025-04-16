@@ -47,6 +47,7 @@ public class HudiBackgroundSplitLoader
     private final HudiSplitFactory hudiSplitFactory;
     private final List<String> partitions;
     private final Consumer<Throwable> errorListener;
+    private final String commitTime;
 
     public HudiBackgroundSplitLoader(
             ConnectorSession session,
@@ -56,7 +57,8 @@ public class HudiBackgroundSplitLoader
             Executor splitGeneratorExecutor,
             HudiSplitWeightProvider hudiSplitWeightProvider,
             List<String> partitions,
-            Consumer<Throwable> errorListener)
+            Consumer<Throwable> errorListener,
+            String commitTime)
     {
         this.hudiDirectoryLister = requireNonNull(hudiDirectoryLister, "hudiDirectoryLister is null");
         this.asyncQueue = requireNonNull(asyncQueue, "asyncQueue is null");
@@ -65,6 +67,7 @@ public class HudiBackgroundSplitLoader
         this.hudiSplitFactory = new HudiSplitFactory(tableHandle, hudiSplitWeightProvider);
         this.partitions = requireNonNull(partitions, "partitions is null");
         this.errorListener = requireNonNull(errorListener, "errorListener is null");
+        this.commitTime = requireNonNull(commitTime, "commitTime is null");
     }
 
     @Override
@@ -76,7 +79,7 @@ public class HudiBackgroundSplitLoader
 
         // Start a number of partition split generators to generate the splits in parallel
         for (int i = 0; i < splitGeneratorNumThreads; i++) {
-            HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue);
+            HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue, commitTime);
             splitGeneratorList.add(generator);
             ListenableFuture<Void> future = Futures.submit(generator, splitGeneratorExecutor);
             addExceptionCallback(future, errorListener);

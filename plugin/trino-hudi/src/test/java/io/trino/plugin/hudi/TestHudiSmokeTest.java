@@ -28,6 +28,7 @@ import java.time.ZonedDateTime;
 
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,10 +136,23 @@ public class TestHudiSmokeTest
     }
 
     @Test
+    public void testReadPartitionedMORTableWithMetadata()
+    {
+        Session session = withMetadataEnabled(getSession());
+        assertThat(query(session, "SELECT symbol, max(ts) FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY symbol HAVING symbol = 'GOOG'"))
+                .matches("VALUES (VARCHAR 'GOOG', VARCHAR '2018-08-31 10:59:00')");
+
+        assertThat(query(session, "SELECT date, count(1) FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY date"))
+                .matches("VALUES (VARCHAR '2018-08-31', BIGINT '99')");
+    }
+
+    @Test
     public void testPathColumn()
             throws Exception
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
+        assertThat(toInputFile(path).exists()).isTrue();
+        path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_STOCK_TICKS_MOR + " WHERE volume = 6794");
         assertThat(toInputFile(path).exists()).isTrue();
     }
 
@@ -363,6 +377,13 @@ public class TestHudiSmokeTest
     {
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "query_partition_filter_required", "true")
+                .build();
+    }
+
+    private static Session withMetadataEnabled(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "metadata_enabled", "true")
                 .build();
     }
 
