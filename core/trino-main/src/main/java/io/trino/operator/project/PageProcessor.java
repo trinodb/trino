@@ -260,6 +260,9 @@ public class PageProcessor
 
         private void updateRetainedSize()
         {
+            // TODO: This is an estimate without knowing anything about the SourcePage implementation details. SourcePage
+            // should expose this information directly
+            retainedSizeInBytes = Page.getInstanceSizeInBytes(page.getChannelCount());
             // increment the size only when it is the first reference
             ReferenceCountMap referenceCountMap = new ReferenceCountMap();
             page.retainedBytesForEachPart((object, size) -> {
