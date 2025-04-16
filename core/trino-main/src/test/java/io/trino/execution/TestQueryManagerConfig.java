@@ -30,6 +30,8 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.execution.QueryManagerConfig.AVAILABLE_HEAP_MEMORY;
 import static io.trino.execution.QueryManagerConfig.DEFAULT_TASK_DESCRIPTOR_STORAGE_MAX_MEMORY;
 import static io.trino.execution.QueryManagerConfig.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT_LIMIT;
+import static io.trino.execution.QueryManagerConfig.IdGenerator.LEGACY;
+import static io.trino.execution.QueryManagerConfig.IdGenerator.UUID_V7;
 import static java.lang.Math.max;
 import static java.lang.Math.round;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -119,7 +121,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionAdaptiveJoinReorderingEnabled(true)
                 .setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize.of(5, GIGABYTE))
                 .setFaultTolerantExecutionAdaptiveJoinReorderingSizeDifferenceRatio(1.5)
-                .setMaxWriterTaskCount(100));
+                .setMaxWriterTaskCount(100)
+                .setQueryIdGenerator(UUID_V7));
     }
 
     @Test
@@ -203,6 +206,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-adaptive-join-reordering-enabled", "false")
                 .put("fault-tolerant-execution-adaptive-join-reordering-min-size-threshold", "1GB")
                 .put("fault-tolerant-execution-adaptive-join-reordering-size-difference-ratio", "2")
+                .put("query.id-generator", "legacy")
                 .buildOrThrow();
 
         QueryManagerConfig expected = new QueryManagerConfig()
@@ -282,7 +286,8 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionAdaptiveJoinReorderingEnabled(false)
                 .setFaultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold(DataSize.of(1, GIGABYTE))
                 .setFaultTolerantExecutionAdaptiveJoinReorderingSizeDifferenceRatio(2.0)
-                .setMaxWriterTaskCount(101);
+                .setMaxWriterTaskCount(101)
+                .setQueryIdGenerator(LEGACY);
 
         assertFullMapping(properties, expected);
     }

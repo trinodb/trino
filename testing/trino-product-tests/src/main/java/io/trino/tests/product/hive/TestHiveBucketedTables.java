@@ -369,15 +369,15 @@ public class TestHiveBucketedTables
                     .hasRowsCount(1);
 
             assertQueryFailure(() -> onTrino().executeQuery("SELECT \"$bucket\" FROM " + tableName))
-                    .hasMessageMatching("Query failed \\(#\\w+\\):\\Q line 1:8: Column '$bucket' cannot be resolved");
+                    .hasMessageMatching("Query failed \\(#(\\w-)+\\):\\Q line 1:8: Column '$bucket' cannot be resolved");
 
             assertQueryFailure(() -> onTrino().executeQuery(format("INSERT INTO %s(n_integer) VALUES (1)", tableName)))
-                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot write to a table bucketed on an unsupported type");
+                    .hasMessageMatching("Query failed \\(#(\\w-)+\\): Cannot write to a table bucketed on an unsupported type");
 
             String newTableName = "new_" + tableName;
 
             assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)", newTableName, tableName)))
-                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
+                    .hasMessageMatching("Query failed \\(#(\\w-)+\\): Cannot create a table bucketed on an unsupported type");
 
             assertQueryFailure(() -> onTrino().executeQuery(format("CREATE TABLE %s (" +
                                     "n_integer       integer," +
@@ -393,7 +393,7 @@ public class TestHiveBucketedTables
                                     ")",
                             newTableName,
                             columnToBeBucketed)))
-                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
+                    .hasMessageMatching("Query failed \\(#(\\w-)+\\): Cannot create a table bucketed on an unsupported type");
 
             assertQueryFailure(() -> onTrino()
                     .executeQuery(format(
@@ -401,7 +401,7 @@ public class TestHiveBucketedTables
                             newTableName,
                             bucketingType.getTrinoTableProperties(columnToBeBucketed, 2).stream().collect(joining(",")),
                             tableName)))
-                    .hasMessageMatching("Query failed \\(#\\w+\\): Cannot create a table bucketed on an unsupported type");
+                    .hasMessageMatching("Query failed \\(#(\\w-)+\\): Cannot create a table bucketed on an unsupported type");
         }
     }
 

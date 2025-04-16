@@ -51,7 +51,7 @@ public class TestHiveRequireQueryPartitionsFilter
 
         onTrino().executeQuery("SET SESSION hive.query_partition_filter_required = true");
         assertQueryFailure(() -> onTrino().executeQuery("SELECT COUNT(*) FROM " + tableName))
-                .hasMessageMatching(format("Query failed \\(#\\w+\\): Filter required on default\\.%s for at least one partition column: p_regionkey", tableName));
+                .hasMessageMatching(format("Query failed \\(#[\\w-]+\\): Filter required on default\\.%s for at least one partition column: p_regionkey", tableName));
         assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s WHERE p_regionkey = 1", tableName))).containsOnly(row(5));
     }
 
@@ -64,7 +64,7 @@ public class TestHiveRequireQueryPartitionsFilter
         onTrino().executeQuery(format("SET SESSION hive.query_partition_filter_required_schemas = %s", queryPartitionFilterRequiredSchemas));
 
         assertQueryFailure(() -> onTrino().executeQuery("SELECT COUNT(*) FROM " + tableName))
-                .hasMessageMatching(format("Query failed \\(#\\w+\\): Filter required on default\\.%s for at least one partition column: p_regionkey", tableName));
+                .hasMessageMatching(format("Query failed \\(#[\\w-]+\\): Filter required on default\\.%s for at least one partition column: p_regionkey", tableName));
         assertThat(onTrino().executeQuery(format("SELECT COUNT(*) FROM %s WHERE p_regionkey = 1", tableName))).containsOnly(row(5));
     }
 

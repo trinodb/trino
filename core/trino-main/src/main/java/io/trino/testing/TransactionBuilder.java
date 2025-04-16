@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import io.trino.Session;
 import io.trino.execution.QueryIdGenerator;
+import io.trino.execution.UuidV7QueryIdGenerator;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.transaction.IsolationLevel;
@@ -31,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class TransactionBuilder
 {
-    private static final QueryIdGenerator QUERY_ID_GENERATOR = new QueryIdGenerator();
+    private static final QueryIdGenerator QUERY_ID_GENERATOR = new UuidV7QueryIdGenerator();
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final AccessControl accessControl;

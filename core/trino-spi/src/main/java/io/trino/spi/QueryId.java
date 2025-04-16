@@ -79,7 +79,7 @@ public final class QueryId
     {
         for (int i = 0; i < id.length(); i++) {
             char c = id.charAt(i);
-            if (!(c == '_' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9')) {
+            if (!(c == '_' || c == '-' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9')) {
                 return false;
             }
         }

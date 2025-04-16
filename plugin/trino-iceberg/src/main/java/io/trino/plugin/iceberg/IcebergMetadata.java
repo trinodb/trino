@@ -1562,8 +1562,6 @@ public class IcebergMetadata
 
     private static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Location location, Set<String> fileNamesToKeep)
     {
-        checkArgument(!queryId.contains("-"), "query ID should not contain hyphens: %s", queryId);
-
         Deque<String> filesToDelete = new ArrayDeque<>();
         try {
             log.debug("Deleting failed attempt files from %s for query %s", location, queryId);

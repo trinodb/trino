@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.Session.SessionBuilder;
 import io.trino.client.ClientCapabilities;
 import io.trino.execution.QueryIdGenerator;
+import io.trino.execution.UuidV7QueryIdGenerator;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.TimeZoneKey;
@@ -28,7 +29,7 @@ import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
 {
-    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+    private static final QueryIdGenerator queryIdGenerator = new UuidV7QueryIdGenerator();
 
     /*
      * Pacific/Apia

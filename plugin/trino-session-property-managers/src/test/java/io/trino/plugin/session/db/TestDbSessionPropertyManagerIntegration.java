@@ -26,8 +26,8 @@ import io.airlift.json.JsonModule;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManagerConfig;
+import io.trino.execution.UuidV7QueryIdGenerator;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.Plugin;
 import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
@@ -181,7 +181,7 @@ public class TestDbSessionPropertyManagerIntegration
     private static Session.SessionBuilder testSessionBuilder()
     {
         return Session.builder(new SessionPropertyManager())
-                .setQueryId(new QueryIdGenerator().createNextQueryId())
+                .setQueryId(new UuidV7QueryIdGenerator().createNextQueryId())
                 .setIdentity(Identity.ofUser("user"))
                 .setOriginalIdentity(Identity.ofUser("user"))
                 .setSource("test")
