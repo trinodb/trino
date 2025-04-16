@@ -47,6 +47,16 @@ public final class ReferenceCountMap
     }
 
     /**
+     * Increments the reference count of an object by 1, using the extraIdentity parameter to produce a more
+     * varied hashCode. This calling convention should not be mixed with calling {@link ReferenceCountMap#incrementAndGet(Object)}
+     * since doing so may produce different hash codes
+     */
+    public int incrementAndGetWithExtraIdentity(Object key, long extraIdentity)
+    {
+        return addTo(getHashCode(key, (int) extraIdentity), 1) + 1;
+    }
+
+    /**
      * Decrements the reference count of an object by 1 and returns the updated reference count
      */
     public int decrementAndGet(Object key)
@@ -68,9 +78,9 @@ public final class ReferenceCountMap
     }
 
     /**
-     * Get the 64-bit hash code for an object
+     * Get the additional argument to use in order to produce the 64-bit hash code for an object
      */
-    private static long getHashCode(Object key)
+    private static int getExtraIdentity(Object key)
     {
         // identityHashCode of two objects are not guaranteed to be different.
         // Any additional identity information can reduce collisions.
@@ -97,6 +107,19 @@ public final class ReferenceCountMap
         else {
             throw new IllegalArgumentException(format("Unsupported type for %s", key));
         }
+        return extraIdentity;
+    }
+
+    /**
+     * Get the 64 bit hash code for the value, using the built-in extra identity argument resolution
+     */
+    private static long getHashCode(Object key)
+    {
+        return getHashCode(key, getExtraIdentity(key));
+    }
+
+    private static long getHashCode(Object key, int extraIdentity)
+    {
         return (((long) System.identityHashCode(key)) << Integer.SIZE) + extraIdentity;
     }
 }
