@@ -41,8 +41,8 @@ import static java.util.Locale.ENGLISH;
 public class HudiSessionProperties
         implements SessionPropertiesProvider
 {
+    static final String METADATA_TABLE_ENABLED = "metadata_enabled";
     private static final String COLUMNS_TO_HIDE = "columns_to_hide";
-    private static final String METADATA_TABLE_ENABLED = "metadata_enabled";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
     private static final String PARQUET_VECTORIZED_DECODING_ENABLED = "parquet_vectorized_decoding_enabled";
