@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hudi.file.HudiBaseFile;
+import io.trino.plugin.hudi.file.HudiLogFile;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
@@ -40,7 +41,7 @@ public class HudiSplit
     private static final int INSTANCE_SIZE = toIntExact(instanceSize(HudiSplit.class));
 
     private final Optional<HudiBaseFile> baseFile;
-    private final List<String> logFiles;
+    private final List<HudiLogFile> logFiles;
     private final String commitTime;
     private final TupleDomain<HiveColumnHandle> predicate;
     private final List<HivePartitionKey> partitionKeys;
@@ -49,7 +50,7 @@ public class HudiSplit
     @JsonCreator
     public HudiSplit(
             @JsonProperty("baseFile") HudiBaseFile baseFile,
-            @JsonProperty("logFiles") List<String> logFiles,
+            @JsonProperty("logFiles") List<HudiLogFile> logFiles,
             @JsonProperty("commitTime") String commitTime,
             @JsonProperty("predicate") TupleDomain<HiveColumnHandle> predicate,
             @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
@@ -80,7 +81,7 @@ public class HudiSplit
     }
 
     @JsonProperty
-    public List<String> getLogFiles()
+    public List<HudiLogFile> getLogFiles()
     {
         return logFiles;
     }

@@ -35,8 +35,13 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
-import org.apache.hudi.common.model.HoodieFileFormat;
+import org.apache.hudi.common.fs.FSUtils;
+import org.apache.hudi.common.model.FileSlice;
+import org.apache.hudi.common.model.HoodieBaseFile;
+import org.apache.hudi.common.model.HoodieFileGroupId;
+import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -48,43 +53,13 @@ import java.util.stream.IntStream;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
-import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
 import static org.apache.hudi.avro.HoodieAvroUtils.METADATA_FIELD_SCHEMA;
-import static org.apache.hudi.common.model.HoodieFileFormat.HFILE;
-import static org.apache.hudi.common.model.HoodieFileFormat.HOODIE_LOG;
-import static org.apache.hudi.common.model.HoodieFileFormat.ORC;
-import static org.apache.hudi.common.model.HoodieFileFormat.PARQUET;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 import static org.apache.hudi.common.table.HoodieTableMetaClient.METAFOLDER_NAME;
 
 public final class HudiUtil
 {
     private HudiUtil() {}
-
-    public static HoodieFileFormat getHudiFileFormat(String path)
-    {
-        String extension = getFileExtension(path);
-        if (extension.equals(PARQUET.getFileExtension())) {
-            return PARQUET;
-        }
-        if (extension.equals(HOODIE_LOG.getFileExtension())) {
-            return HOODIE_LOG;
-        }
-        if (extension.equals(ORC.getFileExtension())) {
-            return ORC;
-        }
-        if (extension.equals(HFILE.getFileExtension())) {
-            return HFILE;
-        }
-        throw new TrinoException(HUDI_UNSUPPORTED_FILE_FORMAT, "Hoodie InputFormat not implemented for base file of type " + extension);
-    }
-
-    private static String getFileExtension(String fullName)
-    {
-        String fileName = Location.of(fullName).fileName();
-        int dotIndex = fileName.lastIndexOf('.');
-        return dotIndex == -1 ? "" : fileName.substring(dotIndex);
-    }
 
     public static boolean hudiMetadataExists(TrinoFileSystem trinoFileSystem, Location baseLocation)
     {
@@ -180,17 +155,37 @@ public final class HudiUtil
     public static List<HiveColumnHandle> prependHudiMetaColumns(List<HiveColumnHandle> dataColumns)
     {
         List<HiveColumnHandle> columns = new ArrayList<>();
-        columns.addAll(IntStream.range(0, HOODIE_META_COLUMNS.size())
-                .boxed()
-                .map(i -> new HiveColumnHandle(
-                        HOODIE_META_COLUMNS.get(i),
-                        i,
-                        HiveType.HIVE_STRING,
-                        VarcharType.VARCHAR,
-                        Optional.empty(),
-                        HiveColumnHandle.ColumnType.REGULAR, Optional.empty()))
-                .toList());
+        if (dataColumns.stream().noneMatch(handle -> HOODIE_META_COLUMNS.contains(handle.getName()))) {
+            columns.addAll(IntStream.range(0, HOODIE_META_COLUMNS.size())
+                    .boxed()
+                    .map(i -> new HiveColumnHandle(
+                            HOODIE_META_COLUMNS.get(i),
+                            i,
+                            HiveType.HIVE_STRING,
+                            VarcharType.VARCHAR,
+                            Optional.empty(),
+                            HiveColumnHandle.ColumnType.REGULAR, Optional.empty()))
+                    .toList());
+        }
         columns.addAll(dataColumns);
         return columns;
+    }
+
+    public static FileSlice convertToFileSlice(HudiSplit split, String basePath)
+    {
+        String dataFilePath = split.getBaseFile().isPresent()
+                ? split.getBaseFile().get().getPath()
+                : split.getLogFiles().getFirst().getPath();
+        String fileId = FSUtils.getFileIdFromFileName(new StoragePath(dataFilePath).getName());
+        HoodieBaseFile baseFile = split.getBaseFile().isPresent()
+                ? new HoodieBaseFile(dataFilePath, fileId, split.getCommitTime(), null)
+                : null;
+
+        return new FileSlice(
+                new HoodieFileGroupId(FSUtils.getRelativePartitionPath(new StoragePath(basePath), new StoragePath(dataFilePath)), fileId),
+                split.getCommitTime(),
+                baseFile,
+                split.getLogFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList()
+        );
     }
 }
