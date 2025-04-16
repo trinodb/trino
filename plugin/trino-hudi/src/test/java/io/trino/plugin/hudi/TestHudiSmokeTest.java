@@ -28,6 +28,7 @@ import java.time.ZonedDateTime;
 
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -135,10 +136,23 @@ public class TestHudiSmokeTest
     }
 
     @Test
+    public void testReadPartitionedMORTableWithMetadata()
+    {
+        getQueryRunner().execute(getSession(), "SET SESSION hudi.metadata_enabled=true");
+        assertQuery("SELECT symbol, max(ts) FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY symbol HAVING symbol = 'GOOG'",
+                "SELECT * FROM VALUES ('GOOG', '2018-08-31 10:59:00')");
+
+        assertQuery("SELECT date, count(1) FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY date",
+                "SELECT * FROM VALUES ('2018-08-31', '99')");
+    }
+
+    @Test
     public void testPathColumn()
             throws Exception
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
+        assertThat(toInputFile(path).exists()).isTrue();
+        path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_STOCK_TICKS_MOR + " WHERE volume = 6794");
         assertThat(toInputFile(path).exists()).isTrue();
     }
 
