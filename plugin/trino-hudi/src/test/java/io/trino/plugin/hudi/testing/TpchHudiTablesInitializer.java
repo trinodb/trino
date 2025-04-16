@@ -52,6 +52,7 @@ import org.apache.hudi.common.model.HoodieAvroRecord;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.HoodieTableVersion;
 import org.apache.hudi.common.table.marker.MarkerType;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.config.HoodieArchivalConfig;
@@ -217,7 +218,7 @@ public class TpchHudiTablesInitializer
             HoodieTableMetaClient.newTableBuilder()
                     .setTableType(COPY_ON_WRITE)
                     .setTableName(table.getTableName())
-                    .setTimelineLayoutVersion(1)
+                    .setTableVersion(HoodieTableVersion.SIX)
                     .setBootstrapIndexClass(NoOpBootstrapIndex.class.getName())
                     .setPayloadClassName(HoodieAvroPayload.class.getName())
                     .setRecordKeyFields(FIELD_UUID)

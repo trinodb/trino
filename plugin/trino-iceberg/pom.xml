@@ -15,7 +15,7 @@
 
     <properties>
         <!-- Nessie version (compatible with Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.103.2</dep.nessie.version>
+        <dep.nessie.version>0.103.3</dep.nessie.version>
     </properties>
 
     <dependencyManagement>
@@ -221,6 +221,12 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-data</artifactId>
+            <version>${dep.iceberg.version}</version>
         </dependency>
 
         <dependency>

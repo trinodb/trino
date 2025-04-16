@@ -208,6 +208,39 @@ properties:
   -
 :::
 
+(iceberg-hive-catalog)=
+### Iceberg-specific Hive catalog configuration properties
+
+When using the Hive catalog, the Iceberg connector supports the same
+{ref}`general Thrift metastore configuration properties <hive-thrift-metastore>` 
+as previously described with the following additional property:
+
+:::{list-table} Iceberg Hive catalog configuration property
+:widths: 35, 50, 15
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default
+* - `iceberg.hive-catalog.locking-enabled`
+  - Commit to tables using Hive locks.
+  - `true`
+:::
+
+:::{warning}
+Setting `iceberg.hive-catalog.locking-enabled=false` will cause the catalog to
+commit to tables without using Hive locks. This should only be set to false if all
+following conditions are met:
+
+* [HIVE-26882](https://issues.apache.org/jira/browse/HIVE-26882) is available on
+  the Hive metastore server. Requires version 2.3.10, 4.0.0-beta-1 or later.
+* [HIVE-28121](https://issues.apache.org/jira/browse/HIVE-28121) is available on
+  the Hive metastore server, if it is backed by MySQL or MariaDB. Requires version
+  2.3.10, 4.1.0, 4.0.1 or later.
+* All other catalogs committing to tables that this catalogs commits to are also
+  on Iceberg 1.3 or later, and disabled Hive locks on commit.
+:::
+
 (hive-thrift-metastore-authentication)=
 ### Thrift metastore authentication
 

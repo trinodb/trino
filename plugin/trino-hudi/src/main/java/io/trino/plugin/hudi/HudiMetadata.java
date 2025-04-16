@@ -69,7 +69,6 @@ import static io.trino.plugin.hudi.HudiSessionProperties.isQueryPartitionFilterR
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hudi.HudiUtil.hudiMetadataExists;
-import static io.trino.plugin.hudi.model.HudiTableType.COPY_ON_WRITE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
@@ -78,6 +77,7 @@ import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public class HudiMetadata
         implements ConnectorMetadata
@@ -230,7 +230,7 @@ public class HudiMetadata
     }
 
     @Override
-    public Optional<Object> getInfo(ConnectorTableHandle tableHandle)
+    public Optional<Object> getInfo(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         HudiTableHandle table = (HudiTableHandle) tableHandle;
         return Optional.of(new HudiTableInfo(table.getSchemaTableName(), table.getTableType().name(), table.getBasePath()));

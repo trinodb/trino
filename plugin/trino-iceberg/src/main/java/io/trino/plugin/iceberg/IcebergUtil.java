@@ -366,12 +366,11 @@ public final class IcebergUtil
     // These methods maintain backward compatibility for existing table.
     public static Optional<String> getOrcBloomFilterColumns(Map<String, String> properties)
     {
-        Optional<String> orcBloomFilterColumns = Stream.of(
+        return Stream.of(
                         properties.get(ORC_BLOOM_FILTER_COLUMNS),
                         properties.get(BROKEN_ORC_BLOOM_FILTER_COLUMNS_KEY))
                 .filter(Objects::nonNull)
                 .findFirst();
-        return orcBloomFilterColumns;
     }
 
     public static Set<String> getParquetBloomFilterColumns(Map<String, String> properties)
@@ -605,7 +604,7 @@ public final class IcebergUtil
         }
         ValueSet valueSet = domain.getValues();
 
-        boolean canEnforce = valueSet.getValuesProcessor().transform(
+        return valueSet.getValuesProcessor().transform(
                 ranges -> {
                     MethodHandle targetTypeEqualOperator = typeOperators.getEqualOperator(
                             transform.type(), InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
@@ -618,7 +617,6 @@ public final class IcebergUtil
                 },
                 discreteValues -> false,
                 allOrNone -> true);
-        return canEnforce;
     }
 
     private static boolean canEnforceRangeWithPartitioningField(PartitionField field, ColumnTransform transform, Range range, MethodHandle targetTypeEqualOperator)

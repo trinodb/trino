@@ -57,7 +57,6 @@ public final class TestingGlueHiveMetastore
         registerResource.accept(glueClient);
         return new GlueHiveMetastore(
                 glueClient,
-                new GlueContext(glueConfig),
                 GlueCache.NOOP,
                 new GlueMetastoreStats(),
                 HDFS_FILE_SYSTEM_FACTORY,

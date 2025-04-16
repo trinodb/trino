@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -46,6 +45,7 @@ import java.util.Random;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -115,7 +115,7 @@ public class BenchmarkPagesSerde
         @Setup
         public void initialize()
         {
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressionCodec);
+            PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(compressionCodec);
             Optional<SecretKey> encryptionKey = encrypted ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
             serializer = serdeFactory.createSerializer(encryptionKey);
             deserializer = serdeFactory.createDeserializer(encryptionKey);

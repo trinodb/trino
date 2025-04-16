@@ -66,7 +66,7 @@ public class DeltaLakeThriftMetastoreTableOperations
                     .buildKeepingLast();
             Table updatedTable = currentTable.withParameters(parameters);
 
-            metastore.replaceTable(currentTable.getDatabaseName(), currentTable.getTableName(), updatedTable, buildInitialPrivilegeSet(currentTable.getOwner().orElseThrow()));
+            metastore.replaceTable(currentTable.getDatabaseName(), currentTable.getTableName(), updatedTable, buildInitialPrivilegeSet(currentTable.getOwner().orElseThrow()), ImmutableMap.of());
         }
         finally {
             thriftMetastore.releaseTableLock(lockId);

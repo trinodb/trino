@@ -1706,6 +1706,22 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
     }
 
+    /**
+     * @see deltalake.multipart_v2_checkpoint
+     */
+    @Test
+    public void testReadMultipartV2Checkpoint()
+            throws Exception
+    {
+        String tableName = "test_multipart_v2_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_v2_checkpoint").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type").skippingTypesCheck().matches("VALUES ('a', 'integer'), ('b', 'integer')");
+        assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1,2), (3,4), (5,6), (7,8)");
+    }
+
     @Test
     public void testTimeTravelWithMultipartCheckpoint()
             throws Exception

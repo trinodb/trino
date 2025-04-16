@@ -930,7 +930,10 @@ public class DistributedQueryRunner
                 OpenTracingCollector collector = new OpenTracingCollector();
                 collector.start();
                 extraCloseables.add(collector);
-                addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
+                addExtraProperties(Map.of(
+                        "tracing.enabled", "true",
+                        "tracing.exporter.endpoint", collector.getExporterEndpoint().toString(),
+                        "tracing.exporter.protocol", "http/protobuf"));
                 checkState(eventListeners.isEmpty(), "eventListeners already set");
                 setEventListener(new EventListener()
                 {

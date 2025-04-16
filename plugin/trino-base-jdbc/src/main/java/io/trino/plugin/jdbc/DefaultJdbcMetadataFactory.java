@@ -40,7 +40,7 @@ public class DefaultJdbcMetadataFactory
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
-        this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "queryEventListeners is null"));
+        this.jdbcQueryEventListeners = ImmutableSet.copyOf(jdbcQueryEventListeners);
         this.identityCacheMapping = requireNonNull(identityCacheMapping, "identityCacheMapping is null");
     }
 

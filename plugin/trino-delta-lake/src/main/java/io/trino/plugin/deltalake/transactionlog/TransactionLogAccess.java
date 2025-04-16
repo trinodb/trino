@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.inject.Inject;
+import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
 import io.trino.cache.CacheStatsMBean;
 import io.trino.cache.EvictableCacheBuilder;
@@ -34,6 +35,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
@@ -68,6 +70,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -108,9 +111,11 @@ public class TransactionLogAccess
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ParquetReaderOptions parquetReaderOptions;
+    private final ExecutorService executorService;
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final int domainCompactionThreshold;
     private final DataSize transactionLogMaxCachedFileSize;
+    private final int checkpointProcessingParallelism;
 
     private final Cache<TableLocation, TableSnapshot> tableSnapshots;
     private final Cache<TableVersion, DeltaLakeDataFileCacheEntry> activeDataFileCache;
@@ -122,16 +127,19 @@ public class TransactionLogAccess
             DeltaLakeConfig deltaLakeConfig,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             TrinoFileSystemFactory fileSystemFactory,
-            ParquetReaderConfig parquetReaderConfig)
+            ParquetReaderConfig parquetReaderConfig,
+            @ForDeltaLakeMetadata ExecutorService executorService)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.parquetReaderOptions = parquetReaderConfig.toParquetReaderOptions().withBloomFilter(false);
+        this.executorService = requireNonNull(executorService, "ExecutorService is null");
         this.checkpointRowStatisticsWritingEnabled = deltaLakeConfig.isCheckpointRowStatisticsWritingEnabled();
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.transactionLogMaxCachedFileSize = deltaLakeConfig.getTransactionLogMaxCachedFileSize();
+        this.checkpointProcessingParallelism = deltaLakeConfig.getCheckpointProcessingParallelism();
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
                 .weigher((Weigher<TableLocation, TableSnapshot>) (key, value) -> Ints.saturatedCast(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
@@ -414,7 +422,8 @@ public class TransactionLogAccess
                 fileFormatDataSourceStats,
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 partitionConstraint,
-                Optional.of(addStatsMinMaxColumnFilter))) {
+                Optional.of(addStatsMinMaxColumnFilter),
+                new BoundedExecutor(executorService, checkpointProcessingParallelism))) {
             return activeAddEntries(checkpointEntries, transactions, fileSystem)
                     .filter(partitionConstraint.isAll()
                             ? addAction -> true
@@ -567,7 +576,7 @@ public class TransactionLogAccess
             List<Transaction> transactions = tableSnapshot.getTransactions();
             // Passing TupleDomain.all() because this method is used for getting all entries
             Stream<DeltaLakeTransactionLogEntry> checkpointEntries = tableSnapshot.getCheckpointTransactionLogEntries(
-                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats, Optional.empty(), TupleDomain.all(), Optional.of(alwaysTrue()));
+                    session, entryTypes, checkpointSchemaManager, typeManager, fileSystem, stats, Optional.empty(), TupleDomain.all(), Optional.of(alwaysTrue()), new BoundedExecutor(executorService, checkpointProcessingParallelism));
 
             return entryMapper.apply(
                     checkpointEntries,

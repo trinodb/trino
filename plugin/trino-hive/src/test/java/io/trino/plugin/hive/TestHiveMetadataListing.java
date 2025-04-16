@@ -77,7 +77,7 @@ public class TestHiveMetadataListing
             "VIRTUAL_VIEW",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("PRESTO_VIEW_FLAG", "value3"),
             Optional.of("SELECT 1"),
             Optional.of("SELECT 1"),
@@ -90,7 +90,7 @@ public class TestHiveMetadataListing
             "VIRTUAL_VIEW",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("PRESTO_VIEW_FLAG", "value3"),
             Optional.of("SELECT 1"),
             Optional.of("SELECT 1"),
@@ -103,7 +103,7 @@ public class TestHiveMetadataListing
             "VIRTUAL_VIEW",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("PRESTO_VIEW_FLAG", "value3"),
             Optional.of("SELECT 1"),
             Optional.of("SELECT 1"),
@@ -116,7 +116,7 @@ public class TestHiveMetadataListing
             "MANAGED_TABLE",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("param", "value3"),
             Optional.empty(),
             Optional.empty(),
@@ -129,7 +129,7 @@ public class TestHiveMetadataListing
             "MANAGED_TABLE",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("param", "value3"),
             Optional.empty(),
             Optional.empty(),
@@ -142,7 +142,7 @@ public class TestHiveMetadataListing
             "MANAGED_TABLE",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("param", "value3"),
             Optional.empty(),
             Optional.empty(),
@@ -340,7 +340,7 @@ public class TestHiveMetadataListing
         }
 
         @Override
-        public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+        public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext)
         {
             throw new UnsupportedOperationException();
         }

@@ -15,10 +15,21 @@ package io.trino.execution.buffer;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 
 public interface PageSerializer
 {
     Slice serialize(Page page);
 
     long getRetainedSizeInBytes();
+
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
+    }
+
+    default Metrics getAndResetMetrics()
+    {
+        return getMetrics();
+    }
 }

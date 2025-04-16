@@ -92,7 +92,7 @@ public final class TrinoViewHiveMetastore
                 throw new ViewAlreadyExistsException(schemaViewName);
             }
 
-            metastore.replaceTable(schemaViewName.getSchemaName(), schemaViewName.getTableName(), table, principalPrivileges);
+            metastore.replaceTable(schemaViewName.getSchemaName(), schemaViewName.getTableName(), table, principalPrivileges, ImmutableMap.of());
             return;
         }
 
@@ -225,6 +225,6 @@ public final class TrinoViewHiveMetastore
 
         PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
 
-        metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), viewBuilder.build(), principalPrivileges);
+        metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), viewBuilder.build(), principalPrivileges, ImmutableMap.of());
     }
 }

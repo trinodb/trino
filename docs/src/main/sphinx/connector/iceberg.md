@@ -189,7 +189,7 @@ implementation is used:
     the new records.
   - `true`
 * - `iceberg.metadata-cache.enabled`
-  - Set to `false` to disable in-memory caching of metadata files on the 
+  - Set to `false` to disable in-memory caching of metadata files on the
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
 * - `iceberg.object-store-layout.enabled`
@@ -945,7 +945,7 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies the file system location URI for the table.
 * - `format_version`
   - Optionally specifies the format version of the Iceberg specification to use
-    for new tables; either `1` or `2`. Defaults to `2`. Version `2` is required
+    for new tables; either `1`, `2` or `3`. Defaults to `2`. Version `2` is required
     for row level deletes.
 * - `max_commit_retry`
   - Number of times to retry a commit before failing. Defaults to the value of 
@@ -2082,3 +2082,32 @@ The connector supports redirection from Iceberg tables to Hive tables with the
 
 The connector supports configuring and using [file system
 caching](/object-storage/file-system-cache).
+
+### Iceberg metadata caching
+
+The Iceberg connector supports caching metadata in coordinator memory. This
+metadata caching is enabled by default and can be disabled by setting the
+`iceberg.metadata-cache.enabled` configuration property to `false`.
+When `fs.cache.enabled` is set to `true`, metadata is cached on local disks
+using the [file system caching
+implementation](/object-storage/file-system-cache). If `fs.cache.enabled` is
+enabled, metadata caching in coordinator memory is deactivated.
+
+Additionally, you can use the following catalog configuration properties:
+
+:::{list-table} Memory metadata caching configuration properties :widths: 25, 75
+:header-rows: 1
+
+* - Property
+  - Description
+* - `fs.memory-cache.ttl`
+  - The maximum [duration](prop-type-duration) to keep files in the cache prior
+    to eviction. The minimum value of `0s` means that caching is effectively
+    turned off. Defaults to `1h`.
+* - `fs.memory-cache.max-size`
+  - The maximum total [data size](prop-type-data-size) of the cache. When
+    raising this value, keep in mind that the coordinator memory is used.
+    Defaults to `200MB`.
+* - `fs.memory-cache.max-content-length`
+  - The maximum file size that can be cached. Defaults to `15MB`.
+  :::

@@ -159,6 +159,9 @@ public class BigQueryStorageAvroPageSource
     public SourcePage getNextSourcePage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
+        if (!nextResponse.isDone()) {
+            return null;
+        }
         ReadRowsResponse response;
         try {
             response = getFutureValue(nextResponse);

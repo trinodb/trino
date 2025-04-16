@@ -57,6 +57,8 @@ import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.type.StandardTypes.BIGINT;
+import static io.trino.spi.type.StandardTypes.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Boolean.TRUE;
 import static java.lang.String.format;
@@ -135,6 +137,8 @@ final class TestMysqlEventListener
             // not stored
             Collections.emptyList(),
             // not stored
+            Collections.emptyList(),
+            // not stored
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
             Collections.emptyList(),
@@ -144,6 +148,7 @@ final class TestMysqlEventListener
     private static final QueryContext FULL_QUERY_CONTEXT = new QueryContext(
             "user",
             "originalUser",
+            Set.of("role1"),
             Optional.of("principal"),
             Set.of("role1", "role2"),
             Set.of("group1", "group2"),
@@ -171,21 +176,23 @@ final class TestMysqlEventListener
     private static final QueryIOMetadata FULL_QUERY_IO_METADATA = new QueryIOMetadata(
             List.of(
                     new QueryInputMetadata(
+                            Optional.of("connectorName1"),
                             "catalog1",
                             new CatalogVersion("default"),
                             "schema1",
                             "table1",
-                            List.of("column1", "column2"),
+                            List.of(new QueryInputMetadata.Column("column1", BIGINT), new QueryInputMetadata.Column("column2", INTEGER)),
                             Optional.of("connectorInfo1"),
                             new Metrics(ImmutableMap.of()),
                             OptionalLong.of(201),
                             OptionalLong.of(202)),
                     new QueryInputMetadata(
+                            Optional.of("connectorName2"),
                             "catalog2",
                             new CatalogVersion("default"),
                             "schema2",
                             "table2",
-                            List.of("column3", "column4"),
+                            List.of(new QueryInputMetadata.Column("column3", BIGINT), new QueryInputMetadata.Column("column4", INTEGER)),
                             Optional.of("connectorInfo2"),
                             new Metrics(ImmutableMap.of()),
                             OptionalLong.of(203),
@@ -297,6 +304,8 @@ final class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
+            // not stored
+            Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
             // not stored
@@ -305,6 +314,7 @@ final class TestMysqlEventListener
     private static final QueryContext MINIMAL_QUERY_CONTEXT = new QueryContext(
             "user",
             "originalUser",
+            Set.of(),
             Optional.empty(),
             Set.of(),
             Set.of(),

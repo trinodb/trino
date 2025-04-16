@@ -600,7 +600,7 @@ public class TrinoHiveCatalog
 
             try {
                 if (existing.isPresent()) {
-                    metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+                    metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges, ImmutableMap.of());
                 }
                 else {
                     metastore.createTable(table, principalPrivileges);
@@ -663,7 +663,7 @@ public class TrinoHiveCatalog
                 metastore.dropTable(storageSchema, oldStorageTable, true);
             }
             // Replace the existing view definition
-            metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges);
+            metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), table, principalPrivileges, ImmutableMap.of());
             return;
         }
         // create the view definition
@@ -708,7 +708,7 @@ public class TrinoHiveCatalog
 
         PrincipalPrivileges principalPrivileges = isUsingSystemSecurity ? NO_PRIVILEGES : buildInitialPrivilegeSet(session.getUser());
 
-        metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), viewBuilder.build(), principalPrivileges);
+        metastore.replaceTable(viewName.getSchemaName(), viewName.getTableName(), viewBuilder.build(), principalPrivileges, ImmutableMap.of());
     }
 
     @Override

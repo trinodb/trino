@@ -133,6 +133,16 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testDeleteWithV3Format()
+    {
+        try (TestTable table = newTrinoTable("test_delete_with_v3", "WITH (format_version = 3) AS SELECT * FROM region")) {
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 1", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("SELECT * FROM region WHERE regionkey <> 1");
+        }
+    }
+
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
     @RepeatedTest(4)
     @Timeout(120)
