@@ -104,7 +104,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE = "Cannot revoke privilege %s on schema %s%s";
 
     private static final String SHOWN_TABLES_ACCESS_DENIED_MESSAGE = "Cannot show tables of .*";
-    private static final String SELECT_TABLE_ACCESS_DENIED_MESSAGE = "Cannot select from table .*";
+    private static final String SELECT_COLUMN_ACCESS_DENIED_MESSAGE = "Cannot select from columns .*";
     private static final String SHOW_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot show columns of table .*";
     private static final String ADD_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot add a column to table .*";
     private static final String DROP_COLUMNS_ACCESS_DENIED_MESSAGE = "Cannot drop a column from table .*";
@@ -451,7 +451,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         CHARLIE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
                         ImmutableSet.of("bobcolumn", "private")),
-                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+                SELECT_COLUMN_ACCESS_DENIED_MESSAGE);
         accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of());
 
         assertAccessDenied(
@@ -459,13 +459,13 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         ADMIN,
                         new CatalogSchemaTableName("secret", "secret", "secret"),
                         ImmutableSet.of()),
-                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+                SELECT_COLUMN_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(
                 () -> accessControl.checkCanSelectFromColumns(
                         JOE,
                         new CatalogSchemaTableName("secret", "secret", "secret"),
                         ImmutableSet.of()),
-                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+                SELECT_COLUMN_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -495,7 +495,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
                         CHARLIE,
                         new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"),
                         ImmutableSet.of("bobcolumn", "private")),
-                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+                SELECT_COLUMN_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

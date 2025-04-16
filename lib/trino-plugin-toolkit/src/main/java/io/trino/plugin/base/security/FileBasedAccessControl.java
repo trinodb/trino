@@ -85,7 +85,7 @@ import static io.trino.spi.security.AccessDeniedException.denyRenameView;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeRoles;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
-import static io.trino.spi.security.AccessDeniedException.denySelectTable;
+import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
@@ -389,7 +389,7 @@ public class FileBasedAccessControl
                 .findFirst()
                 .orElse(false);
         if (!allowed) {
-            denySelectTable(tableName.toString());
+            denySelectColumns(tableName.toString(), columnNames);
         }
     }
 
@@ -475,7 +475,7 @@ public class FileBasedAccessControl
                 .findFirst()
                 .orElse(null);
         if (rule == null || !rule.canSelectColumns(columnNames)) {
-            denySelectTable(tableName.toString());
+            denySelectColumns(tableName.toString(), columnNames);
         }
         if (!rule.getPrivileges().contains(GRANT_SELECT)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
