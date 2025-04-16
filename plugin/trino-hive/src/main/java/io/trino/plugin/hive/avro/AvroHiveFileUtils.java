@@ -136,7 +136,7 @@ public final class AvroHiveFileUtils
 
         for (int i = 0; i < columnNames.size(); ++i) {
             String comment = columnComments.size() > i ? columnComments.get(i) : null;
-            Schema fieldSchema = recordIncrementingUtil.avroSchemaForHiveType(columnTypes.get(i));
+            Schema fieldSchema = recordIncrementingUtil.avroSchemaForHiveTypeInternal(columnTypes.get(i));
             fieldBuilder = fieldBuilder
                     .name(columnNames.get(i))
                     .doc(comment)
@@ -146,13 +146,19 @@ public final class AvroHiveFileUtils
         return fieldBuilder.endRecord();
     }
 
-    private Schema avroSchemaForHiveType(HiveType hiveType)
+    public static Schema avroSchemaFromHiveType(HiveType hiveType)
+    {
+        AvroHiveFileUtils utils = new AvroHiveFileUtils();
+        return utils.avroSchemaForHiveTypeInternal(hiveType);
+    }
+
+    private Schema avroSchemaForHiveTypeInternal(HiveType hiveType)
     {
         Schema schema = switch (hiveType.getCategory()) {
             case PRIMITIVE -> createAvroPrimitive(hiveType);
             case LIST -> {
                 ListTypeInfo listTypeInfo = (ListTypeInfo) hiveType.getTypeInfo();
-                yield Schema.createArray(avroSchemaForHiveType(HiveType.fromTypeInfo(listTypeInfo.getListElementTypeInfo())));
+                yield Schema.createArray(avroSchemaForHiveTypeInternal(HiveType.fromTypeInfo(listTypeInfo.getListElementTypeInfo())));
             }
             case MAP -> {
                 MapTypeInfo mapTypeInfo = ((MapTypeInfo) hiveType.getTypeInfo());
@@ -162,13 +168,13 @@ public final class AvroHiveFileUtils
                     throw new UnsupportedOperationException("Key of Map must be a String");
                 }
                 TypeInfo valueTypeInfo = mapTypeInfo.getMapValueTypeInfo();
-                yield Schema.createMap(avroSchemaForHiveType(HiveType.fromTypeInfo(valueTypeInfo)));
+                yield Schema.createMap(avroSchemaForHiveTypeInternal(HiveType.fromTypeInfo(valueTypeInfo)));
             }
             case STRUCT -> createAvroRecord(hiveType);
             case UNION -> {
                 List<Schema> childSchemas = new ArrayList<>();
                 for (TypeInfo childTypeInfo : ((UnionTypeInfo) hiveType.getTypeInfo()).getAllUnionObjectTypeInfos()) {
-                    final Schema childSchema = avroSchemaForHiveType(HiveType.fromTypeInfo(childTypeInfo));
+                    final Schema childSchema = avroSchemaForHiveTypeInternal(HiveType.fromTypeInfo(childTypeInfo));
                     if (childSchema.getType() == Schema.Type.UNION) {
                         childSchemas.addAll(childSchema.getTypes());
                     }
@@ -243,7 +249,7 @@ public final class AvroHiveFileUtils
 
         for (int i = 0; i < allStructFieldNames.size(); ++i) {
             final TypeInfo childTypeInfo = allStructFieldTypeInfo.get(i);
-            final Schema fieldSchema = avroSchemaForHiveType(HiveType.fromTypeInfo(childTypeInfo));
+            final Schema fieldSchema = avroSchemaForHiveTypeInternal(HiveType.fromTypeInfo(childTypeInfo));
             fieldAssembler = fieldAssembler
                     .name(allStructFieldNames.get(i))
                     .doc(childTypeInfo.toString())
