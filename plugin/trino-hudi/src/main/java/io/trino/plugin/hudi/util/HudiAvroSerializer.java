@@ -16,7 +16,6 @@ package io.trino.plugin.hudi.util;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
@@ -27,6 +26,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -70,7 +70,6 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
-import static org.apache.hudi.common.model.HoodieRecord.FILENAME_METADATA_FIELD;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 
 public class HudiAvroSerializer {
@@ -103,7 +102,7 @@ public class HudiAvroSerializer {
         this.synthesizedColumnHandler = null;
     }
 
-  public HudiAvroSerializer(List<HiveColumnHandle> columnHandles, SynthesizedColumnHandler synthesizedColumnHandler) {
+    public HudiAvroSerializer(List<HiveColumnHandle> columnHandles, SynthesizedColumnHandler synthesizedColumnHandler) {
         this.columnHandles = columnHandles;
         this.columnTypes = columnHandles.stream().map(HiveColumnHandle::getType).toList();
         // Fetches projected schema
@@ -220,6 +219,9 @@ public class HudiAvroSerializer {
             }
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
+            }
+            else if (javaType == LongTimestamp.class) {
+                type.writeObject(output, value);
             }
             else if (javaType == LongTimestampWithTimeZone.class) {
                 verify(type.equals(TIMESTAMP_TZ_MICROS));
