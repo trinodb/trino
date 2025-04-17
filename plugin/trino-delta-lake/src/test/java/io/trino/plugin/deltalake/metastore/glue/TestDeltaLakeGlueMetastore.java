@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.metastore.glue;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.io.Resources;
@@ -43,9 +42,9 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingConnectorSession;
@@ -59,6 +58,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +68,7 @@ import java.util.function.Consumer;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Closeables.closeAll;
@@ -250,19 +251,23 @@ public class TestDeltaLakeGlueMetastore
 
     private Set<SchemaTableName> listTableColumns(DeltaLakeMetadata metadata, SchemaTablePrefix tablePrefix)
     {
-        List<TableColumnsMetadata> allTableColumns = ImmutableList.copyOf(metadata.streamTableColumns(session, tablePrefix));
+        Iterator<RelationColumnsMetadata> realtionColumnsIterator = metadata.streamRelationColumns(
+                session,
+                tablePrefix.getSchema(),
+                schemaTableNames -> schemaTableNames.stream().filter(tablePrefix::matches).collect(toImmutableSet()));
 
-        Set<SchemaTableName> redirectedTables = allTableColumns.stream()
-                .filter(tableColumns -> tableColumns.getColumns().isEmpty())
-                .map(TableColumnsMetadata::getTable)
+        Set<SchemaTableName> redirectedTables = stream(realtionColumnsIterator)
+                .filter(RelationColumnsMetadata::redirected)
+                .map(RelationColumnsMetadata::name)
                 .collect(toImmutableSet());
 
         if (!redirectedTables.isEmpty()) {
             throw new IllegalStateException("Unexpected redirects reported for tables: " + redirectedTables);
         }
 
-        return allTableColumns.stream()
-                .map(TableColumnsMetadata::getTable)
+        return stream(realtionColumnsIterator)
+                .filter(relationColumnsMetadata -> relationColumnsMetadata.tableColumns().isPresent())
+                .map(RelationColumnsMetadata::name)
                 .collect(toImmutableSet());
     }
 
