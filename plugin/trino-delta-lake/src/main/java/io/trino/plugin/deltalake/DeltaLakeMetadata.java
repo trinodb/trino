@@ -100,6 +100,7 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -116,6 +117,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RetryMode;
@@ -350,7 +352,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.time.Instant.EPOCH;
-import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Locale.ENGLISH;
@@ -996,51 +997,69 @@ public class DeltaLakeMetadata
     @Override
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        List<SchemaTableName> tables = prefix.getTable()
-                .map(_ -> singletonList(prefix.toSchemaTableName()))
-                .orElseGet(() -> listTables(session, prefix.getSchema()));
+        throw new UnsupportedOperationException("The deprecated streamTableColumns is not supported because streamRelationColumns is implemented instead");
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        for (SchemaTableName tableName : listTables(session, schemaName)) {
+            try {
+                if (redirectTable(session, tableName).isPresent()) {
+                    // put "redirect marker" for current table
+                    relationColumns.put(tableName, RelationColumnsMetadata.forRedirectedTable(tableName));
+                    continue;
+                }
 
-        return tables.stream()
-                .flatMap(tableName -> {
-                    try {
-                        if (redirectTable(session, tableName).isPresent()) {
-                            // put "redirect marker" for current table
-                            return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
-                        }
+                Optional<Table> metastoreTable = metastore.getRawMetastoreTable(tableName.getSchemaName(), tableName.getTableName());
+                if (metastoreTable.isEmpty()) {
+                    // this may happen when table is being deleted concurrently,
+                    continue;
+                }
 
-                        Optional<Table> metastoreTable = metastore.getRawMetastoreTable(tableName.getSchemaName(), tableName.getTableName());
-                        if (metastoreTable.isEmpty()) {
-                            // this may happen when table is being deleted concurrently,
-                            return Stream.of();
-                        }
+                Table table = metastoreTable.get();
+                verifyDeltaLakeTable(table);
 
-                        Table table = metastoreTable.get();
-                        verifyDeltaLakeTable(table);
+                String tableLocation = HiveMetastoreBackedDeltaLakeMetastore.getTableLocation(table);
+                if (containsSchemaString(table) && canUseTableParametersFromMetastore(session, fileSystem, table, tableLocation)) {
+                    List<ColumnMetadata> columnsMetadata = metadataScheduler.getColumnsMetadata(table);
+                    relationColumns.put(tableName, RelationColumnsMetadata.forTable(tableName, columnsMetadata));
+                    continue;
+                }
+                TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, tableName, tableLocation, Optional.empty());
+                MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
+                ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
+                List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
+                enqueueUpdateInfo(session, table.getDatabaseName(), table.getTableName(), snapshot.getVersion(), metadata.getSchemaString(), Optional.ofNullable(metadata.getDescription()));
+                relationColumns.put(tableName, RelationColumnsMetadata.forTable(tableName, columnMetadata));
+            }
+            catch (NotADeltaLakeTableException | IOException _) {
+                // this indicates that the table is not a Delta Lake table or the table files are temporarily inaccessible
+                // safe to ignore and skip this table.
+            }
+            catch (RuntimeException e) {
+                // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
+                // there can be several different exceptions thrown this is why all RTE are caught and ignored here
+                LOG.debug(e, "Ignored exception when trying to list columns from %s", tableName);
+            }
+        }
 
-                        String tableLocation = HiveMetastoreBackedDeltaLakeMetastore.getTableLocation(table);
-                        if (containsSchemaString(table) && canUseTableParametersFromMetastore(session, fileSystem, table, tableLocation)) {
-                            List<ColumnMetadata> columnsMetadata = metadataScheduler.getColumnsMetadata(table);
-                            return Stream.of(TableColumnsMetadata.forTable(tableName, columnsMetadata));
-                        }
-                        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, tableName, tableLocation, Optional.empty());
-                        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
-                        ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
-                        List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
-                        enqueueUpdateInfo(session, table.getDatabaseName(), table.getTableName(), snapshot.getVersion(), metadata.getSchemaString(), Optional.ofNullable(metadata.getDescription()));
-                        return Stream.of(TableColumnsMetadata.forTable(tableName, columnMetadata));
-                    }
-                    catch (NotADeltaLakeTableException | IOException e) {
-                        return Stream.empty();
-                    }
-                    catch (RuntimeException e) {
-                        // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
-                        // there can be several different exceptions thrown this is why all RTE are caught and ignored here
-                        LOG.debug(e, "Ignored exception when trying to list columns from %s", tableName);
-                        return Stream.empty();
-                    }
-                })
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
+        for (Map.Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forMaterializedView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
                 .iterator();
     }
 
