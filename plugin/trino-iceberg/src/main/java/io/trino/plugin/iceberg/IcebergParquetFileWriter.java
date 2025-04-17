@@ -86,7 +86,7 @@ public final class IcebergParquetFileWriter
     {
         ParquetMetadata parquetMetadata;
         try {
-            parquetMetadata = new ParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()));
+            parquetMetadata = new ParquetMetadata(parquetFileWriter.getFileMetadata(), new ParquetDataSourceId(location.toString()), Optional.empty());
             return new FileMetrics(footerMetrics(parquetMetadata, Stream.empty(), metricsConfig), Optional.of(getSplitOffsets(parquetMetadata)));
         }
         catch (IOException | UncheckedIOException e) {

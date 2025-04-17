@@ -564,7 +564,10 @@ public abstract class AbstractColumnReaderRowRangesTest
                 UNCOMPRESSED,
                 inputPages.iterator(),
                 dictionaryEncoding == DictionaryEncoding.ALL || (dictionaryEncoding == DictionaryEncoding.MIXED && testingPages.size() == 1),
-                false);
+                false,
+                Optional.empty(),
+                -1,
+                -1);
     }
 
     private static List<Page> createDataPages(List<TestingPage> testingPages, ValuesWriter encoder, int maxDef, boolean required)
@@ -599,7 +602,8 @@ public abstract class AbstractColumnReaderRowRangesTest
                 valueCount * 4,
                 OptionalLong.of(testingPage.pageRowRange().start()),
                 null,
-                false);
+                false,
+                0);
         encoder.reset();
         return dataPage;
     }
