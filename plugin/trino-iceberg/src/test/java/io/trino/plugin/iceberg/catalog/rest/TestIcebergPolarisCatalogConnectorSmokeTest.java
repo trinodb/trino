@@ -248,6 +248,14 @@ final class TestIcebergPolarisCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testDeleteWithV3Format()
+    {
+        assertThatThrownBy(super::testDeleteWithV3Format)
+                .hasMessageMatching("Cannot parse missing long: next-row-id");
+    }
+
+    @Test
+    @Override
     public void testDeleteRowsConcurrently()
     {
         //TODO: Fix https://github.com/trinodb/trino/issues/23941
