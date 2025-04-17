@@ -13,20 +13,44 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.filesystem.local.LocalInputFile;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hudi.file.HudiBaseFile;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
+import io.trino.spi.SplitWeight;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorSession;
 import org.intellij.lang.annotations.Language;
+import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Optional;
 
+import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hudi.HudiPageSourceProvider.createPageSource;
 import static io.trino.plugin.hudi.HudiSessionProperties.METADATA_TABLE_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.QUERY_PARTITION_FILTER_REQUIRED;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
@@ -37,6 +61,8 @@ import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.Testing
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSmokeTest
@@ -463,6 +489,46 @@ public class TestHudiSmokeTest
         assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '11' OR dt = '2021-12-09'", errorMessage);
         assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '12' OR dt = '2021-12-19'", errorMessage);
         assertQueryFails(session, "SELECT count(*) AS COUNT FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) > 2 GROUP BY name ", errorMessage);
+    }
+
+    @Test
+    public void testHudiLongTimestampType()
+            throws Exception {
+        testTimestampMicros(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
+        testTimestampMicros(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        testTimestampMicros(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+    }
+
+    private void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+            throws Exception {
+        File parquetFile = new File(Resources.getResource("long_timestamp.parquet").toURI());
+        Type columnType = createTimestampType(timestampPrecision.getPrecision());
+        HudiSplit hudiSplit = new HudiSplit(
+                new HudiBaseFile(parquetFile.getPath(), parquetFile.getName(), parquetFile.length(), parquetFile.lastModified(), 0, parquetFile.length()),
+                ImmutableList.of(),
+                "000",
+                TupleDomain.all(),
+                ImmutableList.of(),
+                SplitWeight.standard());
+
+        HudiConfig config = new HudiConfig().setUseParquetColumnNames(false);
+        HudiSessionProperties sessionProperties = new HudiSessionProperties(config, new ParquetReaderConfig());
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(sessionProperties.getSessionProperties())
+                .build();
+
+        try (ConnectorPageSource pageSource = createPageSource(
+                session,
+                List.of(createBaseColumn("created", 0, HIVE_TIMESTAMP, columnType, REGULAR, Optional.empty())),
+                hudiSplit,
+                new LocalInputFile(parquetFile),
+                new FileFormatDataSourceStats(),
+                new ParquetReaderOptions(),
+                DateTimeZone.UTC)) {
+            MaterializedResult result = materializeSourceDataStream(session, pageSource, List.of(columnType)).toTestTypes();
+            assertThat(result.getMaterializedRows())
+                    .containsOnly(new MaterializedRow(List.of(expected)));
+        }
     }
 
     private static Session withPartitionFilterRequired(Session session)

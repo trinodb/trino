@@ -215,7 +215,7 @@ public class HudiPageSourceProvider
         );
     }
 
-    private static ConnectorPageSource createPageSource(
+    static ConnectorPageSource createPageSource(
             ConnectorSession session,
             List<HiveColumnHandle> columns,
             HudiSplit hudiSplit,
