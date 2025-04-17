@@ -204,7 +204,7 @@ public class OutputSpoolingOperatorFactory
             outputPage = switch (controller.nextMode(page)) {
                 case SPOOL -> {
                     buffer.add(page);
-                    yield outputBuffer(false);
+                    yield outputBuffer();
                 }
                 case BUFFER -> {
                     buffer.add(page);
@@ -238,9 +238,10 @@ public class OutputSpoolingOperatorFactory
         public void finish()
         {
             if (state == NEEDS_INPUT) {
-                outputPage = outputBuffer(true);
+                outputPage = outputBuffer();
                 if (outputPage != null) {
                     state = HAS_LAST_OUTPUT;
+                    controller.finish();
                 }
                 else {
                     state = FINISHED;
@@ -254,18 +255,18 @@ public class OutputSpoolingOperatorFactory
             return state == FINISHED;
         }
 
-        private Page outputBuffer(boolean finished)
+        private Page outputBuffer()
         {
             if (buffer.isEmpty()) {
                 return null;
             }
 
             synchronized (buffer) {
-                return spool(buffer.removeAll(), finished);
+                return spool(buffer.removeAll());
             }
         }
 
-        private Page spool(List<Page> pages, boolean finished)
+        private Page spool(List<Page> pages)
         {
             long rows = reduce(pages, Page::getPositionCount);
             long size = reduce(pages, Page::getSizeInBytes);
@@ -282,13 +283,7 @@ public class OutputSpoolingOperatorFactory
                         .set(ROWS_COUNT, rows)
                         .set(EXPIRES_AT, ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString())
                         .build();
-
                 spooledEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
-
-                if (finished) {
-                    controller.execute(SPOOL, rows, size); // final buffer
-                }
-
                 // This page is small (hundreds of bytes) so there is no point in tracking its memory usage
                 return SpooledMetadataBlock.forSpooledLocation(spoolingManager.location(segmentHandle), attributes).serialize();
             }
