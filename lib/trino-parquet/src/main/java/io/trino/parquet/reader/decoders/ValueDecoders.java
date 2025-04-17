@@ -36,6 +36,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.joda.time.DateTimeZone;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.parquet.ParquetEncoding.BYTE_STREAM_SPLIT;
 import static io.trino.parquet.ParquetEncoding.DELTA_BYTE_ARRAY;
@@ -71,6 +72,7 @@ import static io.trino.parquet.reader.decoders.PlainValueDecoders.LongDecimalPla
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.LongPlainValueDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.ShortDecimalFixedLengthByteArrayDecoder;
 import static io.trino.parquet.reader.decoders.PlainValueDecoders.UuidPlainValueDecoder;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.block.Fixed12Block.decodeFixed12First;
 import static io.trino.spi.block.Fixed12Block.decodeFixed12Second;
@@ -485,8 +487,15 @@ public final class ValueDecoders
                             nanosOfSecond = (int) round(nanosOfSecond, 9 - precision);
                         }
                         long utcMillis = epochSeconds * MILLISECONDS_PER_SECOND + (nanosOfSecond / NANOSECONDS_PER_MILLISECOND);
+                        long timestamp;
+                        try {
+                            timestamp = packDateTimeWithZone(utcMillis, UTC_KEY);
+                        }
+                        catch (IllegalArgumentException e) {
+                            throw new TrinoException(GENERIC_INTERNAL_ERROR, firstNonNull(e.getMessage(), e.toString()), e);
+                        }
                         encodeFixed12(
-                                packDateTimeWithZone(utcMillis, UTC_KEY),
+                                timestamp,
                                 (nanosOfSecond % NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_NANOSECOND,
                                 values,
                                 i);

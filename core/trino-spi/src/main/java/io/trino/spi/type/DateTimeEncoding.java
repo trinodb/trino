@@ -24,6 +24,9 @@ public final class DateTimeEncoding
     private static final int TIME_ZONE_MASK = 0xFFF;
     private static final int MILLIS_SHIFT = 12;
 
+    /**
+     * @throws IllegalArgumentException when overflow is detected
+     */
     private static long pack(long millisUtc, short timeZoneKey)
     {
         if (millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT != millisUtc) {
@@ -46,6 +49,9 @@ public final class DateTimeEncoding
         return packDateTimeWithZone(millisUtc, getTimeZoneKeyForOffset(offsetMinutes));
     }
 
+    /**
+     * @throws IllegalArgumentException when overflow is detected
+     */
     public static long packDateTimeWithZone(long millisUtc, TimeZoneKey timeZoneKey)
     {
         requireNonNull(timeZoneKey, "timeZoneKey is null");
