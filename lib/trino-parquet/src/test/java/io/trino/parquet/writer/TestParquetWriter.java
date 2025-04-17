@@ -130,7 +130,7 @@ public class TestParquetWriter
                         columnNames,
                         generateInputPages(types, 100, 1000)),
                 ParquetReaderOptions.defaultOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         assertThat(parquetMetadata.getBlocks()).hasSize(1);
         assertThat(parquetMetadata.getBlocks().get(0).rowCount()).isEqualTo(100 * 1000);
 
@@ -144,6 +144,7 @@ public class TestParquetWriter
                 chunkMetaData,
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
                 null,
+                Optional.empty(),
                 Optional.empty());
 
         pageReader.readDictionaryPage();
@@ -179,7 +180,7 @@ public class TestParquetWriter
                         columnNames,
                         generateInputPages(types, 100, 1000)),
                 ParquetReaderOptions.defaultOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         assertThat(parquetMetadata.getBlocks()).hasSize(1);
         assertThat(parquetMetadata.getBlocks().get(0).rowCount()).isEqualTo(100 * 1000);
 
@@ -197,6 +198,7 @@ public class TestParquetWriter
                 columnAMetaData,
                 new ColumnDescriptor(new String[] {"columna"}, new PrimitiveType(REQUIRED, INT32, "columna"), 0, 0),
                 null,
+                Optional.empty(),
                 Optional.empty());
 
         pageReader.readDictionaryPage();
@@ -216,6 +218,7 @@ public class TestParquetWriter
                 columnAMetaData,
                 new ColumnDescriptor(new String[] {"columnb"}, new PrimitiveType(REQUIRED, INT64, "columnb"), 0, 0),
                 null,
+                Optional.empty(),
                 Optional.empty());
 
         pageReader.readDictionaryPage();
@@ -260,7 +263,7 @@ public class TestParquetWriter
                         ImmutableList.of(new Page(2, blockA, blockB))),
                 ParquetReaderOptions.defaultOptions());
 
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         BlockMetadata blockMetaData = getOnlyElement(parquetMetadata.getBlocks());
 
         ColumnChunkMetadata chunkMetaData = blockMetaData.columns().get(0);
@@ -293,7 +296,7 @@ public class TestParquetWriter
                         generateInputPages(types, 100, 100)),
                 ParquetReaderOptions.defaultOptions());
 
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThanOrEqualTo(10);
         for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
             // Verify that the columns are stored in the same order as the metadata
@@ -350,7 +353,7 @@ public class TestParquetWriter
                         generateInputPages(types, 100, 100)),
                 ParquetReaderOptions.defaultOptions());
 
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThanOrEqualTo(1);
         for (BlockMetadata blockMetaData : parquetMetadata.getBlocks()) {
             ColumnChunkMetadata chunkMetaData = getOnlyElement(blockMetaData.columns());
@@ -399,7 +402,7 @@ public class TestParquetWriter
                         generateInputPages(types, 100, 10)),
                 ParquetReaderOptions.defaultOptions());
 
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         List<BlockMetadata> blocks = parquetMetadata.getBlocks();
         assertThat(blocks.size()).isGreaterThan(1);
 
@@ -434,7 +437,7 @@ public class TestParquetWriter
                         generateInputPages(types, 100, data)),
                 ParquetReaderOptions.defaultOptions());
 
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         // Check that bloom filters are right after each other
         int bloomFilterSize = Integer.highestOneBit(BlockSplitBloomFilter.optimalNumOfBits(BLOOM_FILTER_EXPECTED_ENTRIES, DEFAULT_BLOOM_FILTER_FPP) / 8) << 1;
         for (BlockMetadata block : parquetMetadata.getBlocks()) {
@@ -499,7 +502,7 @@ public class TestParquetWriter
                                 .build()),
                 ParquetReaderOptions.defaultOptions());
 
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         BlockMetadata blockMetaData = getOnlyElement(parquetMetadata.getBlocks());
         ColumnChunkMetadata chunkMetaData = getOnlyElement(blockMetaData.columns());
         assertThat(chunkMetaData.getEncodingStats().hasDictionaryPages()).isTrue();
