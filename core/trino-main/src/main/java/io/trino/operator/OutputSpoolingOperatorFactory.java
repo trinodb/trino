@@ -177,7 +177,7 @@ public class OutputSpoolingOperatorFactory
             this.aggregatedMemoryContext = operatorContext.newAggregateUserMemoryContext();
             this.queryDataEncoder = requireNonNull(queryDataEncoder, "queryDataEncoder is null");
             this.spoolingManager = requireNonNull(spoolingManager, "spoolingManager is null");
-            this.buffer = PageBuffer.create(aggregatedMemoryContext.newLocalMemoryContext(OutputSpoolingOperator.class.getSimpleName() + ".buffer"));
+            this.buffer = PageBuffer.create();
             this.localMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(OutputSpoolingOperator.class.getSimpleName());
 
             operatorContext.setInfoSupplier(new OutputSpoolingInfoSupplier(spoolingTiming, controller, inlinedEncodedBytes, spooledEncodedBytes));
@@ -323,10 +323,10 @@ public class OutputSpoolingOperatorFactory
         private void updateMemoryReservation()
         {
             if (outputPage == null) {
-                localMemoryContext.setBytes(0);
+                localMemoryContext.setBytes(buffer.getSize());
             }
             else {
-                localMemoryContext.setBytes(outputPage.getSizeInBytes());
+                localMemoryContext.setBytes(buffer.getSize() + outputPage.getSizeInBytes());
             }
         }
 
@@ -349,22 +349,19 @@ public class OutputSpoolingOperatorFactory
     private static class PageBuffer
     {
         private final List<Page> buffer = new ArrayList<>();
-        private final LocalMemoryContext memoryContext;
 
-        private PageBuffer(LocalMemoryContext memoryContext)
+        private PageBuffer()
         {
-            this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
         }
 
-        public static PageBuffer create(LocalMemoryContext memoryContext)
+        public static PageBuffer create()
         {
-            return new PageBuffer(memoryContext);
+            return new PageBuffer();
         }
 
         public void add(Page page)
         {
             buffer.add(page);
-            memoryContext.setBytes(memoryContext.getBytes() + page.getRetainedSizeInBytes());
         }
 
         public boolean isEmpty()
@@ -378,9 +375,15 @@ public class OutputSpoolingOperatorFactory
             synchronized (buffer) {
                 pages = ImmutableList.copyOf(buffer);
                 buffer.clear();
-                memoryContext.setBytes(0);
             }
             return pages;
+        }
+
+        public long getSize()
+        {
+            return buffer.stream()
+                    .mapToLong(Page::getSizeInBytes)
+                    .sum();
         }
     }
 
