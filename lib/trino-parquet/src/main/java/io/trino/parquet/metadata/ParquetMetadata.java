@@ -19,14 +19,21 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
+import io.trino.parquet.crypto.AesCipherUtils;
+import io.trino.parquet.crypto.ColumnDecryptionContext;
+import io.trino.parquet.crypto.FileDecryptionContext;
+import io.trino.parquet.crypto.ModuleType;
 import io.trino.parquet.reader.MetadataReader;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.format.ColumnChunk;
+import org.apache.parquet.format.ColumnCryptoMetaData;
 import org.apache.parquet.format.ColumnMetaData;
+import org.apache.parquet.format.EncryptionWithColumnKey;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
+import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
@@ -35,6 +42,8 @@ import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
 import org.apache.parquet.schema.Types;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -54,6 +63,7 @@ import static io.trino.parquet.ParquetMetadataConverter.getPrimitive;
 import static io.trino.parquet.ParquetMetadataConverter.toColumnIndexReference;
 import static io.trino.parquet.ParquetMetadataConverter.toOffsetIndexReference;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
+import static io.trino.parquet.ParquetValidationUtils.validateParquetCrypto;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetMetadata
@@ -63,8 +73,9 @@ public class ParquetMetadata
     private final FileMetaData parquetMetadata;
     private final ParquetDataSourceId dataSourceId;
     private final FileMetadata fileMetadata;
+    private final Optional<FileDecryptionContext> decryptionContext;
 
-    public ParquetMetadata(FileMetaData parquetMetadata, ParquetDataSourceId dataSourceId)
+    public ParquetMetadata(FileMetaData parquetMetadata, ParquetDataSourceId dataSourceId, Optional<FileDecryptionContext> decryptionContext)
             throws ParquetCorruptionException
     {
         this.fileMetadata = new FileMetadata(
@@ -73,11 +84,17 @@ public class ParquetMetadata
                 parquetMetadata.getCreated_by());
         this.parquetMetadata = parquetMetadata;
         this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
+        this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
     }
 
     public FileMetadata getFileMetaData()
     {
         return fileMetadata;
+    }
+
+    public Optional<FileDecryptionContext> getDecryptionContext()
+    {
+        return decryptionContext;
     }
 
     @Override
@@ -89,13 +106,13 @@ public class ParquetMetadata
     }
 
     public List<BlockMetadata> getBlocks()
-            throws ParquetCorruptionException
+            throws IOException
     {
         return getBlocks(0, Long.MAX_VALUE);
     }
 
     public List<BlockMetadata> getBlocks(long splitStart, long splitLength)
-            throws ParquetCorruptionException
+            throws IOException
     {
         List<SchemaElement> schema = parquetMetadata.getSchema();
         validateParquet(!schema.isEmpty(), dataSourceId, "Schema is empty");
@@ -125,7 +142,59 @@ public class ParquetMetadata
                                     || (filePath != null && filePath.equals(columnChunk.getFile_path())),
                             dataSourceId,
                             "all column chunks of the same row group must be in the same file");
-                    ColumnChunkMetadata column = toColumnChunkMetadata(columnChunk, parquetMetadata.getCreated_by(), messageType);
+                    ColumnCryptoMetaData cryptoMetaData = columnChunk.getCrypto_metadata();
+                    ColumnMetaData metaData;
+                    ColumnPath columnPath;
+                    if (cryptoMetaData == null) {
+                        // Plaintext column
+                        metaData = columnChunk.getMeta_data();
+                        columnPath = getPath(metaData.getPath_in_schema());
+                        decryptionContext.ifPresent(context -> context.initPlaintextColumn(columnPath));
+                    }
+                    else {
+                        validateParquetCrypto(decryptionContext.isPresent(), dataSourceId, "Column is encrypted, but no decryption context");
+                        if (cryptoMetaData.isSetENCRYPTION_WITH_FOOTER_KEY()) {
+                            // Column encrypted with footer key
+                            validateParquetCrypto(columnChunk.getMeta_data() != null, dataSourceId, "Column metadata is null");
+                            metaData = columnChunk.getMeta_data();
+                            columnPath = getPath(metaData.getPath_in_schema());
+                            decryptionContext.get().initializeColumnCryptoMetadata(columnPath, true, Optional.empty());
+                        }
+                        else {
+                            // Column encrypted with column key
+                            EncryptionWithColumnKey columnKeyStruct = cryptoMetaData.getENCRYPTION_WITH_COLUMN_KEY();
+                            columnPath = getPath(columnKeyStruct.getPath_in_schema());
+                            Optional<ColumnMetaData> decryptedMetadata = decryptColumnMetadata(columnPath, rowGroup, columnKeyStruct.getKey_metadata(), columnChunk, decryptionContext.get(), columnOrdinal);
+                            if (decryptedMetadata.isEmpty()) {
+                                // User does not have access to the column key. Column is considered hidden.
+                                columnMetadataBuilder.add(new HiddenColumnChunkMetadata(dataSourceId, columnPath));
+                                validateParquetCrypto(columnOrdinal != 0, dataSourceId, "First column of a row group is encrypted with an unknown column key. Cannot determine row group starting position.");
+                                continue;
+                            }
+                            metaData = decryptedMetadata.get();
+                        }
+                    }
+
+                    PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
+                    ColumnChunkMetadata column = ColumnChunkMetadata.get(
+                            columnPath,
+                            primitiveType,
+                            CompressionCodecName.fromParquet(metaData.codec),
+                            convertEncodingStats(metaData.encoding_stats),
+                            readEncodings(metaData.encodings),
+                            MetadataReader.readStats(Optional.ofNullable(parquetMetadata.getCreated_by()), Optional.ofNullable(metaData.statistics), primitiveType),
+                            metaData.data_page_offset,
+                            metaData.dictionary_page_offset,
+                            metaData.num_values,
+                            metaData.total_compressed_size,
+                            metaData.total_uncompressed_size);
+                    column.setColumnIndexReference(toColumnIndexReference(columnChunk));
+                    column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
+                    column.setBloomFilterOffset(metaData.bloom_filter_offset);
+                    if (rowGroup.isSetOrdinal()) {
+                        column.setRowGroupOrdinal(rowGroup.getOrdinal());
+                    }
+                    column.setColumnOrdinal(columnOrdinal);
                     columnMetadataBuilder.add(column);
 
                     // Skip row group if it doesn't overlap the split. Only first column starting position matches row group start and can be used for the check.
@@ -156,32 +225,6 @@ public class ParquetMetadata
         // Note: Do not rely on org.apache.parquet.format.RowGroup.getFile_offset or org.apache.parquet.format.ColumnChunk.getFile_offset
         // because some versions of parquet-cpp-arrow (and potentially other writers) set it incorrectly
         return column.getStartingPos();
-    }
-
-    private static ColumnChunkMetadata toColumnChunkMetadata(ColumnChunk columnChunk, String createdBy, MessageType messageType)
-    {
-        ColumnMetaData metaData = columnChunk.meta_data;
-        String[] path = metaData.path_in_schema.stream()
-                .map(value -> value.toLowerCase(Locale.ENGLISH))
-                .toArray(String[]::new);
-        ColumnPath columnPath = ColumnPath.get(path);
-        PrimitiveType primitiveType = messageType.getType(columnPath.toArray()).asPrimitiveType();
-        ColumnChunkMetadata column = ColumnChunkMetadata.get(
-                columnPath,
-                primitiveType,
-                CompressionCodecName.fromParquet(metaData.codec),
-                convertEncodingStats(metaData.encoding_stats),
-                readEncodings(metaData.encodings),
-                MetadataReader.readStats(Optional.ofNullable(createdBy), Optional.ofNullable(metaData.statistics), primitiveType),
-                metaData.data_page_offset,
-                metaData.dictionary_page_offset,
-                metaData.num_values,
-                metaData.total_compressed_size,
-                metaData.total_uncompressed_size);
-        column.setColumnIndexReference(toColumnIndexReference(columnChunk));
-        column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
-        column.setBloomFilterOffset(metaData.bloom_filter_offset);
-        return column;
     }
 
     private static MessageType readParquetSchema(List<SchemaElement> schema)
@@ -253,6 +296,31 @@ public class ParquetMetadata
             }
             typeBuilder.named(element.name.toLowerCase(Locale.ENGLISH));
         }
+    }
+
+    private static Optional<ColumnMetaData> decryptColumnMetadata(ColumnPath columnPath, RowGroup rowGroup, byte[] columnKeyMetadata, ColumnChunk columnChunk, FileDecryptionContext decryptionContext, int columnOrdinal)
+            throws IOException
+    {
+        byte[] encryptedMetadataBuffer = columnChunk.getEncrypted_column_metadata();
+
+        // Decrypt the ColumnMetaData
+        Optional<ColumnDecryptionContext> columnDecryptionContext = decryptionContext.initializeColumnCryptoMetadata(columnPath, false, Optional.ofNullable(columnKeyMetadata));
+        if (columnDecryptionContext.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ByteArrayInputStream tempInputStream = new ByteArrayInputStream(encryptedMetadataBuffer);
+        byte[] columnMetaDataAAD = AesCipherUtils.createModuleAAD(decryptionContext.getFileAad(), ModuleType.ColumnMetaData, rowGroup.ordinal, columnOrdinal, -1);
+        return Optional.of(Util.readColumnMetaData(tempInputStream, columnDecryptionContext.get().metadataDecryptor(), columnMetaDataAAD));
+    }
+
+    private static ColumnPath getPath(List<String> pathInSchema)
+    {
+        requireNonNull(pathInSchema, "pathInSchema is null");
+        String[] path = pathInSchema.stream()
+                .map(value -> value.toLowerCase(Locale.ENGLISH))
+                .toArray(String[]::new);
+        return ColumnPath.get(path);
     }
 
     private static Set<Encoding> readEncodings(List<org.apache.parquet.format.Encoding> encodings)

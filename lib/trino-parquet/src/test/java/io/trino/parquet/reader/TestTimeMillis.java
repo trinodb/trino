@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
@@ -58,7 +59,7 @@ public class TestTimeMillis
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("time_millis_int32.snappy.parquet").toURI()),
                 ParquetReaderOptions.defaultOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
         SourcePage page = reader.nextPage();

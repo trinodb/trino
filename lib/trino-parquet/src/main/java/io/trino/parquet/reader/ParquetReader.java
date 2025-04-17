@@ -33,6 +33,7 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.PrimitiveField;
 import io.trino.parquet.VariantField;
+import io.trino.parquet.crypto.FileDecryptionContext;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.PrunedBlockMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
@@ -150,6 +151,7 @@ public class ParquetReader
     private int currentPageId;
 
     private long columnIndexRowsFiltered = -1;
+    private final Optional<FileDecryptionContext> decryptionContext;
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
@@ -162,7 +164,8 @@ public class ParquetReader
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
             Optional<TupleDomainParquetPredicate> parquetPredicate,
-            Optional<ParquetWriteValidation> writeValidation)
+            Optional<ParquetWriteValidation> writeValidation,
+            Optional<FileDecryptionContext> decryptionContext)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -180,6 +183,7 @@ public class ParquetReader
         this.maxBatchSize = options.getMaxReadBlockRowCount();
         this.columnReaders = new HashMap<>();
         this.maxBytesPerCell = new HashMap<>();
+        this.decryptionContext = requireNonNull(decryptionContext, "decryptionContext is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         validateWrite(
@@ -668,7 +672,7 @@ public class ParquetReader
             }
             ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
             columnReader.setPageReader(
-                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy),
+                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy, decryptionContext),
                     Optional.ofNullable(rowRanges));
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();

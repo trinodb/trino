@@ -28,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -48,7 +49,7 @@ public class TestByteStreamSplitEncoding
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("byte_stream_split_float_and_double.parquet").toURI()),
                 ParquetReaderOptions.defaultOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 
         readAndCompare(reader, getExpectedValues());
