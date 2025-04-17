@@ -11,23 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet;
+package io.trino.parquet.crypto;
 
-import io.airlift.slice.Slice;
-
-public abstract class Page
+public enum AesMode
 {
-    protected final int uncompressedSize;
+    GCM("AES/GCM/NoPadding"),
+    CTR("AES/CTR/NoPadding");
 
-    public Page(int uncompressedSize)
+    private final String cipherName;
+
+    AesMode(String cipherName)
     {
-        this.uncompressedSize = uncompressedSize;
+        this.cipherName = cipherName;
     }
 
-    public int getUncompressedSize()
+    public String getCipherName()
     {
-        return uncompressedSize;
+        return cipherName;
     }
-
-    public abstract Slice getSlice();
 }
