@@ -38,6 +38,7 @@ public class IcebergExecutorModule
     {
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergMetadata.class));
         closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitManager.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergMaterializedView.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergScanPlanning.class));
     }
 
@@ -55,6 +56,14 @@ public class IcebergExecutorModule
     public ListeningExecutorService createSplitSourceExecutor(CatalogName catalogName)
     {
         return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("iceberg-split-source-" + catalogName + "-%s")));
+    }
+
+    @Provides
+    @Singleton
+    @ForIcebergMaterializedView
+    public ExecutorService createMaterializedViewExecutor(CatalogName catalogName)
+    {
+        return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("iceberg-materialized-view-" + catalogName + "-%s")));
     }
 
     @Provides
