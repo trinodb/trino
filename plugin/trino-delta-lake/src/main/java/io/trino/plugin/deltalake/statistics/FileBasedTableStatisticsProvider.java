@@ -51,6 +51,8 @@ import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.createStatisticsPredicate;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isExtendedStatisticsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSplitManager.buildSplitPath;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.escapeSpecialChars;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileSizeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
@@ -88,8 +90,10 @@ public class FileBasedTableStatisticsProvider
         double numRecords = 0L;
 
         MetadataEntry metadata = tableHandle.getMetadataEntry();
+        Set<String> dataSkippingStatsColumns = getDataSkippingStatsColumns(metadata.getDataSkippingStatsColumnProperty());
         List<DeltaLakeColumnMetadata> columnMetadata = DeltaLakeSchemaSupport.extractSchema(metadata, tableHandle.getProtocolEntry(), typeManager);
         List<DeltaLakeColumnHandle> columns = columnMetadata.stream()
+                .filter(columnMeta -> dataSkippingStatsColumns.isEmpty() || dataSkippingStatsColumns.contains(escapeSpecialChars(columnMeta.name())))
                 .map(columnMeta -> new DeltaLakeColumnHandle(
                         columnMeta.name(),
                         columnMeta.type(),

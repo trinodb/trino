@@ -96,6 +96,8 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.escapeSpecialChars;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -436,13 +438,16 @@ public class TransactionLogAccess
 
     public static List<DeltaLakeColumnMetadata> columnsWithStats(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TypeManager typeManager)
     {
-        return columnsWithStats(DeltaLakeSchemaSupport.extractSchema(metadataEntry, protocolEntry, typeManager), metadataEntry.getOriginalPartitionColumns());
+        return columnsWithStats(DeltaLakeSchemaSupport.extractSchema(metadataEntry, protocolEntry, typeManager), metadataEntry.getOriginalPartitionColumns(), getDataSkippingStatsColumns(metadataEntry.getDataSkippingStatsColumnProperty()));
     }
 
-    public static ImmutableList<DeltaLakeColumnMetadata> columnsWithStats(List<DeltaLakeColumnMetadata> schema, List<String> partitionColumns)
+    public static ImmutableList<DeltaLakeColumnMetadata> columnsWithStats(List<DeltaLakeColumnMetadata> schema, List<String> partitionColumns, Set<String> dataSkippingStatsColumns)
     {
         return schema.stream()
                 .filter(column -> !partitionColumns.contains(column.name()))
+                // TODO: this need revisit once https://github.com/trinodb/trino/issues/25566 is done,
+                //  since we don't support row type statistics anyway, just use contains to check whether the columns needs statistics
+                .filter(column -> dataSkippingStatsColumns.isEmpty() || dataSkippingStatsColumns.contains(escapeSpecialChars(column.name())))
                 .filter(column -> {
                     Type type = column.type();
                     return !(type instanceof MapType || type instanceof ArrayType || type.equals(BooleanType.BOOLEAN) || type.equals(VarbinaryType.VARBINARY));

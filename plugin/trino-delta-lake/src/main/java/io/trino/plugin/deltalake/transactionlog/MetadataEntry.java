@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.spi.TrinoException;
@@ -37,6 +39,8 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.COLUMN_MAPPING_MODE_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DELETION_VECTORS_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.toDataSkippingStatsColumnsString;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -51,6 +55,7 @@ public class MetadataEntry
     public static final String DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY = "delta.enableChangeDataFeed";
 
     private static final String DELTA_CHECKPOINT_INTERVAL_PROPERTY = "delta.checkpointInterval";
+    private static final String DELTA_DATA_SKIPPING_STATS_COLUMNS_PROPERTY = "delta.dataSkippingStatsColumns";
 
     private final String id;
     private final String name;
@@ -85,6 +90,10 @@ public class MetadataEntry
                 .collect(toImmutableList());
         this.configuration = configuration;
         this.createdTime = createdTime;
+
+        if (!Sets.intersection(ImmutableSet.copyOf(partitionColumns), getDataSkippingStatsColumns(getDataSkippingStatsColumnProperty())).isEmpty()) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Partition column names cannot be skipped in stats computation");
+        }
     }
 
     @JsonProperty
@@ -171,9 +180,19 @@ public class MetadataEntry
         }
     }
 
+    @JsonIgnore
+    public Optional<String> getDataSkippingStatsColumnProperty()
+    {
+        if (this.getConfiguration() == null) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(this.getConfiguration().get(DELTA_DATA_SKIPPING_STATS_COLUMNS_PROPERTY));
+    }
+
     public static Map<String, String> configurationForNewTable(
             Optional<Long> checkpointInterval,
             Optional<Boolean> changeDataFeedEnabled,
+            Optional<String> skippingStatsColumnProperty,
             boolean deletionVectorsEnabled,
             ColumnMappingMode columnMappingMode,
             OptionalInt maxFieldId)
@@ -181,6 +200,7 @@ public class MetadataEntry
         ImmutableMap.Builder<String, String> configurationMapBuilder = ImmutableMap.builder();
         checkpointInterval.ifPresent(interval -> configurationMapBuilder.put(DELTA_CHECKPOINT_INTERVAL_PROPERTY, String.valueOf(interval)));
         changeDataFeedEnabled.ifPresent(enabled -> configurationMapBuilder.put(DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY, String.valueOf(enabled)));
+        skippingStatsColumnProperty.ifPresent(columns -> configurationMapBuilder.put(DELTA_DATA_SKIPPING_STATS_COLUMNS_PROPERTY, toDataSkippingStatsColumnsString(getDataSkippingStatsColumns(Optional.of(columns)))));
         configurationMapBuilder.put(DELETION_VECTORS_CONFIGURATION_KEY, Boolean.toString(deletionVectorsEnabled));
         switch (columnMappingMode) {
             case NONE -> { /* do nothing */ }

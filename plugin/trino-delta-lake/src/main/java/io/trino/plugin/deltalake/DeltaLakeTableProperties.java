@@ -43,6 +43,7 @@ public class DeltaLakeTableProperties
     public static final String CHANGE_DATA_FEED_ENABLED_PROPERTY = "change_data_feed_enabled";
     public static final String COLUMN_MAPPING_MODE_PROPERTY = "column_mapping_mode";
     public static final String DELETION_VECTORS_ENABLED_PROPERTY = "deletion_vectors_enabled";
+    public static final String DATA_SKIPPING_STATS_COLUMNS_PROPERTY = "data_skipping_stats_columns";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -94,6 +95,11 @@ public class DeltaLakeTableProperties
                         "Enables deletion vectors",
                         config.isDeletionVectorsEnabled(),
                         false))
+                .add(stringProperty(
+                        DATA_SKIPPING_STATS_COLUMNS_PROPERTY,
+                        "Column names to collect statistics for data skipping",
+                        null,
+                        false))
                 .build();
     }
 
@@ -138,5 +144,10 @@ public class DeltaLakeTableProperties
     public static boolean getDeletionVectorsEnabled(Map<String, Object> tableProperties)
     {
         return (boolean) tableProperties.getOrDefault(DELETION_VECTORS_ENABLED_PROPERTY, false);
+    }
+
+    public static Optional<String> getSkippingStatsColumnsProperty(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((String) tableProperties.get(DATA_SKIPPING_STATS_COLUMNS_PROPERTY));
     }
 }

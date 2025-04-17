@@ -123,7 +123,8 @@ public class DeltaLakePageSinkProvider
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                Optional.empty());
     }
 
     @Override
@@ -144,7 +145,8 @@ public class DeltaLakePageSinkProvider
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                metadataEntry.getDataSkippingStatsColumnProperty());
     }
 
     @Override
@@ -167,7 +169,8 @@ public class DeltaLakePageSinkProvider
                         session,
                         stats,
                         trinoVersion,
-                        parquetSchemaMapping);
+                        parquetSchemaMapping,
+                        Optional.empty());
         }
 
         throw new IllegalArgumentException("Unknown procedure: " + executeHandle.procedureId());
@@ -202,7 +205,8 @@ public class DeltaLakePageSinkProvider
                 isDeletionVectorEnabled(tableHandle.metadataEntry(), tableHandle.protocolEntry()),
                 merge.deletionVectors(),
                 getRandomPrefixLength(tableHandle.metadataEntry()),
-                merge.shallowCloneSourceTableLocation());
+                merge.shallowCloneSourceTableLocation(),
+                tableHandle.metadataEntry().getDataSkippingStatsColumnProperty());
     }
 
     private DeltaLakeCdfPageSink createCdfPageSink(
@@ -250,6 +254,7 @@ public class DeltaLakePageSinkProvider
                 session,
                 stats,
                 trinoVersion,
-                parquetSchemaMapping);
+                parquetSchemaMapping,
+                metadataEntry.getDataSkippingStatsColumnProperty());
     }
 }

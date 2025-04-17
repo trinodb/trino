@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -63,6 +64,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWri
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.deltalake.DeltaLakeTypes.toParquetType;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -112,6 +114,7 @@ public abstract class AbstractDeltaLakePageSink
     protected final ImmutableList.Builder<DataFileInfo> dataFileInfos = ImmutableList.builder();
     private final DeltaLakeParquetSchemaMapping parquetSchemaMapping;
     private long currentOpenWriters;
+    private final Set<String> dataSkippingStatsColumns;
 
     public AbstractDeltaLakePageSink(
             TypeOperators typeOperators,
@@ -126,7 +129,8 @@ public abstract class AbstractDeltaLakePageSink
             ConnectorSession session,
             DeltaLakeWriterStats stats,
             String trinoVersion,
-            DeltaLakeParquetSchemaMapping parquetSchemaMapping)
+            DeltaLakeParquetSchemaMapping parquetSchemaMapping,
+            Optional<String> dataSkippingStatsColumnsProperty)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         requireNonNull(inputColumns, "inputColumns is null");
@@ -196,6 +200,8 @@ public abstract class AbstractDeltaLakePageSink
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.targetMaxFileSize = DeltaLakeSessionProperties.getTargetMaxFileSize(session);
         this.idleWriterMinFileSize = DeltaLakeSessionProperties.getIdleWriterMinFileSize(session);
+
+        this.dataSkippingStatsColumns = getDataSkippingStatsColumns(dataSkippingStatsColumnsProperty);
     }
 
     protected abstract void processSynthesizedColumn(DeltaLakeColumnHandle column);
@@ -389,7 +395,8 @@ public abstract class AbstractDeltaLakePageSink
                     partitionValues,
                     stats,
                     dataColumnHandles,
-                    getDataFileType());
+                    getDataFileType(),
+                    dataSkippingStatsColumns);
 
             writers.set(writerIndex, writer);
             currentOpenWriters++;
