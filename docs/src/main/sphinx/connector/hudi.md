@@ -101,6 +101,9 @@ Additionally, following configuration properties can be set depending on the use
     failing the query. This skips data that may be expected to be part of the
     table.
   - `false`
+* - `hudi.metadata-enabled`
+  - Fetch the list of file names and sizes from Hudi metadata table rather than storage.
+  - `false`
 
 :::
 

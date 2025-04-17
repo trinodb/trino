@@ -179,18 +179,18 @@ public final class HudiUtil
 
     public static FileSlice convertToFileSlice(HudiSplit split, String basePath)
     {
-        String dataFilePath = split.getBaseFile().isPresent()
-                ? split.getBaseFile().get().getPath()
-                : split.getLogFiles().getFirst().getPath();
+        String dataFilePath = split.baseFile().isPresent()
+                ? split.baseFile().get().getPath()
+                : split.logFiles().getFirst().getPath();
         String fileId = FSUtils.getFileIdFromFileName(new StoragePath(dataFilePath).getName());
-        HoodieBaseFile baseFile = split.getBaseFile().isPresent()
-                ? new HoodieBaseFile(dataFilePath, fileId, split.getCommitTime(), null)
+        HoodieBaseFile baseFile = split.baseFile().isPresent()
+                ? new HoodieBaseFile(dataFilePath, fileId, split.commitTime(), null)
                 : null;
 
         return new FileSlice(
                 new HoodieFileGroupId(FSUtils.getRelativePartitionPath(new StoragePath(basePath), new StoragePath(dataFilePath)), fileId),
-                split.getCommitTime(),
+                split.commitTime(),
                 baseFile,
-                split.getLogFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList());
+                split.logFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList());
     }
 }

@@ -124,11 +124,11 @@ public class HudiPageSourceProvider
     {
         HudiTableHandle hudiTableHandle = (HudiTableHandle) connectorTable;
         HudiSplit hudiSplit = (HudiSplit) connectorSplit;
-        Optional<HudiBaseFile> hudiBaseFileOpt = hudiSplit.getBaseFile();
+        Optional<HudiBaseFile> hudiBaseFileOpt = hudiSplit.baseFile();
 
         String dataFilePath = hudiBaseFileOpt.isPresent()
                 ? hudiBaseFileOpt.get().getPath()
-                : hudiSplit.getLogFiles().getFirst().getPath();
+                : hudiSplit.logFiles().getFirst().getPath();
         // Filter out metadata table splits
         if (dataFilePath.contains(new StoragePath(
                 ((HudiTableHandle) connectorTable).getBasePath()).toUri().getPath() + "/.hoodie/metadata")) {
@@ -202,7 +202,6 @@ public class HudiPageSourceProvider
         return new HudiPageSource(
                 dataPageSource,
                 fileGroupReader,
-                readerContext,
                 hiveColumns,
                 synthesizedColumnHandler);
     }
@@ -218,7 +217,7 @@ public class HudiPageSourceProvider
     {
         ParquetDataSource dataSource = null;
         boolean useColumnNames = shouldUseParquetColumnNames(session);
-        HudiBaseFile baseFile = hudiSplit.getBaseFile().get();
+        HudiBaseFile baseFile = hudiSplit.baseFile().get();
         String path = baseFile.getPath();
         long start = baseFile.getStart();
         long length = baseFile.getLength();
@@ -237,7 +236,7 @@ public class HudiPageSourceProvider
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics()
                     ? TupleDomain.all()
-                    : getParquetTupleDomain(descriptorsByPath, hudiSplit.getPredicate(), fileSchema, useColumnNames);
+                    : getParquetTupleDomain(descriptorsByPath, hudiSplit.predicate(), fileSchema, useColumnNames);
 
             TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
 
@@ -277,8 +276,8 @@ public class HudiPageSourceProvider
             }
             catch (IOException _) {
             }
-            if (e instanceof TrinoException) {
-                throw (TrinoException) e;
+            if (e instanceof TrinoException trinoException) {
+                throw trinoException;
             }
             if (e instanceof ParquetCorruptionException) {
                 throw new TrinoException(HUDI_BAD_DATA, e);
@@ -290,8 +289,8 @@ public class HudiPageSourceProvider
 
     private static TrinoException handleException(ParquetDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(HUDI_BAD_DATA, exception);

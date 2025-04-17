@@ -41,7 +41,6 @@ import static java.util.Locale.ENGLISH;
 public class HudiSessionProperties
         implements SessionPropertiesProvider
 {
-    static final String METADATA_TABLE_ENABLED = "metadata_enabled";
     private static final String COLUMNS_TO_HIDE = "columns_to_hide";
     private static final String USE_PARQUET_COLUMN_NAMES = "use_parquet_column_names";
     private static final String PARQUET_SMALL_FILE_THRESHOLD = "parquet_small_file_threshold";
@@ -54,6 +53,7 @@ public class HudiSessionProperties
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
+    static final String METADATA_TABLE_ENABLED = "metadata_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -72,11 +72,6 @@ public class HudiSessionProperties
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
                         value -> value),
-                booleanProperty(
-                        METADATA_TABLE_ENABLED,
-                        "For Hudi tables prefer to fetch the list of files from its metadata table",
-                        hudiConfig.isMetadataEnabled(),
-                        false),
                 booleanProperty(
                         USE_PARQUET_COLUMN_NAMES,
                         "Access parquet columns using names from the file. If disabled, then columns are accessed using index.",
@@ -137,6 +132,11 @@ public class HudiSessionProperties
                         IGNORE_ABSENT_PARTITIONS,
                         "Ignore absent partitions",
                         hudiConfig.isIgnoreAbsentPartitions(),
+                        false),
+                booleanProperty(
+                        METADATA_TABLE_ENABLED,
+                        "For Hudi tables prefer to fetch the list of files from its metadata table",
+                        hudiConfig.isMetadataEnabled(),
                         false));
     }
 
@@ -150,11 +150,6 @@ public class HudiSessionProperties
     public static List<String> getColumnsToHide(ConnectorSession session)
     {
         return (List<String>) session.getProperty(COLUMNS_TO_HIDE, List.class);
-    }
-
-    public static boolean isHudiMetadataTableEnabled(ConnectorSession session)
-    {
-        return session.getProperty(METADATA_TABLE_ENABLED, Boolean.class);
     }
 
     public static boolean shouldUseParquetColumnNames(ConnectorSession session)
@@ -210,5 +205,10 @@ public class HudiSessionProperties
     public static boolean isIgnoreAbsentPartitions(ConnectorSession session)
     {
         return session.getProperty(IGNORE_ABSENT_PARTITIONS, Boolean.class);
+    }
+
+    public static boolean isHudiMetadataTableEnabled(ConnectorSession session)
+    {
+        return session.getProperty(METADATA_TABLE_ENABLED, Boolean.class);
     }
 }

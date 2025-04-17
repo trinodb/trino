@@ -27,6 +27,7 @@ import org.apache.hudi.common.util.Option;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -65,7 +66,7 @@ public class HudiSplitFactory
 
             if (fileSize == 0) {
                 return ImmutableList.of(new HudiSplit(
-                        HudiBaseFile.of(baseFile),
+                        Optional.of(HudiBaseFile.of(baseFile)),
                         Collections.emptyList(),
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
@@ -79,7 +80,7 @@ public class HudiSplitFactory
             long bytesRemaining = fileSize;
             while (((double) bytesRemaining) / splitSize > SPLIT_SLOP) {
                 splits.add(new HudiSplit(
-                        HudiBaseFile.of(baseFile, fileSize - bytesRemaining, splitSize),
+                        Optional.of(HudiBaseFile.of(baseFile, fileSize - bytesRemaining, splitSize)),
                         Collections.emptyList(),
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
@@ -89,7 +90,7 @@ public class HudiSplitFactory
             }
             if (bytesRemaining > 0) {
                 splits.add(new HudiSplit(
-                        HudiBaseFile.of(baseFile, fileSize - bytesRemaining, bytesRemaining),
+                        Optional.of(HudiBaseFile.of(baseFile, fileSize - bytesRemaining, bytesRemaining)),
                         Collections.emptyList(),
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
@@ -103,7 +104,7 @@ public class HudiSplitFactory
         Option<HoodieBaseFile> baseFileOption = fileSlice.getBaseFile();
         return Collections.singletonList(
                 new HudiSplit(
-                        baseFileOption.isPresent() ? HudiBaseFile.of(baseFileOption.get()) : null,
+                        baseFileOption.isPresent() ? Optional.of(HudiBaseFile.of(baseFileOption.get())) : Optional.empty(),
                         fileSlice.getLogFiles().map(HudiLogFile::of).toList(),
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),

@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.hudi;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -35,33 +33,25 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class HudiSplit
+public record HudiSplit(
+        Optional<HudiBaseFile> baseFile,
+        List<HudiLogFile> logFiles,
+        String commitTime,
+        TupleDomain<HiveColumnHandle> predicate,
+        List<HivePartitionKey> partitionKeys,
+        SplitWeight splitWeight)
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = toIntExact(instanceSize(HudiSplit.class));
 
-    private final Optional<HudiBaseFile> baseFile;
-    private final List<HudiLogFile> logFiles;
-    private final String commitTime;
-    private final TupleDomain<HiveColumnHandle> predicate;
-    private final List<HivePartitionKey> partitionKeys;
-    private final SplitWeight splitWeight;
-
-    @JsonCreator
-    public HudiSplit(
-            @JsonProperty("baseFile") HudiBaseFile baseFile,
-            @JsonProperty("logFiles") List<HudiLogFile> logFiles,
-            @JsonProperty("commitTime") String commitTime,
-            @JsonProperty("predicate") TupleDomain<HiveColumnHandle> predicate,
-            @JsonProperty("partitionKeys") List<HivePartitionKey> partitionKeys,
-            @JsonProperty("splitWeight") SplitWeight splitWeight)
+    public HudiSplit
     {
-        this.baseFile = Optional.ofNullable(baseFile);
-        this.logFiles = requireNonNull(logFiles, "logFiles is null");
-        this.commitTime = requireNonNull(commitTime, "commitTime is null");
-        this.predicate = requireNonNull(predicate, "predicate is null");
-        this.partitionKeys = ImmutableList.copyOf(requireNonNull(partitionKeys, "partitionKeys is null"));
-        this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
+        requireNonNull(baseFile, "baseFile is null");
+        requireNonNull(logFiles, "logFiles is null");
+        requireNonNull(commitTime, "commitTime is null");
+        requireNonNull(predicate, "predicate is null");
+        partitionKeys = ImmutableList.copyOf(partitionKeys);
+        requireNonNull(splitWeight, "splitWeight is null");
     }
 
     @Override
@@ -72,43 +62,6 @@ public class HudiSplit
                 .put("logFiles", logFiles.toString())
                 .put("commitTime", commitTime)
                 .buildOrThrow();
-    }
-
-    @JsonProperty
-    public Optional<HudiBaseFile> getBaseFile()
-    {
-        return baseFile;
-    }
-
-    @JsonProperty
-    public List<HudiLogFile> getLogFiles()
-    {
-        return logFiles;
-    }
-
-    @JsonProperty
-    public String getCommitTime()
-    {
-        return commitTime;
-    }
-
-    @JsonProperty
-    @Override
-    public SplitWeight getSplitWeight()
-    {
-        return splitWeight;
-    }
-
-    @JsonProperty
-    public TupleDomain<HiveColumnHandle> getPredicate()
-    {
-        return predicate;
-    }
-
-    @JsonProperty
-    public List<HivePartitionKey> getPartitionKeys()
-    {
-        return partitionKeys;
     }
 
     @Override

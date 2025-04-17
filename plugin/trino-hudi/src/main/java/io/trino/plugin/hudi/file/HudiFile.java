@@ -17,8 +17,6 @@ public interface HudiFile
 {
     String getPath();
 
-    String getFileName();
-
     long getFileSize();
 
     long getModificationTime();

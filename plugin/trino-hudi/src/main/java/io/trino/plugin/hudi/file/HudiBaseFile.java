@@ -23,7 +23,6 @@ public class HudiBaseFile
         implements HudiFile
 {
     private final String path;
-    private final String fileName;
     private final long fileSize;
     private final long modificationTime;
     private final long start;
@@ -40,15 +39,14 @@ public class HudiBaseFile
     }
 
     @JsonCreator
-    public HudiBaseFile(@JsonProperty("path") String path,
-            @JsonProperty("fileName") String fileName,
+    public HudiBaseFile(
+            @JsonProperty("path") String path,
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("modificationTime") long modificationTime,
             @JsonProperty("start") long start,
             @JsonProperty("length") long length)
     {
         this.path = path;
-        this.fileName = fileName;
         this.fileSize = fileSize;
         this.modificationTime = modificationTime;
         this.start = start;
@@ -62,7 +60,6 @@ public class HudiBaseFile
         checkArgument(length >= 0, "length must be positive");
         checkArgument(start + length <= baseFile.getFileSize(), "fileSize must be at least start + length");
         this.path = baseFile.getPath();
-        this.fileName = baseFile.getFileName();
         this.fileSize = baseFile.getFileSize();
         this.modificationTime = baseFile.getPathInfo().getModificationTime();
         this.start = start;
@@ -73,12 +70,6 @@ public class HudiBaseFile
     public String getPath()
     {
         return path;
-    }
-
-    @JsonProperty
-    public String getFileName()
-    {
-        return fileName;
     }
 
     @JsonProperty

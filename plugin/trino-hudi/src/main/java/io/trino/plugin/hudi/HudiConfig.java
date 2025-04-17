@@ -65,17 +65,17 @@ public class HudiConfig
         return this;
     }
 
+    public boolean isMetadataEnabled()
+    {
+        return this.metadataEnabled;
+    }
+
     @Config("hudi.metadata-enabled")
-    @ConfigDescription("Fetch the list of file names and sizes from Hudi metadata table rather than storage.")
+    @ConfigDescription("Fetch the list of file names and sizes from Hudi metadata table rather than storage")
     public HudiConfig setMetadataEnabled(boolean metadataEnabled)
     {
         this.metadataEnabled = metadataEnabled;
         return this;
-    }
-
-    public boolean isMetadataEnabled()
-    {
-        return this.metadataEnabled;
     }
 
     @Config("hudi.parquet.use-column-names")

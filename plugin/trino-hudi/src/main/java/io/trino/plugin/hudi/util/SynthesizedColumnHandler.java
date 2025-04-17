@@ -89,7 +89,7 @@ public class SynthesizedColumnHandler
     private void initPartitionKeyStrategies(ImmutableMap.Builder<String, SynthesizedColumnStrategy> builder,
             HudiSplit hudiSplit)
     {
-        for (HivePartitionKey partitionKey : hudiSplit.getPartitionKeys()) {
+        for (HivePartitionKey partitionKey : hudiSplit.partitionKeys()) {
             builder.put(partitionKey.name(), (blockBuilder) ->
                     VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(partitionKey.value())));
         }
@@ -157,12 +157,12 @@ public class SynthesizedColumnHandler
 
         public SplitMetadata(HudiSplit hudiSplit)
         {
-            this.partitionKeyVals = hudiSplit.getPartitionKeys().stream()
+            this.partitionKeyVals = hudiSplit.partitionKeys().stream()
                     .collect(Collectors.toMap(HivePartitionKey::name, HivePartitionKey::value));
             // Parquet files will be prioritised over log files
-            HudiFile hudiFile = hudiSplit.getBaseFile().isPresent()
-                    ? hudiSplit.getBaseFile().get()
-                    : hudiSplit.getLogFiles().getFirst();
+            HudiFile hudiFile = hudiSplit.baseFile().isPresent()
+                    ? hudiSplit.baseFile().get()
+                    : hudiSplit.logFiles().getFirst();
             this.filePath = hudiFile.getPath();
             this.fileSize = hudiFile.getFileSize();
             this.modifiedTime = hudiFile.getModificationTime();

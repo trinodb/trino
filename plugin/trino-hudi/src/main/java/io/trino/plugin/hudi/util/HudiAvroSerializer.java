@@ -26,6 +26,7 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -181,6 +182,9 @@ public class HudiAvroSerializer
             }
             else if (javaType == Slice.class) {
                 writeSlice(output, type, value);
+            }
+            else if (javaType == LongTimestamp.class) {
+                type.writeObject(output, value);
             }
             else if (javaType == LongTimestampWithTimeZone.class) {
                 verify(type.equals(TIMESTAMP_TZ_MICROS));

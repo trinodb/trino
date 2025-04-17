@@ -139,11 +139,11 @@ public class TestHudiSmokeTest
     public void testReadPartitionedMORTableWithMetadata()
     {
         getQueryRunner().execute(getSession(), "SET SESSION hudi.metadata_enabled=true");
-        assertQuery("SELECT symbol, max(ts) FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY symbol HAVING symbol = 'GOOG'",
-                "SELECT * FROM VALUES ('GOOG', '2018-08-31 10:59:00')");
+        assertThat(query("SELECT symbol, max(ts) FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY symbol HAVING symbol = 'GOOG'"))
+                .matches("VALUES (VARCHAR 'GOOG', VARCHAR '2018-08-31 10:59:00')");
 
-        assertQuery("SELECT date, count(1) FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY date",
-                "SELECT * FROM VALUES ('2018-08-31', '99')");
+        assertThat(query("SELECT date, count(1) FROM " + HUDI_STOCK_TICKS_MOR + " GROUP BY date"))
+                .matches("VALUES (VARCHAR '2018-08-31', BIGINT '99')");
     }
 
     @Test

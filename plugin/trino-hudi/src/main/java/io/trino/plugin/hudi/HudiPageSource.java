@@ -14,7 +14,6 @@
 package io.trino.plugin.hudi;
 
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.plugin.hudi.reader.TrinoHudiReaderContext;
 import io.trino.plugin.hudi.util.HudiAvroSerializer;
 import io.trino.plugin.hudi.util.SynthesizedColumnHandler;
 import io.trino.spi.Page;
@@ -31,29 +30,25 @@ import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class HudiPageSource
         implements ConnectorPageSource
 {
-    HoodieFileGroupReader<IndexedRecord> fileGroupReader;
-    ConnectorPageSource pageSource;
-    TrinoHudiReaderContext readerContext;
-    PageBuilder pageBuilder;
-    HudiAvroSerializer avroSerializer;
-    List<HiveColumnHandle> columnHandles;
+    private final HoodieFileGroupReader<IndexedRecord> fileGroupReader;
+    private final ConnectorPageSource pageSource;
+    private final PageBuilder pageBuilder;
+    private final HudiAvroSerializer avroSerializer;
 
     public HudiPageSource(
             ConnectorPageSource pageSource,
             HoodieFileGroupReader<IndexedRecord> fileGroupReader,
-            TrinoHudiReaderContext readerContext,
             List<HiveColumnHandle> columnHandles,
             SynthesizedColumnHandler synthesizedColumnHandler)
     {
-        this.pageSource = pageSource;
-        this.fileGroupReader = fileGroupReader;
+        this.pageSource = requireNonNull(pageSource, "pageSource is null");
+        this.fileGroupReader = requireNonNull(fileGroupReader, "fileGroupReader is null");
         this.initFileGroupReader();
-        this.readerContext = readerContext;
-        this.columnHandles = columnHandles;
         this.pageBuilder = new PageBuilder(columnHandles.stream().map(HiveColumnHandle::getType).toList());
         this.avroSerializer = new HudiAvroSerializer(columnHandles, synthesizedColumnHandler);
     }
