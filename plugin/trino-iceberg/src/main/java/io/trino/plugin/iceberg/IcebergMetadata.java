@@ -327,6 +327,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.newCreateTableTransaction;
+import static io.trino.plugin.iceberg.IcebergUtil.removeEmptyStructType;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.validateOrcBloomFilterColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.validateParquetBloomFilterColumns;
@@ -1416,14 +1417,15 @@ public class IcebergMetadata
             List<PositionDeleteFiles> previousDeleteFiles,
             RetryMode retryMode)
     {
+        Schema schema = removeEmptyStructType(table.schema());
         return new IcebergWritableTableHandle(
                 name,
                 formatVersion(table),
-                SchemaParser.toJson(table.schema()),
+                SchemaParser.toJson(schema),
                 transformValues(table.specs(), PartitionSpecParser::toJson),
                 table.spec().specId(),
-                getSupportedSortFields(table.schema(), table.sortOrder()),
-                getProjectedColumns(table.schema(), typeManager),
+                getSupportedSortFields(schema, table.sortOrder()),
+                getProjectedColumns(schema, typeManager),
                 previousDeleteFiles,
                 table.location(),
                 getFileFormat(table),
@@ -1675,15 +1677,16 @@ public class IcebergMetadata
             RetryMode retryMode)
     {
         DataSize maxScannedFileSize = (DataSize) executeProperties.get("file_size_threshold");
+        Schema schema = removeEmptyStructType(SchemaParser.fromJson(tableHandle.getTableSchemaJson()));
 
         return Optional.of(new IcebergTableExecuteHandle(
                 tableHandle.getSchemaTableName(),
                 OPTIMIZE,
                 new IcebergOptimizeHandle(
                         tableHandle.getSnapshotId(),
-                        tableHandle.getTableSchemaJson(),
+                        SchemaParser.toJson(schema),
                         tableHandle.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")),
-                        getProjectedColumns(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager),
+                        getProjectedColumns(schema, typeManager),
                         icebergTable.sortOrder().fields().stream()
                                 .map(TrinoSortField::fromIceberg)
                                 .collect(toImmutableList()),

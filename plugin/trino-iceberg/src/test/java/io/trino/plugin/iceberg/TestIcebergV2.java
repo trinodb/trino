@@ -530,6 +530,36 @@ public class TestIcebergV2
     }
 
     @Test
+    void testRowTypeWithoutField()
+    {
+        try (TestTable table = newTrinoTable("test_row_without_field", "(id int)")) {
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+            assertQuery("SHOW COLUMNS FROM " + table.getName(), "VALUES ('id', 'integer', '', '')");
+
+            Table icebergTable = loadTable(table.getName());
+            icebergTable.updateSchema().addColumn("nested", Types.StructType.of()).commit();
+
+            // struct type with emtpy fields is ignored
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+            assertQuery("SHOW COLUMNS FROM " + table.getName(), "VALUES ('id', 'integer', '', '')");
+
+            // insert works correctly
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1)", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1");
+
+            // merge works correctly
+            assertUpdate("MERGE INTO " + table.getName() + " t USING (VALUES (1), (2)) AS s(id) " +
+                    " ON (s.id = t.id) WHEN MATCHED THEN UPDATE SET id = t.id + 100" +
+                    " WHEN NOT MATCHED THEN INSERT VALUES (s.id)", 2);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 101, 2");
+
+            // optimize works correctly
+            assertUpdate("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 101, 2");
+        }
+    }
+
+    @Test
     public void testEqualityDeletesAcrossPartitions()
             throws Exception
     {
