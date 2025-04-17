@@ -25,11 +25,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.ShortArrayBlock;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -167,7 +167,7 @@ public class BenchmarkColumnarFilter
                         ImmutableList.of(field(0, type)),
                         Optional.empty(),
                         OptionalInt.empty())
-                .apply(DynamicFilter.EMPTY);
+                .apply(InternalDynamicFilter.EMPTY);
     }
 
     @Benchmark
