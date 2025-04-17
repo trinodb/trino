@@ -183,7 +183,7 @@ public final class TransactionLogParser
     }
 
     @VisibleForTesting
-    static Long readPartitionTimestampWithZone(String timestamp)
+    public static Long readPartitionTimestampWithZone(String timestamp)
     {
         ZonedDateTime zonedDateTime;
         try {
