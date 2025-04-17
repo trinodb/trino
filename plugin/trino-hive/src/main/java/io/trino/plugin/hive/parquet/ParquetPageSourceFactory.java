@@ -230,7 +230,7 @@ public class ParquetPageSourceFactory
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
 
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.of(options.getMaxFooterReadSize()), parquetWriteValidation);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.of(options.getMaxFooterReadSize()), parquetWriteValidation, Optional.empty());
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
@@ -285,7 +285,8 @@ public class ParquetPageSourceFactory
                     // We avoid using disjuncts of parquetPredicate for page pruning in ParquetReader as currently column indexes
                     // are not present in the Parquet files which are read with disjunct predicates.
                     parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.getFirst()) : Optional.empty(),
-                    parquetWriteValidation);
+                    parquetWriteValidation,
+                    parquetMetadata.getDecryptionContext());
             return createParquetPageSource(columns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
         }
         catch (Exception e) {
