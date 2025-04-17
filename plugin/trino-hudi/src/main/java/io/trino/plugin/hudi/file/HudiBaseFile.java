@@ -19,7 +19,9 @@ import org.apache.hudi.common.model.HoodieBaseFile;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class HudiBaseFile implements HudiFile {
+public class HudiBaseFile
+        implements HudiFile
+{
     private final String path;
     private final String fileName;
     private final long fileSize;
@@ -27,11 +29,13 @@ public class HudiBaseFile implements HudiFile {
     private final long start;
     private final long length;
 
-    public static HudiBaseFile of(HoodieBaseFile baseFile) {
+    public static HudiBaseFile of(HoodieBaseFile baseFile)
+    {
         return of(baseFile, 0, baseFile.getFileSize());
     }
 
-    public static HudiBaseFile of(HoodieBaseFile baseFile, long start, long length) {
+    public static HudiBaseFile of(HoodieBaseFile baseFile, long start, long length)
+    {
         return new HudiBaseFile(baseFile, start, length);
     }
 
@@ -41,7 +45,8 @@ public class HudiBaseFile implements HudiFile {
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("modificationTime") long modificationTime,
             @JsonProperty("start") long start,
-            @JsonProperty("length") long length) {
+            @JsonProperty("length") long length)
+    {
         this.path = path;
         this.fileName = fileName;
         this.fileSize = fileSize;
@@ -50,7 +55,8 @@ public class HudiBaseFile implements HudiFile {
         this.length = length;
     }
 
-    private HudiBaseFile(HoodieBaseFile baseFile, long start, long length) {
+    private HudiBaseFile(HoodieBaseFile baseFile, long start, long length)
+    {
         checkArgument(baseFile != null, "baseFile is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -64,32 +70,38 @@ public class HudiBaseFile implements HudiFile {
     }
 
     @JsonProperty
-    public String getPath() {
+    public String getPath()
+    {
         return path;
     }
 
     @JsonProperty
-    public String getFileName() {
+    public String getFileName()
+    {
         return fileName;
     }
 
     @JsonProperty
-    public long getFileSize() {
+    public long getFileSize()
+    {
         return fileSize;
     }
 
     @JsonProperty
-    public long getModificationTime() {
+    public long getModificationTime()
+    {
         return modificationTime;
     }
 
     @JsonProperty
-    public long getStart() {
+    public long getStart()
+    {
         return start;
     }
 
     @JsonProperty
-    public long getLength() {
+    public long getLength()
+    {
         return length;
     }
 }

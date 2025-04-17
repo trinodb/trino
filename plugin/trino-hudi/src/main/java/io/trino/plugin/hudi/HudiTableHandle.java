@@ -105,7 +105,8 @@ public class HudiTableHandle
     }
 
     @JsonProperty
-    public Optional<String> getPreCombineField() {
+    public Optional<String> getPreCombineField()
+    {
         return preCombineField;
     }
 

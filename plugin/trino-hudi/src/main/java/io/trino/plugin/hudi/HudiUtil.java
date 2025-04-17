@@ -54,11 +54,17 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static org.apache.hudi.avro.HoodieAvroUtils.METADATA_FIELD_SCHEMA;
-import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 import static org.apache.hudi.common.table.HoodieTableMetaClient.METAFOLDER_NAME;
 
 public final class HudiUtil
 {
+    public static final List<String> HOODIE_META_COLUMNS = ImmutableList.of(
+            "_hoodie_commit_time",
+            "_hoodie_commit_seqno",
+            "_hoodie_record_key",
+            "_hoodie_partition_path",
+            "_hoodie_file_name");
+
     private HudiUtil() {}
 
     public static boolean hudiMetadataExists(TrinoFileSystem trinoFileSystem, Location baseLocation)
@@ -185,7 +191,6 @@ public final class HudiUtil
                 new HoodieFileGroupId(FSUtils.getRelativePartitionPath(new StoragePath(basePath), new StoragePath(dataFilePath)), fileId),
                 split.getCommitTime(),
                 baseFile,
-                split.getLogFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList()
-        );
+                split.getLogFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList());
     }
 }

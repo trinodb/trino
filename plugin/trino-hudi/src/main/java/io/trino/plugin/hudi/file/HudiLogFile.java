@@ -19,7 +19,9 @@ import org.apache.hudi.common.model.HoodieLogFile;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class HudiLogFile implements HudiFile {
+public class HudiLogFile
+        implements HudiFile
+{
     private final String path;
     private final String fileName;
     private final long fileSize;
@@ -27,11 +29,13 @@ public class HudiLogFile implements HudiFile {
     private final long start;
     private final long length;
 
-    public static HudiLogFile of(HoodieLogFile logFile) {
+    public static HudiLogFile of(HoodieLogFile logFile)
+    {
         return of(logFile, 0, logFile.getFileSize());
     }
 
-    public static HudiLogFile of(HoodieLogFile logFile, long start, long length) {
+    public static HudiLogFile of(HoodieLogFile logFile, long start, long length)
+    {
         return new HudiLogFile(logFile, start, length);
     }
 
@@ -41,7 +45,8 @@ public class HudiLogFile implements HudiFile {
             @JsonProperty("fileSize") long fileSize,
             @JsonProperty("modificationTime") long modificationTime,
             @JsonProperty("start") long start,
-            @JsonProperty("length") long length) {
+            @JsonProperty("length") long length)
+    {
         this.path = path;
         this.fileName = fileName;
         this.fileSize = fileSize;
@@ -50,7 +55,8 @@ public class HudiLogFile implements HudiFile {
         this.length = length;
     }
 
-    private HudiLogFile(HoodieLogFile logFile, long start, long length) {
+    private HudiLogFile(HoodieLogFile logFile, long start, long length)
+    {
         checkArgument(logFile != null, "logFile is null");
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -64,32 +70,38 @@ public class HudiLogFile implements HudiFile {
     }
 
     @JsonProperty
-    public String getPath() {
+    public String getPath()
+    {
         return path;
     }
 
     @JsonProperty
-    public String getFileName() {
+    public String getFileName()
+    {
         return fileName;
     }
 
     @JsonProperty
-    public long getFileSize() {
+    public long getFileSize()
+    {
         return fileSize;
     }
 
     @JsonProperty
-    public long getModificationTime() {
+    public long getModificationTime()
+    {
         return modificationTime;
     }
 
     @JsonProperty
-    public long getStart() {
+    public long getStart()
+    {
         return start;
     }
 
     @JsonProperty
-    public long getLength() {
+    public long getLength()
+    {
         return length;
     }
 }

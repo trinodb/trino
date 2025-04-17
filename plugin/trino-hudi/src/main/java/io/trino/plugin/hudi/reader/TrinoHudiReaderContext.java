@@ -79,8 +79,8 @@ public class TrinoHudiReaderContext
     {
         return new ClosableIterator<>()
         {
-            private SourcePage currentPage = null;
-            private int currentPosition = 0;
+            private SourcePage currentPage;
+            private int currentPosition;
 
             @Override
             public void close()

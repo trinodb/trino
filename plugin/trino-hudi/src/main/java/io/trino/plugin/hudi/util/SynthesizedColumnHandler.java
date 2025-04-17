@@ -71,12 +71,10 @@ public class SynthesizedColumnHandler
                         utf8Slice(toPartitionName(splitMetadata.getPartitionKeyVals()))));
 
         builder.put(PATH_COLUMN_NAME, blockBuilder ->
-                VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(splitMetadata.getFilePath()))
-        );
+                VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(splitMetadata.getFilePath())));
 
         builder.put(FILE_SIZE_COLUMN_NAME, blockBuilder ->
-                BigintType.BIGINT.writeLong(blockBuilder, splitMetadata.getFileSize())
-        );
+                BigintType.BIGINT.writeLong(blockBuilder, splitMetadata.getFileSize()));
 
         builder.put(FILE_MODIFIED_TIME_COLUMN_NAME, blockBuilder -> {
             long packedTimestamp = packDateTimeWithZone(
@@ -93,8 +91,7 @@ public class SynthesizedColumnHandler
     {
         for (HivePartitionKey partitionKey : hudiSplit.getPartitionKeys()) {
             builder.put(partitionKey.name(), (blockBuilder) ->
-                    VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(partitionKey.value()))
-            );
+                    VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(partitionKey.value())));
         }
     }
 
@@ -148,15 +145,11 @@ public class SynthesizedColumnHandler
      */
     public static class SplitMetadata
     {
-
         private final Map<String, String> partitionKeyVals;
         private final String filePath;
         private final long fileSize;
         private final long modifiedTime;
 
-        /**
-         * Creates SplitMetadata from a Hudi split and partition key list.
-         */
         public static SplitMetadata of(HudiSplit hudiSplit)
         {
             return new SplitMetadata(hudiSplit);

@@ -15,6 +15,7 @@ package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
@@ -49,6 +50,8 @@ import static java.util.function.Function.identity;
 public class HudiSplitManager
         implements ConnectorSplitManager
 {
+    private static final Logger log = Logger.get(HudiSplitManager.class);
+
     private final TypeManager typeManager;
     private final HudiTransactionManager transactionManager;
     private final TrinoFileSystemFactory fileSystemFactory;
@@ -87,7 +90,7 @@ public class HudiSplitManager
         Map<String, HiveColumnHandle> partitionColumnHandles = partitionColumns.stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
         List<String> partitions = getPartitions(metastore, hudiTableHandle, partitionColumns);
-
+        log.debug("pruned partition count: {}", partitions.size());
         HudiSplitSource splitSource = new HudiSplitSource(
                 session,
                 metastore,

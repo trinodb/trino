@@ -204,8 +204,7 @@ public class HudiPageSourceProvider
                 fileGroupReader,
                 readerContext,
                 hiveColumns,
-                synthesizedColumnHandler
-        );
+                synthesizedColumnHandler);
     }
 
     private static ConnectorPageSource createPageSource(

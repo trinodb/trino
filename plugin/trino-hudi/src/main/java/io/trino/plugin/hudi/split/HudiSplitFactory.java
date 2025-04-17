@@ -70,8 +70,7 @@ public class HudiSplitFactory
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(fileSize)
-                ));
+                        hudiSplitWeightProvider.calculateSplitWeight(fileSize)));
             }
 
             ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
