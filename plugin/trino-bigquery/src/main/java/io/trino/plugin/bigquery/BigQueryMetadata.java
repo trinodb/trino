@@ -205,7 +205,6 @@ public class BigQueryMetadata
                 .distinct();
 
         // filter out all the ambiguous schemas to prevent failures if anyone tries to access the listed schemas
-
         return remoteSchemaNames.map(remoteSchema -> client.toRemoteDataset(projectId, remoteSchema.toLowerCase(ENGLISH), () -> datasetIds))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -488,10 +487,10 @@ public class BigQueryMetadata
             return Stream.of(function.apply(list.getFirst()));
         }
 
-        List<ListenableFuture<R>> futures = list.stream()
-                .map(element -> executorService.submit(() -> function.apply(element)))
-                .collect(toImmutableList());
         try {
+            List<ListenableFuture<R>> futures = list.stream()
+                    .map(element -> executorService.submit(() -> function.apply(element)))
+                    .collect(toImmutableList());
             return allAsList(futures).get().stream();
         }
         catch (InterruptedException e) {
