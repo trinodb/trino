@@ -11,23 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.parquet;
+package io.trino.parquet.crypto;
 
-import io.airlift.slice.Slice;
-
-public abstract class Page
+public enum ModuleType
 {
-    protected final int uncompressedSize;
+    Footer((byte) 0),
+    ColumnMetaData((byte) 1),
+    DataPage((byte) 2),
+    DictionaryPage((byte) 3),
+    DataPageHeader((byte) 4),
+    DictionaryPageHeader((byte) 5),
+    ColumnIndex((byte) 6),
+    OffsetIndex((byte) 7),
+    BloomFilterHeader((byte) 8),
+    BloomFilterBitset((byte) 9);
 
-    public Page(int uncompressedSize)
+    private final byte value;
+
+    ModuleType(byte value)
     {
-        this.uncompressedSize = uncompressedSize;
+        this.value = value;
     }
 
-    public int getUncompressedSize()
+    public byte getValue()
     {
-        return uncompressedSize;
+        return value;
     }
-
-    public abstract Slice getSlice();
 }

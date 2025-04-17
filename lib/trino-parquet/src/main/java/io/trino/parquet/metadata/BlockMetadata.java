@@ -13,12 +13,20 @@
  */
 package io.trino.parquet.metadata;
 
+import io.trino.parquet.crypto.ParquetCryptoException;
+
 import java.util.List;
+
+import static io.trino.parquet.metadata.HiddenColumnChunkMetadata.isHiddenColumn;
 
 public record BlockMetadata(long fileRowCountOffset, long rowCount, List<ColumnChunkMetadata> columns)
 {
     public long getStartingPos()
     {
-        return columns().getFirst().getStartingPos();
+        return columns().stream()
+                .filter(column -> !isHiddenColumn(column))
+                .findFirst()
+                .map(ColumnChunkMetadata::getStartingPos)
+                .orElseThrow(() -> new ParquetCryptoException("User does not have access to selected columns"));
     }
 }
