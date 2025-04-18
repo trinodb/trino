@@ -245,7 +245,7 @@ public class NodeStateManager
 
     private synchronized void requestDrain()
     {
-        log.debug("Drain requested, NodeState: " + getServerState());
+        log.debug("Drain requested, NodeState: %s", getServerState());
         if (isCoordinator) {
             throw new UnsupportedOperationException("Cannot drain coordinator");
         }
@@ -324,7 +324,7 @@ public class NodeStateManager
             log.info("Worker State change: DRAINING -> DRAINED, server can be safely SHUT DOWN.");
         }
         else {
-            log.info("Worker State change: " + nodeState.get() + ", expected: " + expectedState + ", will not transition to DRAINED");
+            log.info("Worker State change: %s, expected: %s, will not transition to DRAINED", nodeState.get(), expectedState);
         }
     }
 
@@ -334,7 +334,7 @@ public class NodeStateManager
         // Wait for all remaining tasks to finish.
         while (nodeState.get() == expectedState) {
             List<TaskInfo> activeTasks = getActiveTasks();
-            log.info("Waiting for " + activeTasks.size() + " active tasks to finish");
+            log.info("Waiting for %s active tasks to finish", activeTasks.size());
             if (activeTasks.isEmpty()) {
                 break;
             }
@@ -355,7 +355,7 @@ public class NodeStateManager
         for (TaskInfo taskInfo : activeTasks) {
             sqlTasksObservable.addStateChangeListener(taskInfo.taskStatus().getTaskId(), newState -> {
                 if (newState.isDone()) {
-                    log.info("Task " + taskInfo.taskStatus().getTaskId() + " has finished");
+                    log.info("Task %s has finished", taskInfo.taskStatus().getTaskId());
                     countDownLatch.countDown();
                 }
             });
