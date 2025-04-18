@@ -30,7 +30,7 @@ Typically, downloading a plugin is not necessary because Trino binaries include
 many plugins as part of the binary package.
 
 Every Trino release publishes each plugin as a ZIP archive to the [Maven Central
-Repository](https://central.sonatype.com/). Refer to [plugins-list] for details.
+Repository](https://central.sonatype.com/). Refer to [](plugins-list) for details.
 The specific location is derived from the Maven coordinates of each plugin as
 defined in the `pom.xml` of the source code for the plugin.
 
@@ -174,7 +174,7 @@ with the listed coordinates.
   - {maven_download}`duckdb`
 * - elasticsearch
   - [](/connector/elasticsearch)
-  - [io.trinotrino-elasticsearch](https://central.sonatype.com/search?q=io.trino%3Atrino-elasticsearch)
+  - [io.trino:trino-elasticsearch](https://central.sonatype.com/search?q=io.trino%3Atrino-elasticsearch)
   - {maven_download}`elasticsearch`
 * - example-http
   - [](/develop/example-http)
@@ -222,7 +222,7 @@ with the listed coordinates.
   - {maven_download}`http-server-event-listener`
 * - hudi
   - [](/connector/hudi)
-  - [io.trinotrino-:hudi](https://central.sonatype.com/search?q=io.trino%3Atrino-hudi)
+  - [io.trino:trino-hudi](https://central.sonatype.com/search?q=io.trino%3Atrino-hudi)
   - {maven_download}`hudi`
 * - iceberg
   - [](/connector/iceberg)
