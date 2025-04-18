@@ -6,7 +6,7 @@
 * Expose dynamic filter statistics in the `QueryCompletedEvent`. ({issue}`25575`)
 * Improve scalability of inline data encoding in the parallel client protocol. ({issue}`25439`)
 * Improve performance of queries involving the `exclude_columns` table function. ({issue}`25117`)
-* Disallow dropping they `system` catalog. ({issue}`24745`)
+* Disallow dropping the `system` catalog. ({issue}`24745`)
 * Fix occasional query failures when adaptive planning is enabled. ({issue}`25411`)
 * Fix incorrect results when using window functions with `DISTINCT`. ({issue}`25434`)
 * Fix query failures with `EXCEEDED_LOCAL_MEMORY_LIMIT` errors due to incorrect memory accounting. ({issue}`25600`)
@@ -29,15 +29,15 @@
 ## Hive connector
 
 * Add support for showing column comments on Hive views. ({issue}`23845`)
-* Support multiple predicate values for injected partition columns on tables using partition projection. ({issue}`17641`)
+* Add support for multiple predicates on partition projection columns with [injected types](https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html#partition-projection-injected-type). ({issue}`17641`)
 * Fix potential failures or incorrect results when querying partitioned tables using the OpenX JSON SerDe. ({issue}`25444`)
+* Ensure Hive metastore locks are released if a failure occurs during lock acquisition. ({issue}`25380`)
 
 ## Iceberg connector
 
 * Add `system.iceberg_tables` system table to allow listing only Iceberg tables. ({issue}`25136`)
-* Add support for [deletion vectors](https://iceberg.apache.org/spec/#deletion-vectors). ({issue}`24457`)
 * Add support for IAM role authentication REST catalog. ({issue}`25002`)
-* Add support for lock-free commit in Hive catalog. ({issue}`25445`)
+* Fix potential failure when queries modify a table concurrently. ({issue}`25445`)
 * Add support for returning column statistics for new columns in `$partitions` system table. ({issue}`25532`)
 * Optimize manifest files by the top-level partition using the `optimize_manifests` procedure. ({issue}`25378`)
 * Clean up old snapshots when refreshing a materialized view. ({issue}`25343`)
