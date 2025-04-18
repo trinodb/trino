@@ -3599,8 +3599,8 @@ public class LocalExecutionPlanner
                     .findFirst();
 
             return result.isPresent()
-                    && result.get() instanceof ExchangeNode
-                    && ((ExchangeNode) result.get()).getPartitioningScheme().getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION);
+                    && result.get() instanceof ExchangeNode exchangeNode
+                    && exchangeNode.getPartitioningScheme().getPartitioning().getHandle().equals(SINGLE_DISTRIBUTION);
         }
 
         @Override

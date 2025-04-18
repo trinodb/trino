@@ -2244,7 +2244,7 @@ class QueryPlanner
     {
         if (limit.isPresent() && analysis.getLimit(limit.get()).isPresent()) {
             Optional<OrderingScheme> tiesResolvingScheme = Optional.empty();
-            if (limit.get() instanceof FetchFirst && ((FetchFirst) limit.get()).isWithTies()) {
+            if (limit.get() instanceof FetchFirst fetchFirst && fetchFirst.isWithTies()) {
                 tiesResolvingScheme = orderingScheme;
             }
             return subPlan.withNewRoot(
