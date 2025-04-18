@@ -176,6 +176,7 @@ import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
 class QueryPlanner
 {
@@ -1431,9 +1432,10 @@ class QueryPlanner
             return subPlan;
         }
 
+        // Need to preserve order of windows and window functions in each window to ensure deterministic query plans
         Map<ResolvedWindow, List<io.trino.sql.tree.FunctionCall>> functions = scopeAwareDistinct(subPlan, windowFunctions)
                 .stream()
-                .collect(Collectors.groupingBy(analysis::getWindow));
+                .collect(Collectors.groupingBy(analysis::getWindow, LinkedHashMap::new, toUnmodifiableList()));
 
         for (Map.Entry<ResolvedWindow, List<io.trino.sql.tree.FunctionCall>> entry : functions.entrySet()) {
             ResolvedWindow window = entry.getKey();

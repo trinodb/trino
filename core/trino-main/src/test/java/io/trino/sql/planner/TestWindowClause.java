@@ -201,4 +201,78 @@ public class TestWindowClause
 
         assertPlan(sql, CREATED, pattern);
     }
+
+    @Test
+    public void testPreservationOfWindowFunctionOrder()
+    {
+        @Language("SQL") String sql = """
+        WITH data AS (
+            SELECT *
+            FROM (VALUES
+                ('A', 1, 100, 25),
+                ('A', 2, 200, 25),
+                ('A', 1, 150, 50),
+                ('B', 1, 300, 50),
+                ('B', 2, 100, 100),
+                ('B', 1, 200, 100)
+            ) AS t(category, subcategory, value, subvalue)
+        )
+        SELECT
+            RANK() OVER (
+                PARTITION BY category
+            ) AS rank_by_category,
+            RANK() OVER (
+                PARTITION BY category, subcategory
+            ) AS rank_by_category_subcategory,
+            RANK() OVER (
+                PARTITION BY category, subcategory, value
+            ) AS rank_by_category_subcategory_value,
+            RANK() OVER (
+                PARTITION BY category, subcategory, value, subvalue
+            ) AS rank_by_category_subcategory_value_subvalue
+        FROM data
+        """;
+        PlanMatchPattern pattern =
+                anyTree(
+                        window(
+                                windowMatcherBuilder -> windowMatcherBuilder
+                                        .specification(specification(
+                                                ImmutableList.of("category", "subcategory", "value", "subvalue"),
+                                                ImmutableList.of(),
+                                                ImmutableMap.of()))
+                                        .addFunction(
+                                                "rank_4",
+                                                windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
+                                anyTree(
+                                        window(
+                                                windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(specification(
+                                                                ImmutableList.of("category", "subcategory", "value"),
+                                                                ImmutableList.of(),
+                                                                ImmutableMap.of()))
+                                                        .addFunction(
+                                                                "rank_3",
+                                                                windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
+                                                anyTree(
+                                                        window(
+                                                                windowMatcherBuilder -> windowMatcherBuilder
+                                                                        .specification(specification(
+                                                                                ImmutableList.of("category", "subcategory"),
+                                                                                ImmutableList.of(),
+                                                                                ImmutableMap.of()))
+                                                                        .addFunction(
+                                                                                "rank_2",
+                                                                                windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
+                                                                anyTree(window(
+                                                                        windowMatcherBuilder -> windowMatcherBuilder
+                                                                                .specification(specification(
+                                                                                        ImmutableList.of("category"),
+                                                                                        ImmutableList.of(),
+                                                                                        ImmutableMap.of()))
+                                                                                .addFunction(
+                                                                                        "rank",
+                                                                                        windowFunction("rank", ImmutableList.of(), DEFAULT_FRAME)),
+                                                                        anyTree(values("category", "subcategory", "value", "subvalue"))))))))));
+        assertPlan(sql, CREATED, pattern);
+    }
 }
