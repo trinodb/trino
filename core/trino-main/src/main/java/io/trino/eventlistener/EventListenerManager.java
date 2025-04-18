@@ -246,7 +246,7 @@ public class EventListenerManager
                 listener.shutdown();
             }
             catch (Throwable e) {
-                log.warn(e, "Failed to shutdown event listener: " + listener.getClass().getCanonicalName());
+                log.warn(e, "Failed to shutdown event listener: %s", listener.getClass().getCanonicalName());
             }
         }
     }
