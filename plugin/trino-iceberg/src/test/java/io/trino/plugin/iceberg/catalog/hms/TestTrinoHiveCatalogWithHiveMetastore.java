@@ -80,6 +80,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -236,6 +237,15 @@ public class TestTrinoHiveCatalogWithHiveMetastore
         }
     }
 
+    @Test
+    @Override
+    public void testTableWithVariantColumn()
+            throws Exception
+    {
+        // TODO HiveSchemaUtil
+        abort("not supported");
+    }
+
     @Override
     protected Optional<SchemaTableName> createExternalIcebergTable(TrinoCatalog catalog, String namespace, AutoCloseableCloser closer)
             throws Exception
@@ -258,7 +268,7 @@ public class TestTrinoHiveCatalogWithHiveMetastore
         catalog.newCreateTableTransaction(
                         SESSION,
                         lowerCaseTableTypeTable,
-                        new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                        new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                         PartitionSpec.unpartitioned(),
                         SortOrder.unsorted(),
                         Optional.of(arbitraryTableLocation(catalog, SESSION, lowerCaseTableTypeTable)),

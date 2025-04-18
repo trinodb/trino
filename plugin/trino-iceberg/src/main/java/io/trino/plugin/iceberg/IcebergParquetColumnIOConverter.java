@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
 import io.trino.parquet.PrimitiveField;
+import io.trino.parquet.VariantField;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -33,6 +34,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnById;
+import static io.trino.spi.type.StandardTypes.JSON;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
@@ -96,8 +99,26 @@ public final class IcebergParquetColumnIOConverter
             Optional<Field> field = constructField(new FieldContext(arrayType.getElementType(), elementIdentity), getArrayElementColumn(groupColumnIO.getChild(0)));
             return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
         }
+        if (isVariantType(type, columnIO)) {
+            checkArgument(type.getTypeParameters().isEmpty(), "Expected type parameters to be empty for variant but got %s", type.getTypeParameters());
+            if (!(columnIO instanceof GroupColumnIO groupColumnIO)) {
+                throw new IllegalStateException("Expected columnIO to be GroupColumnIO but got %s".formatted(columnIO.getClass().getSimpleName()));
+            }
+            Field metadataField = constructField(new FieldContext(VARBINARY, context.columnIdentity()), groupColumnIO.getChild(0)).orElseThrow();
+            Field valueField = constructField(new FieldContext(VARBINARY, context.columnIdentity()), groupColumnIO.getChild(1)).orElseThrow();
+            return Optional.of(new VariantField(type, repetitionLevel, definitionLevel, required, valueField, metadataField));
+        }
         PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) columnIO;
         return Optional.of(new PrimitiveField(type, required, primitiveColumnIO.getColumnDescriptor(), primitiveColumnIO.getId()));
+    }
+
+    private static boolean isVariantType(Type type, ColumnIO columnIO)
+    {
+        return type.getTypeSignature().getBase().equals(JSON) &&
+                columnIO instanceof GroupColumnIO groupColumnIo &&
+                groupColumnIo.getChildrenCount() == 2 &&
+                groupColumnIo.getChild("value") != null &&
+                groupColumnIo.getChild("metadata") != null;
     }
 
     public record FieldContext(Type type, ColumnIdentity columnIdentity)
