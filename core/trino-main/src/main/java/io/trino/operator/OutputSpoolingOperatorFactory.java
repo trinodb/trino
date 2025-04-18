@@ -263,9 +263,7 @@ public class OutputSpoolingOperatorFactory
                 return null;
             }
 
-            synchronized (buffer) {
-                return spool(buffer.removeAll());
-            }
+            return spool(buffer.removeAll());
         }
 
         private Page spool(List<Page> pages)
@@ -353,7 +351,7 @@ public class OutputSpoolingOperatorFactory
             return new PageBuffer();
         }
 
-        public void add(Page page)
+        public synchronized void add(Page page)
         {
             buffer.add(page);
         }
@@ -363,17 +361,14 @@ public class OutputSpoolingOperatorFactory
             return buffer.isEmpty();
         }
 
-        public List<Page> removeAll()
+        public synchronized List<Page> removeAll()
         {
-            List<Page> pages;
-            synchronized (buffer) {
-                pages = ImmutableList.copyOf(buffer);
-                buffer.clear();
-            }
+            List<Page> pages = ImmutableList.copyOf(buffer);
+            buffer.clear();
             return pages;
         }
 
-        public long getSize()
+        public synchronized long getSize()
         {
             return buffer.stream()
                     .mapToLong(Page::getSizeInBytes)
