@@ -576,6 +576,7 @@ public class OrcMetadataReader
             case DATE -> OrcTypeKind.DATE;
             case VARCHAR -> OrcTypeKind.VARCHAR;
             case CHAR -> OrcTypeKind.CHAR;
+            case GEOMETRY, GEOGRAPHY -> throw new UnsupportedOperationException("ORC type " + typeKind + " is not supported");
         };
     }
 
