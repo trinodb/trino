@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -263,27 +264,43 @@ public class PageProcessor
 
         private void updateRetainedSize()
         {
-            retainedSizeInBytes = INSTANCE_SIZE +
-                    selectedPositions.getRetainedSizeInBytes() +
-                    sizeOf(previouslyComputedResults);
-            // increment the size only when it is the first reference
-            ReferenceCountMap referenceCountMap = new ReferenceCountMap();
-            page.retainedBytesForEachPart((object, size) -> {
-                if (referenceCountMap.incrementAndGet(object) == 1) {
-                    retainedSizeInBytes += size;
-                }
-            });
+            RetainedBytesByPartVisitor visitor = new RetainedBytesByPartVisitor();
+
+            page.retainedBytesForEachPart(visitor);
+
             for (Block previouslyComputedResult : previouslyComputedResults) {
                 if (previouslyComputedResult != null) {
-                    previouslyComputedResult.retainedBytesForEachPart((object, size) -> {
-                        if (referenceCountMap.incrementAndGet(object) == 1) {
-                            retainedSizeInBytes += size;
-                        }
-                    });
+                    previouslyComputedResult.retainedBytesForEachPart(visitor);
                 }
             }
 
+            retainedSizeInBytes = INSTANCE_SIZE +
+                    selectedPositions.getRetainedSizeInBytes() +
+                    sizeOf(previouslyComputedResults) +
+                    visitor.getRetainedSizeInBytes();
+
             memoryContext.setBytes(retainedSizeInBytes);
+        }
+
+        private static final class RetainedBytesByPartVisitor
+                implements ObjLongConsumer<Object>
+        {
+            private final ReferenceCountMap referenceCountMap = new ReferenceCountMap();
+            private long retainedSizeInBytes;
+
+            public long getRetainedSizeInBytes()
+            {
+                return retainedSizeInBytes;
+            }
+
+            @Override
+            public void accept(Object object, long size)
+            {
+                // increment the size only when it is the first reference
+                if (referenceCountMap.incrementAndGet(object) == 1) {
+                    retainedSizeInBytes += size;
+                }
+            }
         }
 
         private ProcessBatchResult processBatch(int batchSize)
