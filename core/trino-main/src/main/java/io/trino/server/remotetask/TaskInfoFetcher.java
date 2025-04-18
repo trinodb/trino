@@ -67,6 +67,7 @@ public class TaskInfoFetcher
     private final TaskId taskId;
     private final Consumer<Throwable> onFail;
     private final ContinuousTaskStatusFetcher taskStatusFetcher;
+    private final RemoteTaskCleaner remoteTaskCleaner;
     private final StateMachine<TaskInfo> taskInfo;
     private final StateMachine<Optional<TaskInfo>> finalTaskInfo;
     private final JsonCodec<TaskInfo> taskInfoCodec;
@@ -100,6 +101,7 @@ public class TaskInfoFetcher
     public TaskInfoFetcher(
             Consumer<Throwable> onFail,
             ContinuousTaskStatusFetcher taskStatusFetcher,
+            RemoteTaskCleaner remoteTaskCleaner,
             TaskInfo initialTask,
             HttpClient httpClient,
             Supplier<SpanBuilder> spanBuilderFactory,
@@ -120,6 +122,7 @@ public class TaskInfoFetcher
         this.taskId = initialTask.taskStatus().getTaskId();
         this.onFail = requireNonNull(onFail, "onFail is null");
         this.taskStatusFetcher = requireNonNull(taskStatusFetcher, "taskStatusFetcher is null");
+        this.remoteTaskCleaner = requireNonNull(remoteTaskCleaner, "remoteTaskCleaner is null");
         this.taskInfo = new StateMachine<>("task " + taskId, executor, initialTask);
         this.finalTaskInfo = new StateMachine<>("task-" + taskId, executor, Optional.empty());
         this.taskInfoCodec = requireNonNull(taskInfoCodec, "taskInfoCodec is null");
@@ -163,6 +166,7 @@ public class TaskInfoFetcher
         if (scheduledFuture != null) {
             scheduledFuture.cancel(true);
         }
+        remoteTaskCleaner.markTaskInfoFetcherStopped();
     }
 
     /**
