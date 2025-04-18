@@ -38,6 +38,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -317,12 +318,9 @@ public class OutputSpoolingOperatorFactory
 
         private void updateMemoryReservation()
         {
-            if (outputPage == null) {
-                localMemoryContext.setBytes(buffer.getSize());
-            }
-            else {
-                localMemoryContext.setBytes(buffer.getSize() + outputPage.getSizeInBytes());
-            }
+            localMemoryContext.setBytes(buffer.getSize() + Optional.ofNullable(outputPage)
+                    .map(Page::getRetainedSizeInBytes)
+                    .orElse(0L));
         }
 
         static long reduce(List<Page> page, ToLongFunction<Page> reduce)
