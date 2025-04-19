@@ -26,6 +26,8 @@ import java.util.Set;
 import java.util.function.ObjLongConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
 public class InputChannels
@@ -81,7 +83,11 @@ public class InputChannels
     private static final class InputChannelsSourcePage
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(InputChannelsSourcePage.class);
+
         private final SourcePage sourcePage;
+        // channels is not considered retained by this class since it is shared between instances created by
+        // the same outer InputChannels instance
         private final int[] channels;
         private final Block[] blocks;
 
@@ -118,17 +124,22 @@ public class InputChannels
         @Override
         public long getRetainedSizeInBytes()
         {
-            return sourcePage.getRetainedSizeInBytes();
+            return INSTANCE_SIZE +
+                    sizeOf(blocks) +
+                    sourcePage.getRetainedSizeInBytes();
         }
 
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(blocks, sizeOf(blocks));
             for (Block block : blocks) {
                 if (block != null) {
                     block.retainedBytesForEachPart(consumer);
                 }
             }
+            sourcePage.retainedBytesForEachPart(consumer);
         }
 
         @Override

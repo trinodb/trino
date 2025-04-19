@@ -18,11 +18,14 @@ import io.trino.spi.block.Block;
 
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 final class FixedSourcePage
         implements SourcePage
 {
+    private static final long INSTANCE_SIZE = instanceSize(FixedSourcePage.class);
+
     private Page page;
 
     FixedSourcePage(Page page)
@@ -46,12 +49,14 @@ final class FixedSourcePage
     @Override
     public long getRetainedSizeInBytes()
     {
-        return page.getRetainedSizeInBytes();
+        return INSTANCE_SIZE + page.getRetainedSizeInBytes();
     }
 
     @Override
     public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
     {
+        consumer.accept(this, INSTANCE_SIZE);
+        consumer.accept(page, Page.getInstanceSizeInBytes(page.getChannelCount()));
         for (int i = 0; i < page.getChannelCount(); i++) {
             page.getBlock(i).retainedBytesForEachPart(consumer);
         }

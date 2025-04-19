@@ -110,6 +110,8 @@ public class OrcDeletedRows
     private class OrcAcidMaskedSourcePage
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(OrcAcidMaskedSourcePage.class);
+
         private final OptionalLong startRowId;
         private final SourcePage sourcePage;
         private boolean deleteMaskApplied;
@@ -139,12 +141,13 @@ public class OrcDeletedRows
         @Override
         public long getRetainedSizeInBytes()
         {
-            return sourcePage.getRetainedSizeInBytes();
+            return INSTANCE_SIZE + sourcePage.getRetainedSizeInBytes();
         }
 
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
             sourcePage.retainedBytesForEachPart(consumer);
         }
 

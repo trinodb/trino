@@ -19,9 +19,13 @@ import io.trino.spi.block.Block;
 import java.util.Objects;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
+
 final class PositionCountSourcePage
         implements SourcePage
 {
+    private static final long INSTANCE_SIZE = instanceSize(PositionCountSourcePage.class);
+
     private int positionCount;
 
     PositionCountSourcePage(int positionCount)
@@ -47,11 +51,14 @@ final class PositionCountSourcePage
     @Override
     public long getRetainedSizeInBytes()
     {
-        return 0;
+        return INSTANCE_SIZE;
     }
 
     @Override
-    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer) {}
+    public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
+    {
+        consumer.accept(this, INSTANCE_SIZE);
+    }
 
     @Override
     public int getChannelCount()
