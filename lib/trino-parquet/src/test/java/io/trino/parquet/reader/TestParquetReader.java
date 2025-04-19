@@ -79,7 +79,7 @@ public class TestParquetReader
                         columnNames,
                         generateInputPages(types, 100, 5)),
                 new ParquetReaderOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         assertThat(parquetMetadata.getBlocks().size()).isGreaterThan(1);
         // Verify file has only non-dictionary encodings as dictionary memory usage is already tested in TestFlatColumnReader#testMemoryUsage
         parquetMetadata.getBlocks().forEach(block -> {
@@ -131,7 +131,7 @@ public class TestParquetReader
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI()),
                 new ParquetReaderOptions());
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         assertThat(parquetMetadata.getBlocks()).hasSize(2);
         // The predicate and the file are prepared so that page indexes will result in non-overlapping row ranges and eliminate the entire first row group
         // while the second row group still has to be read
@@ -204,20 +204,20 @@ public class TestParquetReader
                 new ParquetReaderOptions());
 
         // Read both columns, 1 row group
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         List<BlockMetadata> columnBlocks = parquetMetadata.getBlocks(0, 800);
         assertThat(columnBlocks.size()).isEqualTo(1);
         assertThat(columnBlocks.getFirst().columns().size()).isEqualTo(2);
         assertThat(columnBlocks.getFirst().rowCount()).isEqualTo(100);
 
         // Read both columns, half row groups
-        parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         columnBlocks = parquetMetadata.getBlocks(0, 2500);
         assertThat(columnBlocks.stream().allMatch(block -> block.columns().size() == 2)).isTrue();
         assertThat(columnBlocks.stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(300);
 
         // Read both columns, all row groups
-        parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         columnBlocks = parquetMetadata.getBlocks();
         assertThat(columnBlocks.stream().allMatch(block -> block.columns().size() == 2)).isTrue();
         assertThat(columnBlocks.stream().mapToLong(BlockMetadata::rowCount).sum()).isEqualTo(500);
@@ -230,7 +230,7 @@ public class TestParquetReader
                 file,
                 new ParquetReaderOptions());
         ConnectorSession session = TestingConnectorSession.builder().build();
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), ImmutableList.of(columnType), columnNames)) {
             SourcePage page = reader.nextPage();
             Iterator<?> expected = expectedValues.iterator();

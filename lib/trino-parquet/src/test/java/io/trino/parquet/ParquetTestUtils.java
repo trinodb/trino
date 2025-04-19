@@ -176,6 +176,7 @@ public class ParquetTestUtils
                     return new RuntimeException(exception);
                 },
                 Optional.of(parquetPredicate),
+                Optional.empty(),
                 Optional.empty());
     }
 
