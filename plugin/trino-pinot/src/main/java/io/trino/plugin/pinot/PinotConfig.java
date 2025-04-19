@@ -64,6 +64,7 @@ public class PinotConfig
     private boolean countDistinctPushdownEnabled = true;
     private boolean proxyEnabled;
     private DataSize targetSegmentPageSize = DataSize.of(1, MEGABYTE);
+    private boolean grpcQueryEnforceMetadataException;
 
     @NotEmpty(message = "pinot.controller-urls cannot be empty")
     public List<URI> getControllerUrls()
@@ -269,5 +270,18 @@ public class PinotConfig
                 .map(URI::getScheme)
                 .distinct()
                 .count() == 1;
+    }
+
+    public boolean isGrpcQueryEnforceMetadataException()
+    {
+        return grpcQueryEnforceMetadataException;
+    }
+
+    @Config("pinot.grpc.query.enforce-metadata-exception")
+    @ConfigDescription("When enabled, metadata exceptions from Pinot gRPC queries will be enforced, causing query failures instead of returning empty/partial results")
+    public PinotConfig setGrpcQueryEnforceMetadataException(boolean grpcQueryEnforceMetadataException)
+    {
+        this.grpcQueryEnforceMetadataException = grpcQueryEnforceMetadataException;
+        return this;
     }
 }
