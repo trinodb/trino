@@ -18,7 +18,7 @@ and an updated look and feel. It is disabled by default and enabled only
 in the full development server by setting the `web-ui.preview.enabled=true`
 property.
 
-1. Run the `PreviewUiQueryRunner` class. This will start a minimalistic
+1. Run the `WebUiPreviewQueryRunner` class. This will start a minimalistic
    development server configured with the Preview UI.
 
 2. Install dependencies:
