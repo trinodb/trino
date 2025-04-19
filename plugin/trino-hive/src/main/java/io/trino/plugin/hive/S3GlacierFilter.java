@@ -19,7 +19,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.alwaysTrue;
 
-public enum S3StorageClassFilter {
+public enum S3GlacierFilter {
     READ_ALL,
     READ_NON_GLACIER,
     READ_NON_GLACIER_AND_RESTORED;
@@ -52,8 +52,8 @@ public enum S3StorageClassFilter {
     {
         return switch (this) {
             case READ_ALL -> alwaysTrue();
-            case READ_NON_GLACIER -> S3StorageClassFilter::isNotGlacierObject;
-            case READ_NON_GLACIER_AND_RESTORED -> S3StorageClassFilter::isCompletedRestoredObject;
+            case READ_NON_GLACIER -> S3GlacierFilter::isNotGlacierObject;
+            case READ_NON_GLACIER_AND_RESTORED -> S3GlacierFilter::isCompletedRestoredObject;
         };
     }
 }

@@ -284,6 +284,9 @@ Hive connector documentation.
 * - `hive.partition-projection-enabled`
   - Enables Athena partition projection support
   - `true`
+* - `hive.s3-glacier-filter`
+  - Filter S3 objects based on their storage class and restored status if applicable
+  - `true`
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000
