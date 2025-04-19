@@ -225,6 +225,7 @@ public class TestSqlFormatter
             NodeLocation location = new NodeLocation(1, 1);
             Identifier type = new Identifier(location, "VARCHAR", false);
             return new CreateTable(
+                    new NodeLocation(1, 1),
                     QualifiedName.of(ImmutableList.of(new Identifier(tableName, false))),
                     ImmutableList.of(new ColumnDefinition(
                             QualifiedName.of(columnName),
@@ -246,6 +247,7 @@ public class TestSqlFormatter
         // Create a table with table comment
         assertThat(formatSql(
                 new CreateTable(
+                        new NodeLocation(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
                         ImmutableList.of(new ColumnDefinition(
                                 QualifiedName.of("col"),
@@ -264,6 +266,7 @@ public class TestSqlFormatter
         // Create a table with column comment
         assertThat(formatSql(
                 new CreateTable(
+                        new NodeLocation(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
                         ImmutableList.of(new ColumnDefinition(
                                 QualifiedName.of("col"),
@@ -281,6 +284,7 @@ public class TestSqlFormatter
         // Create a table with column properties
         assertThat(formatSql(
                 new CreateTable(
+                        new NodeLocation(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
                         ImmutableList.of(new ColumnDefinition(
                                 QualifiedName.of("col"),
@@ -307,6 +311,7 @@ public class TestSqlFormatter
         BiFunction<String, String, CreateTableAsSelect> createTableAsSelect = (tableName, columnName) -> {
             Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
             return new CreateTableAsSelect(
+                    new NodeLocation(1, 1),
                     QualifiedName.of(ImmutableList.of(new Identifier(tableName, false))),
                     query,
                     FAIL,
@@ -324,6 +329,7 @@ public class TestSqlFormatter
 
         assertThat(formatSql(
                 new CreateTableAsSelect(
+                        new NodeLocation(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier("test", false))),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         FAIL,
