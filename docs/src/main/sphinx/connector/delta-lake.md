@@ -203,6 +203,10 @@ values. Typical usage does not require you to configure them.
   - Number of threads used for retrieving metadata. Currently, only table loading 
     is parallelized.
   - `8`
+* - `delta.checkpoint-processing.parallelism`
+  - Number of threads used for retrieving checkpoint files of each table. Currently, only 
+  - retrievals of V2 Checkpoint's sidecar files are parallelized.
+  - `4`
 :::
 
 ### Catalog session properties
