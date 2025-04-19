@@ -58,7 +58,7 @@ public class TestIcebergHiveViewsCompatibility
             onTrino().executeQuery("CREATE VIEW hive.default.hive_view_unqualified_hive AS SELECT * FROM hive_table");
             onTrino().executeQuery("CREATE VIEW hive.default.hive_view_qualified_iceberg AS SELECT * FROM iceberg.default.iceberg_table");
             assertQueryFailure(() -> onTrino().executeQuery("CREATE VIEW hive.default.hive_view_unqualified_iceberg AS SELECT * FROM iceberg_table"))
-                    .hasMessageMatching("Query failed \\(#\\w+\\):\\Q Cannot query Iceberg table 'default.iceberg_table'");
+                    .hasMessageMatching("Query failed \\(#[\\w-]+\\):\\Q Cannot query Iceberg table 'default.iceberg_table'");
 
             onTrino().executeQuery("USE iceberg.default"); // for sake of unqualified table references
             onTrino().executeQuery("CREATE VIEW iceberg.default.iceberg_view_qualified_hive AS SELECT * FROM hive.default.hive_table");

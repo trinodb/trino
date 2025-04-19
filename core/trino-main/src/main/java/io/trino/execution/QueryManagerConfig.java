@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.execution.QueryManagerConfig.IdGenerator.UUID_V7;
 import static java.lang.Math.max;
 import static java.lang.Math.round;
 import static java.lang.Runtime.getRuntime;
@@ -164,6 +165,8 @@ public class QueryManagerConfig
     // above this threshold.
     // TODO: Consider the cost of restarting the stage as part of adaptive planning.
     private DataSize faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = DataSize.of(5, GIGABYTE);
+
+    private IdGenerator queryIdGenerator = UUID_V7;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1213,5 +1216,24 @@ public class QueryManagerConfig
     {
         this.faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold = faultTolerantExecutionAdaptiveJoinReorderingMinSizeThreshold;
         return this;
+    }
+
+    public IdGenerator getQueryIdGenerator()
+    {
+        return queryIdGenerator;
+    }
+
+    @Config("query.id-generator")
+    @ConfigDescription("Query ID generator to use")
+    public QueryManagerConfig setQueryIdGenerator(IdGenerator queryIdGenerator)
+    {
+        this.queryIdGenerator = queryIdGenerator;
+        return this;
+    }
+
+    public enum IdGenerator
+    {
+        UUID_V7,
+        LEGACY;
     }
 }

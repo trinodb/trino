@@ -4070,7 +4070,6 @@ public class DeltaLakeMetadata
 
     private static boolean isFileCreatedByQuery(Location file, String queryId)
     {
-        verify(!queryId.contains("-"), "queryId(%s) should not contain hyphens", queryId);
         return file.fileName().startsWith(queryId + "-");
     }
 
