@@ -62,7 +62,7 @@ public class CachingDirectoryLister
                 hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
                 hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
                 hiveClientConfig.getFileStatusCacheTables(),
-                hiveClientConfig.getS3StorageClassFilter().toFileEntryPredicate());
+                hiveClientConfig.getS3GlacierFilter().toFileEntryPredicate());
     }
 
     public CachingDirectoryLister(
