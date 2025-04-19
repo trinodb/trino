@@ -30,6 +30,7 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static com.google.common.io.Resources.getResource;
+import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.groupIdTemplate;
 import static io.trino.plugin.resourcegroups.TestingResourceGroups.managerSpec;
@@ -212,6 +213,7 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(sub.getSchedulingPolicy()).isNull();
         assertThat(sub.getSchedulingWeight()).isEqualTo(5);
         assertThat(sub.getJmxExport()).isFalse();
+        assertThat(sub.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, MEGABYTE).toBytes());
     }
 
     @Test
@@ -258,6 +260,23 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(resourceGroup.getHardConcurrencyLimit()).isEqualTo(3);
         assertThat(resourceGroup.getMaxQueuedQueries()).isEqualTo(10);
         assertThat(resourceGroup.getSoftMemoryLimitBytes()).isEqualTo(memoryPoolSize / 10);
+
+        selectionContext = match(manager, new SelectionCriteria(
+                true,
+                "Amanda",
+                ImmutableSet.of(),
+                "Amanda",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableSet.of(),
+                EMPTY_RESOURCE_ESTIMATES,
+                Optional.empty()));
+        assertThat(selectionContext.getResourceGroupId().toString()).isEqualTo("global.adhoc.other.Amanda");
+        resourceGroup = new TestingResourceGroup(selectionContext.getResourceGroupId());
+        manager.configure(resourceGroup, selectionContext);
+        assertThat(resourceGroup.getHardConcurrencyLimit()).isEqualTo(1);
+        assertThat(resourceGroup.getMaxQueuedQueries()).isEqualTo(100);
+        assertThat(resourceGroup.getSoftPhysicalDataScanLimitBytes()).isEqualTo(DataSize.of(10, GIGABYTE).toBytes());
     }
 
     @Test
