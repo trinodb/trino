@@ -73,6 +73,7 @@ import static io.trino.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
 import static io.trino.orc.metadata.Stream.StreamKind.LENGTH;
 import static io.trino.orc.metadata.Stream.StreamKind.ROW_INDEX;
 import static io.trino.orc.stream.CheckpointInputStreamSource.createCheckpointStreamSource;
+import static java.lang.Math.ceilDiv;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -329,7 +330,7 @@ public class StripeReader
     }
 
     private List<RowGroup> createRowGroups(
-            int rowsInStripe,
+            long rowsInStripe,
             Map<StreamId, Stream> streams,
             Map<StreamId, ValueInputStream<?>> valueStreams,
             Map<StreamId, List<RowGroupIndex>> columnIndexes,
@@ -343,7 +344,7 @@ public class StripeReader
         for (int rowGroupId : selectedRowGroups) {
             Map<StreamId, StreamCheckpoint> checkpoints = getStreamCheckpoints(includedOrcColumnIds, types, decompressor.isPresent(), rowGroupId, encodings, streams, columnIndexes);
             int rowOffset = rowGroupId * rowsInRowGroup;
-            int rowsInGroup = Math.min(rowsInStripe - rowOffset, rowsInRowGroup);
+            long rowsInGroup = Math.min(rowsInStripe - rowOffset, rowsInRowGroup);
             long minAverageRowBytes = columnIndexes
                     .entrySet()
                     .stream()
@@ -358,7 +359,7 @@ public class StripeReader
         return rowGroupBuilder.build();
     }
 
-    private static RowGroup createRowGroup(int groupId, int rowOffset, int rowCount, long minAverageRowBytes, Map<StreamId, ValueInputStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
+    private static RowGroup createRowGroup(int groupId, int rowOffset, long rowCount, long minAverageRowBytes, Map<StreamId, ValueInputStream<?>> valueStreams, Map<StreamId, StreamCheckpoint> checkpoints)
     {
         ImmutableMap.Builder<StreamId, InputStreamSource<?>> builder = ImmutableMap.builder();
         for (Entry<StreamId, StreamCheckpoint> entry : checkpoints.entrySet()) {
@@ -439,13 +440,13 @@ public class StripeReader
     {
         int rowsInRowGroup = this.rowsInRowGroup.orElseThrow(() -> new IllegalStateException("Cannot create row groups if row group info is missing"));
 
-        int rowsInStripe = stripe.getNumberOfRows();
+        long rowsInStripe = stripe.getNumberOfRows();
         int groupsInStripe = ceil(rowsInStripe, rowsInRowGroup);
 
         ImmutableSet.Builder<Integer> selectedRowGroups = ImmutableSet.builder();
-        int remainingRows = rowsInStripe;
+        long remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
-            int rows = Math.min(remainingRows, rowsInRowGroup);
+            long rows = Math.min(remainingRows, rowsInRowGroup);
             ColumnMetadata<ColumnStatistics> statistics = getRowGroupStatistics(types, columnIndexes, rowGroup);
             if (predicate.matches(rows, statistics)) {
                 selectedRowGroups.add(rowGroup);
@@ -514,8 +515,8 @@ public class StripeReader
     /**
      * Ceiling of integer division
      */
-    private static int ceil(int dividend, int divisor)
+    private static int ceil(long dividend, int divisor)
     {
-        return ((dividend + divisor) - 1) / divisor;
+        return toIntExact(ceilDiv(dividend, divisor));
     }
 }
