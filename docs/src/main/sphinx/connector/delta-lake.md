@@ -205,7 +205,7 @@ values. Typical usage does not require you to configure them.
   - `8`
 * - `delta.checkpoint-processing.parallelism`
   - Number of threads used for retrieving checkpoint files of each table. Currently, only 
-  - retrievals of V2 Checkpoint's sidecar files are parallelized.
+    retrievals of V2 Checkpoint's sidecar files are parallelized.
   - `4`
 :::
 
