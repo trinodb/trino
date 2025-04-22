@@ -2938,6 +2938,7 @@
                                     -Xep:OrphanedFormatString:ERROR \
                                     -Xep:Overrides:ERROR \
                                     -Xep:PatternMatchingInstanceof:ERROR \
+                                    -Xep:PreconditionsExpensiveString:ERROR \
                                     <!-- flags List fields even if initialized with ImmutableList -->
                                     -Xep:PreferredInterfaceType:OFF \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \

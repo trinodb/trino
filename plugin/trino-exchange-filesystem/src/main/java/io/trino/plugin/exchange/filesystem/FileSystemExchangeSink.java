@@ -99,8 +99,11 @@ public class FileSystemExchangeSink
             int exchangeSinkBuffersPerPartition,
             long maxFileSizeInBytes)
     {
-        checkArgument(maxPageStorageSizeInBytes <= maxFileSizeInBytes,
-                format("maxPageStorageSizeInBytes %s exceeded maxFileSizeInBytes %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(maxFileSizeInBytes)));
+        checkArgument(
+                maxPageStorageSizeInBytes <= maxFileSizeInBytes,
+                "maxPageStorageSizeInBytes %s exceeded maxFileSizeInBytes %s",
+                succinctBytes(maxPageStorageSizeInBytes),
+                succinctBytes(maxFileSizeInBytes));
 
         this.exchangeStorage = requireNonNull(exchangeStorage, "exchangeStorage is null");
         this.stats = requireNonNull(stats, "stats is null");
