@@ -689,6 +689,7 @@ public class DeltaLakeMergeSink
                 new FileFormatDataSourceStats(),
                 new ParquetReaderOptions().withBloomFilter(false),
                 Optional.empty(),
+                Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize));
     }
