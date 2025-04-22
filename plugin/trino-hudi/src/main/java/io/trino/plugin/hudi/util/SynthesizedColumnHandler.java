@@ -49,19 +49,19 @@ public class SynthesizedColumnHandler {
      * Initializes strategies for synthesized columns.
      */
     private void initSynthesizedColStrategies(ImmutableMap.Builder<String, SynthesizedColumnStrategy> builder) {
-        builder.put(PARTITION_COLUMN_NAME, blockBuilder ->
+        builder.put(PARTITION_COLUMN_NAME, (blockBuilder, type) ->
                 VarcharType.VARCHAR.writeSlice(blockBuilder,
                         utf8Slice(toPartitionName(splitMetadata.getPartitionKeyVals()))));
 
-        builder.put(PATH_COLUMN_NAME, blockBuilder ->
+        builder.put(PATH_COLUMN_NAME, (blockBuilder, type) ->
                 VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(splitMetadata.getFilePath()))
         );
 
-        builder.put(FILE_SIZE_COLUMN_NAME, blockBuilder ->
+        builder.put(FILE_SIZE_COLUMN_NAME, (blockBuilder, type) ->
                 BigintType.BIGINT.writeLong(blockBuilder, splitMetadata.getFileSize())
         );
 
-        builder.put(FILE_MODIFIED_TIME_COLUMN_NAME, blockBuilder -> {
+        builder.put(FILE_MODIFIED_TIME_COLUMN_NAME, (blockBuilder, type) -> {
             long packedTimestamp = packDateTimeWithZone(
                     splitMetadata.getFileModificationTime(), UTC_KEY);
             TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS.writeLong(blockBuilder, packedTimestamp);
@@ -74,8 +74,8 @@ public class SynthesizedColumnHandler {
     private void initPartitionKeyStrategies(ImmutableMap.Builder<String, SynthesizedColumnStrategy> builder,
                                             HudiSplit hudiSplit) {
         for (HivePartitionKey partitionKey : hudiSplit.getPartitionKeys()) {
-            builder.put(partitionKey.name(), (blockBuilder) ->
-                    VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(partitionKey.value()))
+            builder.put(partitionKey.name(), (blockBuilder, type) ->
+                    HudiAvroSerializer.appendTo(type, partitionKey.value(), blockBuilder)
             );
         }
     }

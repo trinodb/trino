@@ -29,6 +29,7 @@ import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -148,7 +149,7 @@ public class HudiAvroSerializer {
             BlockBuilder output = pageBuilder.getBlockBuilder(blockSeq);
             HiveColumnHandle columnHandle = columnHandles.get(channel);
             if (synthesizedColumnHandler.isSynthesizedColumn(columnHandle)) {
-                synthesizedColumnHandler.getColumnStrategy(columnHandle).appendToBlock(output);
+                synthesizedColumnHandler.getColumnStrategy(columnHandle).appendToBlock(output, columnTypes.get(channel));
             } else {
                 // Record may not be projected, get index from it
                 int fieldPosInSchema = record.getSchema().getField(columnHandle.getName()).pos();
@@ -174,7 +175,7 @@ public class HudiAvroSerializer {
         }
     }
 
-    public void appendTo(Type type, Object value, BlockBuilder output)
+    public static void appendTo(Type type, Object value, BlockBuilder output)
     {
         if (value == null) {
             output.appendNull();
@@ -199,7 +200,7 @@ public class HudiAvroSerializer {
                     type.writeLong(output, encodeShortScaledValue(decimal, decimalType.getScale()));
                 }
                 else if (type.equals(DATE)) {
-                    type.writeLong(output, ((Number) value).intValue());
+                    type.writeLong(output, ((SqlDate) value).getDays());
                 }
                 else if (type.equals(TIMESTAMP_MICROS)) {
                     type.writeLong(output, toTrinoTimestamp(((Utf8) value).toString()));
@@ -265,7 +266,7 @@ public class HudiAvroSerializer {
         return (instant.getEpochSecond() * MICROSECONDS_PER_SECOND) + (instant.getNano() / NANOSECONDS_PER_MICROSECOND);
     }
 
-    private void writeSlice(BlockBuilder output, Type type, Object value)
+    private static void writeSlice(BlockBuilder output, Type type, Object value)
     {
         if (type instanceof VarcharType) {
             if (value instanceof Utf8) {
@@ -301,7 +302,7 @@ public class HudiAvroSerializer {
         }
     }
 
-    private void writeArray(ArrayBlockBuilder output, List<?> value, ArrayType arrayType)
+    private static void writeArray(ArrayBlockBuilder output, List<?> value, ArrayType arrayType)
     {
         Type elementType = arrayType.getElementType();
         output.buildEntry(elementBuilder -> {
@@ -311,7 +312,7 @@ public class HudiAvroSerializer {
         });
     }
 
-    private void writeRow(RowBlockBuilder output, RowType rowType, GenericRecord record)
+    private static void writeRow(RowBlockBuilder output, RowType rowType, GenericRecord record)
     {
         List<RowType.Field> fields = rowType.getFields();
         output.buildEntry(fieldBuilders -> {
