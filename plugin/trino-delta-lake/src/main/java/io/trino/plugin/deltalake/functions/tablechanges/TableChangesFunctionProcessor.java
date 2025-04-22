@@ -206,6 +206,7 @@ public class TableChangesFunctionProcessor
                 fileFormatDataSourceStats,
                 parquetReaderOptions,
                 Optional.empty(),
+                Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.empty());
 

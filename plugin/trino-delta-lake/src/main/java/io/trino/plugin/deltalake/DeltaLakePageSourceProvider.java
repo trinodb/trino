@@ -263,6 +263,7 @@ public class DeltaLakePageSourceProvider
                 fileFormatDataSourceStats,
                 options,
                 Optional.empty(),
+                Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(split.getFileSize()));
 
