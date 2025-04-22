@@ -73,7 +73,7 @@ statements, the connector supports the following features:
 
 ### TRUNCATE and DROP TABLE
 
-Upon execution of a `TRUNCATE` and a `DROP TABLE` operation, memory is not released
+Upon execution of a `DROP TABLE` operation, memory is not released
 immediately. It is instead released after the next write operation to the
 catalog.
 
