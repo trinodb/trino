@@ -73,7 +73,8 @@ public abstract class AbstractResourceConfigurationManager
                     case WEIGHTED_FAIR:
                         checkArgument(
                                 subGroups.stream().allMatch(t -> t.getSchedulingWeight().isPresent()) || subGroups.stream().noneMatch(t -> t.getSchedulingWeight().isPresent()),
-                                format("Must specify scheduling weight for all sub-groups of '%s' or none of them", group.getName()));
+                                "Must specify scheduling weight for all sub-groups of '%s' or none of them",
+                                group.getName());
                         break;
                     case QUERY_PRIORITY:
                     case FAIR:

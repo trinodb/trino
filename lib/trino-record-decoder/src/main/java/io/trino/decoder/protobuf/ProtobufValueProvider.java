@@ -303,7 +303,7 @@ public class ProtobufValueProvider
             Field field = fields.get(i);
             checkState(field.getName().isPresent(), "field name not found");
             FieldDescriptor fieldDescriptor = getFieldDescriptor(record, field.getName().get());
-            checkState(fieldDescriptor != null, format("Unknown Field %s", field.getName().get()));
+            checkState(fieldDescriptor != null, "Unknown Field %s", field.getName().get());
             serializeObject(
                     fieldBuilders.get(i),
                     record.getField(fieldDescriptor),

@@ -229,7 +229,7 @@ public class ProtobufRowEncoder
                 .limit(2)
                 .splitToList(columnMapping);
         FieldDescriptor fieldDescriptor = descriptor.findFieldByName(columnPath.get(0));
-        checkState(fieldDescriptor != null, format("Unknown Field %s", columnPath.get(0)));
+        checkState(fieldDescriptor != null, "Unknown Field %s", columnPath.get(0));
         if (columnPath.size() == 2) {
             checkState(fieldDescriptor.getJavaType() == MESSAGE, "Expected MESSAGE type, but got: %s", fieldDescriptor.getJavaType());
             value = setField(
