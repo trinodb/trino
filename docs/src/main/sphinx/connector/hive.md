@@ -417,6 +417,43 @@ limitations and differences:
 - `GRANT privilege ON SCHEMA schema` is not supported. Schema ownership can be
   changed with `ALTER SCHEMA schema SET AUTHORIZATION user`
 
+(hive-parquet-encryption)=
+## Parquet encryption
+
+The Hive connector supports reading Parquet files encrypted with Parquet
+Modular Encryption (PME). Decryption keys can be provided via environment
+variables. Writing encrypted Parquet files is not supported.
+
+:::{list-table} Parquet encryption properties
+:widths: 35, 50, 15
+:header-rows: 1
+
+* - Property name
+  - Description
+  - Default
+* - `pme.environment-key-retriever.enabled`
+  - Enable the key retriever that reads decryption keys from
+    environment variables.
+  - `false`
+* - `pme.aad-prefix`
+  - AAD prefix used when decoding Parquet files. Must match the prefix used
+    when the files were written, if applicable.
+  -
+* - `pme.check-footer-integrity`
+  - Validate signature for plaintext footer files.
+  - `true`
+:::
+
+When `pme.environment-key-retriever.enabled` is set, provide keys with
+environment variables:
+
+- `pme.environment-key-retriever.footer-keys`
+- `pme.environment-key-retriever.column-keys`
+
+Each variable accepts either a single base64-encoded key, or a comma-separated
+list of `id:key` pairs (base64-encoded keys) where `id` must match the key
+metadata embedded in the Parquet file.
+
 (hive-sql-support)=
 ## SQL support
 
