@@ -28,7 +28,11 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.net.URL;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -142,7 +146,7 @@ public class TestGrokTable
             Resources.copy(resourceLocation, out);
         }
 
-        String inputFormat = "%{WORD:a} %{NUMBER:b} %{BASE10NUM:c} %{POSINT:d} %{NONNEGINT:e} %{BASE10NUM:f} %{GREEDYDATA:g} %{WORD:h} %{NOTSPACE:i}";
+        String inputFormat = "%{WORD:a} %{NUMBER:b} %{BASE10NUM:c} %{POSINT:d} %{NONNEGINT:e} %{NOTSPACE:f} %{BASE10NUM:g} %{NUMBER:h} %{NOTSPACE:i} %{TIMESTAMP_ISO8601:j} %{WORD:k} %{NOTSPACE:l}";
 
         // GROK format is read-only, so create data files using the text file format
         @Language("SQL") String createTableSql =
@@ -153,10 +157,13 @@ public class TestGrokTable
                     c INTEGER,
                     d SMALLINT,
                     e TINYINT,
-                    f REAL,
-                    g DOUBLE,
-                    h VARCHAR,
-                    i CHAR(4))
+                    f DECIMAL(10,2),
+                    g REAL,
+                    h DOUBLE,
+                    i DATE,
+                    j TIMESTAMP,
+                    k VARCHAR,
+                    l CHAR(4))
                 WITH (
                     format = 'grok',
                     grok_input_format = '%s',
@@ -172,8 +179,11 @@ public class TestGrokTable
                         1000,
                         (short) 1,
                         (byte) 0,
+                        new BigDecimal("999.99"),
                         3.14159f,
                         1.23,
+                        LocalDate.of(2025, 1, 1),
+                        LocalDateTime.of(LocalDate.of(2024, 1, 1), LocalTime.of(12, 0, 1)),
                         "Hello",
                         "abc " // test that null padding for char type works
                 ))

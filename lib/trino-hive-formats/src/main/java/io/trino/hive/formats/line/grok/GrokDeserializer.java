@@ -19,10 +19,13 @@ import io.trino.hive.formats.line.Column;
 import io.trino.hive.formats.line.LineBuffer;
 import io.trino.hive.formats.line.LineDeserializer;
 import io.trino.hive.formats.line.grok.exception.GrokException;
+import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -32,11 +35,16 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
+import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
+import static io.trino.hive.formats.line.regex.RegexDeserializer.serializeDecimal;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
@@ -44,7 +52,9 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.Varchars.truncateToLength;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.StrictMath.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class GrokDeserializer
         implements LineDeserializer
@@ -147,11 +157,21 @@ public class GrokDeserializer
             else if (TINYINT.equals(type)) {
                 type.writeLong(builder, Byte.parseByte(value));
             }
+            else if (type instanceof DecimalType decimalType) {
+                serializeDecimal(value, decimalType, builder);
+            }
             else if (REAL.equals(type)) {
                 type.writeLong(builder, floatToRawIntBits(Float.parseFloat(value)));
             }
             else if (DOUBLE.equals(type)) {
                 type.writeDouble(builder, Double.parseDouble(value));
+            }
+            else if (DATE.equals(type)) {
+                type.writeLong(builder, toIntExact(parseHiveDate(value).toEpochDay()));
+            }
+            else if (type instanceof TimestampType timestampType) {
+                DecodedTimestamp timestamp = parseHiveTimestamp(value);
+                createTimestampEncoder(timestampType, UTC).write(timestamp, builder);
             }
             else if (type instanceof VarcharType varcharType) {
                 type.writeSlice(builder, truncateToLength(Slices.utf8Slice(value), varcharType));
