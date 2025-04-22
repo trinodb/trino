@@ -80,6 +80,7 @@ final class ParquetUtil
         HivePageSourceFactory hivePageSourceFactory = new ParquetPageSourceFactory(
                 fileSystemFactory,
                 new FileFormatDataSourceStats(),
+                Optional.empty(),
                 new ParquetReaderConfig(),
                 hiveConfig);
 

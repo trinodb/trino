@@ -178,7 +178,7 @@ public final class HiveTestUtils
                 .add(new AvroPageSourceFactory(fileSystemFactory))
                 .add(new RcFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
-                .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
+                .add(new ParquetPageSourceFactory(fileSystemFactory, stats, Optional.empty(), new ParquetReaderConfig(), hiveConfig))
                 .add(new ProtobufSequenceFilePageSourceFactory(fileSystemFactory, hiveConfig))
                 .build();
     }

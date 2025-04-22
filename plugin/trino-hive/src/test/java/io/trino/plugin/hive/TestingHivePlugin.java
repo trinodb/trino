@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
 import io.trino.metastore.HiveMetastore;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
@@ -28,28 +29,30 @@ public class TestingHivePlugin
 {
     private final Path localFileSystemRootPath;
     private final Optional<HiveMetastore> metastore;
+    private final Optional<Module> module;
 
     public TestingHivePlugin(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
     }
 
     @Deprecated
     public TestingHivePlugin(Path localFileSystemRootPath, HiveMetastore metastore)
     {
-        this(localFileSystemRootPath, Optional.of(metastore));
+        this(localFileSystemRootPath, Optional.of(metastore), Optional.empty());
     }
 
     @Deprecated
-    public TestingHivePlugin(Path localFileSystemRootPath, Optional<HiveMetastore> metastore)
+    public TestingHivePlugin(Path localFileSystemRootPath, Optional<HiveMetastore> metastore, Optional<Module> module)
     {
         this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
+        this.module = requireNonNull(module, "module is null");
     }
 
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new TestingHiveConnectorFactory(localFileSystemRootPath, metastore));
+        return ImmutableList.of(new TestingHiveConnectorFactory(localFileSystemRootPath, metastore, module));
     }
 }
