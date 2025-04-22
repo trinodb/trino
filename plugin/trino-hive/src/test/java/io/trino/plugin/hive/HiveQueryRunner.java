@@ -16,6 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -105,6 +106,7 @@ public final class HiveQueryRunner
         private boolean createTpchSchemas = true;
         private ColumnNaming tpchColumnNaming = SIMPLIFIED;
         private DecimalTypeMapping tpchDecimalTypeMapping = DOUBLE;
+        private Optional<Module> module = Optional.empty();
 
         protected Builder()
         {
@@ -196,6 +198,13 @@ public final class HiveQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
+        public SELF setHiveModule(Module module)
+        {
+            this.module = Optional.of(requireNonNull(module, "module is null"));
+            return self();
+        }
+
         @Override
         public DistributedQueryRunner build()
                 throws Exception
@@ -227,7 +236,7 @@ public final class HiveQueryRunner
                     hiveProperties.put("fs.hadoop.enabled", "true");
                 }
 
-                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore));
+                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, module));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
