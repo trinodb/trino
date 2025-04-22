@@ -27,10 +27,10 @@ import java.util.Optional;
 import static io.trino.hive.formats.line.grok.TestGrokUtils.assertError;
 import static io.trino.hive.formats.line.grok.TestGrokUtils.assertLine;
 import static io.trino.hive.formats.line.grok.TestGrokUtils.readLine;
-import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -225,9 +225,9 @@ public class TestGrokFormat
     @Test
     public void testUnsupportedDatatype()
     {
-        String log = "2025-01-01";
-        String inputFormat = "%{DATE:date}";
-        List<Column> columns = ImmutableList.of(new Column("a", DATE, 0));
+        String log = "123abc00-1x2y-9876-6543-abcdefghijkl";
+        String inputFormat = "%{NOTSPACE:uuid}";
+        List<Column> columns = ImmutableList.of(new Column("a", UUID, 0));
 
         assertThatThrownBy(
                 () -> readLine(
