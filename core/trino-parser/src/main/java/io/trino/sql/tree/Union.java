@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class Union
@@ -41,6 +42,7 @@ public class Union
     {
         super(location, distinct);
         requireNonNull(relations, "relations is null");
+        checkArgument(relations.size() == 2, "relations must have 2 elements");
 
         this.relations = ImmutableList.copyOf(relations);
     }
