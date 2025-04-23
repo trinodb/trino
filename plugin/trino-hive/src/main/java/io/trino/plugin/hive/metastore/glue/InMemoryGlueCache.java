@@ -55,9 +55,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.cache.CacheLoader.asyncReloading;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class InMemoryGlueCache
@@ -99,7 +99,7 @@ class InMemoryGlueCache
             int maxMetastoreRefreshThreads,
             long maximumSize)
     {
-        this.refreshExecutor = newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s"));
+        this.refreshExecutor = newThreadPerTaskExecutor(virtualThreadsNamed("hive-metastore-" + catalogName + "-%d"));
         Executor boundedRefreshExecutor = new ReentrantBoundedExecutor(refreshExecutor, maxMetastoreRefreshThreads);
 
         OptionalLong refreshMillis = refreshInterval.stream().mapToLong(Duration::toMillis).findAny();
