@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.inject.Inject;
-import io.trino.spi.NodeManager;
+import io.trino.plugin.hive.NodeVersion;
 import org.apache.iceberg.EnvironmentContext;
 
 import static java.util.Objects.requireNonNull;
@@ -24,10 +24,10 @@ import static org.apache.iceberg.EnvironmentContext.ENGINE_VERSION;
 public class IcebergEnvironmentContext
 {
     @Inject
-    public IcebergEnvironmentContext(NodeManager nodeManager)
+    public IcebergEnvironmentContext(NodeVersion nodeVersion)
     {
-        requireNonNull(nodeManager, "nodeManager is null");
+        requireNonNull(nodeVersion, "nodeVersion is null");
         EnvironmentContext.put(ENGINE_NAME, "trino");
-        EnvironmentContext.put(ENGINE_VERSION, nodeManager.getCurrentNode().getVersion());
+        EnvironmentContext.put(ENGINE_VERSION, nodeVersion.toString());
     }
 }
