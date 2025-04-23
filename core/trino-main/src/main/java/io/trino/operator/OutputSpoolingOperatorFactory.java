@@ -274,14 +274,13 @@ public class OutputSpoolingOperatorFactory
                     operatorContext.getDriverContext().getSession().getQueryId(),
                     rows,
                     size));
-            String expiresAt = ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString();
 
             OperationTimer overallTimer = new OperationTimer(false);
             try (OutputStream output = spoolingManager.createOutputStream(segmentHandle)) {
                 DataAttributes attributes = queryDataEncoder.encodeTo(output, pages)
                         .toBuilder()
                         .set(ROWS_COUNT, rows)
-                        .set(EXPIRES_AT, expiresAt)
+                        .set(EXPIRES_AT, ZonedDateTime.ofInstant(segmentHandle.expirationTime(), clientZoneId).toLocalDateTime().toString())
                         .build();
 
                 spooledEncodedBytes.addAndGet(attributes.get(SEGMENT_SIZE, Integer.class));
