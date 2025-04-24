@@ -29,7 +29,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
-import io.trino.client.QueryDataClientJacksonModule;
+import io.trino.client.QueryDataJacksonModule;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.ResultRowsDecoder;
@@ -106,7 +106,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestServer
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new QueryDataClientJacksonModule())))
+            .withModules(Set.of(new QueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
     private TestingTrinoServer server;

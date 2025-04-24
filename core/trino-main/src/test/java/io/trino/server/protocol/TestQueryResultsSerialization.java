@@ -26,7 +26,7 @@ import io.trino.client.ResultRowsDecoder;
 import io.trino.client.StatementStats;
 import io.trino.client.TrinoJsonCodec;
 import io.trino.client.TypedQueryData;
-import io.trino.server.protocol.spooling.QueryDataJacksonModule;
+import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
 
 import java.io.UncheckedIOException;
@@ -48,7 +48,7 @@ public class TestQueryResultsSerialization
 
     // As close as possible to the server mapper (client mapper differs)
     private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule())))
+            .withModules(Set.of(new ServerQueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
     private static final TrinoJsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
