@@ -24,7 +24,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.units.Duration;
 import io.trino.client.QueryResults;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.server.protocol.spooling.QueryDataJacksonModule;
+import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorCode;
 import org.junit.jupiter.api.AfterAll;
@@ -65,7 +65,7 @@ public class TestQueryStateInfoResource
 {
     private static final String LONG_LASTING_QUERY = "SELECT * FROM tpch.sf1.lineitem";
     private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule())))
+            .withModules(Set.of(new ServerQueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
     private TestingTrinoServer server;

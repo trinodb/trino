@@ -29,7 +29,7 @@ import io.trino.client.TrinoJsonCodec;
 import io.trino.client.TypedQueryData;
 import io.trino.client.spooling.DataAttributes;
 import io.trino.client.spooling.EncodedQueryData;
-import io.trino.server.protocol.spooling.QueryDataJacksonModule;
+import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
@@ -58,7 +58,7 @@ public class TestQueryDataSerialization
     private static final List<Column> COLUMNS_LIST = ImmutableList.of(new Column("_col0", "bigint", new ClientTypeSignature("bigint")));
     private static final TrinoJsonCodec<QueryResults> CLIENT_CODEC = jsonCodec(QueryResults.class);
     private static final JsonCodec<QueryResults> SERVER_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(Set.of(new QueryDataJacksonModule())))
+            .withModules(Set.of(new ServerQueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
     @Test
