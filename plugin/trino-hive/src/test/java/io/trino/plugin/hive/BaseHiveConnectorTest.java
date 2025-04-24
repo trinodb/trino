@@ -5151,13 +5151,29 @@ public abstract class BaseHiveConnectorTest
     @Override
     public void testDropColumn()
     {
-        super.testDropColumn();
+        String tableName;
+        try (TestTable table = newTrinoTable("test_drop_column_", "WITH(format = 'PARQUET') AS SELECT 123 x, 456 y, 111 a")) {
+            tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN x");
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS y");
+            assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
+            assertQueryFails("SELECT x FROM " + tableName, ".* Column 'x' cannot be resolved");
+            assertQueryFails("SELECT y FROM " + tableName, ".* Column 'y' cannot be resolved");
+
+            assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".* Cannot drop the only column in a table");
+        }
+
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN notExistColumn");
+        assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
         // Additional tests for hive partition columns invariants
         @Language("SQL") String createTable = "" +
                 "CREATE TABLE test_drop_column\n" +
                 "WITH (\n" +
-                "  partitioned_by = ARRAY ['orderstatus']\n" +
+                "  partitioned_by = ARRAY ['orderstatus'],\n" +
+                "  format = 'PARQUET'\n" +
                 ")\n" +
                 "AS\n" +
                 "SELECT custkey, orderkey, orderstatus FROM orders";
@@ -5174,17 +5190,59 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DROP TABLE test_drop_column");
     }
 
+    @Override
+    protected void testAddAndDropColumnName(String columnName, boolean delimited)
+    {
+        String nameInSql = columnName;
+        if (delimited) {
+            nameInSql = "\"" + columnName.replace("\"", "\"\"") + "\"";
+        }
+
+        String tableName = "tcn_" + nameInSql.toLowerCase(ENGLISH).replaceAll("[^a-z0-9]", "") + randomNameSuffix();
+
+        try {
+            assertUpdate(createTableSqlForAddingAndDroppingColumn(tableName, nameInSql) + "WITH(format = 'PARQUET')");
+        }
+        catch (RuntimeException e) {
+            if (isColumnNameRejected(e, columnName, delimited)) {
+                // It is OK if given column name is not allowed and is clearly rejected by the connector.
+                return;
+            }
+            throw e;
+        }
+        assertTableColumnNames(tableName, columnName.toLowerCase(ENGLISH), "value");
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN " + nameInSql);
+        assertTableColumnNames(tableName, "value");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN " + nameInSql + " varchar(50)");
+        assertTableColumnNames(tableName, "value", columnName.toLowerCase(ENGLISH));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
     @Test
     @Override
     public void testDropAndAddColumnWithSameName()
     {
         // Override because Hive connector can access old data after dropping and adding a column with same name
-        assertThatThrownBy(super::testDropAndAddColumnWithSameName)
+        assertThatThrownBy(this::testDropAddColumnWithSameName)
                 .hasMessageContaining(
                         """
                         Actual rows (up to 100 of 1 extra rows shown, 1 rows in total):
-                            [1, 2]\
+                            [1, 3, 2]\
                             """);
+    }
+
+    private void testDropAddColumnWithSameName()
+    {
+        try (TestTable table = newTrinoTable("test_drop_add_column", "WITH(format = 'PARQUET') AS SELECT 1 x, 2 y, 3 z")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN y");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, NULL)");
+        }
     }
 
     @Test
@@ -5622,10 +5680,16 @@ public abstract class BaseHiveConnectorTest
         try {
             assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
             assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1, 'abc'), 1)", 1);
-            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
-            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
-            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row('def', 2), 2)", 1);
-            assertQueryFails(session, "SELECT a.b FROM " + tableName + " where d = 1", ".*There is a mismatch between the table and partition schemas.*");
+
+            if (format.supportsColumnDropOperation()) {
+                assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+                assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
+                assertUpdate(session, "INSERT INTO " + tableName + " values (20, row('def', 2), 2)", 1);
+                assertQueryFails(session, "SELECT a.b FROM " + tableName + " where d = 1", ".*There is a mismatch between the table and partition schemas.*");
+            }
+            else {
+                assertQueryFails(session, "ALTER TABLE " + tableName + " DROP COLUMN a", ".*Cannot drop columns because SerDe may be incompatible.*");
+            }
         }
         finally {
             assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
@@ -5636,10 +5700,17 @@ public abstract class BaseHiveConnectorTest
         try {
             assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
             assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1), 1)", 1);
-            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
-            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(b bigint, c varchar)");
-            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row(2, 'def'), 2)", 1);
-            assertQuery(session, "SELECT a.c FROM " + tableName, "SELECT 'def' UNION SELECT null");
+
+            if (format.supportsColumnDropOperation()) {
+                assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+                assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(b bigint, c varchar)");
+                assertUpdate(session, "INSERT INTO " + tableName + " values (20, row(2, 'def'), 2)", 1);
+                assertQuery(session, "SELECT a.c FROM " + tableName, "SELECT 'def' UNION SELECT null");
+            }
+            else {
+                assertQueryFails(session, "ALTER TABLE " + tableName + " DROP COLUMN a", ".*Cannot drop columns because SerDe may be incompatible.*");
+            }
+
         }
         finally {
             assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
@@ -5649,10 +5720,17 @@ public abstract class BaseHiveConnectorTest
         try {
             assertUpdate(session, "CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
             assertUpdate(session, "INSERT INTO " + tableName + " values (10, row(1, 'abc'), 1)", 1);
-            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
-            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(b bigint, c varchar, e int)");
-            assertUpdate(session, "INSERT INTO " + tableName + " values (20, row(2, 'def', 2), 2)", 1);
-            assertQuery(session, "SELECT a.b FROM " + tableName, "VALUES 1, 2");
+
+            if (format.supportsColumnDropOperation()) {
+                assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN a");
+                assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN a row(b bigint, c varchar, e int)");
+                assertUpdate(session, "INSERT INTO " + tableName + " values (20, row(2, 'def', 2), 2)", 1);
+                assertQuery(session, "SELECT a.b FROM " + tableName, "VALUES 1, 2");
+            }
+            else {
+                assertQueryFails(session, "ALTER TABLE " + tableName + " DROP COLUMN a", ".*Cannot drop columns because SerDe may be incompatible.*");
+            }
+
         }
         finally {
             assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
@@ -5708,20 +5786,25 @@ public abstract class BaseHiveConnectorTest
     {
         String tableName = testReadWithPartitionSchemaMismatchAddedColumns(session, format);
 
-        // with mapping by name also test behavior with dropping columns
-        // start with table with a, b, c, _part
-        // drop b
-        assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
-        // create new partition
-        assertUpdate(session, "INSERT INTO " + tableName + " values (21, 22, 20)", 1); // a, c, _part
-        assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10), (21, 22, 20)");
-        assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1,  0), (11, 10), (21, 20)");
-        // add d
-        assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN d bigint");
-        // create new partition
-        assertUpdate(session, "INSERT INTO " + tableName + " values (31, 32, 33, 30)", 1); // a, c, d, _part
-        assertQuery(session, "SELECT a, c, d, _part FROM " + tableName, "VALUES (1, null, null, 0), (11, 13, null, 10), (21, 22, null, 20), (31, 32, 33, 30)");
-        assertQuery(session, "SELECT a, d, _part FROM " + tableName, "VALUES (1, null, 0), (11, null, 10), (21, null, 20), (31, 33, 30)");
+        if (format.supportsColumnDropOperation()) {
+            // with mapping by name also test behavior with dropping columns
+            // start with table with a, b, c, _part
+            // drop b
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP COLUMN b");
+            // create new partition
+            assertUpdate(session, "INSERT INTO " + tableName + " values (21, 22, 20)", 1); // a, c, _part
+            assertQuery(session, "SELECT a, c, _part FROM " + tableName, "VALUES (1, null, 0), (11, 13, 10), (21, 22, 20)");
+            assertQuery(session, "SELECT a, _part FROM " + tableName, "VALUES (1,  0), (11, 10), (21, 20)");
+            // add d
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN d bigint");
+            // create new partition
+            assertUpdate(session, "INSERT INTO " + tableName + " values (31, 32, 33, 30)", 1); // a, c, d, _part
+            assertQuery(session, "SELECT a, c, d, _part FROM " + tableName, "VALUES (1, null, null, 0), (11, 13, null, 10), (21, 22, null, 20), (31, 32, 33, 30)");
+            assertQuery(session, "SELECT a, d, _part FROM " + tableName, "VALUES (1, null, 0), (11, null, 10), (21, null, 20), (31, 33, 30)");
+        }
+        else {
+            assertQueryFails(session, "ALTER TABLE " + tableName + " DROP COLUMN b", ".*Cannot drop columns because SerDe may be incompatible.*");
+        }
     }
 
     private void testReadWithPartitionSchemaMismatchByIndex(Session session, HiveStorageFormat format)
@@ -5763,9 +5846,14 @@ public abstract class BaseHiveConnectorTest
             try {
                 assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c varchar)) with (format = '" + format + "')");
                 assertUpdate("INSERT INTO " + tableName + " values (1, row(1, 'abc'))", 1);
-                assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
-                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
-                assertQuery("SELECT a.b FROM " + tableName, "VALUES 1");
+                if (format.supportsColumnDropOperation()) {
+                    assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+                    assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c varchar, b bigint)");
+                    assertQuery("SELECT a.b FROM " + tableName, "VALUES 1");
+                }
+                else {
+                    assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".*Cannot drop columns because SerDe may be incompatible.*");
+                }
             }
             finally {
                 assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -5776,10 +5864,15 @@ public abstract class BaseHiveConnectorTest
             try {
                 assertUpdate("CREATE TABLE " + tableName + " (dummy bigint, a row(b bigint, c row(x bigint, y varchar))) with (format = '" + format + "')");
                 assertUpdate("INSERT INTO " + tableName + " values (1, row(1, row(3, 'abc')))", 1);
-                assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
-                assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
-                // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
-                assertQuerySucceeds("SELECT a.c.y, a.c FROM " + tableName);
+                if (format.supportsColumnDropOperation()) {
+                    assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN a");
+                    assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN a row(c row(y varchar, x bigint), b bigint)");
+                    // TODO: replace the following assertion with assertQuery once h2QueryRunner starts supporting row types
+                    assertQuerySucceeds("SELECT a.c.y, a.c FROM " + tableName);
+                }
+                else {
+                    assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".*Cannot drop columns because SerDe may be incompatible.*");
+                }
             }
             finally {
                 assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -9013,28 +9106,33 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
         assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");
 
-        assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN state", tableName));
-        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57)"));
+        if (format.supportsColumnDropOperation()) {
+            assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN state", tableName));
+            assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57)"));
 
-        assertUpdate(admin, format("INSERT INTO %s VALUES(333, 'Cary', 35)", tableName), 1);
-        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57), (333, 'Cary', 35)");
+            assertUpdate(admin, format("INSERT INTO %s VALUES(333, 'Cary', 35)", tableName), 1);
+            assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57), (333, 'Cary', 35)");
 
-        assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN state VARCHAR", tableName));
-        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA'), (333, 'Cary', 35, null)");
+            assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN state VARCHAR", tableName));
+            assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA'), (333, 'Cary', 35, null)");
 
-        assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN state", tableName));
-        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57), (333, 'Cary', 35)");
+            assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN state", tableName));
+            assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57), (333, 'Cary', 35)");
 
-        assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
-        boolean canSeeOldData = !formatUseColumnNames && !NAMED_COLUMN_ONLY_FORMATS.contains(format);
-        String katyState = canSeeOldData ? "'CA'" : "null";
-        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57, %s), (333, 'Cary', 35, null)", katyState));
+            assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
+            boolean canSeeOldData = !formatUseColumnNames && !NAMED_COLUMN_ONLY_FORMATS.contains(format);
+            String katyState = canSeeOldData ? "'CA'" : "null";
+            assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57, %s), (333, 'Cary', 35, null)", katyState));
 
-        if (formatUseColumnNames) {
-            assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN age", tableName));
-            assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', %s), (333, 'Cary', null)", katyState));
-            assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN age INT", tableName));
-            assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', null, 57), (333, 'Cary', null, 35)");
+            if (formatUseColumnNames) {
+                assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN age", tableName));
+                assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', %s), (333, 'Cary', null)", katyState));
+                assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN age INT", tableName));
+                assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', null, 57), (333, 'Cary', null, 35)");
+            }
+        }
+        else {
+            assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN state", ".*Cannot drop columns because SerDe may be incompatible.*");
         }
 
         assertUpdate("DROP TABLE " + tableName);

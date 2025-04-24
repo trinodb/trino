@@ -210,4 +210,12 @@ public enum HiveStorageFormat
             default -> toString();
         };
     }
+
+    public boolean supportsColumnDropOperation()
+    {
+        return switch (this) {
+            case PARQUET, RCTEXT, SEQUENCEFILE, TEXTFILE -> true;
+            case AVRO, ORC, RCBINARY, JSON, OPENX_JSON, CSV, REGEX -> false;
+        };
+    }
 }

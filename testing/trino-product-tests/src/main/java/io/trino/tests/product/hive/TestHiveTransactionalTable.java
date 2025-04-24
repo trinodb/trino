@@ -1081,27 +1081,6 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "transactionModeProvider")
-    public void testOrcColumnDropAdd(boolean transactional)
-    {
-        withTemporaryTable("test_orc_add_drop", false, NONE, tableName -> {
-            onTrino().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR) WITH (transactional = %s)", tableName, transactional));
-            onTrino().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
-            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
-
-            onTrino().executeQuery(format("ALTER TABLE %s DROP COLUMN old_state", tableName));
-            log.info("This shows that neither Trino nor Hive see the old data after a column is dropped");
-            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, row(111, "Katy", 57), row(222, "Joe", 72));
-
-            onTrino().executeQuery(format("INSERT INTO %s VALUES (333, 'Kelly', 45)", tableName));
-            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, row(111, "Katy", 57), row(222, "Joe", 72), row(333, "Kelly", 45));
-
-            onTrino().executeQuery(format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
-            log.info("This shows that for ORC, Trino and Hive both see data inserted into a dropped column when a column of the same type but different name is added");
-            verifySelectForTrinoAndHive("SELECT * FROM " + tableName, row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, "Kelly", 45, null));
-        });
-    }
-
-    @Test(groups = {HIVE_TRANSACTIONAL, PROFILE_SPECIFIC_TESTS}, dataProvider = "transactionModeProvider")
     public void testOrcColumnTypeChange(boolean transactional)
     {
         withTemporaryTable("test_orc_column_type_change", false, NONE, tableName -> {
