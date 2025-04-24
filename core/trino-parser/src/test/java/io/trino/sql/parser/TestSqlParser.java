@@ -4039,6 +4039,18 @@ public class TestSqlParser
                         false));
 
         // Branching
+        assertThat(statement("GRANT CREATE BRANCH ON TABLE t TO u")).isEqualTo(
+                new Grant(
+                        location(1, 1),
+                        Optional.of(ImmutableList.of("CREATE BRANCH")),
+                        new GrantObject(
+                                location(1, 1),
+                                Optional.of("TABLE"),
+                                QualifiedName.of(ImmutableList.of(new Identifier(location(1, 30), "t", false))),
+                                Optional.empty()),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 35), "u", false)),
+                        false));
+
         assertThat(statement("GRANT INSERT, DELETE ON BRANCH dev IN SCHEMA t TO u")).isEqualTo(
                 new Grant(
                         location(1, 1),
