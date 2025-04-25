@@ -197,6 +197,8 @@
         <dep.google.http.client.version>1.46.3</dep.google.http.client.version>
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
         <dep.iceberg.version>1.8.1</dep.iceberg.version>
+        <dep.ion.version>1.11.9</dep.ion.version>
+        <dep.ion-path-extraction.version>1.5.0</dep.ion-path-extraction.version>
         <dep.jna.version>5.17.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
