@@ -352,6 +352,17 @@ public class HashAggregationOperator
     }
 
     @Override
+    public ListenableFuture<Void> isBlocked()
+    {
+        if (outputPages == null || !outputPages.isBlocked()) {
+            return NOT_BLOCKED;
+        }
+
+        // We can block e.g. because of self-triggered spill
+        return outputPages.getBlockedFuture();
+    }
+
+    @Override
     public void finish()
     {
         finishing = true;

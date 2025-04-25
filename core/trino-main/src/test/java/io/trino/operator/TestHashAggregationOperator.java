@@ -16,6 +16,7 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
@@ -914,6 +915,199 @@ public class TestHashAggregationOperator
         driverContext = createDriverContext(1024);
         assertOperatorEquals(driverContext, operatorFactory, operator2Input, operator2Expected);
         assertInputRowsWithPartialAggregationDisabled(driverContext, 20);
+    }
+
+    @Test
+    public void testAsyncSpillBlocksAndUnblocksDriver()
+            throws Exception
+    {
+        /*
+         *  – force:  revocable bytes   > 0
+         *            spiller.present  == true
+         *            shouldMergeWithMemory(size) == false
+         *
+         *  so buildResult() will hit `blocked(spillToDisk())`
+         */
+        SlowSpiller spiller = new SlowSpiller();
+        SlowSpillerFactory spillerFactory = new SlowSpillerFactory(spiller);
+
+        //  tiny memory limits → convert-to-user will fail
+        long memoryLimitForMerge = 8;
+        long memoryLimitForMergeWithMemory = 0;
+
+        // plenty of rows → revocable mem >
+        RowPagesBuilder pages = rowPagesBuilder(false, Ints.asList(0), BIGINT)
+                .addSequencePage(5_000, 0);
+
+        HashAggregationOperatorFactory factory =
+                new HashAggregationOperatorFactory(
+                        0,
+                        new PlanNodeId("async"),
+                        ImmutableList.of(BIGINT),
+                        Ints.asList(0),
+                        ImmutableList.of(),
+                        SINGLE,
+                        false,
+                        ImmutableList.of(COUNT.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        /* expectedGroups */ 1,
+                        Optional.of(DataSize.of(16, MEGABYTE)),
+                        /* spill enabled */  true,
+                        succinctBytes(memoryLimitForMerge),
+                        succinctBytes(memoryLimitForMergeWithMemory),
+                        spillerFactory,
+                        hashStrategyCompiler,
+                        typeOperators,
+                        Optional.empty());
+
+        DriverContext context = createDriverContext(memoryLimitForMerge);
+
+        try (Operator operator = factory.createOperator(context)) {
+            // feed all input
+            for (Page page : pages.build()) {
+                assertThat(operator.needsInput()).isTrue();
+                operator.addInput(page);
+            }
+            operator.finish();
+
+            // first call returns null, operator is now blocked
+            assertThat(operator.getOutput()).isNull();
+            ListenableFuture<Void> blocked = operator.isBlocked();
+            assertThat(blocked.isDone()).isFalse();
+
+            // unblock the spiller
+            spiller.complete();
+
+            // driver sees the unblock
+            blocked.get();
+            // drive operator to completion
+            toPages(operator, emptyIterator());
+            assertThat(operator.isFinished())
+                    .as("operator must finish after async spill")
+                    .isTrue();
+        }
+    }
+
+    @Test
+    public void testRevocableMemoryConvertedAfterAsyncSpill()
+            throws Exception
+    {
+        long memoryLimitForMerge = DataSize.of(64, KILOBYTE).toBytes();   // force spill early
+        long memoryLimitForMergeWithMemory = 0;                                     // make shouldMergeWithMemory() return false
+
+        // plenty of rows to allocate >64 kB in the hash builder
+        RowPagesBuilder pagesBuilder = rowPagesBuilder(false, Ints.asList(0), BIGINT)
+                .addSequencePage(50_000, 0);
+
+        SlowSpiller slowSpiller = new SlowSpiller();
+        SlowSpillerFactory slowSpillerFactory = new SlowSpillerFactory(slowSpiller);
+
+        HashAggregationOperatorFactory factory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("async-spill"),
+                ImmutableList.of(BIGINT),
+                Ints.asList(0),
+                ImmutableList.of(),
+                SINGLE,
+                false,
+                ImmutableList.of(
+                        COUNT.createAggregatorFactory(SINGLE,
+                                ImmutableList.of(0),
+                                OptionalInt.empty())),
+                Optional.empty(),
+                Optional.empty(),
+                10,
+                Optional.of(DataSize.of(16, MEGABYTE)),
+                /* spill enabled */ true,
+                DataSize.ofBytes(memoryLimitForMerge),
+                DataSize.ofBytes(memoryLimitForMergeWithMemory),
+                slowSpillerFactory,
+                hashStrategyCompiler,
+                typeOperators,
+                Optional.empty());
+
+        DriverContext context = createDriverContext(memoryLimitForMerge);
+
+        try (Operator operator = factory.createOperator(context)) {
+            for (Page page : pagesBuilder.build()) {
+                operator.addInput(page);
+            }
+            operator.finish();
+
+            // first call returns null, operator is now blocked
+            assertThat(operator.getOutput()).isNull();
+            ListenableFuture<Void> blocked = operator.isBlocked();
+            assertThat(blocked.isDone()).isFalse();
+
+            assertThat(context.getRevocableMemoryUsage())
+                    .as("revocable bytes should be > 0 while spill is running")
+                    .isGreaterThan(0L);
+
+            // complete the spill asynchronously
+            slowSpiller.complete();        // finish spill
+            blocked.get();                 // wait until operator is unblocked
+
+            // advance state
+            operator.getOutput();
+            // revocable memory must have been cleared by updateMemory()
+            long revocableAfterSpill = context.getRevocableMemoryUsage();
+            assertThat(revocableAfterSpill)
+                    .as("revocable bytes must be 0 right after spill completion")
+                    .isZero();
+
+            // drive operator to completion
+            toPages(operator, emptyIterator());
+
+            assertThat(operator.isFinished()).isTrue();
+
+            // all reservations are released at the very end
+            assertThat(context.getRevocableMemoryUsage()).isZero();
+            assertThat(context.getMemoryUsage()).isZero();
+        }
+    }
+
+    private static class SlowSpillerFactory
+            implements SpillerFactory
+    {
+        private final SlowSpiller spiller;
+
+        SlowSpillerFactory(SlowSpiller spiller)
+        {
+            this.spiller = spiller;
+        }
+
+        @Override
+        public Spiller create(List<Type> t, SpillContext sc, AggregatedMemoryContext mc)
+        {
+            return spiller;
+        }
+    }
+
+    private static class SlowSpiller
+            implements Spiller
+    {
+        private final SettableFuture<Void> future = SettableFuture.create();
+
+        @Override
+        public ListenableFuture<Void> spill(Iterator<Page> i)
+        {
+            return future;
+        }
+
+        @Override
+        public List<Iterator<Page>> getSpills()
+        {
+            return ImmutableList.of();
+        }
+
+        @Override
+        public void close() {}
+
+        void complete()
+        {
+            future.set(null);
+        }
     }
 
     private void assertInputRowsWithPartialAggregationDisabled(DriverContext context, long expectedRowCount)
