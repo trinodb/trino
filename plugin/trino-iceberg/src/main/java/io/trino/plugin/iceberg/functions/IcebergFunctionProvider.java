@@ -19,6 +19,8 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionProcessorProviderFactory;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProviderFactory;
+import io.trino.plugin.iceberg.functions.tablefiles.TableFilesFunctionHandle;
+import io.trino.plugin.iceberg.functions.tablefiles.TableFilesFunctionProcessorProviderFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
@@ -113,11 +115,15 @@ public class IcebergFunctionProvider
     }
 
     private final TableChangesFunctionProcessorProviderFactory tableChangesFunctionProcessorProviderFactory;
+    private final TableFilesFunctionProcessorProviderFactory tableFilesFunctionProcessorProviderFactory;
 
     @Inject
-    public IcebergFunctionProvider(TableChangesFunctionProcessorProviderFactory tableChangesFunctionProcessorProviderFactory)
+    public IcebergFunctionProvider(
+            TableChangesFunctionProcessorProviderFactory tableChangesFunctionProcessorProviderFactory,
+            TableFilesFunctionProcessorProviderFactory tableFilesFunctionProcessorProviderFactory)
     {
         this.tableChangesFunctionProcessorProviderFactory = requireNonNull(tableChangesFunctionProcessorProviderFactory, "tableChangesFunctionProcessorProviderFactory is null");
+        this.tableFilesFunctionProcessorProviderFactory = requireNonNull(tableFilesFunctionProcessorProviderFactory, "tableFilesFunctionProcessorProviderFactory is null");
     }
 
     @Override
@@ -139,7 +145,8 @@ public class IcebergFunctionProvider
             case VarbinaryType _ -> BUCKET_VARBINARY;
             case DateType _ -> BUCKET_DATE;
             case TimestampType timestampType -> timestampType.isShort() ? BUCKET_SHORT_TIMESTAMP : BUCKET_LONG_TIMESTAMP;
-            case TimestampWithTimeZoneType timestampWithTimeZoneType -> timestampWithTimeZoneType.isShort() ? BUCKET_SHORT_TIMESTAMP_WITH_TIME_ZONE : BUCKET_LONG_TIMESTAMP_WITH_TIME_ZONE;
+            case TimestampWithTimeZoneType timestampWithTimeZoneType ->
+                    timestampWithTimeZoneType.isShort() ? BUCKET_SHORT_TIMESTAMP_WITH_TIME_ZONE : BUCKET_LONG_TIMESTAMP_WITH_TIME_ZONE;
             default -> throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unsupported type: " + type);
         };
 
@@ -252,6 +259,10 @@ public class IcebergFunctionProvider
     {
         if (functionHandle instanceof TableChangesFunctionHandle) {
             return new ClassLoaderSafeTableFunctionProcessorProviderFactory(tableChangesFunctionProcessorProviderFactory, getClass().getClassLoader());
+        }
+
+        if (functionHandle instanceof TableFilesFunctionHandle) {
+            return new ClassLoaderSafeTableFunctionProcessorProviderFactory(tableFilesFunctionProcessorProviderFactory, getClass().getClassLoader());
         }
 
         throw new UnsupportedOperationException("Unsupported function: " + functionHandle);

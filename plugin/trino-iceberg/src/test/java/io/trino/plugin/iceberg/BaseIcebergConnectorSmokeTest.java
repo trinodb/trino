@@ -22,6 +22,8 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
@@ -116,7 +118,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
                         format("   location = '.*/" + schemaName + "/region.*',\n" +
-                        "   max_commit_retry = 4\n") +
+                                "   max_commit_retry = 4\n") +
                         "\\)");
     }
 
@@ -891,6 +893,41 @@ public abstract class BaseIcebergConnectorSmokeTest
         finally {
             dropSchema(firstSchema);
             dropSchema(secondSchema);
+        }
+    }
+
+    @Test
+    public void testTableFilesFunction()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_table_files_function_",
+                "AS SELECT nationkey, name FROM tpch.tiny.nation WITH NO DATA")) {
+            computeActual("ALTER TABLE " + table.getName() + " SET PROPERTIES partitioning = ARRAY['nationkey']");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 0 AS nationkey, 'a' AS name FROM nation LIMIT 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 0 AS nationkey, 'b' AS name FROM nation LIMIT 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 0 AS nationkey, 'c' AS name FROM nation LIMIT 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 1 AS nationkey, 'd' AS name FROM nation LIMIT 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 1 AS nationkey, 'e' AS name FROM nation LIMIT 1", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 1 AS nationkey, 'f' AS name FROM nation LIMIT 1", 1);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE name = 'f'", 1);
+            MaterializedResult result = computeActual("SELECT * FROM %s".formatted(table.getName()));
+            assertThat(result.getRowCount()).isEqualTo(5);
+
+            result = computeActual("SELECT * FROM TABLE(system.table_files(CURRENT_SCHEMA, '%s'))".formatted(table.getName()));
+            List<MaterializedRow> rows = result.getMaterializedRows();
+            assertThat(result.getRowCount()).isEqualTo(7);
+            assertThat(rows).hasSize(7);
+
+            result = computeActual("SELECT * FROM TABLE(system.table_files(CURRENT_SCHEMA, '%s')) WHERE content = 0".formatted(table.getName()));
+            rows = result.getMaterializedRows();
+            assertThat(result.getRowCount()).isEqualTo(6);
+            assertThat(rows).hasSize(6);
+
+            result = computeActual("SELECT * FROM TABLE(system.table_files(CURRENT_SCHEMA, '%s')) WHERE content = 1".formatted(table.getName()));
+            rows = result.getMaterializedRows();
+            assertThat(result.getRowCount()).isEqualTo(1);
+            assertThat(rows).hasSize(1);
         }
     }
 
