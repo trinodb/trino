@@ -46,6 +46,11 @@ public class JdkCompatibilityChecks
         INSTANCE.verifyAccessOpened(wrap(binder), format("Connector '%s'", connectorName), modules);
     }
 
+    public static void verifyConnectorUnsafeAllowed(Binder binder, String connectorName)
+    {
+        INSTANCE.verifyUnsafeAllowed(wrap(binder), format("Connector '%s'", connectorName));
+    }
+
     @VisibleForTesting
     void verifyAccessOpened(ThrowableSettable throwableSettable, String description, Multimap<String, String> modules)
     {
@@ -62,6 +67,15 @@ public class JdkCompatibilityChecks
         List<String> requiredJvmArguments = missingJvmArguments.build();
         if (!requiredJvmArguments.isEmpty()) {
             throwableSettable.setThrowable(new IllegalStateException(format("%s requires additional JVM argument(s). Please add the following to the JVM configuration: '%s'", description, String.join(" ", requiredJvmArguments))));
+        }
+    }
+
+    @VisibleForTesting
+    void verifyUnsafeAllowed(ThrowableSettable throwableSettable, String description)
+    {
+        String requiredJvmArgument = "--sun-misc-unsafe-memory-access=allow";
+        if (!inputArguments.matches(".*?%s.*?".formatted(Pattern.quote(requiredJvmArgument)))) {
+            throwableSettable.setThrowable(new IllegalStateException(format("%s requires additional JVM argument(s). Please add the following to the JVM configuration: '%s'", description, requiredJvmArgument)));
         }
     }
 

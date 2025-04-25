@@ -123,6 +123,7 @@ required, additional JVM argument to the [](jvm-config):
 
 ```none
 --add-opens=java.base/java.nio=ALL-UNNAMED
+--sun-misc-unsafe-memory-access=allow
 ```
 
 (bigquery-reading-from-views)=
