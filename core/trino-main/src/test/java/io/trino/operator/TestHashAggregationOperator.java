@@ -109,8 +109,7 @@ public class TestHashAggregationOperator
 
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-    private final TypeOperators typeOperators = new TypeOperators();
-    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(typeOperators);
+    private final FlatHashStrategyCompiler hashStrategyCompiler = new FlatHashStrategyCompiler(new TypeOperators());
 
     @AfterAll
     public void tearDown()
@@ -173,7 +172,6 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -244,7 +242,6 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(memoryLimitForMerge);
@@ -306,7 +303,6 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         Operator operator = operatorFactory.createOperator(driverContext);
@@ -360,7 +356,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input);
@@ -416,7 +411,6 @@ public class TestHashAggregationOperator
                 succinctBytes(memoryLimitForMergeWithMemory),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input, revokeMemoryWhenAddingPages);
@@ -445,7 +439,6 @@ public class TestHashAggregationOperator
                 1,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         // get result with yield; pick a relatively small buffer for aggregator's memory usage
@@ -509,7 +502,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         toPages(operatorFactory, driverContext, input);
@@ -550,7 +542,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         assertThat(toPages(operatorFactory, createDriverContext(), input)).hasSize(2);
@@ -589,7 +580,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(1, KILOBYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(1024);
@@ -677,7 +667,6 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 spillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(smallPagesSpillThresholdSize);
@@ -733,7 +722,6 @@ public class TestHashAggregationOperator
                 succinctBytes(Integer.MAX_VALUE),
                 new FailingSpillerFactory(),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
@@ -763,7 +751,6 @@ public class TestHashAggregationOperator
                 100_000,
                 Optional.of(DataSize.of(16, MEGABYTE)),
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext driverContext = createDriverContext(1024);
@@ -801,7 +788,6 @@ public class TestHashAggregationOperator
                 100,
                 Optional.of(maxPartialMemory), // this setting makes operator to flush after each page
                 hashStrategyCompiler,
-                typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 
@@ -883,7 +869,6 @@ public class TestHashAggregationOperator
                 10,
                 Optional.of(DataSize.of(16, MEGABYTE)), // this setting makes operator to flush only after all pages
                 hashStrategyCompiler,
-                typeOperators,
                 // 1 byte maxPartialMemory causes adaptive partial aggregation to be triggered after each page flush
                 Optional.of(partialAggregationController));
 
@@ -958,7 +943,6 @@ public class TestHashAggregationOperator
                         succinctBytes(memoryLimitForMergeWithMemory),
                         spillerFactory,
                         hashStrategyCompiler,
-                        typeOperators,
                         Optional.empty());
 
         DriverContext context = createDriverContext(memoryLimitForMerge);
@@ -1024,7 +1008,6 @@ public class TestHashAggregationOperator
                 DataSize.ofBytes(memoryLimitForMergeWithMemory),
                 slowSpillerFactory,
                 hashStrategyCompiler,
-                typeOperators,
                 Optional.empty());
 
         DriverContext context = createDriverContext(memoryLimitForMerge);
