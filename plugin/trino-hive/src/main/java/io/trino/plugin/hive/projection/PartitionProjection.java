@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.projection;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.Column;
@@ -46,7 +48,8 @@ public final class PartitionProjection
     private final Optional<String> storageLocationTemplate;
     private final Map<String, Projection> columnProjections;
 
-    public PartitionProjection(Optional<String> storageLocationTemplate, Map<String, Projection> columnProjections)
+    @JsonCreator
+    public PartitionProjection(@JsonProperty("storageLocationTemplate") Optional<String> storageLocationTemplate, @JsonProperty("columnProjections") Map<String, Projection> columnProjections)
     {
         this.storageLocationTemplate = requireNonNull(storageLocationTemplate, "storageLocationTemplate is null");
         this.columnProjections = ImmutableMap.copyOf(requireNonNull(columnProjections, "columnProjections is null"));
@@ -127,5 +130,17 @@ public final class PartitionProjection
         }
         matcher.appendTail(location);
         return location.toString();
+    }
+
+    @JsonProperty
+    public Optional<String> getStorageLocationTemplate()
+    {
+        return storageLocationTemplate;
+    }
+
+    @JsonProperty
+    public Map<String, Projection> getColumnProjections()
+    {
+        return columnProjections;
     }
 }

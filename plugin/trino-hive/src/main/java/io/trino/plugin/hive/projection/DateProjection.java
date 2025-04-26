@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.projection;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
@@ -61,7 +63,7 @@ import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-final class DateProjection
+public final class DateProjection
         implements Projection
 {
     private static final ZoneId UTC_TIME_ZONE_ID = ZoneId.of("UTC");
@@ -73,11 +75,31 @@ final class DateProjection
     private static final Pattern DATE_RANGE_BOUND_EXPRESSION_PATTERN = Pattern.compile("^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$");
 
     private final String columnName;
+    private final String dateFormatPattern;
     private final DateTimeFormatter dateFormat;
     private final Supplier<Instant> leftBound;
     private final Supplier<Instant> rightBound;
     private final int interval;
     private final ChronoUnit intervalUnit;
+
+    @JsonCreator
+    public DateProjection(
+            @JsonProperty("columnName") String columnName,
+            @JsonProperty("dateFormatPattern") String dateFormatPattern,
+            @JsonProperty("leftBound") Instant leftBound,
+            @JsonProperty("rightBound") Instant rightBound,
+            @JsonProperty("interval") int interval,
+            @JsonProperty("intervalUnit") ChronoUnit intervalUnit)
+    {
+        this.columnName = requireNonNull(columnName, "columnName is null");
+
+        this.dateFormatPattern = requireNonNull(dateFormatPattern, "dateFormat is null");
+        this.dateFormat = DateTimeFormatter.ofPattern(dateFormatPattern);
+        this.leftBound = () -> leftBound;
+        this.rightBound = () -> rightBound;
+        this.interval = interval;
+        this.intervalUnit = requireNonNull(intervalUnit, "intervalUnit is null");
+    }
 
     public DateProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
@@ -94,6 +116,7 @@ final class DateProjection
                 columnProperties,
                 COLUMN_PROJECTION_FORMAT,
                 String::valueOf);
+        this.dateFormatPattern = requireNonNull(dateFormatPattern, "dateFormatPattern is null");
 
         List<String> range = getProjectionPropertyRequiredValue(
                 columnName,
@@ -259,7 +282,7 @@ final class DateProjection
                         errorDetail.map(error -> ": " + error).orElse("")));
     }
 
-    private record DateExpressionBound(int multiplier, ChronoUnit unit, boolean increment)
+    public record DateExpressionBound(int multiplier, ChronoUnit unit, boolean increment)
             implements Supplier<Instant>
     {
         @Override
@@ -267,5 +290,41 @@ final class DateProjection
         {
             return Instant.now().plus(increment ? multiplier : -multiplier, unit);
         }
+    }
+
+    @JsonProperty
+    public String getColumnName()
+    {
+        return columnName;
+    }
+
+    @JsonProperty
+    public String getDateFormatPattern()
+    {
+        return dateFormatPattern;
+    }
+
+    @JsonProperty
+    public Instant getLeftBound()
+    {
+        return leftBound.get();
+    }
+
+    @JsonProperty
+    public Instant getRightBound()
+    {
+        return rightBound.get();
+    }
+
+    @JsonProperty
+    public int getInterval()
+    {
+        return interval;
+    }
+
+    @JsonProperty
+    public ChronoUnit getIntervalUnit()
+    {
+        return intervalUnit;
     }
 }

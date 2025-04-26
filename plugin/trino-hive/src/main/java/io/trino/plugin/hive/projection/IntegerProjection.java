@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.projection;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import io.trino.spi.predicate.Domain;
@@ -36,7 +38,7 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-final class IntegerProjection
+public final class IntegerProjection
         implements Projection
 {
     private final String columnName;
@@ -44,6 +46,21 @@ final class IntegerProjection
     private final int rightBound;
     private final int interval;
     private final Optional<Integer> digits;
+
+    @JsonCreator
+    public IntegerProjection(
+            @JsonProperty("columnName") String columnName,
+            @JsonProperty("leftBound") int leftBound,
+            @JsonProperty("rightBound") int rightBound,
+            @JsonProperty("interval") int interval,
+            @JsonProperty("digits") Optional<Integer> digits)
+    {
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.leftBound = leftBound;
+        this.rightBound = rightBound;
+        this.interval = interval;
+        this.digits = requireNonNull(digits, "digits is null");
+    }
 
     public IntegerProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
@@ -102,5 +119,35 @@ final class IntegerProjection
             return domain.contains(singleValue(type, (long) value));
         }
         throw new InvalidProjectionException(columnName, type);
+    }
+
+    @JsonProperty
+    public String getColumnName()
+    {
+        return columnName;
+    }
+
+    @JsonProperty
+    public int getLeftBound()
+    {
+        return leftBound;
+    }
+
+    @JsonProperty
+    public int getRightBound()
+    {
+        return rightBound;
+    }
+
+    @JsonProperty
+    public int getInterval()
+    {
+        return interval;
+    }
+
+    @JsonProperty
+    public Optional<Integer> getDigits()
+    {
+        return digits;
     }
 }

@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.projection;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -29,11 +31,18 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-final class EnumProjection
+public final class EnumProjection
         implements Projection
 {
     private final String columnName;
     private final List<String> values;
+
+    @JsonCreator
+    public EnumProjection(@JsonProperty("columnName") String columnName, @JsonProperty("values") List<String> values)
+    {
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.values = requireNonNull(values, "values is null");
+    }
 
     public EnumProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
@@ -69,5 +78,17 @@ final class EnumProjection
             return valueDomain.contains(singleValue(type, utf8Slice(value)));
         }
         throw new InvalidProjectionException(columnName, type);
+    }
+
+    @JsonProperty
+    public String getColumnName()
+    {
+        return columnName;
+    }
+
+    @JsonProperty
+    public List<String> getValues()
+    {
+        return values;
     }
 }

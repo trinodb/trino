@@ -13,12 +13,23 @@
  */
 package io.trino.plugin.hive.projection;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.trino.spi.predicate.Domain;
 
 import java.util.List;
 import java.util.Optional;
 
-sealed interface Projection
+@JsonTypeInfo(
+        use = JsonTypeInfo.Id.NAME,
+        property = "@type")
+@JsonSubTypes({
+        @JsonSubTypes.Type(value = DateProjection.class, name = "date"),
+        @JsonSubTypes.Type(value = EnumProjection.class, name = "enum"),
+        @JsonSubTypes.Type(value = InjectedProjection.class, name = "injected"),
+        @JsonSubTypes.Type(value = IntegerProjection.class, name = "integer")
+})
+public sealed interface Projection
         permits DateProjection, EnumProjection, InjectedProjection, IntegerProjection
 {
     List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
