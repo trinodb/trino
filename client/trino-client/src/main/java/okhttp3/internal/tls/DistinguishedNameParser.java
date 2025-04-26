@@ -139,7 +139,7 @@ final class DistinguishedNameParser
     private String hexAV()
     {
         if (pos + 4 >= length) {
-            // encoded byte array  must be not less then 4 c
+            // encoded byte array  must be not less than 4 c
             throw new IllegalStateException("Unexpected end of DN: " + dn);
         }
 
@@ -171,7 +171,7 @@ final class DistinguishedNameParser
         }
 
         // verify length of hex string
-        // encoded byte array  must be not less then 4 and must be even number
+        // encoded byte array  must be not less than 4 and must be even number
         int hexLen = end - beg; // skip first '#' char
         if (hexLen < 5 || (hexLen & 1) == 0) {
             throw new IllegalStateException("Unexpected end of DN: " + dn);

@@ -84,7 +84,7 @@ public class TestTrinoUri
         // property in url multiple times
         assertInvalid("trino://localhost:8080/blackhole?password=a&password=b", "Connection property password is in the URL multiple times");
 
-        // property not well formed, missing '='
+        // property not well-formed, missing '='
         assertInvalid("trino://localhost:8080/blackhole?password&user=abc", "Connection argument is not a valid connection property: 'password'");
 
         // property in both url and arguments

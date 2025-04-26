@@ -84,7 +84,7 @@ public class TestTrinoDriverUri
         // property in url multiple times
         assertInvalid("jdbc:trino://localhost:8080/blackhole?password=a&password=b", "Connection property password is in the URL multiple times");
 
-        // property not well formed, missing '='
+        // property not well-formed, missing '='
         assertInvalid("jdbc:trino://localhost:8080/blackhole?password&user=abc", "Connection argument is not a valid connection property: 'password'");
 
         // property in both url and arguments
