@@ -174,7 +174,8 @@ class TestOrcPredicates
                 location.toString(),
                 OptionalInt.empty(),
                 length,
-                Instant.now().toEpochMilli());
+                Instant.now().toEpochMilli(),
+                Optional.empty());
 
         return HivePageSourceProvider.createHivePageSource(
                         ImmutableSet.of(readerFactory),

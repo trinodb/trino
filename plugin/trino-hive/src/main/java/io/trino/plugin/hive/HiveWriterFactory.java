@@ -37,6 +37,7 @@ import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadataProvider;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
@@ -144,6 +145,8 @@ public class HiveWriterFactory
     private final Optional<Type> rowType;
     private final Optional<HiveType> hiveRowtype;
 
+    private final Optional<PartitionProjection> partitionProjection;
+
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
@@ -168,7 +171,8 @@ public class HiveWriterFactory
             ConnectorSession session,
             HiveWriterStats hiveWriterStats,
             boolean sortedWritingTempStagingPathEnabled,
-            String sortedWritingTempStagingPath)
+            String sortedWritingTempStagingPath,
+            Optional<PartitionProjection> partitionProjection)
     {
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.fileSystem = fileSystemFactory.create(session);
@@ -243,6 +247,8 @@ public class HiveWriterFactory
         this.sortedBy = ImmutableList.copyOf(requireNonNull(sortedBy, "sortedBy is null"));
         this.session = requireNonNull(session, "session is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
+
+        this.partitionProjection = requireNonNull(partitionProjection, "partitionProjection is null");
     }
 
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
@@ -255,7 +261,7 @@ public class HiveWriterFactory
             checkArgument(bucketNumber.isEmpty(), "Bucket number provided by for table that is not bucketed");
         }
 
-        List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
+        List<String> partitionValues = createPartitionValues(partitionColumnNames, partitionColumnTypes, partitionColumns, position, partitionProjection);
 
         Optional<String> partitionName;
         if (!partitionColumnNames.isEmpty()) {

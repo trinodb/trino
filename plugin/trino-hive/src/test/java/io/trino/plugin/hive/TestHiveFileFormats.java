@@ -996,7 +996,8 @@ public final class TestHiveFileFormats
                 location.toString(),
                 OptionalInt.empty(),
                 paddedFileSize,
-                Instant.now().toEpochMilli());
+                Instant.now().toEpochMilli(),
+                Optional.empty());
 
         ConnectorPageSource pageSource = HivePageSourceProvider.createHivePageSource(
                 ImmutableSet.of(sourceFactory),

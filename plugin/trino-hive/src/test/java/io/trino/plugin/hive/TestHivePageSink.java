@@ -380,7 +380,8 @@ public class TestHivePageSink
                 ImmutableMap.of(),
                 NO_ACID_TRANSACTION,
                 false,
-                false);
+                false,
+                Optional.empty());
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HivePageSinkProvider provider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, fileSystemFactory),

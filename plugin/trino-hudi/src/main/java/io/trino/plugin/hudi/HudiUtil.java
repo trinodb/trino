@@ -36,6 +36,7 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
@@ -96,7 +97,7 @@ public final class HudiUtil
             TupleDomain<HiveColumnHandle> constraintSummary)
     {
         HivePartition partition = HivePartitionManager.parsePartition(
-                tableName, hivePartitionName, partitionColumnHandles);
+                tableName, hivePartitionName, partitionColumnHandles, Optional.empty());
 
         return partitionMatches(partitionColumnHandles, constraintSummary, partition);
     }

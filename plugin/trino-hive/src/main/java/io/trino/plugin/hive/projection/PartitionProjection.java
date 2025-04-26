@@ -21,6 +21,7 @@ import io.trino.metastore.Column;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Table;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -53,6 +54,24 @@ public final class PartitionProjection
     {
         this.storageLocationTemplate = requireNonNull(storageLocationTemplate, "storageLocationTemplate is null");
         this.columnProjections = ImmutableMap.copyOf(requireNonNull(columnProjections, "columnProjections is null"));
+    }
+
+    public Optional<NullableValue> parsePartitionValue(String columnName, String partitionValue)
+    {
+        Projection projection = columnProjections.get(columnName);
+        if (projection == null) {
+            return Optional.empty();
+        }
+        return projection.parsePartitionValue(partitionValue);
+    }
+
+    public Optional<String> toPartitionValue(String columnName, Object value)
+    {
+        Projection projection = columnProjections.get(columnName);
+        if (projection == null) {
+            return Optional.empty();
+        }
+        return projection.toPartitionValue(value);
     }
 
     public Optional<List<String>> getProjectedPartitionNamesByFilter(List<String> columnNames, TupleDomain<String> partitionKeysFilter)

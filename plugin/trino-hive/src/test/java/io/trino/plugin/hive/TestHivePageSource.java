@@ -85,7 +85,8 @@ public class TestHivePageSource
                 null,
                 tableBucketNumber,
                 0,
-                0);
+                0,
+                Optional.empty());
 
         List<HivePageSourceProvider.ColumnMapping> regularAndInterimColumnMappings = HivePageSourceProvider.ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 

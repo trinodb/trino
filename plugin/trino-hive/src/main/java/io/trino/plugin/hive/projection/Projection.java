@@ -16,6 +16,7 @@ package io.trino.plugin.hive.projection;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,4 +34,14 @@ public sealed interface Projection
         permits DateProjection, EnumProjection, InjectedProjection, IntegerProjection
 {
     List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
+
+    default Optional<NullableValue> parsePartitionValue(String value)
+    {
+        return Optional.empty();
+    }
+
+    default Optional<String> toPartitionValue(Object value)
+    {
+        return Optional.empty();
+    }
 }

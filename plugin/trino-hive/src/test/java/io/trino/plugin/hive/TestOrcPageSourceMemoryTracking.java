@@ -569,7 +569,8 @@ public class TestOrcPageSourceMemoryTracking
                     fileSplit.getPath().toString(),
                     OptionalInt.empty(),
                     fileSplit.getLength(),
-                    Instant.now().toEpochMilli());
+                    Instant.now().toEpochMilli(),
+                    Optional.empty());
 
             ConnectorPageSource connectorPageSource = HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),

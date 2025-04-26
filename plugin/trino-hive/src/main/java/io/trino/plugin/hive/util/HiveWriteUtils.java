@@ -15,6 +15,7 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Database;
@@ -31,6 +32,7 @@ import io.trino.metastore.type.TypeInfo;
 import io.trino.plugin.hive.HiveReadOnlyException;
 import io.trino.plugin.hive.metastore.ProtectMode;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -43,6 +45,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -92,11 +95,16 @@ public final class HiveWriteUtils
 
     private HiveWriteUtils() {}
 
-    public static List<String> createPartitionValues(List<Type> partitionColumnTypes, Page partitionColumns, int position)
+    public static List<String> createPartitionValues(
+            List<String> partitionNames,
+            List<Type> partitionColumnTypes,
+            Page partitionColumns,
+            int position,
+            Optional<PartitionProjection> partitionProjection)
     {
         ImmutableList.Builder<String> partitionValues = ImmutableList.builder();
         for (int field = 0; field < partitionColumns.getChannelCount(); field++) {
-            String value = toPartitionValue(partitionColumnTypes.get(field), partitionColumns.getBlock(field), position);
+            String value = toPartitionValue(partitionNames.get(field), partitionColumnTypes.get(field), partitionColumns.getBlock(field), position, partitionProjection);
             if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(value)) {
                 String encoded = base16().withSeparator(" ", 2).encode(value.getBytes(UTF_8));
                 throw new TrinoException(HIVE_INVALID_PARTITION_VALUE, "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " + encoded);
@@ -106,50 +114,62 @@ public final class HiveWriteUtils
         return partitionValues.build();
     }
 
-    private static String toPartitionValue(Type type, Block block, int position)
+    private static String toPartitionValue(String name, Type type, Block block, int position, Optional<PartitionProjection> partitionProjection)
     {
         // see HiveUtil#isValidPartitionType
         if (block.isNull(position)) {
             return HIVE_DEFAULT_DYNAMIC_PARTITION;
         }
         if (BOOLEAN.equals(type)) {
-            return String.valueOf(BOOLEAN.getBoolean(block, position));
+            boolean value = BOOLEAN.getBoolean(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(() -> String.valueOf(value));
         }
         if (BIGINT.equals(type)) {
-            return String.valueOf(BIGINT.getLong(block, position));
+            long value = BIGINT.getLong(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(() -> String.valueOf(value));
         }
         if (INTEGER.equals(type)) {
-            return String.valueOf(INTEGER.getInt(block, position));
+            int value = INTEGER.getInt(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(() -> String.valueOf(value));
         }
         if (SMALLINT.equals(type)) {
-            return String.valueOf(SMALLINT.getShort(block, position));
+            short value = SMALLINT.getShort(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(() -> String.valueOf(value));
         }
         if (TINYINT.equals(type)) {
-            return String.valueOf(TINYINT.getByte(block, position));
+            byte value = TINYINT.getByte(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(() -> String.valueOf(value));
         }
         if (REAL.equals(type)) {
-            return String.valueOf(REAL.getFloat(block, position));
+            float value = REAL.getFloat(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(() -> String.valueOf(value));
         }
         if (DOUBLE.equals(type)) {
-            return String.valueOf(DOUBLE.getDouble(block, position));
+            double value = DOUBLE.getDouble(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(() -> String.valueOf(value));
         }
         if (type instanceof VarcharType varcharType) {
-            return varcharType.getSlice(block, position).toStringUtf8();
+            Slice value = varcharType.getSlice(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(value::toStringUtf8);
         }
         if (type instanceof CharType charType) {
-            return padSpaces(charType.getSlice(block, position), charType).toStringUtf8();
+            Slice value = padSpaces(charType.getSlice(block, position), charType);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(value::toStringUtf8);
         }
         if (DATE.equals(type)) {
-            return LocalDate.ofEpochDay(DATE.getInt(block, position)).format(HIVE_DATE_FORMATTER);
+            int value = DATE.getInt(block, position);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(() -> LocalDate.ofEpochDay(value).format(HIVE_DATE_FORMATTER));
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
             long epochMicros = type.getLong(block, position);
             long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
             int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(HIVE_TIMESTAMP_FORMATTER);
+            LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC);
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, localDateTime)).orElseGet(() -> localDateTime.format(HIVE_TIMESTAMP_FORMATTER));
         }
         if (type instanceof DecimalType decimalType) {
-            return readBigDecimal(decimalType, block, position).stripTrailingZeros().toPlainString();
+            BigDecimal value = readBigDecimal(decimalType, block, position).stripTrailingZeros();
+            return partitionProjection.flatMap(projection -> projection.toPartitionValue(name, value)).orElseGet(value::toPlainString);
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type for partition: " + type);
     }

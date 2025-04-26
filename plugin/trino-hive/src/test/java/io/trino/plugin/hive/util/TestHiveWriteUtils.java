@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -23,6 +24,7 @@ import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -64,7 +66,7 @@ public class TestHiveWriteUtils
         assertThat(HiveDecimal.create(decimal.toBigDecimal()).toString())
                 .isEqualTo(expectedValue);
 
-        assertThat(createPartitionValues(types, page, 0))
+        assertThat(createPartitionValues(ImmutableList.of("dummy"), types, page, 0, Optional.empty()))
                 .isEqualTo(List.of(expectedValue));
     }
 
