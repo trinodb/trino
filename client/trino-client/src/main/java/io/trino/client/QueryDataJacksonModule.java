@@ -35,10 +35,10 @@ import java.io.IOException;
 
 /**
  * Encodes/decodes the direct and spooling protocols.
- *
+ * <p>
  * If the "data" fields starts with an array - this is the direct protocol which requires obtaining JsonParser
  * and then parsing rows lazily.
- *
+ * <p>
  * Otherwise, this is a spooling protocol.
  */
 public class QueryDataJacksonModule
