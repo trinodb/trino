@@ -977,10 +977,6 @@ principal
     | ROLE identifier       #rolePrincipal
     ;
 
-roles
-    : identifier (',' identifier)*
-    ;
-
 privilegeOrRole
     : CREATE | SELECT | DELETE | INSERT | UPDATE | identifier
     ;
