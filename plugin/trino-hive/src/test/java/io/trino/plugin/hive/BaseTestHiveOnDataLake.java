@@ -936,7 +936,7 @@ abstract class BaseTestHiveOnDataLake
                         "  short_name2 date WITH (" +
                         "    partition_projection_type='date', " +
                         "    partition_projection_format='yyyy-MM-dd', " +
-                        "    partition_projection_range=ARRAY['2001-1-22', '2001-1-25']" +
+                        "    partition_projection_range=ARRAY['2001-01-22', '2001-01-25']" +
                         "  )" +
                         ") WITH ( " +
                         "  partitioned_by=ARRAY['short_name1', 'short_name2'], " +
@@ -951,7 +951,7 @@ abstract class BaseTestHiveOnDataLake
                 .containsPattern("[ |]+projection\\.short_name1\\.values[ |]+PL1,CZ1[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.type[ |]+date[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.format[ |]+yyyy-MM-dd[ |]+")
-                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2001-1-22,2001-1-25[ |]+");
+                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2001-01-22,2001-01-25[ |]+");
 
         computeActual(createInsertStatement(
                 fullyQualifiedTestTableName,
@@ -1011,7 +1011,7 @@ abstract class BaseTestHiveOnDataLake
                         "  short_name2 timestamp WITH (" +
                         "    partition_projection_type='date', " +
                         "    partition_projection_format='yyyy-MM-dd HH:mm:ss', " +
-                        "    partition_projection_range=ARRAY['2001-1-22 00:00:00', '2001-1-22 00:00:06'], " +
+                        "    partition_projection_range=ARRAY['2001-01-22 00:00:00', '2001-01-22 00:00:06'], " +
                         "    partition_projection_interval=2, " +
                         "    partition_projection_interval_unit='SECONDS'" +
                         "  )" +
@@ -1028,7 +1028,7 @@ abstract class BaseTestHiveOnDataLake
                 .containsPattern("[ |]+projection\\.short_name1\\.values[ |]+PL1,CZ1[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.type[ |]+date[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.format[ |]+yyyy-MM-dd HH:mm:ss[ |]+")
-                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2001-1-22 00:00:00,2001-1-22 00:00:06[ |]+")
+                .containsPattern("[ |]+projection\\.short_name2\\.range[ |]+2001-01-22 00:00:00,2001-01-22 00:00:06[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.interval[ |]+2[ |]+")
                 .containsPattern("[ |]+projection\\.short_name2\\.interval\\.unit[ |]+seconds[ |]+");
 
@@ -1582,7 +1582,7 @@ abstract class BaseTestHiveOnDataLake
                         "  partition_projection_enabled=true " +
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd HH' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"2001-01-01\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Text '2001-01-01' could not be parsed at index 10");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1597,7 +1597,7 @@ abstract class BaseTestHiveOnDataLake
                         "  partition_projection_enabled=true " +
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"NOW*3DAYS\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Text 'NOW*3DAYS' could not be parsed at index 0");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1703,7 +1703,7 @@ abstract class BaseTestHiveOnDataLake
         // Expect invalid Partition Projection properties to fail
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + fullyQualifiedTestTableName))
                 .hasMessage("Column projection for column 'date_time' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd HH' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"2001-01-01\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Text '2001-01-01' could not be parsed at index 10");
 
         // Append kill switch table property to ignore Partition Projection properties
         hiveMinioDataLake.runOnHive(
