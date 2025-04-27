@@ -225,7 +225,7 @@ tableElement
     ;
 
 columnDefinition
-    : qualifiedName type (NOT NULL)? (COMMENT string)? (WITH properties)?
+    : qualifiedName type (DEFAULT literal)? (NOT NULL)? (COMMENT string)? (WITH properties)?
     ;
 
 likeClause
