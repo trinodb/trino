@@ -14,6 +14,8 @@
 * Fix incorrect results when using window functions with `DISTINCT`. ({issue}`25434`)
 * Fix query failures with `EXCEEDED_LOCAL_MEMORY_LIMIT` errors due to incorrect memory accounting. ({issue}`25600`)
 * Properly handle inline session properties for `EXPLAIN` queries. ({issue}`25496`)
+* Add support for exporting OpenTelemetry traces using the HTTP protocol with the `tracing.exporter.protocol` 
+  configuration property set to `http/protobuf`. ({issue}`25573`)
 
 ## Security
 
