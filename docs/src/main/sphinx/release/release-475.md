@@ -67,7 +67,7 @@
 * Improve the `optimize_manifests` procedure to produce better organized manifests. ({issue}`25378`)
 * Clean up old snapshots when refreshing a materialized view. ({issue}`25343`)
 * Set Glue catalog ID when `hive.metastore.glue.catalogid` is configured. ({issue}`25511`)
-* Fix failure when executing `migrate` on tables partitioned on columns with special characters. ({issue}`25228`)
+* Fix failure when executing `migrate` on tables partitioned on columns with special characters. ({issue}`25106`)
 * Fix `OPTIMIZE` failures due to commit conflicts with certain `DELETE` queries. ({issue}`25584`)
 * Fix failure when analyzing a table without any snapshots. ({issue}`25563`)
 
