@@ -261,6 +261,7 @@ import static io.trino.sql.parser.ParserAssert.expression;
 import static io.trino.sql.parser.ParserAssert.rowPattern;
 import static io.trino.sql.parser.ParserAssert.statement;
 import static io.trino.sql.parser.TreeNodes.columnDefinition;
+import static io.trino.sql.parser.TreeNodes.columnDefinitionWithDefault;
 import static io.trino.sql.parser.TreeNodes.dateTimeType;
 import static io.trino.sql.parser.TreeNodes.field;
 import static io.trino.sql.parser.TreeNodes.location;
@@ -2287,6 +2288,22 @@ public class TestSqlParser
     }
 
     @Test
+    void testCreateTableWithDefault()
+    {
+        assertThat(statement("CREATE TABLE foo (a VARCHAR, b BIGINT DEFAULT 123, c IPADDRESS)"))
+                .isEqualTo(new CreateTable(
+                        location(1, 1),
+                        qualifiedName(location(1, 14), "foo"),
+                        ImmutableList.of(
+                                columnDefinition(location(1, 19), "a", simpleType(location(1, 21), "VARCHAR")),
+                                columnDefinitionWithDefault(location(1, 30), "b", simpleType(location(1, 32), "BIGINT"), new LongLiteral(location(1, 47), "123")),
+                                columnDefinition(location(1, 52), "c", simpleType(location(1, 54), "IPADDRESS"))),
+                        FAIL,
+                        ImmutableList.of(),
+                        Optional.empty()));
+    }
+
+    @Test
     public void testCreateTableWithNotNull()
     {
         assertThat(statement(
@@ -3638,6 +3655,23 @@ public class TestSqlParser
                         new NodeLocation(1, 1),
                         QualifiedName.of("foo", "t"),
                         new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()), Optional.empty(), false, false));
+
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN c bigint DEFAULT 123"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(
+                                location(1, 30),
+                                QualifiedName.of("c"),
+                                simpleType(location(1, 31), "bigint"),
+                                Optional.of(new LongLiteral(location(1, 47), "123")),
+                                true,
+                                emptyList(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
 
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL"))
                 .ignoringLocation()
