@@ -1,8 +1,20 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -12,10 +24,17 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 import java.util.stream.Collectors;
 
-public class HudiRecordLevelIndexSupport extends HudiBaseIndexSupport
+public class HudiRecordLevelIndexSupport
+        extends HudiBaseIndexSupport
 {
     private static final Logger log = Logger.get(HudiRecordLevelIndexSupport.class);
 
@@ -33,7 +52,6 @@ public class HudiRecordLevelIndexSupport extends HudiBaseIndexSupport
             Map<String, List<FileSlice>> inputFileSlices,
             TupleDomain<String> regularColumnPredicates)
     {
-
         if (regularColumnPredicates.isAll()) {
             return inputFileSlices;
         }
@@ -222,7 +240,8 @@ public class HudiRecordLevelIndexSupport extends HudiBaseIndexSupport
      * Check if the all record key fields are used in the predicates.
      * All predicates referencing the record key fields must also be a IN or EQUAL predicate.
      */
-    public static boolean shouldUseIndex(TupleDomain<String> tupleDomain, HoodieTableMetaClient metaClient) {
+    public static boolean shouldUseIndex(TupleDomain<String> tupleDomain, HoodieTableMetaClient metaClient)
+    {
         // RLI is not registered in index definitions. Manually check it from metadata partitions instead.
         if (!isIndexSupportAvailable(metaClient)) {
             return false;
@@ -231,6 +250,4 @@ public class HudiRecordLevelIndexSupport extends HudiBaseIndexSupport
         return TupleDomainUtils.areAllFieldsReferenced(tupleDomain, sourceFields)
                 && TupleDomainUtils.areDomainsInOrEqualOnly(tupleDomain, sourceFields);
     }
-
-
 }

@@ -23,6 +23,7 @@ import io.trino.plugin.hudi.file.HudiLogFile;
 import io.trino.spi.TrinoException;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieBaseFile;
+import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.util.Option;
 
 import java.util.Collections;
@@ -61,7 +62,10 @@ public class HudiSplitFactory
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, format("Not a valid file slice: %s", fileSlice.toString()));
         }
 
-        if (fileSlice.getLogFiles().findAny().isEmpty()) {
+        // Handle MERGE_ON_READ tables to be read in read_optimized mode
+        // IMPORTANT: These tables will have a COPY_ON_WRITE table type due to how `HudiTableTypeUtils#fromInputFormat`
+        if (fileSlice.getLogFiles().findAny().isEmpty()
+                || hudiTableHandle.getTableType().equals(HoodieTableType.COPY_ON_WRITE)) {
             // Base file only
             checkArgument(fileSlice.getBaseFile().isPresent(),
                     "Hudi base file must exist if there is no log file in the file slice");
@@ -75,8 +79,7 @@ public class HudiSplitFactory
                         commitTime,
                         hudiTableHandle.getRegularPredicates(),
                         partitionKeys,
-                        hudiSplitWeightProvider.calculateSplitWeight(fileSize)
-                ));
+                        hudiSplitWeightProvider.calculateSplitWeight(fileSize)));
             }
 
             ImmutableList.Builder<HudiSplit> splits = ImmutableList.builder();
@@ -102,6 +105,7 @@ public class HudiSplitFactory
                         partitionKeys,
                         hudiSplitWeightProvider.calculateSplitWeight(bytesRemaining)));
             }
+            return splits.build();
         }
 
         // Base and log files

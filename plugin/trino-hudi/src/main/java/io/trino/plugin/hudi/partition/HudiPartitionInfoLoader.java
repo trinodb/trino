@@ -16,7 +16,6 @@ package io.trino.plugin.hudi.partition;
 import io.airlift.concurrent.MoreFutures;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.util.AsyncQueue;
-import io.trino.plugin.hudi.HudiFileStatus;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
 import io.trino.plugin.hudi.split.HudiSplitFactory;
 import io.trino.spi.connector.ConnectorSplit;

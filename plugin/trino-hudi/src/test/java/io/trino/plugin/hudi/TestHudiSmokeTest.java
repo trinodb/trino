@@ -93,7 +93,7 @@ public class TestHudiSmokeTest
 
         assertQuery("SELECT symbol, max(ts) FROM " + STOCK_TICKS_MOR + " GROUP BY symbol HAVING symbol = 'GOOG'",
                 "SELECT * FROM VALUES ('GOOG', '2018-08-31 10:59:00')");
-                System.out.println(getQueryRunner().execute(getSession(), "EXPLAIN ANALYZE SELECT * FROM " + HUDI_STOCK_TICKS_COW).toString());
+        System.out.println(getQueryRunner().execute(getSession(), "EXPLAIN ANALYZE SELECT * FROM " + HUDI_STOCK_TICKS_COW).toString());
 
         System.out.println("test start");
         getQueryRunner().execute(getSession(), "SET SESSION hudi.metadata_enabled=true");
@@ -493,14 +493,16 @@ public class TestHudiSmokeTest
 
     @Test
     public void testHudiLongTimestampType()
-            throws Exception {
+            throws Exception
+    {
         testTimestampMicros(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
         testTimestampMicros(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
         testTimestampMicros(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
     }
 
     private void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
-            throws Exception {
+            throws Exception
+    {
         File parquetFile = new File(Resources.getResource("long_timestamp.parquet").toURI());
         Type columnType = createTimestampType(timestampPrecision.getPrecision());
         HudiSplit hudiSplit = new HudiSplit(

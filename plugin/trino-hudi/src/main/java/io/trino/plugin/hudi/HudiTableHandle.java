@@ -18,7 +18,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.HiveColumnHandle;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -106,7 +105,8 @@ public class HudiTableHandle
     }
 
     @JsonProperty
-    public Optional<String> getPreCombineField() {
+    public Optional<String> getPreCombineField()
+    {
         return preCombineField;
     }
 

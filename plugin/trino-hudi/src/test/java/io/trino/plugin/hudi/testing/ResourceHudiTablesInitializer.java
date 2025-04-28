@@ -112,8 +112,8 @@ public class ResourceHudiTablesInitializer
                         .setLocation(tablePath.toString()))
                 .build();
         HiveMetastore metastore = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
-                        .getInstance(HiveMetastoreFactory.class)
-                        .createMetastore(Optional.empty());
+                .getInstance(HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
         metastore.createTable(table, PrincipalPrivileges.NO_PRIVILEGES);
 
         List<PartitionWithStatistics> partitionsToAdd = new ArrayList<>();
@@ -312,15 +312,13 @@ public class ResourceHudiTablesInitializer
                     column("id", HIVE_INT),
                     column("name", HIVE_STRING),
                     column("price", HIVE_DOUBLE),
-                    column("ts", HIVE_LONG)
-            );
+                    column("ts", HIVE_LONG));
         }
 
         private static List<Column> hudiMultiFgPartitionsColumn()
         {
             return ImmutableList.of(
-                    column("country", HIVE_STRING)
-            );
+                    column("country", HIVE_STRING));
         }
 
         private static Map<String, String> hudiMultiFgPartitions()

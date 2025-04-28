@@ -42,6 +42,7 @@ import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.model.HoodieFileGroupId;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -49,8 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
-import org.apache.hudi.common.util.Option;
-import org.apache.hudi.storage.StoragePath;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
@@ -179,7 +178,8 @@ public final class HudiUtil
         return fieldBuilder.endRecord();
     }
 
-    public static List<HiveColumnHandle> prependHudiMetaColumns(List<HiveColumnHandle> dataColumns) {
+    public static List<HiveColumnHandle> prependHudiMetaColumns(List<HiveColumnHandle> dataColumns)
+    {
         List<HiveColumnHandle> columns = new ArrayList<>();
         if (dataColumns.stream().noneMatch(handle -> HOODIE_META_COLUMNS.contains(handle.getName()))) {
             columns.addAll(IntStream.range(0, HOODIE_META_COLUMNS.size())
@@ -198,7 +198,8 @@ public final class HudiUtil
         return columns;
     }
 
-    public static FileSlice convertToFileSlice(HudiSplit split, String basePath) {
+    public static FileSlice convertToFileSlice(HudiSplit split, String basePath)
+    {
         String dataFilePath = split.getBaseFile().isPresent()
                 ? split.getBaseFile().get().getPath()
                 : split.getLogFiles().getFirst().getPath();
@@ -211,7 +212,6 @@ public final class HudiUtil
                 new HoodieFileGroupId(FSUtils.getRelativePartitionPath(new StoragePath(basePath), new StoragePath(dataFilePath)), fileId),
                 split.getCommitTime(),
                 baseFile,
-                split.getLogFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList()
-        );
+                split.getLogFiles().stream().map(lf -> new HoodieLogFile(lf.getPath())).toList());
     }
 }

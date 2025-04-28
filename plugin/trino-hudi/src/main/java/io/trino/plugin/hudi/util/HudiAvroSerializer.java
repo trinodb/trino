@@ -73,7 +73,8 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 
-public class HudiAvroSerializer {
+public class HudiAvroSerializer
+{
     private static final int[] NANO_FACTOR = {
             -1, // 0, no need to multiply
             100_000_000, // 1 digit after the dot
@@ -94,7 +95,8 @@ public class HudiAvroSerializer {
     private final List<Type> columnTypes;
     private final Schema schema;
 
-    public HudiAvroSerializer(List<HiveColumnHandle> columnHandles) {
+    public HudiAvroSerializer(List<HiveColumnHandle> columnHandles)
+    {
         this.columnHandles = columnHandles;
         this.columnTypes = columnHandles.stream().map(HiveColumnHandle::getType).toList();
         // Fetches projected schema
@@ -103,7 +105,8 @@ public class HudiAvroSerializer {
         this.synthesizedColumnHandler = null;
     }
 
-    public HudiAvroSerializer(List<HiveColumnHandle> columnHandles, SynthesizedColumnHandler synthesizedColumnHandler) {
+    public HudiAvroSerializer(List<HiveColumnHandle> columnHandles, SynthesizedColumnHandler synthesizedColumnHandler)
+    {
         this.columnHandles = columnHandles;
         this.columnTypes = columnHandles.stream().map(HiveColumnHandle::getType).toList();
         // Fetches projected schema
@@ -112,7 +115,8 @@ public class HudiAvroSerializer {
         this.synthesizedColumnHandler = synthesizedColumnHandler;
     }
 
-    public IndexedRecord serialize(SourcePage sourcePage, int position) {
+    public IndexedRecord serialize(SourcePage sourcePage, int position)
+    {
         IndexedRecord record = new GenericData.Record(schema);
         for (int i = 0; i < columnTypes.size(); i++) {
             Object value = getValue(sourcePage, i, position);
@@ -121,28 +125,32 @@ public class HudiAvroSerializer {
         return record;
     }
 
-    public Object getValue(SourcePage sourcePage, int channel, int position) {
+    public Object getValue(SourcePage sourcePage, int channel, int position)
+    {
         return columnTypes.get(channel).getObjectValue(null, sourcePage.getBlock(channel), position);
     }
 
     public void buildRecordInPage(PageBuilder pageBuilder, IndexedRecord record,
-                                  Map<Integer, String> partitionValueMap, boolean SkipMetaColumns) {
+            Map<Integer, String> partitionValueMap, boolean skipMetaColumns)
+    {
         pageBuilder.declarePosition();
-        int startChannel = SkipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
+        int startChannel = skipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
         int blockSeq = 0;
         int nonPartitionChannel = startChannel;
         for (int channel = startChannel; channel < columnTypes.size() + partitionValueMap.size(); channel++, blockSeq++) {
             BlockBuilder output = pageBuilder.getBlockBuilder(blockSeq);
             if (partitionValueMap.containsKey(channel)) {
                 appendTo(VarcharType.VARCHAR, partitionValueMap.get(channel), output);
-            } else {
+            }
+            else {
                 appendTo(columnTypes.get(nonPartitionChannel), record.get(nonPartitionChannel), output);
                 nonPartitionChannel++;
             }
         }
     }
 
-    public void buildRecordInPage(PageBuilder pageBuilder, IndexedRecord record) {
+    public void buildRecordInPage(PageBuilder pageBuilder, IndexedRecord record)
+    {
         pageBuilder.declarePosition();
         int blockSeq = 0;
         for (int channel = 0; channel < columnTypes.size(); channel++, blockSeq++) {
@@ -150,7 +158,8 @@ public class HudiAvroSerializer {
             HiveColumnHandle columnHandle = columnHandles.get(channel);
             if (synthesizedColumnHandler.isSynthesizedColumn(columnHandle)) {
                 synthesizedColumnHandler.getColumnStrategy(columnHandle).appendToBlock(output, columnTypes.get(channel));
-            } else {
+            }
+            else {
                 // Record may not be projected, get index from it
                 int fieldPosInSchema = record.getSchema().getField(columnHandle.getName()).pos();
                 appendTo(columnTypes.get(channel), record.get(fieldPosInSchema), output);
@@ -159,16 +168,18 @@ public class HudiAvroSerializer {
     }
 
     public void buildRecordInPage(PageBuilder pageBuilder, SourcePage sourcePage, int position,
-                                  Map<Integer, String> partitionValueMap, boolean SkipMetaColumns) {
+            Map<Integer, String> partitionValueMap, boolean skipMetaColumns)
+    {
         pageBuilder.declarePosition();
-        int startChannel = SkipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
+        int startChannel = skipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
         int blockSeq = 0;
         int nonPartitionChannel = startChannel;
         for (int channel = startChannel; channel < columnTypes.size() + partitionValueMap.size(); channel++, blockSeq++) {
             BlockBuilder output = pageBuilder.getBlockBuilder(blockSeq);
             if (partitionValueMap.containsKey(channel)) {
                 appendTo(VarcharType.VARCHAR, partitionValueMap.get(channel), output);
-            } else {
+            }
+            else {
                 appendTo(columnTypes.get(nonPartitionChannel), getValue(sourcePage, nonPartitionChannel, position), output);
                 nonPartitionChannel++;
             }
@@ -271,9 +282,11 @@ public class HudiAvroSerializer {
         if (type instanceof VarcharType) {
             if (value instanceof Utf8) {
                 type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
-            } else if (value instanceof String) {
+            }
+            else if (value instanceof String) {
                 type.writeSlice(output, utf8Slice((String) value));
-            } else {
+            }
+            else {
                 type.writeSlice(output, utf8Slice(value.toString()));
             }
         }

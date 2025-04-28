@@ -13,12 +13,28 @@
  */
 package io.trino.plugin.hudi.reader;
 
-
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.HudiAvroSerializer;
 import io.trino.plugin.hudi.util.SynthesizedColumnHandler;
-import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.SourcePage;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericData.Record;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.IndexedRecord;
+import org.apache.hudi.common.config.RecordMergeMode;
+import org.apache.hudi.common.engine.HoodieReaderContext;
+import org.apache.hudi.common.model.HoodieAvroIndexedRecord;
+import org.apache.hudi.common.model.HoodieAvroRecordMerger;
+import org.apache.hudi.common.model.HoodieEmptyRecord;
+import org.apache.hudi.common.model.HoodieKey;
+import org.apache.hudi.common.model.HoodieRecord;
+import org.apache.hudi.common.model.HoodieRecordMerger;
+import org.apache.hudi.common.util.Option;
+import org.apache.hudi.common.util.collection.ClosableIterator;
+import org.apache.hudi.storage.HoodieStorage;
+import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -26,24 +42,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 
-import io.trino.spi.connector.SourcePage;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericData.Record;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.generic.IndexedRecord;
-
-import org.apache.hudi.common.config.RecordMergeMode;
-import org.apache.hudi.common.engine.HoodieReaderContext;
-import org.apache.hudi.common.model.*;
-import org.apache.hudi.common.util.Option;
-import org.apache.hudi.common.util.collection.ClosableIterator;
-import org.apache.hudi.storage.HoodieStorage;
-import org.apache.hudi.storage.StoragePath;
-
-public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
-
-
+public class HudiTrinoReaderContext
+        extends HoodieReaderContext<IndexedRecord>
+{
     ConnectorPageSource pageSource;
     private final HudiAvroSerializer avroSerializer;
     Map<String, Integer> colToPosMap;
@@ -54,7 +55,8 @@ public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
             ConnectorPageSource pageSource,
             List<HiveColumnHandle> dataHandles,
             List<HiveColumnHandle> columnHandles,
-            SynthesizedColumnHandler synthesizedColumnHandler) {
+            SynthesizedColumnHandler synthesizedColumnHandler)
+    {
         this.pageSource = pageSource;
         this.avroSerializer = new HudiAvroSerializer(columnHandles, synthesizedColumnHandler);
         this.dataHandles = dataHandles;
@@ -73,22 +75,27 @@ public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
             long length,
             Schema dataSchema,
             Schema requiredSchema,
-            HoodieStorage storage) {
-        return new ClosableIterator<>() {
-            private SourcePage currentPage = null;
-            private int currentPosition = 0;
+            HoodieStorage storage)
+    {
+        return new ClosableIterator<>()
+        {
+            private SourcePage currentPage;
+            private int currentPosition;
 
             @Override
-            public void close() {
+            public void close()
+            {
                 try {
                     pageSource.close();
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             }
 
             @Override
-            public boolean hasNext() {
+            public boolean hasNext()
+            {
                 // If all records in the current page are consume, try to get next page
                 if (currentPage == null || currentPosition >= currentPage.getPositionCount()) {
                     if (pageSource.isFinished()) {
@@ -109,7 +116,8 @@ public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
             }
 
             @Override
-            public IndexedRecord next() {
+            public IndexedRecord next()
+            {
                 if (!hasNext()) {
                     // TODO: This can probably be removed or ignored, added this as a sanity check
                     throw new RuntimeException("No more records in the iterator");
@@ -123,12 +131,14 @@ public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
     }
 
     @Override
-    public IndexedRecord convertAvroRecord(IndexedRecord record) {
+    public IndexedRecord convertAvroRecord(IndexedRecord record)
+    {
         return record;
     }
 
     @Override
-    public GenericRecord convertToAvroRecord(IndexedRecord record, Schema schema) {
+    public GenericRecord convertToAvroRecord(IndexedRecord record, Schema schema)
+    {
         GenericRecord ret = new GenericData.Record(schema);
         for (Schema.Field field : schema.getFields()) {
             ret.put(field.name(), record.get(field.pos()));
@@ -137,22 +147,26 @@ public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
     }
 
     @Override
-    public Option<HoodieRecordMerger> getRecordMerger(RecordMergeMode mergeMode, String mergeStrategyId, String mergeImplClasses) {
+    public Option<HoodieRecordMerger> getRecordMerger(RecordMergeMode mergeMode, String mergeStrategyId, String mergeImplClasses)
+    {
         return Option.of(HoodieAvroRecordMerger.INSTANCE);
     }
 
     @Override
-    public Object getValue(IndexedRecord record, Schema schema, String fieldName) {
+    public Object getValue(IndexedRecord record, Schema schema, String fieldName)
+    {
         if (colToPosMap.containsKey(fieldName)) {
             return record.get(colToPosMap.get(fieldName));
-        } else {
+        }
+        else {
             // record doesn't have the queried field, return null
             return null;
         }
     }
 
     @Override
-    public IndexedRecord seal(IndexedRecord record) {
+    public IndexedRecord seal(IndexedRecord record)
+    {
         // TODO: this can rely on colToPos map directly instead of schema
         Schema schema = record.getSchema();
         IndexedRecord newRecord = new Record(schema);
@@ -167,7 +181,8 @@ public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
     @Override
     public ClosableIterator<IndexedRecord> mergeBootstrapReaders(
             ClosableIterator closableIterator, Schema schema,
-            ClosableIterator closableIterator1, Schema schema1) {
+            ClosableIterator closableIterator1, Schema schema1)
+    {
         return null;
     }
 
@@ -175,7 +190,8 @@ public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
     public UnaryOperator<IndexedRecord> projectRecord(
             Schema from,
             Schema to,
-            Map<String, String> renamedColumns) {
+            Map<String, String> renamedColumns)
+    {
         List<Schema.Field> toFields = to.getFields();
         int[] projection = new int[toFields.size()];
         for (int i = 0; i < projection.length; i++) {
@@ -194,7 +210,8 @@ public class HudiTrinoReaderContext extends HoodieReaderContext<IndexedRecord> {
     @Override
     public HoodieRecord<IndexedRecord> constructHoodieRecord(
             Option<IndexedRecord> recordOpt,
-            Map<String, Object> metadataMap) {
+            Map<String, Object> metadataMap)
+    {
         if (!recordOpt.isPresent()) {
             return new HoodieEmptyRecord<>(
                     new HoodieKey((String) metadataMap.get(INTERNAL_META_RECORD_KEY),

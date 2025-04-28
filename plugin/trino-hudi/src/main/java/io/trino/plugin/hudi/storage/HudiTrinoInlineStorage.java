@@ -199,7 +199,9 @@ public class HudiTrinoInlineStorage
     }
 
     @Override
-    public void setModificationTime(StoragePath path, long modificationTime) throws IOException {
+    public void setModificationTime(StoragePath path, long modificationTime)
+            throws IOException
+    {
         throw new HoodieNotSupportedException("Hudi inline storage supports reads only.");
     }
 

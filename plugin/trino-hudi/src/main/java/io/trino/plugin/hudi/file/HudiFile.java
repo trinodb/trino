@@ -13,7 +13,8 @@
  */
 package io.trino.plugin.hudi.file;
 
-public interface HudiFile {
+public interface HudiFile
+{
     String getPath();
 
     String getFileName();

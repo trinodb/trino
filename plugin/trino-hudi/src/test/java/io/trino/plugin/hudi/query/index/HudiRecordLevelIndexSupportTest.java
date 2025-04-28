@@ -1,8 +1,20 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.hudi.query.index;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -10,12 +22,11 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.IntegerType;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.query.index.HudiRecordLevelIndexSupport.extractPredicatesForColumns;
@@ -24,13 +35,9 @@ import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class HudiRecordLevelIndexSupportTest
 {
-
     /**
      * Example unit test case on how to initialize domains and run tests.
      */
@@ -86,7 +93,7 @@ public class HudiRecordLevelIndexSupportTest
 
         TupleDomain<String> result = HudiRecordLevelIndexSupport.extractPredicatesForColumns(tupleDomain, columns);
 
-        assertTrue(result.isNone());
+        assertThat(result.isNone()).isTrue();
     }
 
     @Test
@@ -98,7 +105,7 @@ public class HudiRecordLevelIndexSupportTest
 
         TupleDomain<String> result = HudiRecordLevelIndexSupport.extractPredicatesForColumns(tupleDomain, columns);
 
-        assertTrue(result.isAll());
+        assertThat(result.isAll()).isTrue();
     }
 
     @Test
@@ -120,19 +127,17 @@ public class HudiRecordLevelIndexSupportTest
         // Should return TupleDomain with only col1 containing all its values
         TupleDomain<String> result = HudiRecordLevelIndexSupport.extractPredicatesForColumns(tupleDomain, columns);
 
-        assertFalse(result.isNone());
-        assertFalse(result.isAll());
+        assertThat(result.isNone()).isFalse();
+        assertThat(result.isAll()).isFalse();
 
         Map<String, Domain> resultDomains = result.getDomains().get();
-        assertEquals(1, resultDomains.size());
-        assertTrue(resultDomains.containsKey(col1.getName()));
-        assertFalse(resultDomains.containsKey(col2.getName()));
+        assertThat(resultDomains).hasSize(1);
+        assertThat(resultDomains).containsKey(col1.getName());
+        assertThat(resultDomains).doesNotContainKey(col2.getName());
 
         List<String> values = getMultiValue(resultDomains.get(col1.getName()));
-        assertEquals(3, values.size());
-        assertTrue(values.contains("value1"));
-        assertTrue(values.contains("value2"));
-        assertTrue(values.contains("value3"));
+        assertThat(values).hasSize(3);
+        assertThat(values).contains("value1", "value2", "value3");
     }
 
     @Test
@@ -165,27 +170,27 @@ public class HudiRecordLevelIndexSupportTest
         TupleDomain<String> result = HudiRecordLevelIndexSupport.extractPredicatesForColumns(tupleDomain, columns);
 
         Map<String, Domain> resultDomains = result.getDomains().get();
-        assertEquals(3, resultDomains.size());
+        assertThat(resultDomains).hasSize(3);
 
         // Check col1 (equality)
         List<String> valuesCol1 = getMultiValue(resultDomains.get(col1.getName()));
-        assertTrue(resultDomains.containsKey(col1.getName()));
-        assertEquals(1, valuesCol1.size());
-        assertEquals("value1", valuesCol1.getFirst());
+        assertThat(resultDomains).containsKey(col1.getName());
+        assertThat(valuesCol1).hasSize(1);
+        assertThat(valuesCol1.getFirst()).isEqualTo("value1");
 
         // Check col2 (IN clause)
         List<String> valuesCol2 = getMultiValue(resultDomains.get(col2.getName()));
-        assertTrue(resultDomains.containsKey(col2.getName()));
-        assertEquals(3, valuesCol2.size());
-        assertTrue(valuesCol2.containsAll(List.of("a", "b", "c")));
+        assertThat(resultDomains).containsKey(col2.getName());
+        assertThat(valuesCol2).hasSize(3);
+        assertThat(valuesCol2).containsAll(Arrays.asList("a", "b", "c"));
 
         // Check col3 (range)
-        assertTrue(resultDomains.containsKey(col3.getName()));
-        assertEquals(10L, resultDomains.get(col3.getName()).getValues().getRanges().getSpan().getLowValue().get());
-        assertEquals(50L, resultDomains.get(col3.getName()).getValues().getRanges().getSpan().getHighValue().get());
+        assertThat(resultDomains).containsKey(col3.getName());
+        assertThat(resultDomains.get(col3.getName()).getValues().getRanges().getSpan().getLowValue().get()).isEqualTo(10L);
+        assertThat(resultDomains.get(col3.getName()).getValues().getRanges().getSpan().getHighValue().get()).isEqualTo(50L);
 
         // Check col4 (not requested)
-        assertFalse(resultDomains.containsKey(col4.getName()));
+        assertThat(resultDomains).doesNotContainKey(col4.getName());
     }
 
     @Test
@@ -209,7 +214,7 @@ public class HudiRecordLevelIndexSupportTest
         TupleDomain<String> result = HudiRecordLevelIndexSupport.extractPredicatesForColumns(tupleDomain, columns);
 
         // domains.isPresent() && domains.get().isEmpty()
-        assertTrue(result.isAll());
+        assertThat(result.isAll()).isTrue();
     }
 
     @Test
@@ -233,17 +238,17 @@ public class HudiRecordLevelIndexSupportTest
         // Should return TupleDomain with only col1 and col3
         TupleDomain<String> result = HudiRecordLevelIndexSupport.extractPredicatesForColumns(tupleDomain, columns);
 
-        assertFalse(result.isNone());
-        assertFalse(result.isAll());
+        assertThat(result.isNone()).isFalse();
+        assertThat(result.isAll()).isFalse();
 
         Map<String, Domain> resultDomains = result.getDomains().get();
-        assertEquals(2, resultDomains.size());
-        assertTrue(resultDomains.containsKey(col1.getName()));
-        assertTrue(resultDomains.containsKey(col3.getName()));
-        assertFalse(resultDomains.containsKey(col2.getName()));
+        assertThat(resultDomains).hasSize(2);
+        assertThat(resultDomains).containsKey(col1.getName());
+        assertThat(resultDomains).containsKey(col3.getName());
+        assertThat(resultDomains).doesNotContainKey(col2.getName());
 
-        assertEquals("value1", getSingleValue(resultDomains.get(col1.getName())));
-        assertEquals("value3", getSingleValue(resultDomains.get(col3.getName())));
+        assertThat(getSingleValue(resultDomains.get(col1.getName()))).isEqualTo("value1");
+        assertThat(getSingleValue(resultDomains.get(col3.getName()))).isEqualTo("value3");
     }
 
     @Test
@@ -265,20 +270,20 @@ public class HudiRecordLevelIndexSupportTest
         // Should return the original TupleDomain
         TupleDomain<String> result = HudiRecordLevelIndexSupport.extractPredicatesForColumns(tupleDomain, columns);
 
-        assertFalse(result.isNone());
-        assertFalse(result.isAll());
+        assertThat(result.isNone()).isFalse();
+        assertThat(result.isAll()).isFalse();
 
         Map<String, Domain> resultDomains = result.getDomains().get();
-        assertEquals(2, resultDomains.size());
-        assertTrue(resultDomains.containsKey(col1.getName()));
-        assertTrue(resultDomains.containsKey(col2.getName()));
+        assertThat(resultDomains).hasSize(2);
+        assertThat(resultDomains).containsKey(col1.getName());
+        assertThat(resultDomains).containsKey(col2.getName());
 
-        assertEquals("value1", getSingleValue(resultDomains.get(col1.getName())));
-        assertEquals("value2", getSingleValue(resultDomains.get(col2.getName())));
+        assertThat(getSingleValue(resultDomains.get(col1.getName()))).isEqualTo("value1");
+        assertThat(getSingleValue(resultDomains.get(col2.getName()))).isEqualTo("value2");
     }
 
     @Test
-    public void testconstructRecordKeys_WithInClause()
+    public void testConstructRecordKeys_WithInClause()
     {
         // Domain with multiple values for a key simulating an IN clause
         Map<String, Domain> domains = new HashMap<>();
@@ -289,12 +294,12 @@ public class HudiRecordLevelIndexSupportTest
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
         // The code should take the first value from the IN list for building the key
-        assertEquals(3, result.size());
-        assertEquals(List.of("value1", "value2", "value3"), result);
+        assertThat(result).hasSize(3);
+        assertThat(result).isEqualTo(List.of("value1", "value2", "value3"));
     }
 
     @Test
-    public void testconstructRecordKeys_ComplexKeyWithInClause()
+    public void testConstructRecordKeys_ComplexKeyWithInClause()
     {
         Map<String, Domain> domains = new HashMap<>();
         // Domain with multiple values for the first key
@@ -307,13 +312,13 @@ public class HudiRecordLevelIndexSupportTest
 
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
-        assertEquals(3, result.size());
+        assertThat(result).hasSize(3);
         // Expecting the first value of the IN clause to be used
-        assertEquals("part1:val1a,part2:value2", result.get(0));
+        assertThat(result.get(0)).isEqualTo("part1:val1a,part2:value2");
     }
 
     @Test
-    public void testconstructRecordKeys_MultipleKeysWithMultipleValues()
+    public void testConstructRecordKeys_MultipleKeysWithMultipleValues()
     {
         Map<String, Domain> domains = new HashMap<>();
         // Multiple IN clauses
@@ -326,15 +331,15 @@ public class HudiRecordLevelIndexSupportTest
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
         // Verify only the first value from each IN clause is used
-        assertEquals(6, result.size());
-        assertEquals(
+        assertThat(result).hasSize(6);
+        assertThat(result).isEqualTo(
                 List.of("part1:val1a,part2:val2a", "part1:val1a,part2:val2b",
                         "part1:val1b,part2:val2a", "part1:val1b,part2:val2b",
-                        "part1:val1c,part2:val2a", "part1:val1c,part2:val2b"), result);
+                        "part1:val1c,part2:val2a", "part1:val1c,part2:val2b"));
     }
 
     @Test
-    public void testconstructRecordKeys_MultipleKeysWithRange()
+    public void testConstructRecordKeys_MultipleKeysWithRange()
     {
         Map<String, Domain> domains = new HashMap<>();
         // Multiple IN clauses
@@ -352,67 +357,67 @@ public class HudiRecordLevelIndexSupportTest
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
         // Can only handle IN and EQUAL cases
-        assertEquals(0, result.size());
+        assertThat(result).isEmpty();
     }
 
     @Test
-    public void testconstructRecordKeys_NullRecordKeys()
+    public void testConstructRecordKeys_NullRecordKeys()
     {
         TupleDomain<String> recordKeyDomains = createStringTupleDomain(Map.of("key1", "value1"));
         List<String> recordKeys = null;
 
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
-        assertTrue(result.isEmpty());
+        assertThat(result).isEmpty();
     }
 
     @Test
-    public void testconstructRecordKeys_EmptyRecordKeys()
+    public void testConstructRecordKeys_EmptyRecordKeys()
     {
         TupleDomain<String> recordKeyDomains = createStringTupleDomain(Map.of("key1", "value1"));
         List<String> recordKeys = Collections.emptyList();
 
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
-        assertTrue(result.isEmpty());
+        assertThat(result).isEmpty();
     }
 
     @Test
-    public void testconstructRecordKeys_EmptyDomains()
+    public void testConstructRecordKeys_EmptyDomains()
     {
         TupleDomain<String> recordKeyDomains = TupleDomain.withColumnDomains(Collections.emptyMap());
         List<String> recordKeys = List.of("key1");
 
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
-        assertTrue(result.isEmpty());
+        assertThat(result).isEmpty();
     }
 
     @Test
-    public void testconstructRecordKeys_MissingDomainForKey()
+    public void testConstructRecordKeys_MissingDomainForKey()
     {
         TupleDomain<String> recordKeyDomains = createStringTupleDomain(Map.of("key1", "value1"));
         List<String> recordKeys = List.of("key2"); // Key not in domains
 
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
-        assertTrue(result.isEmpty());
+        assertThat(result).isEmpty();
     }
 
     @Test
-    public void testconstructRecordKeys_SingleKey()
+    public void testConstructRecordKeys_SingleKey()
     {
         TupleDomain<String> recordKeyDomains = createStringTupleDomain(Map.of("key1", "value1"));
         List<String> recordKeys = List.of("key1");
 
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
-        assertEquals(1, result.size());
-        assertEquals("value1", result.get(0));
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst()).isEqualTo("value1");
     }
 
     @Test
-    public void testconstructRecordKeys_ComplexKey()
+    public void testConstructRecordKeys_ComplexKey()
     {
         Map<String, String> keyValues = new HashMap<>();
         keyValues.put("part1", "value1");
@@ -424,13 +429,12 @@ public class HudiRecordLevelIndexSupportTest
 
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
-        assertEquals(1, result.size());
-        String expected = "part1:value1,part2:value2,part3:value3";
-        assertEquals(expected, result.get(0));
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst()).isEqualTo("part1:value1,part2:value2,part3:value3");
     }
 
     @Test
-    public void testconstructRecordKeys_ComplexKeyWithMissingPart()
+    public void testConstructRecordKeys_ComplexKeyWithMissingPart()
     {
         Map<String, String> keyValues = new HashMap<>();
         keyValues.put("part1", "value1");
@@ -443,7 +447,7 @@ public class HudiRecordLevelIndexSupportTest
         List<String> result = HudiRecordLevelIndexSupport.constructRecordKeys(recordKeyDomains, recordKeys);
 
         // Since one key is missing, should return empty list
-        assertTrue(result.isEmpty());
+        assertThat(result).isEmpty();
     }
 
     // Helper methods for test data creation
@@ -462,8 +466,7 @@ public class HudiRecordLevelIndexSupportTest
         Map<String, Domain> domains = keyValues.entrySet().stream()
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
-                        entry -> createStringDomain(entry.getValue())
-                ));
+                        entry -> createStringDomain(entry.getValue())));
         return TupleDomain.withColumnDomains(domains);
     }
 

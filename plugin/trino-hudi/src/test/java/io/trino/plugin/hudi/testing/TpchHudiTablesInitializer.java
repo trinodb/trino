@@ -39,8 +39,6 @@ import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchColumnTypes;
 import io.trino.tpch.TpchTable;
-import java.time.Instant;
-import java.util.Date;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -66,10 +64,12 @@ import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.intellij.lang.annotations.Language;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -244,6 +244,7 @@ public class TpchHudiTablesInitializer
                 .withMarkersType(MarkerType.DIRECT.name())
                 // Disabling Hudi metadata table (MDT) in tests as the support of
                 // reading MDT is broken after removal of Hudi dependencies from compile time
+                // IMPORTANT: Writing to MDT requires hbase dependencies, which is not available in Trino runtime
                 .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(false).build())
                 .build();
         return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(new HadoopStorageConfiguration(conf)), cfg);

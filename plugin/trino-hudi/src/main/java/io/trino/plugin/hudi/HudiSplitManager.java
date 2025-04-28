@@ -105,7 +105,8 @@ public class HudiSplitManager
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }
 
-    private static List<String> getPartitions(HiveMetastore metastore, HudiTableHandle table, List<HiveColumnHandle> partitionColumns) {
+    private static List<String> getPartitions(HiveMetastore metastore, HudiTableHandle table, List<HiveColumnHandle> partitionColumns)
+    {
         if (partitionColumns.isEmpty()) {
             return ImmutableList.of(NON_PARTITION);
         }

@@ -108,7 +108,8 @@ public class HudiBackgroundSplitLoader
                     indexEnabledSplitGenerator(indexSupportOpt.get());
                     return;
                 }
-            } catch (Exception e) {
+            }
+            catch (Exception e) {
                 errorListener.accept(e);
             }
         }
@@ -117,7 +118,8 @@ public class HudiBackgroundSplitLoader
         partitionPruningSplitGenerator();
     }
 
-    private void indexEnabledSplitGenerator(HudiIndexSupport hudiIndexSupport) {
+    private void indexEnabledSplitGenerator(HudiIndexSupport hudiIndexSupport)
+    {
         // For MDT the file listing is already loaded in memory
         // TODO(yihua): refactor split loader/directory lister API for maintainability
         Map<String, List<FileSlice>> partitionFileSliceMap = new HashMap<>();
@@ -132,7 +134,6 @@ public class HudiBackgroundSplitLoader
                     partitionToPartitionKeyMap.put(partitionName, partitionKeys);
                 }
             });
-
         }
         // Data Skipping based on column stats
         HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
@@ -147,14 +148,14 @@ public class HudiBackgroundSplitLoader
         prunedFiles.entrySet().stream()
                 .flatMap(entry -> entry.getValue().stream().flatMap(slice ->
                         hudiSplitFactory.createSplits(
-                                partitionToPartitionKeyMap.get(entry.getKey()), slice, commitTime).stream()
-                ))
+                                partitionToPartitionKeyMap.get(entry.getKey()), slice, commitTime).stream()))
                 .map(asyncQueue::offer)
                 .forEachOrdered(MoreFutures::getFutureValue);
         asyncQueue.finish();
     }
 
-    private void partitionPruningSplitGenerator() {
+    private void partitionPruningSplitGenerator()
+    {
         Deque<String> partitionQueue = new ConcurrentLinkedDeque<>(partitions);
         List<HudiPartitionInfoLoader> splitGeneratorList = new ArrayList<>();
         List<ListenableFuture<Void>> splitGeneratorFutures = new ArrayList<>();
@@ -186,5 +187,4 @@ public class HudiBackgroundSplitLoader
             throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error generating Hudi split", e);
         }
     }
-
 }

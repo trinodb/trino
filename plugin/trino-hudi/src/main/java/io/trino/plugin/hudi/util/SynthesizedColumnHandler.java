@@ -1,3 +1,16 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.trino.plugin.hudi.util;
 
 import com.google.common.collect.ImmutableMap;
@@ -26,18 +39,21 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
  * Handles synthesized (virtual) columns in Hudi tables, such as partition columns and metadata (not hudi metadata)
  * columns.
  */
-public class SynthesizedColumnHandler {
+public class SynthesizedColumnHandler
+{
     private final Map<String, SynthesizedColumnStrategy> strategies;
     private final SplitMetadata splitMetadata;
 
-    public static SynthesizedColumnHandler create(HudiSplit hudiSplit) {
+    public static SynthesizedColumnHandler create(HudiSplit hudiSplit)
+    {
         return new SynthesizedColumnHandler(hudiSplit);
     }
 
     /**
      * Constructs a SynthesizedColumnHandler with the given partition keys.
      */
-    public SynthesizedColumnHandler(HudiSplit hudiSplit) {
+    public SynthesizedColumnHandler(HudiSplit hudiSplit)
+    {
         this.splitMetadata = SplitMetadata.of(hudiSplit);
         ImmutableMap.Builder<String, SynthesizedColumnStrategy> builder = ImmutableMap.builder();
         initSynthesizedColStrategies(builder);
@@ -48,18 +64,17 @@ public class SynthesizedColumnHandler {
     /**
      * Initializes strategies for synthesized columns.
      */
-    private void initSynthesizedColStrategies(ImmutableMap.Builder<String, SynthesizedColumnStrategy> builder) {
+    private void initSynthesizedColStrategies(ImmutableMap.Builder<String, SynthesizedColumnStrategy> builder)
+    {
         builder.put(PARTITION_COLUMN_NAME, (blockBuilder, type) ->
                 VarcharType.VARCHAR.writeSlice(blockBuilder,
                         utf8Slice(toPartitionName(splitMetadata.getPartitionKeyVals()))));
 
         builder.put(PATH_COLUMN_NAME, (blockBuilder, type) ->
-                VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(splitMetadata.getFilePath()))
-        );
+                VarcharType.VARCHAR.writeSlice(blockBuilder, utf8Slice(splitMetadata.getFilePath())));
 
         builder.put(FILE_SIZE_COLUMN_NAME, (blockBuilder, type) ->
-                BigintType.BIGINT.writeLong(blockBuilder, splitMetadata.getFileSize())
-        );
+                BigintType.BIGINT.writeLong(blockBuilder, splitMetadata.getFileSize()));
 
         builder.put(FILE_MODIFIED_TIME_COLUMN_NAME, (blockBuilder, type) -> {
             long packedTimestamp = packDateTimeWithZone(
@@ -72,11 +87,11 @@ public class SynthesizedColumnHandler {
      * Initializes strategies for partition columns.
      */
     private void initPartitionKeyStrategies(ImmutableMap.Builder<String, SynthesizedColumnStrategy> builder,
-                                            HudiSplit hudiSplit) {
+            HudiSplit hudiSplit)
+    {
         for (HivePartitionKey partitionKey : hudiSplit.getPartitionKeys()) {
             builder.put(partitionKey.name(), (blockBuilder, type) ->
-                    HudiAvroSerializer.appendTo(type, partitionKey.value(), blockBuilder)
-            );
+                    HudiAvroSerializer.appendTo(type, partitionKey.value(), blockBuilder));
         }
     }
 
@@ -86,7 +101,8 @@ public class SynthesizedColumnHandler {
      * @param columnName The column name.
      * @return True if the column is synthesized, false otherwise.
      */
-    public boolean isSynthesizedColumn(String columnName) {
+    public boolean isSynthesizedColumn(String columnName)
+    {
         return strategies.containsKey(columnName);
     }
 
@@ -96,7 +112,8 @@ public class SynthesizedColumnHandler {
      * @param columnHandle The Hive column handle.
      * @return True if the column is synthesized, false otherwise.
      */
-    public boolean isSynthesizedColumn(HiveColumnHandle columnHandle) {
+    public boolean isSynthesizedColumn(HiveColumnHandle columnHandle)
+    {
         return isSynthesizedColumn(columnHandle.getName());
     }
 
@@ -106,7 +123,8 @@ public class SynthesizedColumnHandler {
      * @param columnHandle The Hive column handle.
      * @return The corresponding column strategy, or null if not found.
      */
-    public SynthesizedColumnStrategy getColumnStrategy(HiveColumnHandle columnHandle) {
+    public SynthesizedColumnStrategy getColumnStrategy(HiveColumnHandle columnHandle)
+    {
         return strategies.get(columnHandle.getName());
     }
 
@@ -116,7 +134,8 @@ public class SynthesizedColumnHandler {
      * @param partitionKeyVals Map of partition key-value pairs.
      * @return Partition name string.
      */
-    private static String toPartitionName(Map<String, String> partitionKeyVals) {
+    private static String toPartitionName(Map<String, String> partitionKeyVals)
+    {
         return makePartName(List.copyOf(partitionKeyVals.keySet()), List.copyOf(partitionKeyVals.values()));
     }
 
@@ -124,8 +143,8 @@ public class SynthesizedColumnHandler {
      * Represents metadata about split being processed.
      * Splits are assumed to be in the same partition.
      */
-    public static class SplitMetadata {
-
+    public static class SplitMetadata
+    {
         private final Map<String, String> partitionKeyVals;
         private final String filePath;
         private final long fileSize;
@@ -134,11 +153,13 @@ public class SynthesizedColumnHandler {
         /**
          * Creates SplitMetadata from a Hudi split and partition key list.
          */
-        public static SplitMetadata of(HudiSplit hudiSplit) {
+        public static SplitMetadata of(HudiSplit hudiSplit)
+        {
             return new SplitMetadata(hudiSplit);
         }
 
-        public SplitMetadata(HudiSplit hudiSplit) {
+        public SplitMetadata(HudiSplit hudiSplit)
+        {
             this.partitionKeyVals = hudiSplit.getPartitionKeys().stream()
                     .collect(Collectors.toMap(HivePartitionKey::name, HivePartitionKey::value));
             // Parquet files will be prioritised over log files
@@ -148,24 +169,26 @@ public class SynthesizedColumnHandler {
             this.filePath = hudiFile.getPath();
             this.fileSize = hudiFile.getFileSize();
             this.modifiedTime = hudiFile.getModificationTime();
-
         }
 
-        public Map<String, String> getPartitionKeyVals() {
+        public Map<String, String> getPartitionKeyVals()
+        {
             return partitionKeyVals;
         }
 
-        public String getFilePath() {
+        public String getFilePath()
+        {
             return filePath;
         }
 
-        public long getFileSize() {
+        public long getFileSize()
+        {
             return fileSize;
         }
 
-        public long getFileModificationTime() {
+        public long getFileModificationTime()
+        {
             return modifiedTime;
         }
     }
-
 }

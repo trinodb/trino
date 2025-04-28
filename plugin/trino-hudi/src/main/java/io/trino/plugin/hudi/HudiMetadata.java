@@ -26,6 +26,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.storage.HudiTrinoStorage;
 import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
+import io.trino.plugin.hudi.util.HudiTableTypeUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -43,6 +44,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
+import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableConfig;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.storage.StoragePath;
@@ -75,13 +77,14 @@ import static io.trino.plugin.hudi.HudiSessionProperties.isQueryPartitionFilterR
 import static io.trino.plugin.hudi.HudiTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.hudi.HudiTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hudi.HudiUtil.hudiMetadataExists;
-import static io.trino.spi.StandardErrorCode.*;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public class HudiMetadata
         implements ConnectorMetadata
@@ -115,20 +118,22 @@ public class HudiMetadata
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return null;
         }
-        Optional<Table> table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
-        if (table.isEmpty()) {
+        Optional<Table> tableOpt = metastore.getTable(tableName.getSchemaName(), tableName.getTableName());
+        if (tableOpt.isEmpty()) {
             return null;
         }
-        if (!isHudiTable(table.get())) {
+
+        Table table = tableOpt.get();
+        if (!isHudiTable(table)) {
             throw new TrinoException(UNSUPPORTED_TABLE_TYPE, format("Not a Hudi table: %s", tableName));
         }
-        Location location = Location.of(table.get().getStorage().getLocation());
+        Location location = Location.of(table.getStorage().getLocation());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         if (!hudiMetadataExists(fileSystem, location)) {
             throw new TrinoException(HUDI_BAD_DATA, "Location of table %s does not contain Hudi table metadata: %s".formatted(tableName, location));
         }
         StoragePath metaLocation = new StoragePath(
-                table.get().getStorage().getLocation(), HoodieTableMetaClient.METAFOLDER_NAME);
+                table.getStorage().getLocation(), HoodieTableMetaClient.METAFOLDER_NAME);
         HoodieTableConfig tableConfig = new HoodieTableConfig(
                 new HudiTrinoStorage(fileSystem, new TrinoStorageConfiguration()),
                 metaLocation,
@@ -137,13 +142,16 @@ public class HudiMetadata
                 null);
         String preCombineField = tableConfig.getPreCombineField();
 
+        String inputFormat = table.getStorage().getStorageFormat().getInputFormat();
+        HoodieTableType hoodieTableType = HudiTableTypeUtils.fromInputFormat(inputFormat);
+
         return new HudiTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
-                table.get().getStorage().getLocation(),
-                COPY_ON_WRITE,
+                table.getStorage().getLocation(),
+                hoodieTableType,
                 preCombineField,
-                getPartitionKeyColumnHandles(table.get(), typeManager),
+                getPartitionKeyColumnHandles(table, typeManager),
                 TupleDomain.all(),
                 TupleDomain.all());
     }

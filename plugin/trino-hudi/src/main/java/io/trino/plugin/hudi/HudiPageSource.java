@@ -32,8 +32,9 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
 
-public class HudiPageSource implements ConnectorPageSource {
-
+public class HudiPageSource
+        implements ConnectorPageSource
+{
     HoodieFileGroupReader<IndexedRecord> fileGroupReader;
     // TODO: Remove pageSource here, Hudi doesn't use this page source to read
     ConnectorPageSource pageSource;
@@ -47,7 +48,8 @@ public class HudiPageSource implements ConnectorPageSource {
             HoodieFileGroupReader<IndexedRecord> fileGroupReader,
             HudiTrinoReaderContext readerContext,
             List<HiveColumnHandle> columnHandles,
-            SynthesizedColumnHandler synthesizedColumnHandler) {
+            SynthesizedColumnHandler synthesizedColumnHandler)
+    {
         this.pageSource = pageSource;
         this.fileGroupReader = fileGroupReader;
         this.initFileGroupReader();
@@ -58,37 +60,44 @@ public class HudiPageSource implements ConnectorPageSource {
     }
 
     @Override
-    public long getCompletedBytes() {
+    public long getCompletedBytes()
+    {
         return pageSource.getCompletedBytes();
     }
 
     @Override
-    public OptionalLong getCompletedPositions() {
+    public OptionalLong getCompletedPositions()
+    {
         return pageSource.getCompletedPositions();
     }
 
     @Override
-    public long getReadTimeNanos() {
+    public long getReadTimeNanos()
+    {
         return pageSource.getReadTimeNanos();
     }
 
     @Override
-    public boolean isFinished() {
+    public boolean isFinished()
+    {
         try {
             return !fileGroupReader.hasNext();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
-    public SourcePage getNextSourcePage() {
+    public SourcePage getNextSourcePage()
+    {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
         try {
-            while(fileGroupReader.hasNext()) {
+            while (fileGroupReader.hasNext()) {
                 avroSerializer.buildRecordInPage(pageBuilder, fileGroupReader.next());
             }
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
 
@@ -98,30 +107,37 @@ public class HudiPageSource implements ConnectorPageSource {
     }
 
     @Override
-    public long getMemoryUsage() {
+    public long getMemoryUsage()
+    {
         return pageSource.getMemoryUsage();
     }
 
     @Override
-    public void close() throws IOException {
+    public void close()
+            throws IOException
+    {
         fileGroupReader.close();
         pageSource.close();
     }
 
     @Override
-    public CompletableFuture<?> isBlocked() {
+    public CompletableFuture<?> isBlocked()
+    {
         return pageSource.isBlocked();
     }
 
     @Override
-    public Metrics getMetrics() {
+    public Metrics getMetrics()
+    {
         return pageSource.getMetrics();
     }
 
-    protected void initFileGroupReader() {
+    protected void initFileGroupReader()
+    {
         try {
             this.fileGroupReader.initRecordIterators();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new RuntimeException("Failed to initialize file group reader!", e);
         }
     }

@@ -39,30 +39,33 @@ import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 
-public class HudiTrinoStorage extends HoodieStorage
+public class HudiTrinoStorage
+        extends HoodieStorage
 {
     private static final int DEFAULT_BLOCK_SIZE = (int) DataSize.of(32, MEGABYTE).toBytes();
     private static final int DEFAULT_BUFFER_SIZE = 4096;
     private static final int DEFAULT_REPLICATION = 1;
 
     private final TrinoFileSystem fileSystem;
-    private final TrinoStorageConfiguration storageConf;
 
-    public HudiTrinoStorage(TrinoFileSystem fileSystem, TrinoStorageConfiguration storageConf) {
+    public HudiTrinoStorage(TrinoFileSystem fileSystem, TrinoStorageConfiguration storageConf)
+    {
         super(storageConf);
         this.fileSystem = fileSystem;
-        this.storageConf = storageConf;
     }
 
-    public static Location convertToLocation(StoragePath path) {
+    public static Location convertToLocation(StoragePath path)
+    {
         return Location.of(path.toString());
     }
 
-    public static StoragePath convertToPath(Location location) {
+    public static StoragePath convertToPath(Location location)
+    {
         return new StoragePath(location.toString());
     }
 
-    public static StoragePathInfo convertToPathInfo(FileEntry fileEntry) {
+    public static StoragePathInfo convertToPathInfo(FileEntry fileEntry)
+    {
         return new StoragePathInfo(
                 convertToPath(fileEntry.location()),
                 fileEntry.length(),
@@ -73,7 +76,8 @@ public class HudiTrinoStorage extends HoodieStorage
     }
 
     @Override
-    public HoodieStorage newInstance(StoragePath path, StorageConfiguration<?> storageConf) {
+    public HoodieStorage newInstance(StoragePath path, StorageConfiguration<?> storageConf)
+    {
         if (InLineFSUtils.SCHEME.equals(path.toUri().getScheme())) {
             return new HudiTrinoInlineStorage(this);
         }
@@ -81,63 +85,82 @@ public class HudiTrinoStorage extends HoodieStorage
     }
 
     @Override
-    public String getScheme() {
+    public String getScheme()
+    {
         return "file";
     }
 
     @Override
-    public int getDefaultBlockSize(StoragePath path) {
+    public int getDefaultBlockSize(StoragePath path)
+    {
         return DEFAULT_BLOCK_SIZE;
     }
 
     @Override
-    public int getDefaultBufferSize() {
+    public int getDefaultBufferSize()
+    {
         return DEFAULT_BUFFER_SIZE;
     }
 
     @Override
-    public short getDefaultReplication(StoragePath path) {
+    public short getDefaultReplication(StoragePath path)
+    {
         return DEFAULT_REPLICATION;
     }
 
     @Override
-    public URI getUri() {
+    public URI getUri()
+    {
         return URI.create(getScheme());
     }
 
     @Override
-    public OutputStream create(StoragePath path, boolean overwrite) throws IOException {
+    public OutputStream create(StoragePath path, boolean overwrite)
+            throws IOException
+    {
         return fileSystem.newOutputFile(convertToLocation(path)).create();
     }
 
     @Override
-    public OutputStream create(StoragePath path, boolean overwrite, Integer bufferSize, Short replication, Long sizeThreshold) throws IOException {
+    public OutputStream create(StoragePath path, boolean overwrite, Integer bufferSize, Short replication, Long sizeThreshold)
+            throws IOException
+    {
         return create(path, overwrite);
     }
 
     @Override
-    public InputStream open(StoragePath path) throws IOException {
+    public InputStream open(StoragePath path)
+            throws IOException
+    {
         return fileSystem.newInputFile(convertToLocation(path)).newStream();
     }
 
     @Override
-    public SeekableDataInputStream openSeekable(StoragePath path, int bufferSize, boolean wrapStream) throws IOException {
+    public SeekableDataInputStream openSeekable(StoragePath path, int bufferSize, boolean wrapStream)
+            throws IOException
+    {
         return new TrinoSeekableDataInputStream(
                 fileSystem.newInputFile(convertToLocation(path)).newStream());
     }
 
     @Override
-    public OutputStream append(StoragePath path) throws IOException {
+    public OutputStream append(StoragePath path)
+            throws IOException
+    {
         throw new UnsupportedOperationException("HudiTrinoStorage does not support append operation.");
     }
 
     @Override
-    public boolean exists(StoragePath path) throws IOException {
+    public boolean exists(StoragePath path)
+            throws IOException
+    {
         return fileSystem.newInputFile(convertToLocation(path)).exists();
     }
 
     @Override
-    public StoragePathInfo getPathInfo(StoragePath path) throws IOException {
+    public StoragePathInfo getPathInfo(StoragePath path)
+            throws IOException
+    {
         Location location = convertToLocation(path);
         Optional<Boolean> result = fileSystem.directoryExists(location);
         if (result.isPresent() && result.get()) {
@@ -151,13 +174,17 @@ public class HudiTrinoStorage extends HoodieStorage
     }
 
     @Override
-    public boolean createDirectory(StoragePath path) throws IOException {
+    public boolean createDirectory(StoragePath path)
+            throws IOException
+    {
         fileSystem.createDirectory(convertToLocation(path));
         return true;
     }
 
     @Override
-    public List<StoragePathInfo> listDirectEntries(StoragePath path) throws IOException {
+    public List<StoragePathInfo> listDirectEntries(StoragePath path)
+            throws IOException
+    {
         // TrinoFileSystem#listFiles lists recursively, we need to limit the result to only the direct children
         Location location = convertToLocation(path);
         FileIterator fileIterator = fileSystem.listFiles(location);
@@ -172,7 +199,9 @@ public class HudiTrinoStorage extends HoodieStorage
     }
 
     @Override
-    public List<StoragePathInfo> listFiles(StoragePath path) throws IOException {
+    public List<StoragePathInfo> listFiles(StoragePath path)
+            throws IOException
+    {
         FileIterator fileIterator = fileSystem.listFiles(convertToLocation(path));
         List<StoragePathInfo> fileList = new ArrayList<>();
         while (fileIterator.hasNext()) {
@@ -182,7 +211,9 @@ public class HudiTrinoStorage extends HoodieStorage
     }
 
     @Override
-    public List<StoragePathInfo> listDirectEntries(StoragePath path, StoragePathFilter filter) throws IOException {
+    public List<StoragePathInfo> listDirectEntries(StoragePath path, StoragePathFilter filter)
+            throws IOException
+    {
         // TrinoFileSystem#listFiles lists recursively, we need to limit the result to only the direct children
         Location location = convertToLocation(path);
         FileIterator fileIterator = fileSystem.listFiles(location);
@@ -198,45 +229,59 @@ public class HudiTrinoStorage extends HoodieStorage
     }
 
     @Override
-    public List<StoragePathInfo> globEntries(StoragePath pathPattern, StoragePathFilter filter) throws IOException {
+    public List<StoragePathInfo> globEntries(StoragePath pathPattern, StoragePathFilter filter)
+            throws IOException
+    {
         throw new UnsupportedOperationException("HudiTrinoStorage does not support globEntries operation.");
     }
 
     @Override
-    public boolean rename(StoragePath oldPath, StoragePath newPath) throws IOException {
+    public boolean rename(StoragePath oldPath, StoragePath newPath)
+            throws IOException
+    {
         fileSystem.renameFile(convertToLocation(oldPath), convertToLocation(newPath));
         return true;
     }
 
     @Override
-    public boolean deleteDirectory(StoragePath path) throws IOException {
+    public boolean deleteDirectory(StoragePath path)
+            throws IOException
+    {
         fileSystem.deleteDirectory(convertToLocation(path));
         return true;
     }
 
     @Override
-    public boolean deleteFile(StoragePath path) throws IOException {
+    public boolean deleteFile(StoragePath path)
+            throws IOException
+    {
         fileSystem.deleteFile(convertToLocation(path));
         return true;
     }
 
     @Override
-    public void setModificationTime(StoragePath path, long modificationTime) throws IOException {
+    public void setModificationTime(StoragePath path, long modificationTime)
+            throws IOException
+    {
         Location sameLocation = convertToLocation(path);
         fileSystem.renameFile(sameLocation, sameLocation);
     }
 
     @Override
-    public Object getFileSystem() {
+    public Object getFileSystem()
+    {
         return fileSystem;
     }
 
     @Override
-    public HoodieStorage getRawStorage() {
+    public HoodieStorage getRawStorage()
+    {
         return this;
     }
 
     @Override
-    public void close() throws IOException {
+    public void close()
+            throws IOException
+    {
     }
 }

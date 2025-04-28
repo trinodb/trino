@@ -36,7 +36,7 @@ import static java.util.Locale.ENGLISH;
 public class HudiConfig
 {
     private List<String> columnsToHide = ImmutableList.of();
-    private boolean metadataEnabled = false;
+    private boolean metadataEnabled;
     private boolean shouldUseParquetColumnNames = true;
     private boolean sizeBasedSplitWeightsEnabled = true;
     private DataSize standardSplitWeightSize = DataSize.of(128, MEGABYTE);

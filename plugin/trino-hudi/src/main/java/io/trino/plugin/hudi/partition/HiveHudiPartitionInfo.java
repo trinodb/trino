@@ -109,7 +109,8 @@ public class HiveHudiPartitionInfo
         this.hivePartitionKeys = buildPartitionKeys(partitionColumns, partition.get().getValues());
     }
 
-    public String getHivePartitionName() {
+    public String getHivePartitionName()
+    {
         return hivePartitionName;
     }
 
