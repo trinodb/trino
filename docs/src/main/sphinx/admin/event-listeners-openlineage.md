@@ -23,7 +23,7 @@ not limited to) Spark, Airflow, Flink.
     - Trino
     - OpenLineage
 *
-    - `{UUID(Query Id)}`
+    - `{UUIDv7(Query.createTime, hash(Query.Id))}`
     - Run ID
 *
     - `{queryCreatedEvent.getCreateTime()} or {queryCompletedEvent.getEndTime()} `
