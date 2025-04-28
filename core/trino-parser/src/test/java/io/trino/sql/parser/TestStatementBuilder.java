@@ -31,14 +31,6 @@ public class TestStatementBuilder
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     @Test
-    public void testPreparedGrantWithQuotes()
-    {
-        printStatement("prepare p from grant select on table hive.test.\"case\" to role test");
-        printStatement("prepare p from grant select on hive.test.\"case\" to role test");
-        printStatement("prepare p from grant select on table hive.test.\"case\" to role \"case\"");
-    }
-
-    @Test
     public void testStatementBuilder()
     {
         printStatement("select * from foo");
@@ -323,6 +315,10 @@ public class TestStatementBuilder
         printStatement("show create function abc");
 
         printStatement("prepare p from select * from (select * from T) \"A B\"");
+
+        printStatement("prepare p from grant select on table hive.test.\"case\" to role test");
+        printStatement("prepare p from grant select on hive.test.\"case\" to role test");
+        printStatement("prepare p from grant select on table hive.test.\"case\" to role \"case\"");
 
         printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
