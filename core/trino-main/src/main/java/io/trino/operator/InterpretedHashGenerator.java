@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableList;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import jakarta.annotation.Nullable;
@@ -28,7 +31,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
@@ -61,7 +64,7 @@ public class InterpretedHashGenerator
         this.hashChannelTypes = ImmutableList.copyOf(requireNonNull(hashChannelTypes, "hashChannelTypes is null"));
         this.hashCodeOperators = new MethodHandle[hashChannelTypes.size()];
         for (int i = 0; i < hashCodeOperators.length; i++) {
-            hashCodeOperators[i] = blockTypeOperators.getHashCodeOperator(hashChannelTypes.get(i), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION_NOT_NULL));
+            hashCodeOperators[i] = blockTypeOperators.getHashCodeOperator(hashChannelTypes.get(i), simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
         }
         if (hashChannels == null) {
             this.hashChannels = null;
@@ -74,17 +77,54 @@ public class InterpretedHashGenerator
     }
 
     @Override
+    public void hash(Page page, int positionOffset, int length, long[] hashes)
+    {
+        // Note: this code must logically match hashPosition(position, Page page) for all positions
+        for (int operatorIndex = 0; operatorIndex < hashCodeOperators.length; operatorIndex++) {
+            Block rawBlock = page.getBlock(hashChannels == null ? operatorIndex : hashChannels[operatorIndex]);
+            if (operatorIndex == 0) {
+                hashFirstBlock(rawBlock, positionOffset, length, operatorIndex, hashes);
+            }
+            else {
+                hashBlockWithCombine(rawBlock, positionOffset, length, operatorIndex, hashes);
+            }
+        }
+    }
+
+    @Override
     public long hashPosition(int position, Page page)
     {
         long result = INITIAL_HASH_VALUE;
         for (int i = 0; i < hashCodeOperators.length; i++) {
             Block block = page.getBlock(hashChannels == null ? i : hashChannels[i]);
-            result = CombineHashFunction.getHash(result, nullSafeHash(i, block, position));
+            result = CombineHashFunction.getHash(result, nullSafeHash(i, block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position)));
         }
         return result;
     }
 
-    private long nullSafeHash(int operatorIndex, Block block, int position)
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("hashChannelTypes", hashChannelTypes)
+                .add("hashChannels", hashChannels == null ? "<identity>" : Arrays.toString(hashChannels))
+                .toString();
+    }
+
+    private void nullSafeHash(int operatorIndex, ValueBlock block, int positionOffset, int length, long[] hashes)
+    {
+        try {
+            for (int i = 0; i < length; i++) {
+                hashes[i] = nullSafeHash(operatorIndex, block, positionOffset + i);
+            }
+        }
+        catch (Throwable e) {
+            Throwables.throwIfUnchecked(e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private long nullSafeHash(int operatorIndex, ValueBlock block, int position)
     {
         try {
             return block.isNull(position) ? NULL_HASH_CODE : (long) hashCodeOperators[operatorIndex].invokeExact(block, position);
@@ -95,13 +135,74 @@ public class InterpretedHashGenerator
         }
     }
 
-    @Override
-    public String toString()
+    private void hashFirstBlock(Block rawBlock, int positionOffset, int length, int operatorIndex, long[] hashes)
     {
-        return toStringHelper(this)
-                .add("hashChannelTypes", hashChannelTypes)
-                .add("hashChannels", hashChannels == null ? "<identity>" : Arrays.toString(hashChannels))
-                .toString();
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> {
+                long hash = nullSafeHash(operatorIndex, rleBlock.getUnderlyingValueBlock(), 0);
+                Arrays.fill(hashes, 0, length, hash);
+            }
+            case DictionaryBlock dictionaryBlock -> {
+                if (isDictionaryProcessingFaster(dictionaryBlock, length)) {
+                    ValueBlock dictionary = dictionaryBlock.getDictionary();
+                    long[] dictionaryHashes = new long[dictionary.getPositionCount()];
+                    nullSafeHash(operatorIndex, dictionary, 0, dictionary.getPositionCount(), dictionaryHashes);
+                    for (int i = 0; i < length; i++) {
+                        hashes[i] = dictionaryHashes[dictionaryBlock.getId(i + positionOffset)];
+                    }
+                }
+                else {
+                    ValueBlock valueBlock = dictionaryBlock.getUnderlyingValueBlock();
+                    for (int i = 0; i < length; i++) {
+                        hashes[i] = nullSafeHash(operatorIndex, valueBlock, dictionaryBlock.getUnderlyingValuePosition(i + positionOffset));
+                    }
+                }
+            }
+            case ValueBlock valueBlock -> nullSafeHash(operatorIndex, valueBlock, positionOffset, length, hashes);
+        }
+    }
+
+    private void hashBlockWithCombine(Block rawBlock, int positionOffset, int length, int operatorIndex, long[] hashes)
+    {
+        switch (rawBlock) {
+            case RunLengthEncodedBlock rleBlock -> {
+                long hash = nullSafeHash(operatorIndex, rleBlock.getUnderlyingValueBlock(), 0);
+                CombineHashFunction.combineAllHashesWithConstant(hashes, 0, length, hash);
+            }
+            case DictionaryBlock dictionaryBlock -> {
+                if (isDictionaryProcessingFaster(dictionaryBlock, length)) {
+                    ValueBlock dictionary = dictionaryBlock.getDictionary();
+                    long[] dictionaryHashes = new long[dictionary.getPositionCount()];
+                    nullSafeHash(operatorIndex, dictionary, 0, dictionary.getPositionCount(), dictionaryHashes);
+                    for (int i = 0; i < length; i++) {
+                        long hash = dictionaryHashes[dictionaryBlock.getId(i + positionOffset)];
+                        hashes[i] = CombineHashFunction.getHash(hashes[i], hash);
+                    }
+                }
+                else {
+                    ValueBlock valueBlock = dictionaryBlock.getUnderlyingValueBlock();
+                    for (int i = 0; i < length; i++) {
+                        long hash = nullSafeHash(operatorIndex, valueBlock, dictionaryBlock.getUnderlyingValuePosition(i + positionOffset));
+                        hashes[i] = CombineHashFunction.getHash(hashes[i], hash);
+                    }
+                }
+            }
+            case ValueBlock valueBlock -> {
+                long[] valueHashes = new long[length];
+                nullSafeHash(operatorIndex, valueBlock, positionOffset, length, valueHashes);
+                for (int i = 0; i < length; i++) {
+                    hashes[i] = CombineHashFunction.getHash(hashes[i], valueHashes[i]);
+                }
+            }
+        }
+    }
+
+    private static boolean isDictionaryProcessingFaster(DictionaryBlock dictionaryBlock, int length)
+    {
+        // if the input positions length is greater than the number of elements in the dictionary by
+        // at least 20%, it will be faster to compute hash for the dictionary values only once and
+        // re-use it instead of recalculating it.
+        return length > dictionaryBlock.getDictionary().getPositionCount() * 1.2;
     }
 
     private static boolean isPositionalChannels(int[] hashChannels)
