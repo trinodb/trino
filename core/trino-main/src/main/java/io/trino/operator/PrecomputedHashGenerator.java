@@ -30,6 +30,15 @@ public class PrecomputedHashGenerator
     }
 
     @Override
+    public void hash(Page page, int positionOffset, int length, long[] hashes)
+    {
+        Block hashBlock = page.getBlock(hashChannel);
+        for (int i = 0; i < length; i++) {
+            hashes[i] = BIGINT.getLong(hashBlock, i + positionOffset);
+        }
+    }
+
+    @Override
     public long hashPosition(int position, Page page)
     {
         Block hashBlock = page.getBlock(hashChannel);
