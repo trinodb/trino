@@ -114,7 +114,8 @@ implementation is used:
     in Iceberg version 0.11.0.
   - `true`
 * - `iceberg.max-partitions-per-writer`
-  - Maximum number of partitions handled per writer.
+  - Maximum number of partitions handled per writer. The equivalent catalog session property is
+    `max_partitions_per_writer`.
   - `100`
 * - `iceberg.target-max-file-size`
   - Target maximum size of written files; the actual size may be larger.
