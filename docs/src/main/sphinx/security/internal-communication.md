@@ -130,7 +130,7 @@ This device has limited throughput, so on environments with high network bandwid
 (e.g. InfiniBand), it may become a bottleneck. In such situations, it is recommended to try
 to switch the random number generator algorithm to `SHA1PRNG`, by setting it via
 `http-server.https.secure-random-algorithm` property in `config.properties` on the coordinator
-and all of the workers:
+and all the workers:
 
 ```text
 http-server.https.secure-random-algorithm=SHA1PRNG

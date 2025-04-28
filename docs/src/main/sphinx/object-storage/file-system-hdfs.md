@@ -112,8 +112,8 @@ authentication. The following properties are available:
     by `hive.hdfs.trino.principal`. This file must be readable by the operating
     system user running Trino.
 * - `hive.hdfs.trino.credential-cache.location`
-  - The location of the credential-cachewiuth the credentials for the principal
-    to use to access HDFS. Altenative to `hive.hdfs.trino.keytab`.
+  - The location of the credential-cache with the credentials for the principal
+    to use to access HDFS. Alternative to `hive.hdfs.trino.keytab`.
 :::
 
 The default security configuration does not use authentication when connecting

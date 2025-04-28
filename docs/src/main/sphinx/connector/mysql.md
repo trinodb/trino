@@ -475,7 +475,7 @@ ANALYZE TABLE table_name;
 :::{note}
 MySQL and Trino may use statistics information in different ways. For this
 reason, the accuracy of table and column statistics returned by the MySQL
-connector might be lower than than that of others connectors.
+connector might be lower than that of others connectors.
 :::
 
 **Improving statistics accuracy**

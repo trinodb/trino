@@ -21,7 +21,7 @@ and avoids downtime for non-client-facing changes.
 
 You need to perform the following steps:
 
-- Provide an Kafka service that is network-accessible to Trino.
+- Provide a Kafka service that is network-accessible to Trino.
 - Configure `kafka-event-listener.broker-endpoints` in the event listener
   properties file with the URI of the service
 - Configure what events to send as detailed

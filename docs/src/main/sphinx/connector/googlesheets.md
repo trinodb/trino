@@ -38,7 +38,7 @@ The connector requires credentials in order to access the Google Sheets API.
 
 1. Open the [Google Sheets API](https://console.developers.google.com/apis/library/sheets.googleapis.com)
    page and click the *Enable* button. This takes you to the API manager page.
-2. Select a project using the drop down menu at the top of the page.
+2. Select a project using the drop-down menu at the top of the page.
    Create a new project, if you do not already have one.
 3. Choose *Credentials* in the left panel.
 4. Click *Manage service accounts*, then create a service account for the connector.

@@ -26,7 +26,7 @@ pinot.controller-urls=host1:8098,host2:8098
 ```
 
 Replace `host1:8098,host2:8098` with a comma-separated list of Pinot controller nodes.
-This can be the ip or the FDQN, the url scheme (`http://`) is optional.
+This can be the ip or the FQDN, the url scheme (`http://`) is optional.
 
 ## Configuration properties
 

@@ -60,7 +60,7 @@ Trino needs a *data* directory for storing logs, etc. By default, an
 installation from the tarball uses the same location for the installation and data
 directories.
 
-We recommend creating a data directory outside of the installation directory,
+We recommend creating a data directory outside the installation directory,
 which allows it to be easily preserved when upgrading Trino. This directory path
 must be configured with the [](node-properties).
 
@@ -258,8 +258,8 @@ Further configuration can include [](/admin/logging), [](/admin/opentelemetry),
 
 Trino accesses data in a [data source](trino-concept-data-source) with a
 [connector](trino-concept-connector), which is configured in a
-[catalog](trino-concept-catalog). The connector provides all of the schemas and
-tables inside of the catalog.
+[catalog](trino-concept-catalog). The connector provides all the schemas and
+tables inside the catalog.
 
 For example, the Hive connector maps each Hive database to a schema. If the Hive
 connector is configured in the `example` catalog, and Hive contains a table

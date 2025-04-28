@@ -33,7 +33,7 @@ not limited to) Spark, Airflow, Flink.
     - Job Facet Name
 *
     - `trino:// + {openlineage-event-listener.trino.uri.getHost()} + ":" + {openlineage-event-listener.trino.uri.getPort()}`
-    - Job Facet Namespace (default, can be overriden)
+    - Job Facet Namespace (default, can be overridden)
 *
     - `{schema}.{table}`
     - Dataset Name

@@ -129,7 +129,7 @@ to `PASSWORD`. Additionally the following options must be configured:
 * - Property name
   - Description
 * - `opensearch.auth.user`
-  - User name to use to connect to OpenSearch.
+  - Username to use to connect to OpenSearch.
 * - `opensearch.auth.password`
   - Password to use to connect to OpenSearch.
 :::

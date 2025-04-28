@@ -27,7 +27,7 @@ of the `example` catalog:
 DROP FUNCTION example.default.meaning_of_life();
 ```
 
-If the UDF uses a input parameter, the type must be added:
+If the UDF uses an input parameter, the type must be added:
 
 ```sql
 DROP FUNCTION multiply_by_two(bigint);

@@ -177,10 +177,10 @@ The security mapping must provide one or more configuration settings:
   of those roles.
 - `kmsKeyId`: ID of KMS-managed key to be used for client-side encryption.
 - `allowedKmsKeyIds`: KMS-managed key IDs that are allowed to be specified as an extra
-  credential. If list cotains `*`, then any key can be specified via extra credential.
+  credential. If list contains `*`, then any key can be specified via extra credential.
 - `sseCustomerKey`: The customer provided key (SSE-C) for server-side encryption.
 - `allowedSseCustomerKey`: The SSE-C keys that are allowed to be specified as an extra
-  credential. If list cotains `*`, then any key can be specified via extra credential.
+  credential. If list contains `*`, then any key can be specified via extra credential.
 - `endpoint`: The S3 storage endpoint server. This optional property can be used
   to override S3 endpoints on a per-bucket basis.
 - `region`: The S3 region to connect to. This optional property can be used
