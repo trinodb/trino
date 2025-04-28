@@ -75,7 +75,7 @@ http-server.authentication.oauth2.client-secret=CLIENT_SECRET
 ```
 
 To enable OAuth 2.0 authentication for the Web UI, the following
-property must be be added:
+property must be added:
 
 ```properties
 web-ui.authentication.type=oauth2
@@ -141,9 +141,9 @@ The following configuration properties are available:
     authorization request was not forged. Default is a random string generated
     during the coordinator start.
 * - `http-server.authentication.oauth2.user-mapping.pattern`
-  - Regex to match against user. If matched, the user name is replaced with
+  - Regex to match against user. If matched, the username is replaced with
     first regex group. If not matched, authentication is denied.  Default is
-    `(.*)` which allows any user name.
+    `(.*)` which allows any username.
 * - `http-server.authentication.oauth2.user-mapping.file`
   - File containing rules for mapping user. See [](/security/user-mapping) for
     more information.

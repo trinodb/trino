@@ -164,13 +164,13 @@ capabilities. Java implements regular expressions through the `java.util.regex`
 package. For more information, see the [Java
 documentation](https://docs.oracle.com/en/java/javase/23/docs/api/java.base/java/util/regex/Pattern.html).
 
-- `user` (optional): Java regex to match against user name.
+- `user` (optional): Java regex to match against username.
 
-- `originalUser` (optional): Java regex to match against the _original_ user name,
+- `originalUser` (optional): Java regex to match against the _original_ username,
   i.e. before any changes to the session user. For example, if user "foo" runs
   `SET SESSION AUTHORIZATION 'bar'`, `originalUser` is "foo", while `user` is "bar".
 
-- `authenticatedUser` (optional): Java regex to match against the _authenticated_ user name,
+- `authenticatedUser` (optional): Java regex to match against the _authenticated_ username,
   which will always refer to the user that authenticated with the system, regardless of any
   changes made to the session user.
 

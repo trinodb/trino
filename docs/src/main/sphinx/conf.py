@@ -103,7 +103,7 @@ highlight_language = 'sql'
 
 default_role = 'backquote'
 
-# Any replace that is inside of a code block should be added here
+# Any replace that is inside a code block should be added here
 # https://stackoverflow.com/questions/8821511/substitutions-inside-sphinx-code-blocks-arent-replaced
 
 global_replacements = {

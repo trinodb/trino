@@ -968,7 +968,7 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `data_location`
   - Optionally specifies the file system location URI for the table's data files
 * - `extra_properties`
-  - Additional properties added to a Iceberg table. The properties are not used by Trino,
+  - Additional properties added to an Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.
     The properties are not included in the output of `SHOW CREATE TABLE` statements.
 :::
@@ -1377,8 +1377,8 @@ The output of the query has the following columns:
     values in the file.
 * - `nan_value_counts`
   - `map(INTEGER, BIGINT)`
-  - Mapping between the Iceberg column ID and its corresponding count of non-
-    numerical values in the file.
+  - Mapping between the Iceberg column ID and its corresponding count of 
+    non-numerical values in the file.
 * - `lower_bounds`
   - `map(INTEGER, BIGINT)`
   - Mapping between the Iceberg column ID and its corresponding lower bound in

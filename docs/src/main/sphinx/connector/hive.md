@@ -696,7 +696,7 @@ maximum value of `127`).
 
 Trino supports querying and manipulating Hive tables with the Avro storage
 format, which has the schema set based on an Avro schema file/literal. Trino is
-also capable of creating the tables in Trino by infering the schema from a
+also capable of creating the tables in Trino by inferring the schema from a
 valid Avro schema file located locally, or remotely in HDFS/Web server.
 
 To specify that the Avro schema should be used for interpreting table data, use

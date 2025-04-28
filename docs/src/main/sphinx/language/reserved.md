@@ -3,7 +3,7 @@
 (language-keywords)=
 ## Reserved keywords
 
-The following table lists all of the keywords that are reserved in Trino,
+The following table lists all the keywords that are reserved in Trino,
 along with their status in the SQL standard. These reserved keywords must
 be quoted (using double quotes) in order to be used as an identifier.
 

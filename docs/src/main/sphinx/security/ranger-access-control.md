@@ -184,7 +184,7 @@ The following table lists the configuration properties for the Ranger access con
 ## Required policies
 
 * Users must have permission to execute queries in Trino. Without a policy in
-  Apache Ranger to grant this permission, users are not be able to execute any
+  Apache Ranger to grant this permission, users are not able to execute any
   query.
   * To allow this, create a policy in Apache Ranger for a `queryId` resource
     with a value `*` and with the `execute` permission for the user `{USER}`.

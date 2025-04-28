@@ -12,7 +12,7 @@ the foundational layer.
 
 :::{important}
 This page discusses only how to prepare the Trino server for secure client
-connections from outside of the Trino cluster to its coordinator.
+connections from outside the Trino cluster to its coordinator.
 :::
 
 See the {doc}`Glossary </glossary>` to clarify unfamiliar terms.

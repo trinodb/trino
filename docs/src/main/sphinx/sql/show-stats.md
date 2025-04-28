@@ -30,7 +30,7 @@ here, are not included.
   - The name of the column
   - `NULL` in the table summary row
 * - `data_size`
-  - The total size in bytes of all of the values in the column
+  - The total size in bytes of all the values in the column
   - `NULL` in the table summary row. Available for columns of
     [string](string-data-types) data types with variable widths.
 * - `distinct_values_count`

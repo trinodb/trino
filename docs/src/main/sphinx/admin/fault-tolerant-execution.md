@@ -334,7 +334,7 @@ fault-tolerant execution:
   - Retry policy
 * - `fault-tolerant-execution-task-descriptor-storage-max-memory`
   - Maximum [data size](prop-type-data-size) of memory to be used to
-    store task descriptors for fault tolerant queries on coordinator. Extra
+    store task descriptors for fault-tolerant queries on coordinator. Extra
     memory is needed to be able to reschedule tasks in case of a failure.
   - (JVM heap size * 0.15)
   - Only `TASK`

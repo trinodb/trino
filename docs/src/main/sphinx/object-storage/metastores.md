@@ -300,7 +300,7 @@ properties:
     metadata is removed, and the data continues to consume disk space. This
     occurs because the Hive metastore is responsible for deleting the internal
     table data. When the metastore is configured to use Kerberos authentication,
-    all of the HDFS operations performed by the metastore are impersonated.
+    all the HDFS operations performed by the metastore are impersonated.
     Errors deleting data are silently ignored.
   -
 * - `hive.metastore.client.keytab`
@@ -569,7 +569,7 @@ directory.
 * - `iceberg.jdbc-catalog.connection-url`
   - The URI to connect to the JDBC server.
 * - `iceberg.jdbc-catalog.connection-user`
-  - User name for JDBC client.
+  - Username for JDBC client.
 * - `iceberg.jdbc-catalog.connection-password`
   - Password for JDBC client.
 * - `iceberg.jdbc-catalog.catalog-name`
