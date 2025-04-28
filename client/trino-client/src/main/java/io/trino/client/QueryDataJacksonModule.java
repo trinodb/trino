@@ -123,8 +123,15 @@ public class QueryDataJacksonModule
         public void serialize(Segment value, JsonGenerator gen, SerializerProvider provider)
                 throws IOException
         {
+            serializeWithType(value, gen, provider, segmentSerializer(provider));
+        }
+
+        @Override
+        public void serializeWithType(Segment value, JsonGenerator gen, SerializerProvider provider, TypeSerializer typeSerializer)
+                throws IOException
+        {
             createSerializer(provider, provider.constructSpecializedType(provider.constructType(Segment.class), value.getClass()))
-                    .serializeWithType(value, gen, provider, segmentSerializer(provider));
+                    .serializeWithType(value, gen, provider, typeSerializer);
         }
 
         private static TypeSerializer segmentSerializer(SerializerProvider provider)
