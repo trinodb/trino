@@ -24,9 +24,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.time.ZonedDateTime;
 import java.util.Map;
-import java.util.UUID;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
@@ -40,8 +38,7 @@ final class TestOpenLineageListener
                 "openlineage-event-listener.transport.type", "CONSOLE",
                 "openlineage-event-listener.trino.uri", "http://testhost"));
 
-        UUID runID = UUID.nameUUIDFromBytes("testGetCompleteEvent".getBytes(UTF_8));
-        RunEvent result = listener.getCompletedEvent(runID, TrinoEventData.queryCompleteEvent);
+        RunEvent result = listener.getCompletedEvent(TrinoEventData.queryCompleteEvent);
 
         assertThat(result)
                 .extracting(RunEvent::getEventType)
@@ -55,7 +52,8 @@ final class TestOpenLineageListener
         assertThat(result)
                 .extracting(RunEvent::getRun)
                 .extracting(Run::getRunId)
-                .isEqualTo(runID);
+                 // random UUID part may differ, but prefix is timestamp based
+                .matches(uuid -> uuid.toString().startsWith("01967c23-ae78-7"));
 
         assertThat(result)
                 .extracting(RunEvent::getJob)
@@ -70,8 +68,7 @@ final class TestOpenLineageListener
                 "openlineage-event-listener.transport.type", OpenLineageTransport.CONSOLE.toString(),
                 "openlineage-event-listener.trino.uri", "http://testhost:8080"));
 
-        UUID runID = UUID.nameUUIDFromBytes("testGetStartEvent".getBytes(UTF_8));
-        RunEvent result = listener.getStartEvent(runID, TrinoEventData.queryCreatedEvent);
+        RunEvent result = listener.getStartEvent(TrinoEventData.queryCreatedEvent);
 
         assertThat(result)
                 .extracting(RunEvent::getEventType)
@@ -85,7 +82,8 @@ final class TestOpenLineageListener
         assertThat(result)
                 .extracting(RunEvent::getRun)
                 .extracting(Run::getRunId)
-                .isEqualTo(runID);
+                 // random UUID part may differ, but prefix is timestamp based
+                .matches(uuid -> uuid.toString().startsWith("01967c23-ae78-7"));
 
         assertThat(result)
                 .extracting(RunEvent::getJob)

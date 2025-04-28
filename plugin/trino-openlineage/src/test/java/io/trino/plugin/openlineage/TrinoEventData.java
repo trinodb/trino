@@ -149,12 +149,12 @@ public class TrinoEventData
                 queryIOMetadata,
                 Optional.empty(),
                 Collections.emptyList(),
-                Instant.now(),
-                Instant.now(),
-                Instant.now());
+                Instant.parse("2025-04-28T11:23:55.384424Z"),
+                Instant.parse("2025-04-28T11:24:16.256207Z"),
+                Instant.parse("2025-04-28T11:24:26.993340Z"));
 
         queryCreatedEvent = new QueryCreatedEvent(
-                Instant.now(),
+                Instant.parse("2025-04-28T11:23:55.384424Z"),
                 queryContext,
                 queryMetadata);
     }
