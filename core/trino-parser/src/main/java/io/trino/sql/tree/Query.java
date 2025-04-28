@@ -133,29 +133,30 @@ public class Query
     @Override
     public List<Node> getChildren()
     {
-        ImmutableList.Builder<Node> nodes = ImmutableList.builder();
-        nodes.addAll(functions);
-        nodes.addAll(sessionProperties);
-        with.ifPresent(nodes::add);
-        nodes.add(queryBody);
-        orderBy.ifPresent(nodes::add);
-        offset.ifPresent(nodes::add);
-        limit.ifPresent(nodes::add);
-        return nodes.build();
+        return ImmutableList.<Node>builder()
+                .addAll(functions)
+                .addAll(sessionProperties)
+                .addAll(with.stream().toList())
+                .add(queryBody)
+                .addAll(orderBy.stream().toList())
+                .addAll(offset.stream().toList())
+                .addAll(limit.stream().toList())
+                .build();
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("sessionProperties", sessionProperties.isEmpty() ? null : sessionProperties)
-                .add("functions", functions.isEmpty() ? null : functions)
+                .add("sessionProperties", sessionProperties)
+                .add("functions", functions)
                 .add("with", with.orElse(null))
                 .add("queryBody", queryBody)
-                .add("orderBy", orderBy)
+                .add("orderBy", orderBy.orElse(null))
                 .add("offset", offset.orElse(null))
                 .add("limit", limit.orElse(null))
                 .omitNullValues()
+                .omitEmptyValues()
                 .toString();
     }
 
