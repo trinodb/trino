@@ -331,7 +331,7 @@ public class TestIcebergSplitSource
                 BIGINT,
                 true,
                 Optional.empty());
-        Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
+        Map<Integer, Type> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
         Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 1000L));
         Map<Integer, ByteBuffer> upperBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 2000L));
         TupleDomain<IcebergColumnHandle> domainLowerUpperBound = TupleDomain.withColumnDomains(
@@ -357,7 +357,7 @@ public class TestIcebergSplitSource
                 BIGINT,
                 true,
                 Optional.empty());
-        Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
+        Map<Integer, Type> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
         Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), -1000L));
         Map<Integer, ByteBuffer> upperBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 2000L));
         TupleDomain<IcebergColumnHandle> domainLessThanUpperBound = TupleDomain.withColumnDomains(
@@ -407,7 +407,7 @@ public class TestIcebergSplitSource
         // Write position delete file
         FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
         PositionDeleteWriter<org.apache.iceberg.data.Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
-                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .createWriterFunc(GenericParquetWriter::create)
                 .forTable(nationTable)
                 .overwrite()
                 .rowSchema(nationTable.schema())

@@ -180,7 +180,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.newCreateTableTransaction(
                             SESSION,
                             schemaTableName,
-                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
                             Optional.of(tableLocation),
@@ -221,10 +221,10 @@ public abstract class BaseTrinoCatalogTest
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            Schema tableSchema = new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get()),
-                    Types.NestedField.of(2, true, "col2", Types.StringType.get()),
-                    Types.NestedField.of(3, true, "col3", Types.TimestampType.withZone()),
-                    Types.NestedField.of(4, true, "col4", Types.StringType.get()));
+            Schema tableSchema = new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get()),
+                    Types.NestedField.optional(2, "col2", Types.StringType.get()),
+                    Types.NestedField.optional(3, "col3", Types.TimestampType.withZone()),
+                    Types.NestedField.optional(4, "col4", Types.StringType.get()));
 
             SortOrder sortOrder = SortOrder.builderFor(tableSchema)
                     .asc("col1")
@@ -295,7 +295,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.newCreateTableTransaction(
                             SESSION,
                             sourceSchemaTableName,
-                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
                             Optional.of(arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName)),
@@ -446,7 +446,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.newCreateTableTransaction(
                             SESSION,
                             table1,
-                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
                             Optional.of(arbitraryTableLocation(catalog, SESSION, table1)),
@@ -457,7 +457,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.newCreateTableTransaction(
                             SESSION,
                             table2,
-                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
                             Optional.of(arbitraryTableLocation(catalog, SESSION, table2)),
@@ -531,6 +531,50 @@ public abstract class BaseTrinoCatalogTest
             // Namespace is provided and does not exist
             assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
             assertThat(catalog.listIcebergTables(SESSION, Optional.of("non_existing"))).isEmpty();
+        }
+    }
+
+    @Test
+    public void testTableWithVariantColumn()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, SESSION.getUser());
+
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            String namespace = "ns_var_" + randomNameSuffix();
+            catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION, namespace));
+
+            SchemaTableName tableWithVariantColumn = new SchemaTableName(namespace, "t1");
+            catalog.newCreateTableTransaction(
+                            SESSION,
+                            tableWithVariantColumn,
+                            new Schema(Types.NestedField.required(0, "id", Types.IntegerType.get()), Types.NestedField.required(1, "data", Types.VariantType.get())),
+                            PartitionSpec.unpartitioned(),
+                            SortOrder.unsorted(),
+                            Optional.of(arbitraryTableLocation(catalog, SESSION, tableWithVariantColumn)),
+                            ImmutableMap.of("format-version", "3"))
+                    .commitTransaction();
+            closer.register(() -> catalog.dropTable(SESSION, tableWithVariantColumn));
+
+            createExternalIcebergTable(catalog, namespace, closer);
+            ImmutableList.Builder<TableInfo> allTables = ImmutableList.<TableInfo>builder()
+                    .add(new TableInfo(tableWithVariantColumn, TABLE));
+
+            // No namespace provided, all tables across all namespaces should be returned
+            assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(allTables.build());
+            // Namespace is provided and exists
+            assertThat(catalog.listTables(SESSION, Optional.of(namespace))).containsExactly(new TableInfo(tableWithVariantColumn, TABLE));
+            assertThat(catalog.listIcebergTables(SESSION, Optional.of(namespace))).containsExactly(tableWithVariantColumn);
+
+            Table icebergTable = catalog.loadTable(SESSION, tableWithVariantColumn);
+            assertThat(icebergTable.name()).isEqualTo(quotedTableName(tableWithVariantColumn));
+            assertThat(icebergTable.schema().columns()).hasSize(2);
+            assertThat(icebergTable.schema().columns().get(0).name()).isEqualTo("id");
+            assertThat(icebergTable.schema().columns().get(0).type()).isEqualTo(Types.IntegerType.get());
+            assertThat(icebergTable.schema().columns().get(1).name()).isEqualTo("data");
+            assertThat(icebergTable.schema().columns().get(1).type()).isEqualTo(Types.VariantType.get());
         }
     }
 

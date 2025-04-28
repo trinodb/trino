@@ -231,7 +231,7 @@ public class TestIcebergV2
         FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
 
         PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
-                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .createWriterFunc(GenericParquetWriter::create)
                 .forTable(icebergTable)
                 .overwrite()
                 .rowSchema(icebergTable.schema())
@@ -1396,7 +1396,7 @@ public class TestIcebergV2
     {
         testMapValueSchemaChange("PARQUET", "map(array[1], array[NULL])");
         testMapValueSchemaChange("ORC", "map(array[1], array[row(NULL)])");
-        testMapValueSchemaChange("AVRO", "NULL");
+        testMapValueSchemaChange("AVRO", "map(array[1], array[row(NULL)])");
     }
 
     private void testMapValueSchemaChange(String format, String expectedValue)
