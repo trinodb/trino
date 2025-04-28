@@ -45,6 +45,7 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.resourcegroups.QueryType;
 
 import java.net.URI;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -83,9 +84,7 @@ public class OpenLineageListener
     public void queryCreated(QueryCreatedEvent queryCreatedEvent)
     {
         if (queryTypeSupported(queryCreatedEvent.getContext())) {
-            UUID runID = getQueryId(queryCreatedEvent.getMetadata());
-
-            RunEvent event = getStartEvent(runID, queryCreatedEvent);
+            RunEvent event = getStartEvent(queryCreatedEvent);
             client.emit(event);
             return;
         }
@@ -98,9 +97,7 @@ public class OpenLineageListener
     public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
     {
         if (queryTypeSupported(queryCompletedEvent.getContext())) {
-            UUID runID = getQueryId(queryCompletedEvent.getMetadata());
-
-            RunEvent event = getCompletedEvent(runID, queryCompletedEvent);
+            RunEvent event = getCompletedEvent(queryCompletedEvent);
             client.emit(event);
             return;
         }
@@ -117,9 +114,17 @@ public class OpenLineageListener
                 .orElse(false);
     }
 
-    private UUID getQueryId(QueryMetadata queryMetadata)
+    /*
+     * Construct UUIDv7 from query creation time and queryId hash.
+     * UUIDv7 are both globally unique and ordered.
+     */
+    private UUID getRunId(Instant queryCreateTime, QueryMetadata queryMetadata)
     {
-        return UUID.nameUUIDFromBytes(queryMetadata.getQueryId().getBytes(UTF_8));
+        long time = queryCreateTime.toEpochMilli();
+        UUID hashedQueryId = UUID.nameUUIDFromBytes(queryMetadata.getQueryId().getBytes(UTF_8));
+        long msb = (time << 16) | (hashedQueryId.getMostSignificantBits() & 0x0fffL) | 0x7000L;
+        long lsb = (hashedQueryId.getLeastSignificantBits() & 0x3fffffffffffffffL) | 0x8000000000000000L;
+        return new UUID(msb, lsb);
     }
 
     private RunFacet getTrinoQueryContextFacet(QueryContext queryContext)
@@ -180,8 +185,9 @@ public class OpenLineageListener
         return trinoQueryStatisticsFacet;
     }
 
-    public RunEvent getStartEvent(UUID runID, QueryCreatedEvent queryCreatedEvent)
+    public RunEvent getStartEvent(QueryCreatedEvent queryCreatedEvent)
     {
+        UUID runID = getRunId(queryCreatedEvent.getCreateTime(), queryCreatedEvent.getMetadata());
         RunFacetsBuilder runFacetsBuilder = getBaseRunFacetsBuilder(queryCreatedEvent.getContext());
 
         runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_METADATA.asText(),
@@ -197,10 +203,9 @@ public class OpenLineageListener
                     .build();
     }
 
-    public RunEvent getCompletedEvent(UUID runID, QueryCompletedEvent queryCompletedEvent)
+    public RunEvent getCompletedEvent(QueryCompletedEvent queryCompletedEvent)
     {
-        boolean failed = queryCompletedEvent.getMetadata().getQueryState().equals("FAILED");
-
+        UUID runID = getRunId(queryCompletedEvent.getCreateTime(), queryCompletedEvent.getMetadata());
         RunFacetsBuilder runFacetsBuilder = getBaseRunFacetsBuilder(queryCompletedEvent.getContext());
 
         runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_METADATA.asText(),
@@ -210,6 +215,7 @@ public class OpenLineageListener
         runFacetsBuilder.put(OpenLineageTrinoFacet.TRINO_QUERY_STATISTICS.asText(),
                 getTrinoQueryStatisticsFacet(queryCompletedEvent.getStatistics()));
 
+        boolean failed = queryCompletedEvent.getMetadata().getQueryState().equals("FAILED");
         if (failed) {
             queryCompletedEvent
                     .getFailureInfo()
