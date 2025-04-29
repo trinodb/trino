@@ -13,8 +13,12 @@
  */
 package io.trino.plugin.hudi.query;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.Weigher;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.filesystem.Location;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
@@ -32,6 +36,7 @@ import org.apache.hudi.storage.StoragePathInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -50,6 +55,18 @@ public class HudiReadOptimizedDirectoryLister
     private final List<Column> partitionColumns;
     private final Map<String, HudiPartitionInfo> allPartitionInfoMap;
 
+    private static final Cache<String, List<HudiFileStatus>> cache = CacheBuilder.newBuilder()
+            .maximumWeight(100000000)
+            .weigher((Weigher<String, List<HudiFileStatus>>) (_, value) -> value.size())
+            .expireAfterWrite(new Duration(15, TimeUnit.MINUTES).toMillis(), TimeUnit.MILLISECONDS)
+            .recordStats()
+            .build();
+
+    private static final Cache<String, HoodieTableFileSystemView> fsViewCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(new Duration(120, TimeUnit.MINUTES).toMillis(), TimeUnit.MILLISECONDS)
+            .recordStats()
+            .build();
+
     public HudiReadOptimizedDirectoryLister(
             HudiTableHandle tableHandle,
             HoodieTableMetaClient metaClient,
@@ -59,10 +76,7 @@ public class HudiReadOptimizedDirectoryLister
             List<String> hivePartitionNames,
             boolean ignoreAbsentPartitions)
     {
-        this.fileSystemView = new HoodieTableFileSystemView(
-                metaClient,
-                metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants(),
-                ignoreAbsentPartitions);
+        this.fileSystemView = getFileSystemView(metaClient, ignoreAbsentPartitions);
         this.partitionColumns = hiveTable.getPartitionColumns();
         this.allPartitionInfoMap = hivePartitionNames.stream()
                 .collect(Collectors.toMap(
@@ -76,11 +90,34 @@ public class HudiReadOptimizedDirectoryLister
                                 hiveMetastore)));
     }
 
+    private static HoodieTableFileSystemView getFileSystemView(HoodieTableMetaClient metaClient, boolean ignoreAbsentPartitions)
+    {
+        String timelineHash = metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants().getTimelineHash();
+        HoodieTableFileSystemView fsView = fsViewCache.getIfPresent(timelineHash);
+        if (fsView != null) {
+            return fsView;
+        }
+        LOG.debug("fsViewCache miss for table: " + metaClient.getBasePath());
+        fsView = new HoodieTableFileSystemView(
+                metaClient,
+                metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants(),
+                ignoreAbsentPartitions);
+        fsViewCache.put(timelineHash, fsView);
+        return fsView;
+    }
+
     @Override
     public List<HudiFileStatus> listStatus(HudiPartitionInfo partitionInfo)
     {
         LOG.debug("List partition: partitionInfo=%s", partitionInfo);
-        return fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
+        String timelineHash = fileSystemView.getTimeline().getCommitsTimeline().filterCompletedInstants().getTimelineHash();
+        String relativePartitionPath = partitionInfo.getRelativePartitionPath();
+        List<HudiFileStatus> fileStatuses = cache.getIfPresent(relativePartitionPath + timelineHash);
+        if (fileStatuses != null) {
+            return fileStatuses;
+        }
+        LOG.debug("fileStatusCache miss for partition: " + partitionInfo);
+        fileStatuses = fileSystemView.getLatestBaseFiles(partitionInfo.getRelativePartitionPath())
                 .map(HudiReadOptimizedDirectoryLister::getStoragePathInfo)
                 .map(fileEntry -> new HudiFileStatus(
                         Location.of(fileEntry.getPath().toString()),
@@ -89,6 +126,8 @@ public class HudiReadOptimizedDirectoryLister
                         fileEntry.getModificationTime(),
                         max(fileEntry.getBlockSize(), min(fileEntry.getLength(), MIN_BLOCK_SIZE))))
                 .collect(toImmutableList());
+        cache.put(relativePartitionPath + timelineHash, fileStatuses);
+        return fileStatuses;
     }
 
     @Override
