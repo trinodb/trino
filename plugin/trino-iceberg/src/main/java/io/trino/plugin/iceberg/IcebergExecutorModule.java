@@ -38,7 +38,7 @@ public class IcebergExecutorModule
     {
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergMetadata.class));
         closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitSource.class));
-        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergScanPlanning.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergSplitManager.class));
     }
 
     @Singleton
@@ -59,8 +59,8 @@ public class IcebergExecutorModule
 
     @Provides
     @Singleton
-    @ForIcebergScanPlanning
-    public ExecutorService createScanPlanningExecutor(CatalogName catalogName, IcebergConfig config)
+    @ForIcebergSplitManager
+    public ExecutorService createSplitManagerExecutor(CatalogName catalogName, IcebergConfig config)
     {
         if (config.getSplitManagerThreads() == 0) {
             return newDirectExecutorService();
