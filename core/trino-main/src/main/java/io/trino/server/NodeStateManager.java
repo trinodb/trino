@@ -216,15 +216,22 @@ public class NodeStateManager
                 }
             }
             case SHUTTING_DOWN -> {
-                if (currState.state() == DRAINED && nodeState.compareAndSet(currState, currState.toShuttingDown())) {
+                if (isCoordinator) {
+                    throw new UnsupportedOperationException("Cannot shutdown coordinator");
+                }
+                VersionedState shuttingDown = currState.toShuttingDown();
+                if (currState.state() == DRAINED && nodeState.compareAndSet(currState, shuttingDown)) {
                     requestTerminate();
                     return;
                 }
+                nodeState.set(shuttingDown);
                 requestGracefulShutdown();
-                nodeState.set(currState.toShuttingDown());
                 return;
             }
             case DRAINING -> {
+                if (isCoordinator) {
+                    throw new UnsupportedOperationException("Cannot drain coordinator");
+                }
                 if (currState.state() == ACTIVE && nodeState.compareAndSet(currState, currState.toDraining())) {
                     requestDrain();
                     return;
@@ -246,9 +253,6 @@ public class NodeStateManager
     private synchronized void requestDrain()
     {
         log.debug("Drain requested, NodeState: %s", getServerState());
-        if (isCoordinator) {
-            throw new UnsupportedOperationException("Cannot drain coordinator");
-        }
 
         // wait for a grace period (so that draining state is observed by the coordinator) before starting draining
         // when coordinator observes draining no new tasks are assigned to this worker
@@ -259,9 +263,6 @@ public class NodeStateManager
     private void requestTerminate()
     {
         log.info("Immediate Shutdown requested");
-        if (isCoordinator) {
-            throw new UnsupportedOperationException("Cannot shutdown coordinator");
-        }
 
         shutdownHandler.schedule(this::terminate, 0, MILLISECONDS);
     }
@@ -269,12 +270,9 @@ public class NodeStateManager
     private void requestGracefulShutdown()
     {
         log.info("Shutdown requested");
-        if (isCoordinator) {
-            throw new UnsupportedOperationException("Cannot shutdown coordinator");
-        }
 
-        // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
         VersionedState expectedState = nodeState.get();
+        // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
         shutdownHandler.schedule(() -> shutdown(expectedState), gracePeriod.toMillis(), MILLISECONDS);
     }
 

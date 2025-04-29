@@ -50,6 +50,7 @@ import java.util.function.Supplier;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static io.trino.metadata.NodeState.DRAINED;
 import static io.trino.metadata.NodeState.DRAINING;
+import static io.trino.metadata.NodeState.SHUTTING_DOWN;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -148,7 +149,41 @@ class TestNodeStateManager
     }
 
     @Test
-    void testWaitActiveTasksToFinish()
+    void testWaitActiveTasksToFinishDuringShutdown()
+            throws URISyntaxException
+    {
+        List<TaskInfo> taskInfos = new ArrayList<>();
+        TaskInfo task = TaskInfo.createInitialTask(
+                new TaskId(new StageId("query1", 1), 1, 1),
+                new URI(""),
+                "1",
+                false,
+                Optional.empty(),
+                new TaskStats(DateTime.now(), null));
+        taskInfos.add(task);
+        tasks.set(taskInfos);
+
+        // Draining - will wait for tasks to finish
+        nodeStateManager.transitionState(SHUTTING_DOWN);
+        assertThat(nodeStateManager.getServerState()).isEqualTo(SHUTTING_DOWN);
+
+        // make sure that nodeStateManager registered a listener for tasks to finish
+        ticker.increment(1, SECONDS);
+        executor.run();
+        await().atMost(1, SECONDS).until(() -> sqlTasksObservable.getTasks().size() == 1);
+
+        // simulate task completion after some time
+        tasks.set(Collections.emptyList());
+        sqlTasksObservable.getTasks().get(task.taskStatus().getTaskId())
+                .stateChanged(TaskState.FINISHED);
+
+        // when NodeStateManager sees task finished - it will drain after another drain period
+        await().atMost(1, SECONDS)
+                .untilAsserted(() -> assertThat(nodeStateManager.getServerState()).isEqualTo(SHUTTING_DOWN));
+    }
+
+    @Test
+    void testWaitActiveTasksToFinishDuringDraining()
             throws URISyntaxException
     {
         List<TaskInfo> taskInfos = new ArrayList<>();
