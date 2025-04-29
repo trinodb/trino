@@ -89,7 +89,7 @@ public class IcebergConfig
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
-    private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
+    private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
