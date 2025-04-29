@@ -90,6 +90,7 @@ public class IcebergConfig
     private boolean queryPartitionFilterRequired;
     private Set<String> queryPartitionFilterRequiredSchemas = ImmutableSet.of();
     private int splitManagerThreads = Math.min(Runtime.getRuntime().availableProcessors() * 2, 32);
+    private int planningThreads = Math.min(Runtime.getRuntime().availableProcessors(), 16);
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
@@ -492,6 +493,20 @@ public class IcebergConfig
     public IcebergConfig setSplitManagerThreads(String splitManagerThreads)
     {
         this.splitManagerThreads = ThreadCount.valueOf(splitManagerThreads).getThreadCount();
+        return this;
+    }
+
+    @Min(0)
+    public int getPlanningThreads()
+    {
+        return planningThreads;
+    }
+
+    @Config("iceberg.planning-threads")
+    @ConfigDescription("Number of threads to use for metadata scans in planning")
+    public IcebergConfig setPlanningThreads(String planningThreads)
+    {
+        this.planningThreads = ThreadCount.valueOf(planningThreads).getThreadCount();
         return this;
     }
 
