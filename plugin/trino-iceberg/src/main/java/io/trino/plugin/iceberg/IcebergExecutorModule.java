@@ -39,6 +39,7 @@ public class IcebergExecutorModule
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergMetadata.class));
         closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitSource.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergSplitManager.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergPlanning.class));
     }
 
     @Singleton
@@ -68,5 +69,18 @@ public class IcebergExecutorModule
         return newFixedThreadPool(
                 config.getSplitManagerThreads(),
                 daemonThreadsNamed("iceberg-split-manager-" + catalogName + "-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForIcebergPlanning
+    public ExecutorService createPlanningExecutor(CatalogName catalogName, IcebergConfig config)
+    {
+        if (config.getPlanningThreads() == 0) {
+            return newDirectExecutorService();
+        }
+        return newFixedThreadPool(
+                config.getPlanningThreads(),
+                daemonThreadsNamed("iceberg-planning-" + catalogName + "-%s"));
     }
 }
