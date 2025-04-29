@@ -21,6 +21,7 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
@@ -28,6 +29,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.Type;
@@ -131,7 +133,7 @@ public class HudiAvroSerializer
     }
 
     public void buildRecordInPage(PageBuilder pageBuilder, IndexedRecord record,
-            Map<Integer, String> partitionValueMap, boolean skipMetaColumns)
+                                  Map<Integer, String> partitionValueMap, boolean skipMetaColumns)
     {
         pageBuilder.declarePosition();
         int startChannel = skipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
@@ -168,7 +170,7 @@ public class HudiAvroSerializer
     }
 
     public void buildRecordInPage(PageBuilder pageBuilder, Page sourcePage, int position,
-            Map<Integer, String> partitionValueMap, boolean skipMetaColumns)
+                                  Map<Integer, String> partitionValueMap, boolean skipMetaColumns)
     {
         pageBuilder.declarePosition();
         int startChannel = skipMetaColumns ? HOODIE_META_COLUMNS.size() : 0;
@@ -246,6 +248,9 @@ public class HudiAvroSerializer
             }
             else if (type instanceof RowType rowType) {
                 writeRow((RowBlockBuilder) output, rowType, (GenericRecord) value);
+            }
+            else if (type instanceof MapType mapType) {
+                writeMap((MapBlockBuilder) output, mapType, (Map<?, ?>) value);
             }
             else {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -332,6 +337,18 @@ public class HudiAvroSerializer
             for (int index = 0; index < fields.size(); index++) {
                 RowType.Field field = fields.get(index);
                 appendTo(field.getType(), record.get(field.getName().orElse("field" + index)), fieldBuilders.get(index));
+            }
+        });
+    }
+
+    private static void writeMap(MapBlockBuilder output, MapType mapType, Map<?, ?> value)
+    {
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
+        output.buildEntry((keyBuilder, valueBuilder) -> {
+            for (Map.Entry<?, ?> entry : value.entrySet()) {
+                appendTo(keyType, entry.getKey(), keyBuilder);
+                appendTo(valueType, entry.getValue(), valueBuilder);
             }
         });
     }
