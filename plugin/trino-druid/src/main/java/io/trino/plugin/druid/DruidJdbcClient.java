@@ -15,6 +15,9 @@ package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
+import io.trino.plugin.base.aggregation.AggregateFunctionRule;
+import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -22,6 +25,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcRemoteIdentifiers;
@@ -34,14 +38,25 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgDecimal;
+import io.trino.plugin.jdbc.aggregation.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.aggregation.ImplementCount;
+import io.trino.plugin.jdbc.aggregation.ImplementCountAll;
+import io.trino.plugin.jdbc.aggregation.ImplementCountDistinct;
+import io.trino.plugin.jdbc.aggregation.ImplementMinMax;
+import io.trino.plugin.jdbc.aggregation.ImplementSum;
+import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.CharType;
@@ -142,6 +157,9 @@ public class DruidJdbcClient
     // All the datasources in Druid are created under schema "druid"
     private static final String DRUID_SCHEMA = "druid";
 
+    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
+    private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
+
     // TODO We could also re-evaluate this logic by using a new Calendar for each row if necessary
     private static final Calendar UTC_CALENDAR = Calendar.getInstance(TimeZone.getTimeZone(UTC));
 
@@ -158,6 +176,24 @@ public class DruidJdbcClient
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, QueryBuilder queryBuilder, IdentifierMapping identifierMapping, RemoteQueryModifier queryModifier)
     {
         super("\"", connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, false);
+
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+                .addStandardRules(this::quoted)
+                .build();
+
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter<>(
+                this.connectorExpressionRewriter,
+                ImmutableSet.<AggregateFunctionRule<JdbcExpression, ParameterizedExpression>>builder()
+                        .add(new DruidImplementAvgBigint())
+                        .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCountDistinct(bigintTypeHandle, false))
+                        .add(new ImplementMinMax(false))
+                        .add(new ImplementSum(DruidJdbcClient::toTypeHandle))
+                        .build());
     }
 
     @Override
@@ -629,5 +665,22 @@ public class DruidJdbcClient
     public RemoteIdentifiers getRemoteIdentifiers(Connection connection)
     {
         return new JdbcRemoteIdentifiers(this, connection, false);
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+    }
+
+    @Override
+    public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    {
+        return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 }

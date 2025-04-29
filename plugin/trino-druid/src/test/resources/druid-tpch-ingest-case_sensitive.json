@@ -1,0 +1,55 @@
+{
+    "type": "index",
+    "spec": {
+        "dataSchema": {
+            "dataSource": "case_sensitive",
+            "parser": {
+                "type": "string",
+                "parseSpec": {
+                    "format": "tsv",
+                    "timestampSpec": {
+                        "column": "__time",
+                        "format": "auto"
+                    },
+                    "columns": [
+                        "string_col",
+                        "bigint_col",
+                        "__time"
+                    ],
+                    "dimensionsSpec": {
+                        "dimensions": [
+                            { "name": "string_col", "type": "string"},
+                            { "name": "bigint_col", "type": "long" }
+                        ]
+                    }
+                }
+            },
+            "granularitySpec": {
+                "type": "uniform",
+                "intervals": [
+                    "1970-01-01/1970-12-01"
+                ],
+                "segmentGranularity": "year",
+                "queryGranularity": "day"
+            }
+        },
+        "ioConfig": {
+            "type": "index",
+            "firehose": {
+                "type": "local",
+                "baseDir": "/opt/druid/var/",
+                "filter": "case_sensitive.tsv"
+            },
+            "appendToExisting": false
+        },
+        "tuningConfig": {
+            "type": "index",
+            "maxRowsPerSegment": 5000000,
+            "maxRowsInMemory": 250000,
+            "segmentWriteOutMediumFactory": {
+                "type": "offHeapMemory"
+            }
+        }
+    }
+}
+
