@@ -37,7 +37,7 @@ public class IcebergExecutorModule
     public void configure(Binder binder)
     {
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergMetadata.class));
-        closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitManager.class));
+        closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitSource.class));
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergScanPlanning.class));
     }
 
@@ -51,7 +51,7 @@ public class IcebergExecutorModule
 
     @Provides
     @Singleton
-    @ForIcebergSplitManager
+    @ForIcebergSplitSource
     public ListeningExecutorService createSplitSourceExecutor(CatalogName catalogName)
     {
         return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("iceberg-split-source-" + catalogName + "-%s")));
