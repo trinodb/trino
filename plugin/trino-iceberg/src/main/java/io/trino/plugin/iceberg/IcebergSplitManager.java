@@ -64,7 +64,7 @@ public class IcebergSplitManager
             TypeManager typeManager,
             IcebergFileSystemFactory fileSystemFactory,
             @ForIcebergSplitSource ListeningExecutorService splitSourceExecutor,
-            @ForIcebergScanPlanning ExecutorService icebergPlanningExecutor,
+            @ForIcebergSplitManager ExecutorService icebergPlanningExecutor,
             CachingHostAddressProvider cachingHostAddressProvider)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
