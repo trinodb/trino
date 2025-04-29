@@ -1282,8 +1282,8 @@ session property `<hive-catalog>.dynamic_filtering_wait_timeout`.
 ```{include} table-redirection.fragment
 ```
 
-The connector supports redirection from Hive tables to Iceberg, Delta Lake, and
-Hudi tables with the following catalog configuration properties:
+The connector supports redirection from Hive tables to Iceberg, Delta Lake, Hudi, and
+Paimon tables with the following catalog configuration properties:
 
 - `hive.iceberg-catalog-name`: Name of the catalog, configured with the
   [](/connector/iceberg), to use for reading Iceberg tables.
@@ -1291,6 +1291,8 @@ Hudi tables with the following catalog configuration properties:
   [](/connector/delta-lake), to use for reading Delta Lake tables.
 - `hive.hudi-catalog-name`: Name of the catalog, configured with the
   [](/connector/hudi), to use for reading Hudi tables.
+- `hive.paimon-catalog-name`: Name of the catalog, configured with the
+  [](/connector/paimon), to use for reading Paimon tables.
 
 ### File system cache
 

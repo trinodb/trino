@@ -38,6 +38,9 @@ public final class HiveClassNames
     public static final String ORC_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat";
     public static final String ORC_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat";
     public static final String ORC_SERDE_CLASS = "org.apache.hadoop.hive.ql.io.orc.OrcSerde";
+    public static final String PAIMON_INPUT_FORMAT_CLASS = "org.apache.paimon.hive.mapred.PaimonInputFormat";
+    public static final String PAIMON_OUTPUT_FORMAT_CLASS = "org.apache.paimon.hive.mapred.PaimonOutputFormat";
+    public static final String PAIMON_STORAGE_HANDLER_CLASS = "org.apache.paimon.hive.PaimonStorageHandler";
     public static final String PARQUET_HIVE_SERDE_CLASS = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe";
     public static final String RCFILE_INPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.RCFileInputFormat";
     public static final String RCFILE_OUTPUT_FORMAT_CLASS = "org.apache.hadoop.hive.ql.io.RCFileOutputFormat";

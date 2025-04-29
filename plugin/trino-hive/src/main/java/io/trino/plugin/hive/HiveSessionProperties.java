@@ -124,6 +124,7 @@ public final class HiveSessionProperties
     private static final String ICEBERG_CATALOG_NAME = "iceberg_catalog_name";
     public static final String DELTA_LAKE_CATALOG_NAME = "delta_lake_catalog_name";
     public static final String HUDI_CATALOG_NAME = "hudi_catalog_name";
+    public static final String PAIMON_CATALOG_NAME = "paimon_catalog_name";
     public static final String SIZE_BASED_SPLIT_WEIGHTS_ENABLED = "size_based_split_weights_enabled";
     public static final String MINIMUM_ASSIGNED_SPLIT_WEIGHT = "minimum_assigned_split_weight";
     public static final String NON_TRANSACTIONAL_OPTIMIZE_ENABLED = "non_transactional_optimize_enabled";
@@ -558,6 +559,13 @@ public final class HiveSessionProperties
                         hiveConfig.getHudiCatalogName().orElse(null),
                         // Session-level redirections configuration does not work well with views, as view body is analyzed in context
                         // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
+                        true),
+                stringProperty(
+                        PAIMON_CATALOG_NAME,
+                        "Catalog to redirect to when a Paimon table is referenced",
+                        hiveConfig.getPaimonCatalogName().orElse(null),
+                        // Session-level redirections configuration does not work well with views, as view body is analyzed in context
+                        // of a session with properties stripped off. Thus, this property is more of a test-only, or at most POC usefulness.
                         true));
     }
 
@@ -906,5 +914,10 @@ public final class HiveSessionProperties
     public static Optional<String> getHudiCatalogName(ConnectorSession session)
     {
         return Optional.ofNullable(session.getProperty(HUDI_CATALOG_NAME, String.class));
+    }
+
+    public static Optional<String> getPaimonCatalogName(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(PAIMON_CATALOG_NAME, String.class));
     }
 }
