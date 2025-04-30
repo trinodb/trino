@@ -43,7 +43,7 @@ public class EnvSinglenodeSparkIcebergNessie
 
     private static final int SPARK_THRIFT_PORT = 10213;
     private static final int NESSIE_PORT = 19120;
-    private static final String NESSIE_VERSION = "0.103.4";
+    private static final String NESSIE_VERSION = "0.103.5";
     private static final String SPARK = "spark";
 
     private final DockerFiles dockerFiles;
