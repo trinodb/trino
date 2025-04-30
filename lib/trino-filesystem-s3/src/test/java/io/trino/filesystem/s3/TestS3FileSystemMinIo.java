@@ -20,7 +20,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
@@ -28,7 +27,6 @@ import java.io.IOException;
 import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_REQUIRED;
 
 public class TestS3FileSystemMinIo
         extends AbstractTestS3FileSystem
@@ -67,8 +65,6 @@ public class TestS3FileSystemMinIo
                 .endpointOverride(URI.create(minio.getMinioAddress()))
                 .region(Region.of(Minio.MINIO_REGION))
                 .forcePathStyle(true)
-                .responseChecksumValidation(WHEN_REQUIRED)
-                .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(Minio.MINIO_ACCESS_KEY, Minio.MINIO_SECRET_KEY)))
                 .build();
