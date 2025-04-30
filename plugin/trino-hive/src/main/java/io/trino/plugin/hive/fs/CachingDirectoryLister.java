@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.fs;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.Weigher;
 import com.google.common.collect.ImmutableList;
@@ -45,6 +46,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Predicate.not;
 
 public class CachingDirectoryLister
         implements DirectoryLister
@@ -62,18 +64,21 @@ public class CachingDirectoryLister
                 hiveClientConfig.getFileStatusCacheExpireAfterWrite(),
                 hiveClientConfig.getFileStatusCacheMaxRetainedSize(),
                 hiveClientConfig.getFileStatusCacheTables(),
+                hiveClientConfig.getFileStatusCacheExcludedTables(),
                 hiveClientConfig.getS3GlacierFilter().toFileEntryPredicate());
     }
 
     public CachingDirectoryLister(
             Duration expireAfterWrite,
             DataSize maxSize,
-            List<String> tables,
+            List<String> includedTables,
+            List<String> excludedTables,
             Predicate<FileEntry> filterPredicate)
     {
         requireNonNull(expireAfterWrite, "expireAfterWrite is null");
         requireNonNull(maxSize, "maxSize is null");
-        requireNonNull(tables, "tables is null");
+        requireNonNull(includedTables, "includedTables is null");
+        requireNonNull(excludedTables, "excludedTables is null");
         requireNonNull(filterPredicate, "filterPredicate is null");
         this.cache = EvictableCacheBuilder.newBuilder()
                 .maximumWeight(maxSize.toBytes())
@@ -82,7 +87,7 @@ public class CachingDirectoryLister
                 .shareNothingWhenDisabled()
                 .recordStats()
                 .build();
-        this.tablePredicate = matches(tables);
+        this.tablePredicate = matches(includedTables).and(not(matches(excludedTables)));
         this.filterPredicate = filterPredicate;
     }
 
@@ -245,7 +250,8 @@ public class CachingDirectoryLister
         return cached != null && cached.getFiles().isPresent();
     }
 
-    private boolean isCacheEnabledFor(SchemaTableName schemaTableName)
+    @VisibleForTesting // for testing exclusion rules
+    boolean isCacheEnabledFor(SchemaTableName schemaTableName)
     {
         return tablePredicate.test(schemaTableName);
     }
