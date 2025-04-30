@@ -61,6 +61,11 @@ final class TestOpenLineageListener
                 .extracting(RunEvent::getJob)
                 .extracting(Job::getNamespace)
                 .isEqualTo("trino://testhost");
+
+        assertThat(result)
+                .extracting(RunEvent::getJob)
+                .extracting(Job::getName)
+                .isEqualTo("queryId");
     }
 
     @Test
@@ -89,8 +94,44 @@ final class TestOpenLineageListener
 
         assertThat(result)
                 .extracting(RunEvent::getJob)
+                .extracting(Job::getName)
+                .isEqualTo("queryId");
+    }
+
+    @Test
+    void testJobNameFormatting()
+    {
+        OpenLineageListener listener = (OpenLineageListener) createEventListener(Map.of(
+                "openlineage-event-listener.transport.type", "CONSOLE",
+                "openlineage-event-listener.trino.uri", "http://testhost",
+                "openlineage-event-listener.job.name-format", "$QUERY_ID-$USER-$SOURCE-abc123"));
+
+        UUID runID = UUID.nameUUIDFromBytes("testGetCompleteEvent".getBytes(UTF_8));
+        RunEvent result = listener.getCompletedEvent(runID, TrinoEventData.queryCompleteEvent);
+
+        assertThat(result)
+                .extracting(RunEvent::getEventType)
+                .isEqualTo(RunEvent.EventType.COMPLETE);
+
+        assertThat(result)
+                .extracting(RunEvent::getEventTime)
+                .extracting(ZonedDateTime::toInstant)
+                .isEqualTo(TrinoEventData.queryCompleteEvent.getEndTime());
+
+        assertThat(result)
+                .extracting(RunEvent::getRun)
+                .extracting(Run::getRunId)
+                .isEqualTo(runID);
+
+        assertThat(result)
+                .extracting(RunEvent::getJob)
                 .extracting(Job::getNamespace)
-                .isEqualTo("trino://testhost:8080");
+                .isEqualTo("trino://testhost");
+
+        assertThat(result)
+                .extracting(RunEvent::getJob)
+                .extracting(Job::getName)
+                .isEqualTo("queryId-user-source-abc123");
     }
 
     private static EventListener createEventListener(Map<String, String> config)
