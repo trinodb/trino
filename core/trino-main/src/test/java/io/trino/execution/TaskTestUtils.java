@@ -28,6 +28,7 @@ import io.trino.execution.BaseTestSqlTaskManager.MockDirectExchangeClientSupplie
 import io.trino.execution.buffer.OutputBuffers;
 import io.trino.metadata.Split;
 import io.trino.operator.FlatHashStrategyCompiler;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
@@ -143,8 +144,9 @@ public final class TaskTestUtils
         PageSourceManager pageSourceManager = new PageSourceManager(CatalogServiceProvider.singleton(CATALOG_HANDLE, new TestingPageSourceProvider()));
 
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(PLANNER_CONTEXT.getTypeOperators());
+        NullSafeHashCompiler hashCompiler = new NullSafeHashCompiler(PLANNER_CONTEXT.getTypeOperators());
         PartitionFunctionProvider partitionFunctionProvider = new PartitionFunctionProvider(
-                PLANNER_CONTEXT.getTypeOperators(),
+                hashCompiler,
                 CatalogServiceProvider.fail());
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
@@ -180,6 +182,7 @@ public final class TaskTestUtils
                 new DynamicFilterConfig(),
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
+                hashCompiler,
                 new TableExecuteContextManager(),
                 new ExchangeManagerRegistry(noop(), noopTracer(), new SecretsResolver(ImmutableMap.of()), new ExchangeManagerConfig()),
                 new NodeVersion("test"),

@@ -13,7 +13,6 @@
  */
 package io.trino.operator;
 
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.Page;
@@ -22,55 +21,46 @@ import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import jakarta.annotation.Nullable;
 
-import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.type.TypeUtils.NULL_HASH_CODE;
 import static java.util.Objects.requireNonNull;
 
-// TODO this class could be made more efficient by replacing the hashChannels array making the channel a constant in the
-//  method handle. Additionally, the method handles could be combined into a single method handle using method handle
-//  combinators. To do all of this, we would need to add a cache for instances of this class since the method handles
-//  would be modified for each instance.
 public class InterpretedHashGenerator
         implements HashGenerator
 {
     private final List<Type> hashChannelTypes;
     @Nullable
     private final int[] hashChannels; // null value indicates that the identity channel mapping is used
-    private final MethodHandle[] hashCodeOperators;
+    private final NullSafeHash[] hashCodeOperators;
 
-    public static InterpretedHashGenerator createPagePrefixHashGenerator(List<Type> hashChannelTypes, TypeOperators typeOperators)
+    public static InterpretedHashGenerator createPagePrefixHashGenerator(List<Type> hashChannelTypes, NullSafeHashCompiler hashCompiler)
     {
-        return new InterpretedHashGenerator(hashChannelTypes, null, typeOperators);
+        return new InterpretedHashGenerator(hashChannelTypes, null, hashCompiler);
     }
 
-    public static InterpretedHashGenerator createChannelsHashGenerator(List<Type> hashChannelTypes, int[] hashChannels, TypeOperators typeOperators)
+    public static InterpretedHashGenerator createChannelsHashGenerator(List<Type> hashChannelTypes, int[] hashChannels, NullSafeHashCompiler hashCompiler)
     {
-        return new InterpretedHashGenerator(hashChannelTypes, hashChannels, typeOperators);
+        return new InterpretedHashGenerator(hashChannelTypes, hashChannels, hashCompiler);
     }
 
-    private InterpretedHashGenerator(List<Type> hashChannelTypes, @Nullable int[] hashChannels, TypeOperators blockTypeOperators)
+    private InterpretedHashGenerator(List<Type> hashChannelTypes, @Nullable int[] hashChannels, NullSafeHashCompiler hashCompiler)
     {
         this.hashChannelTypes = ImmutableList.copyOf(requireNonNull(hashChannelTypes, "hashChannelTypes is null"));
-        this.hashCodeOperators = new MethodHandle[hashChannelTypes.size()];
+        this.hashCodeOperators = new NullSafeHash[hashChannelTypes.size()];
         for (int i = 0; i < hashCodeOperators.length; i++) {
-            hashCodeOperators[i] = blockTypeOperators.getHashCodeOperator(hashChannelTypes.get(i), simpleConvention(FAIL_ON_NULL, VALUE_BLOCK_POSITION_NOT_NULL));
+            Type type = hashChannelTypes.get(i);
+            hashCodeOperators[i] = hashCompiler.compileHash(type);
         }
         if (hashChannels == null) {
             this.hashChannels = null;
         }
         else {
-            checkArgument(hashChannels.length == hashCodeOperators.length);
+            checkArgument(hashChannels.length == hashChannelTypes.size());
             // simple positional indices are converted to null
             this.hashChannels = isPositionalChannels(hashChannels) ? null : hashChannels;
         }
@@ -83,10 +73,10 @@ public class InterpretedHashGenerator
         for (int operatorIndex = 0; operatorIndex < hashCodeOperators.length; operatorIndex++) {
             Block rawBlock = page.getBlock(hashChannels == null ? operatorIndex : hashChannels[operatorIndex]);
             if (operatorIndex == 0) {
-                hashFirstBlock(rawBlock, positionOffset, length, operatorIndex, hashes);
+                hashFirstBlock(rawBlock, positionOffset, length, hashCodeOperators[operatorIndex], hashes);
             }
             else {
-                hashBlockWithCombine(rawBlock, positionOffset, length, operatorIndex, hashes);
+                hashBlockWithCombine(rawBlock, positionOffset, length, hashCodeOperators[operatorIndex], hashes);
             }
         }
     }
@@ -97,7 +87,7 @@ public class InterpretedHashGenerator
         long result = INITIAL_HASH_VALUE;
         for (int i = 0; i < hashCodeOperators.length; i++) {
             Block block = page.getBlock(hashChannels == null ? i : hashChannels[i]);
-            result = CombineHashFunction.getHash(result, nullSafeHash(i, block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position)));
+            result = CombineHashFunction.getHash(result, hashCodeOperators[i].hash(block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position)));
         }
         return result;
     }
@@ -111,42 +101,18 @@ public class InterpretedHashGenerator
                 .toString();
     }
 
-    private void nullSafeHash(int operatorIndex, ValueBlock block, int positionOffset, int length, long[] hashes)
-    {
-        try {
-            for (int i = 0; i < length; i++) {
-                hashes[i] = nullSafeHash(operatorIndex, block, positionOffset + i);
-            }
-        }
-        catch (Throwable e) {
-            Throwables.throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
-    }
-
-    private long nullSafeHash(int operatorIndex, ValueBlock block, int position)
-    {
-        try {
-            return block.isNull(position) ? NULL_HASH_CODE : (long) hashCodeOperators[operatorIndex].invokeExact(block, position);
-        }
-        catch (Throwable e) {
-            Throwables.throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void hashFirstBlock(Block rawBlock, int positionOffset, int length, int operatorIndex, long[] hashes)
+    private static void hashFirstBlock(Block rawBlock, int positionOffset, int length, NullSafeHash hashOperator, long[] hashes)
     {
         switch (rawBlock) {
             case RunLengthEncodedBlock rleBlock -> {
-                long hash = nullSafeHash(operatorIndex, rleBlock.getUnderlyingValueBlock(), 0);
+                long hash = hashOperator.hash(rleBlock.getUnderlyingValueBlock(), 0);
                 Arrays.fill(hashes, 0, length, hash);
             }
             case DictionaryBlock dictionaryBlock -> {
                 if (isDictionaryProcessingFaster(dictionaryBlock, length)) {
                     ValueBlock dictionary = dictionaryBlock.getDictionary();
                     long[] dictionaryHashes = new long[dictionary.getPositionCount()];
-                    nullSafeHash(operatorIndex, dictionary, 0, dictionary.getPositionCount(), dictionaryHashes);
+                    hashOperator.hashBatched(dictionary, dictionaryHashes, 0, dictionary.getPositionCount());
                     for (int i = 0; i < length; i++) {
                         hashes[i] = dictionaryHashes[dictionaryBlock.getId(i + positionOffset)];
                     }
@@ -154,26 +120,26 @@ public class InterpretedHashGenerator
                 else {
                     ValueBlock valueBlock = dictionaryBlock.getUnderlyingValueBlock();
                     for (int i = 0; i < length; i++) {
-                        hashes[i] = nullSafeHash(operatorIndex, valueBlock, dictionaryBlock.getUnderlyingValuePosition(i + positionOffset));
+                        hashes[i] = hashOperator.hash(valueBlock, dictionaryBlock.getUnderlyingValuePosition(i + positionOffset));
                     }
                 }
             }
-            case ValueBlock valueBlock -> nullSafeHash(operatorIndex, valueBlock, positionOffset, length, hashes);
+            case ValueBlock valueBlock -> hashOperator.hashBatched(valueBlock, hashes, positionOffset, length);
         }
     }
 
-    private void hashBlockWithCombine(Block rawBlock, int positionOffset, int length, int operatorIndex, long[] hashes)
+    private static void hashBlockWithCombine(Block rawBlock, int positionOffset, int length, NullSafeHash hashOperator, long[] hashes)
     {
         switch (rawBlock) {
             case RunLengthEncodedBlock rleBlock -> {
-                long hash = nullSafeHash(operatorIndex, rleBlock.getUnderlyingValueBlock(), 0);
+                long hash = hashOperator.hash(rleBlock.getUnderlyingValueBlock(), 0);
                 CombineHashFunction.combineAllHashesWithConstant(hashes, 0, length, hash);
             }
             case DictionaryBlock dictionaryBlock -> {
                 if (isDictionaryProcessingFaster(dictionaryBlock, length)) {
                     ValueBlock dictionary = dictionaryBlock.getDictionary();
                     long[] dictionaryHashes = new long[dictionary.getPositionCount()];
-                    nullSafeHash(operatorIndex, dictionary, 0, dictionary.getPositionCount(), dictionaryHashes);
+                    hashOperator.hashBatched(dictionary, dictionaryHashes, 0, dictionary.getPositionCount());
                     for (int i = 0; i < length; i++) {
                         long hash = dictionaryHashes[dictionaryBlock.getId(i + positionOffset)];
                         hashes[i] = CombineHashFunction.getHash(hashes[i], hash);
@@ -182,18 +148,12 @@ public class InterpretedHashGenerator
                 else {
                     ValueBlock valueBlock = dictionaryBlock.getUnderlyingValueBlock();
                     for (int i = 0; i < length; i++) {
-                        long hash = nullSafeHash(operatorIndex, valueBlock, dictionaryBlock.getUnderlyingValuePosition(i + positionOffset));
+                        long hash = hashOperator.hash(valueBlock, dictionaryBlock.getUnderlyingValuePosition(i + positionOffset));
                         hashes[i] = CombineHashFunction.getHash(hashes[i], hash);
                     }
                 }
             }
-            case ValueBlock valueBlock -> {
-                long[] valueHashes = new long[length];
-                nullSafeHash(operatorIndex, valueBlock, positionOffset, length, valueHashes);
-                for (int i = 0; i < length; i++) {
-                    hashes[i] = CombineHashFunction.getHash(hashes[i], valueHashes[i]);
-                }
-            }
+            case ValueBlock valueBlock -> hashOperator.hashBatchedWithCombine(valueBlock, hashes, positionOffset, length);
         }
     }
 

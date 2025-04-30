@@ -22,11 +22,11 @@ import io.airlift.slice.XxHash64;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.operator.HashGenerator;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.PartitionFunction;
 import io.trino.operator.output.SkewedPartitionRebalancer;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.MergePartitioningHandle;
 import io.trino.sql.planner.PartitionFunctionProvider;
 import io.trino.sql.planner.PartitioningHandle;
@@ -94,7 +94,7 @@ public class LocalExchange
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes,
             DataSize maxBufferedBytes,
-            TypeOperators typeOperators,
+            NullSafeHashCompiler hashCompiler,
             DataSize writerScalingMinDataProcessed,
             Supplier<Long> totalMemoryUsed)
     {
@@ -153,9 +153,9 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         partitionFunctionProvider,
                         session,
-                        typeOperators,
                         bucketCount,
                         partitioning,
+                        hashCompiler,
                         partitionCount,
                         partitionChannels,
                         partitionChannelTypes);
@@ -181,9 +181,9 @@ public class LocalExchange
                 PartitionFunction partitionFunction = createPartitionFunction(
                         partitionFunctionProvider,
                         session,
-                        typeOperators,
                         bucketCount,
                         partitioning,
+                        hashCompiler,
                         bufferCount,
                         partitionChannels,
                         partitionChannelTypes);
@@ -236,9 +236,9 @@ public class LocalExchange
     private static PartitionFunction createPartitionFunction(
             PartitionFunctionProvider partitionFunctionProvider,
             Session session,
-            TypeOperators typeOperators,
             OptionalInt optionalBucketCount,
             PartitioningHandle partitioningHandle,
+            NullSafeHashCompiler hashCompiler,
             int partitionCount,
             List<Integer> partitionChannels,
             List<Type> partitionChannelTypes)
@@ -246,7 +246,7 @@ public class LocalExchange
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            HashGenerator hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), typeOperators);
+            HashGenerator hashGenerator = createChannelsHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), hashCompiler);
             return new LocalPartitionGenerator(hashGenerator, partitionCount);
         }
 
