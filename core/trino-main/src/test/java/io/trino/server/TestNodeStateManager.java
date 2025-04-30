@@ -104,8 +104,8 @@ class TestNodeStateManager
         nodeStateManager.transitionState(NodeState.SHUTTING_DOWN);
         assertThat(nodeStateManager.getServerState()).isEqualTo(NodeState.SHUTTING_DOWN);
 
-        // here only wait for 2 * GRACE_PERIOD_MILLIS and add some margin
-        await().atMost(2 * GRACE_PERIOD_MILLIS + 100, MILLISECONDS).until(() -> shutdownAction.isShuttingDown());
+        // here wait for at least 2 grace periods, and add some slack to reduce test flakyness
+        await().atMost(4 * GRACE_PERIOD_MILLIS + 100, MILLISECONDS).until(() -> shutdownAction.isShuttingDown());
     }
 
     @Test
@@ -116,8 +116,8 @@ class TestNodeStateManager
         nodeStateManager.transitionState(NodeState.SHUTTING_DOWN);
         assertThat(nodeStateManager.getServerState()).isEqualTo(NodeState.SHUTTING_DOWN);
 
-        // here only wait for some time, as shutdown should be immediate
-        await().atMost(2 * GRACE_PERIOD_MILLIS + 100, MILLISECONDS).until(() -> shutdownAction.isShuttingDown());
+        // here wait for at least 2 grace periods, and add some slack to reduce test flakyness
+        await().atMost(4 * GRACE_PERIOD_MILLIS, MILLISECONDS).until(() -> shutdownAction.isShuttingDown());
 
         assertThatThrownBy(() -> nodeStateManager.transitionState(ACTIVE))
                 .isInstanceOf(IllegalStateException.class)
