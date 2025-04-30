@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.operator.DriverContext;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.TaskContext;
@@ -100,7 +101,7 @@ public class TestHashBuilderOperator
                 ImmutableList.of(BIGINT),
                 1,
                 false,
-                new TypeOperators());
+                new NullSafeHashCompiler(new TypeOperators()));
         try (HashBuilderOperator operator = new HashBuilderOperator(
                 operatorContext,
                 lookupSourceFactory,

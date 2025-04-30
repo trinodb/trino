@@ -20,11 +20,11 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.errorprone.annotations.Immutable;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.trino.annotation.NotThreadSafe;
+import io.trino.operator.NullSafeHashCompiler;
 import io.trino.operator.join.LookupSourceProvider.LookupSourceLease;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -62,7 +62,7 @@ public final class PartitionedLookupSourceFactory
     private final List<Type> hashChannelTypes;
     private final boolean outer;
     private final SpilledLookupSource spilledLookupSource;
-    private final TypeOperators typeOperators;
+    private final NullSafeHashCompiler hashCompiler;
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -107,7 +107,7 @@ public final class PartitionedLookupSourceFactory
      */
     private final ConcurrentHashMap<SpillAwareLookupSourceProvider, LookupSource> suppliedLookupSources = new ConcurrentHashMap<>();
 
-    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, TypeOperators typeOperators)
+    public PartitionedLookupSourceFactory(List<Type> types, List<Type> outputTypes, List<Type> hashChannelTypes, int partitionCount, boolean outer, NullSafeHashCompiler hashCompiler)
     {
         checkArgument(Integer.bitCount(partitionCount) == 1, "partitionCount must be a power of 2");
 
@@ -119,7 +119,7 @@ public final class PartitionedLookupSourceFactory
         this.partitions = (Supplier<LookupSource>[]) new Supplier<?>[partitionCount];
         this.outer = outer;
         spilledLookupSource = new SpilledLookupSource();
-        this.typeOperators = typeOperators;
+        this.hashCompiler = hashCompiler;
     }
 
     @Override
@@ -240,7 +240,7 @@ public final class PartitionedLookupSourceFactory
                 verify(!completed, "lookupSourceSupplier already exist when completing");
                 verify(!outer, "It is not possible to reset lookupSourceSupplier which is tracking for outer join");
                 verify(partitions.length > 1, "Spill occurred when only one partition");
-                lookupSourceSupplier = createPartitionedLookupSourceSupplier(ImmutableList.copyOf(partitions), hashChannelTypes, outer, typeOperators);
+                lookupSourceSupplier = createPartitionedLookupSourceSupplier(ImmutableList.copyOf(partitions), hashChannelTypes, outer, hashCompiler);
                 closeCachedLookupSources();
             }
             else {
@@ -273,7 +273,7 @@ public final class PartitionedLookupSourceFactory
 
             if (partitionsSet != 1) {
                 List<Supplier<LookupSource>> partitions = ImmutableList.copyOf(this.partitions);
-                this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, typeOperators);
+                this.lookupSourceSupplier = createPartitionedLookupSourceSupplier(partitions, hashChannelTypes, outer, hashCompiler);
             }
             else if (outer) {
                 this.lookupSourceSupplier = createOuterLookupSourceSupplier(partitions[0]);
