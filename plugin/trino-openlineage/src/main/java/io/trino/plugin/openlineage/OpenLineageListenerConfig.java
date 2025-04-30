@@ -45,7 +45,7 @@ public class OpenLineageListenerConfig
     }
 
     @Config("openlineage-event-listener.trino.uri")
-    @ConfigDescription("URI of trino server. Used for namespace rendering.")
+    @ConfigDescription("URI of trino server. Used for namespace rendering")
     public OpenLineageListenerConfig setTrinoURI(URI trinoURI)
     {
         this.trinoURI = trinoURI;
@@ -58,7 +58,7 @@ public class OpenLineageListenerConfig
     }
 
     @Config("openlineage-event-listener.trino.include-query-types")
-    @ConfigDescription("Which query types emitted by Trino should generate OpenLineage events. Other query types will be filtered out.")
+    @ConfigDescription("Which query types emitted by Trino should generate OpenLineage events. Other query types will be filtered out")
     public OpenLineageListenerConfig setIncludeQueryTypes(Set<QueryType> includeQueryTypes)
     {
         this.includeQueryTypes = ImmutableSet.copyOf(includeQueryTypes);
@@ -71,7 +71,7 @@ public class OpenLineageListenerConfig
     }
 
     @Config("openlineage-event-listener.disabled-facets")
-    @ConfigDescription("Which facets should be removed from OpenLineage events.")
+    @ConfigDescription("Which facets should be removed from OpenLineage events")
     public OpenLineageListenerConfig setDisabledFacets(Set<OpenLineageTrinoFacet> disabledFacets)
             throws RuntimeException
     {
@@ -85,7 +85,7 @@ public class OpenLineageListenerConfig
     }
 
     @Config("openlineage-event-listener.namespace")
-    @ConfigDescription("Override default namespace for job facet.")
+    @ConfigDescription("Override default namespace for OpenLineage job")
     public OpenLineageListenerConfig setNamespace(String namespace)
     {
         this.namespace = Optional.ofNullable(namespace);
