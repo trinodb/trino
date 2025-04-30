@@ -1301,6 +1301,9 @@ public abstract class BaseJdbcConnectorTest
                 // join over different columns
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.nationkey = r.regionkey", joinOperator))).isFullyPushedDown();
 
+                // filter join condition (effectively empty)
+                assertThat(query(session, format("SELECT n.name FROM nation n %s orders o ON DATE '2025-03-19' = o.orderdate", joinOperator))).joinIsNotFullyPushedDown();
+
                 // pushdown when using USING
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r USING(regionkey)", joinOperator))).isFullyPushedDown();
 
