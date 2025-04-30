@@ -23,6 +23,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Set;
 
+// Run test
 public class TestingSingleStoreServer
         extends JdbcDatabaseContainer<TestingSingleStoreServer>
 {
