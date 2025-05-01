@@ -661,6 +661,7 @@ public final class Session
                 .setRemoteUserAddress(getRemoteUserAddress().orElse(null))
                 .setUserAgent(getUserAgent().orElse(null))
                 .setClientInfo(getClientInfo().orElse(null))
+                .setTraceToken(getTraceToken())
                 .setStart(getStart())
                 .build();
     }
