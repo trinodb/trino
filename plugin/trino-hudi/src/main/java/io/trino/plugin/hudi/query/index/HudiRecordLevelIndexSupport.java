@@ -16,11 +16,13 @@ package io.trino.plugin.hudi.query.index;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieRecordGlobalLocation;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.util.Option;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 
@@ -31,7 +33,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.stream.Collectors;
+
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
 
 public class HudiRecordLevelIndexSupport
         extends HudiBaseIndexSupport
@@ -52,36 +57,103 @@ public class HudiRecordLevelIndexSupport
             Map<String, List<FileSlice>> inputFileSlices,
             TupleDomain<String> regularColumnPredicates)
     {
+        // Should not happen since canApply checks for this, include for safety
         if (regularColumnPredicates.isAll()) {
+            log.debug("Predicates cover all data, skipping record level index lookup.");
             return inputFileSlices;
         }
 
-        if (metaClient.getTableConfig().getRecordKeyFields().isEmpty()) {
-            throw new IllegalArgumentException("Record key fields is empty");
+        Option<String[]> recordKeyFieldsOpt = metaClient.getTableConfig().getRecordKeyFields();
+        if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
+            // Should not happen since canApply checks for this, include for safety
+            throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
         }
-        List<String> recordKeyFields = Arrays.stream(metaClient.getTableConfig().getRecordKeyFields().get()).collect(Collectors.toList());
+        List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
+
+        // Only extract the predicates relevant to the record key fields
         TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularColumnPredicates, recordKeyFields);
-        List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields.stream().toList());
-        Map<String, List<HoodieRecordGlobalLocation>> recordIndex = metadataTable.readRecordIndex(recordKeys);
 
+        // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
+        List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);
+
+        if (recordKeys.isEmpty()) {
+            // If key construction fails (e.g., incompatible predicates not caught by canApply, or placeholder issue)
+            log.warn("Could not construct record keys from predicates. Skipping record index pruning.");
+            return inputFileSlices;
+        }
+        log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
+
+        // Perform index lookup in metadataTable
+        // TODO: document here what this map is keyed by
+        Map<String, List<HoodieRecordGlobalLocation>> recordIndex = metadataTable.readRecordIndex(recordKeys);
         if (recordIndex.isEmpty()) {
+            log.debug("Record level index lookup returned no locations for the given keys.");
+            // Return all original fileSlices
             return inputFileSlices;
         }
 
-        // Prune files
-        List<String> fileIds = recordIndex.values().stream().flatMap(List::stream).map(HoodieRecordGlobalLocation::getFileId).toList();
+        // Collect fileIds for pruning
+        Set<String> relevantFileIds = recordIndex.values().stream()
+                .flatMap(List::stream)
+                .map(HoodieRecordGlobalLocation::getFileId)
+                .collect(Collectors.toSet());
+        log.debug(String.format("Record level index lookup identified %d relevant file IDs.", relevantFileIds.size()));
+
+        // Prune fileSlices: Loop through each partition and filter for fileSlices that are in relevantFileIds
+        // Note: This may return partitions with empty list of fileSlices
         Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices
                 .entrySet()
                 .stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry
-                        .getValue()
-                        .stream()
-                        .filter(fileSlice -> fileIds.contains(fileSlice.getFileId()))
-                        .collect(Collectors.toList())));
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue()
+                                .stream()
+                                .filter(fileSlice -> relevantFileIds.contains(fileSlice.getFileId()))
+                                .collect(Collectors.toList())));
 
-        this.printDebugMessage(candidateFileSlices, inputFileSlices);
+        // Remove partitions where no files remain after filtering
+        candidateFileSlices.entrySet().removeIf(entry -> entry.getValue().isEmpty());
 
+        printDebugMessage(candidateFileSlices, inputFileSlices);
         return candidateFileSlices;
+    }
+
+    /**
+     * Checks if the Record Level Index is available and the query predicates
+     * reference all record key fields with compatible (IN/EQUAL) constraints.
+     */
+    @Override
+    public boolean canApply(TupleDomain<String> tupleDomain)
+    {
+        if (!isIndexSupportAvailable()) {
+            log.debug("Record Level Index partition is not enabled in metadata.");
+            return false;
+        }
+
+        Option<String[]> recordKeyFieldsOpt = metaClient.getTableConfig().getRecordKeyFields();
+        if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
+            log.debug("Record key fields are not defined in table config.");
+            return false;
+        }
+        List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
+
+        // Ensure that predicates reference all record key fields and use IN/EQUAL
+        boolean applicable = TupleDomainUtils.areAllFieldsReferenced(tupleDomain, recordKeyFields)
+                && TupleDomainUtils.areDomainsInOrEqualOnly(tupleDomain, recordKeyFields);
+
+        if (!applicable) {
+            log.debug("Predicates do not reference all record key fields or use non-compatible (non IN/EQUAL) constraints.");
+        }
+        else {
+            log.debug("Record Level Index is available and applicable based on predicates.");
+        }
+        return applicable;
+    }
+
+    private boolean isIndexSupportAvailable()
+    {
+        return metaClient.getTableConfig().getMetadataPartitions()
+                .contains(HoodieTableMetadataUtil.PARTITION_NAME_RECORD_INDEX);
     }
 
     /**
@@ -143,6 +215,7 @@ public class HudiRecordLevelIndexSupport
      */
     public static List<String> constructRecordKeys(TupleDomain<String> recordKeyDomains, List<String> recordKeyFields)
     {
+        // TODO: Move this to TupleDomainUtils
         // If no recordKeys or no recordKeyDomains, return empty list
         if (recordKeyFields == null || recordKeyFields.isEmpty() || recordKeyDomains.isAll()) {
             return Collections.emptyList();
@@ -228,26 +301,5 @@ public class HudiRecordLevelIndexSupport
         else {
             return value.toString();
         }
-    }
-
-    public static boolean isIndexSupportAvailable(HoodieTableMetaClient metaClient)
-    {
-        return metaClient.getTableConfig().getMetadataPartitions()
-                .contains(HoodieTableMetadataUtil.PARTITION_NAME_RECORD_INDEX);
-    }
-
-    /**
-     * Check if the all record key fields are used in the predicates.
-     * All predicates referencing the record key fields must also be a IN or EQUAL predicate.
-     */
-    public static boolean shouldUseIndex(TupleDomain<String> tupleDomain, HoodieTableMetaClient metaClient)
-    {
-        // RLI is not registered in index definitions. Manually check it from metadata partitions instead.
-        if (!isIndexSupportAvailable(metaClient)) {
-            return false;
-        }
-        List<String> sourceFields = Arrays.stream(metaClient.getTableConfig().getRecordKeyFields().get()).toList();
-        return TupleDomainUtils.areAllFieldsReferenced(tupleDomain, sourceFields)
-                && TupleDomainUtils.areDomainsInOrEqualOnly(tupleDomain, sourceFields);
     }
 }

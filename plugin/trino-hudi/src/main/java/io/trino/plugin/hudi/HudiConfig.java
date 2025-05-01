@@ -49,6 +49,12 @@ public class HudiConfig
     private boolean queryPartitionFilterRequired;
     private boolean ignoreAbsentPartitions;
 
+    // Internal configuration for debugging and testing
+    private boolean isRecordLevelIndexEnabled = true;
+    private boolean isSecondaryIndexEnabled = true;
+    private boolean isColumnStatsIndexEnabled = true;
+    private boolean isPartitionStatsIndexEnabled = true;
+
     public List<String> getColumnsToHide()
     {
         return columnsToHide;
@@ -228,5 +234,57 @@ public class HudiConfig
     public boolean isIgnoreAbsentPartitions()
     {
         return ignoreAbsentPartitions;
+    }
+
+    @Config("hudi.index.record-level-index-enabled")
+    @ConfigDescription("Internal configuration to control whether record level index is enabled for debugging/testing.")
+    public HudiConfig setRecordLevelIndexEnabled(boolean isRecordLevelIndexEnabled)
+    {
+        this.isRecordLevelIndexEnabled = isRecordLevelIndexEnabled;
+        return this;
+    }
+
+    public boolean isRecordLevelIndexEnabled()
+    {
+        return isRecordLevelIndexEnabled;
+    }
+
+    @Config("hudi.index.secondary-index-enabled")
+    @ConfigDescription("Internal configuration to control whether secondary index is enabled for debugging/testing.")
+    public HudiConfig setSecondaryIndexEnabled(boolean isSecondaryIndexEnabled)
+    {
+        this.isSecondaryIndexEnabled = isSecondaryIndexEnabled;
+        return this;
+    }
+
+    public boolean isSecondaryIndexEnabled()
+    {
+        return isSecondaryIndexEnabled;
+    }
+
+    @Config("hudi.index.column-stats-index-enabled")
+    @ConfigDescription("Internal configuration to control whether column stats index is enabled for debugging/testing.")
+    public HudiConfig setColumnStatsIndexEnabled(boolean isColumnStatsIndexEnabled)
+    {
+        this.isColumnStatsIndexEnabled = isColumnStatsIndexEnabled;
+        return this;
+    }
+
+    public boolean isColumnStatsIndexEnabled()
+    {
+        return isColumnStatsIndexEnabled;
+    }
+
+    @Config("hudi.index.partition-stats-index-enabled")
+    @ConfigDescription("Internal configuration to control whether partition stats index is enabled for debugging/testing.")
+    public HudiConfig setPartitionStatsIndexEnabled(boolean isPartitionStatsIndexEnabled)
+    {
+        this.isPartitionStatsIndexEnabled = isPartitionStatsIndexEnabled;
+        return this;
+    }
+
+    public boolean isPartitionStatsIndexEnabled()
+    {
+        return isPartitionStatsIndexEnabled;
     }
 }

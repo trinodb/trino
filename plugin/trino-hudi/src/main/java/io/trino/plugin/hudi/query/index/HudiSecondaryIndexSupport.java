@@ -23,9 +23,10 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.query.index.HudiRecordLevelIndexSupport.constructRecordKeys;
@@ -48,56 +49,60 @@ public class HudiSecondaryIndexSupport
             TupleDomain<String> regularColumnPredicates)
     {
         if (regularColumnPredicates.isAll() || metaClient.getIndexMetadata().isEmpty()) {
+            log.debug("Predicates cover all data, skipping secondary index lookup.");
             return inputFileSlices;
         }
 
-        Map<String, HoodieIndexDefinition> indexDefinitionMap = metaClient.getIndexMetadata().get()
-                .getIndexDefinitions();
-
-        if (indexDefinitionMap.isEmpty()) {
+        Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex = findFirstApplicableSecondaryIndex(regularColumnPredicates);
+        if (firstApplicableIndex.isEmpty()) {
+            log.debug("No secondary index definition found matching the query's referenced columns.");
             return inputFileSlices;
         }
 
-        List<String> queryReferencedColumns = regularColumnPredicates.getDomains().get().keySet().stream().toList();
+        Map.Entry<String, HoodieIndexDefinition> applicableIndexEntry = firstApplicableIndex.get();
+        String indexName = applicableIndexEntry.getKey();
+        // `indexedColumns` should only contain one element as secondary indices only support one column
+        List<String> indexedColumns = applicableIndexEntry.getValue().getSourceFields();
+        log.debug(String.format("Using secondary index '%s' on columns %s for pruning.", indexName, indexedColumns));
+        TupleDomain<String> indexPredicates = extractPredicatesForColumns(regularColumnPredicates, indexedColumns);
 
-        // Build a map of indexName to sourceFields (column names) that secondary index is built on
-        // Each List<String> should only contain one element as secondary indices only support one column
-        // Only filter for sourceFields that match the predicates
-        Map<String, List<String>> indexDefinitions = indexDefinitionMap.entrySet()
-                .stream()
-                .filter(e -> e.getKey().contains(HoodieTableMetadataUtil.PARTITION_NAME_SECONDARY_INDEX)
-                        && queryReferencedColumns.contains(e.getValue().getSourceFields().getFirst()))
-                .collect(Collectors.toMap(e -> e.getValue().getIndexName(),
-                        e -> e.getValue().getSourceFields()));
+        List<String> secondaryKeys = constructRecordKeys(indexPredicates, indexedColumns);
+        if (secondaryKeys.isEmpty()) {
+            log.warn(String.format("Could not construct secondary keys for index '%s' from predicates. Skipping pruning.", indexName));
+            return inputFileSlices;
+        }
+        log.debug(String.format("Constructed %d secondary keys for index lookup.", secondaryKeys.size()));
 
-        if (indexDefinitions.isEmpty()) {
+        // Perform index lookup in metadataTable
+        // TODO: document here what this map is keyed by
+        Map<String, List<HoodieRecordGlobalLocation>> recordKeyLocationsMap = metadataTable.readSecondaryIndex(secondaryKeys, indexName);
+        if (recordKeyLocationsMap.isEmpty()) {
+            log.debug("Secondary index lookup returned no locations for the given keys.");
+            // Return all original fileSlices
             return inputFileSlices;
         }
 
-        // Only use the first key in the indexDefinition
-        Iterator<Map.Entry<String, List<String>>> indexDefinitionsIter = indexDefinitions.entrySet().iterator();
-        if (!indexDefinitionsIter.hasNext()) {
-            return inputFileSlices;
-        }
+        // Collect fileIds for pruning
+        Set<String> relevantFileIds = recordKeyLocationsMap.values().stream()
+                .flatMap(List::stream)
+                .map(HoodieRecordGlobalLocation::getFileId)
+                .collect(Collectors.toSet());
+        log.debug(String.format("Secondary index lookup identified %d relevant file IDs.", relevantFileIds.size()));
 
-        Map.Entry<String, List<String>> entry = indexDefinitionsIter.next();
-        TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularColumnPredicates, entry.getValue());
-        List<String> secondaryKeys = constructRecordKeys(filteredDomains, entry.getValue().stream().toList());
-        Map<String, List<HoodieRecordGlobalLocation>> recordKeyLocationsMap =
-                metadataTable.readSecondaryIndex(secondaryKeys, entry.getKey());
-
-        // Prune files
-        List<String> fileIds = recordKeyLocationsMap.values().stream()
-                .flatMap(List::stream).map(HoodieRecordGlobalLocation::getFileId).toList();
+        // Prune fileSlices: Loop through each partition and filter for fileSlices that are in relevantFileIds
+        // Note: This may return partitions with empty list of fileSlices
         Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e
-                        .getValue()
-                        .stream()
-                        .filter(fileSlice -> fileIds.contains(fileSlice.getFileId()))
-                        .collect(Collectors.toList())));
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().stream()
+                                // Only include fileSlices that are returned from metadata lookup
+                                .filter(fileSlice -> relevantFileIds.contains(fileSlice.getFileId()))
+                                .collect(Collectors.toList())));
 
-        this.printDebugMessage(candidateFileSlices, inputFileSlices);
+        // Remove partitions where no files remain after filtering
+        candidateFileSlices.entrySet().removeIf(entry -> entry.getValue().isEmpty());
 
+        printDebugMessage(candidateFileSlices, inputFileSlices);
         return candidateFileSlices;
     }
 
@@ -117,33 +122,87 @@ public class HudiSecondaryIndexSupport
      * it returns {@code false}.
      *
      * @param tupleDomain the domain representing the constraints on the columns
-     * @param metaClient hoodie table metaclient
      * HoodieIndexDefinition object
      * @return {@code true} if at least one secondary index can be used based on the given tuple domain; otherwise,
      * {@code false}
      */
-    public static boolean shouldUseIndex(TupleDomain<String> tupleDomain, HoodieTableMetaClient metaClient)
+    @Override
+    public boolean canApply(TupleDomain<String> tupleDomain)
+    {
+        if (!isIndexSupportAvailable()) {
+            log.debug("Secondary Index partition is not enabled in metadata.");
+            return false;
+        }
+
+        Map<String, HoodieIndexDefinition> secondaryIndexDefinitions = getApplicableIndexDefinitions(tupleDomain, true);
+        if (secondaryIndexDefinitions.isEmpty()) {
+            log.debug("No applicable secondary index definitions found.");
+            return false;
+        }
+
+        boolean atLeastOneIndexUsable = secondaryIndexDefinitions.values().stream()
+                .anyMatch(indexDef -> {
+                    List<String> sourceFields = indexDef.getSourceFields();
+                    // Predicates referencing columns with secondary index needs to be IN or EQUAL only
+                    boolean usable = TupleDomainUtils.areAllFieldsReferenced(tupleDomain, sourceFields)
+                            && TupleDomainUtils.areDomainsInOrEqualOnly(tupleDomain, sourceFields);
+                    if (log.isDebugEnabled() && usable) {
+                        log.debug(String.format("Secondary index '%s' on fields '%s' is usable for the query.", indexDef.getIndexName(), sourceFields));
+                    }
+                    return usable;
+                });
+        if (!atLeastOneIndexUsable) {
+            log.debug("Although secondary indexes exist, none match the required fields and predicate types (IN/EQUAL) for the query.");
+        }
+        return atLeastOneIndexUsable;
+    }
+
+    private boolean isIndexSupportAvailable()
     {
         // Filter out definitions that are secondary indices
-        Map<String, HoodieIndexDefinition> secondaryIndexDefinitions = IndexSupportFactory.getIndexDefinitions(metaClient)
+        Map<String, HoodieIndexDefinition> secondaryIndexDefinitions = getAllIndexDefinitions()
                 .entrySet().stream()
                 .filter(e -> e.getKey().contains(HoodieTableMetadataUtil.PARTITION_NAME_SECONDARY_INDEX))
                 .collect(Collectors.toMap(e -> e.getValue().getIndexName(),
                         Map.Entry::getValue));
+        return !secondaryIndexDefinitions.isEmpty();
+    }
 
-        if (secondaryIndexDefinitions.isEmpty()) {
-            return false;
+    private Map<String, HoodieIndexDefinition> getApplicableIndexDefinitions(TupleDomain<String> tupleDomain, boolean checkPredicateCompatibility)
+    {
+        Map<String, HoodieIndexDefinition> allDefinitions = getAllIndexDefinitions();
+        if (allDefinitions.isEmpty()) {
+            return Map.of();
         }
+        // Filter out definitions that are secondary indices
+        return allDefinitions.entrySet().stream()
+                .filter(entry -> entry.getKey().contains(HoodieTableMetadataUtil.PARTITION_NAME_SECONDARY_INDEX))
+                .filter(entry -> {
+                    if (!checkPredicateCompatibility) {
+                        return true;
+                    }
+                    // Perform additional compatibility checks
+                    List<String> sourceFields = entry.getValue().getSourceFields();
+                    return TupleDomainUtils.areAllFieldsReferenced(tupleDomain, sourceFields)
+                            && TupleDomainUtils.areDomainsInOrEqualOnly(tupleDomain, sourceFields);
+                })
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
 
-        // Predicates referencing columns with secondary index needs to be IN or EQUAL only
-        boolean atLeastOnePredicateValid = false;
-        for (Map.Entry<String, HoodieIndexDefinition> secondaryIndexDefinition : secondaryIndexDefinitions.entrySet()) {
-            List<String> sourceFields = secondaryIndexDefinition.getValue().getSourceFields();
-            boolean isSecondaryIndexDefUsable = (TupleDomainUtils.areAllFieldsReferenced(tupleDomain, sourceFields)
-                    && TupleDomainUtils.areDomainsInOrEqualOnly(tupleDomain, sourceFields));
-            atLeastOnePredicateValid |= isSecondaryIndexDefUsable;
+    private Optional<Map.Entry<String, HoodieIndexDefinition>> findFirstApplicableSecondaryIndex(TupleDomain<String> queryPredicates)
+    {
+        // Predicate checks would have already been done, skip predicate checks here
+        Map<String, HoodieIndexDefinition> secondaryIndexDefinitions = getApplicableIndexDefinitions(queryPredicates, false);
+        if (queryPredicates.getDomains().isEmpty()) {
+            return Optional.empty();
         }
-
-        return atLeastOnePredicateValid;
+        List<String> queryReferencedColumns = List.copyOf(queryPredicates.getDomains().get().keySet());
+        return secondaryIndexDefinitions.entrySet().stream()
+                .filter(entry -> {
+                    List<String> sourceFields = entry.getValue().getSourceFields();
+                    // Only filter for sourceFields that match the predicates
+                    return !sourceFields.isEmpty() && queryReferencedColumns.contains(sourceFields.getFirst());
+                })
+                .findFirst();
     }
 }

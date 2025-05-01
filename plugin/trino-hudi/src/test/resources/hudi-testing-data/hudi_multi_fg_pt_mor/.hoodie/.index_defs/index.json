@@ -6,6 +6,13 @@
       "indexFunction" : "column_stats",
       "sourceFields" : [ "_hoodie_commit_time", "_hoodie_partition_path", "_hoodie_record_key", "id", "name", "price", "ts", "country" ],
       "indexOptions" : { }
+    },
+    "secondary_index_idx_price" : {
+      "indexName" : "secondary_index_idx_price",
+      "indexType" : "secondary_index",
+      "indexFunction" : "identity",
+      "sourceFields" : [ "price" ],
+      "indexOptions" : { }
     }
   }
 }

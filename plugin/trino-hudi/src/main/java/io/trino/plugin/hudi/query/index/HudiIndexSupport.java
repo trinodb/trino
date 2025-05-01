@@ -26,4 +26,6 @@ public interface HudiIndexSupport
             HoodieTableMetadata metadataTable,
             Map<String, List<FileSlice>> inputFileSlices,
             TupleDomain<String> regularColumnPredicates);
+
+    boolean canApply(TupleDomain<String> tupleDomain);
 }

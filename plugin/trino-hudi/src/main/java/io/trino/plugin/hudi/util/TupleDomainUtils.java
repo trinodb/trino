@@ -90,4 +90,73 @@ public class TupleDomainUtils
         }
         return areReferencedInOrEqual;
     }
+
+    /**
+     * Checks if a specific Domain represents ONLY an 'IS NULL' constraint.
+     * This means null is allowed, and no other non-null values are allowed.
+     * Important: Not handling `= NULL` predicates as colA `= NULL` does not evaluate to TRUE or FALSE, it evaluates to UNKNOWN, which is treated as false.
+     *
+     * @param domain The Domain to check.
+     * @return true if the domain represents 'IS NULL', false otherwise.
+     */
+    private static boolean isOnlyNullConstraint(Domain domain)
+    {
+        // Null must be allowed, and the ValueSet must allow *no* non-null values.
+        return domain.isNullAllowed() && domain.getValues().isNone();
+    }
+
+    /**
+     * Checks if a specific Domain represents ONLY an 'IS NOT NULL' constraint.
+     * This means null is not allowed, and all non-null values are allowed (no other range/value restrictions).
+     * Important: Not handling `!= NULL` or `<> NULL` predicates as this does not evaluate to TRUE or FALSE, it evaluates to UNKNOWN, which is treated as false.
+     *
+     * @param domain The Domain to check.
+     * @return true if the domain represents 'IS NOT NULL', false otherwise.
+     */
+    private static boolean isOnlyNotNullConstraint(Domain domain)
+    {
+        // Null must *NOT* be allowed, and the ValueSet must allow *ALL* possible non-null values.
+        return !domain.isNullAllowed() && domain.getValues().isAll();
+    }
+
+    /**
+     * Overloaded function to test if a Domain contains null checks or not.
+     *
+     * @param domain The Domain to check.
+     * @return true if the domain represents 'IS NOT NULL' or 'IS NULL', false otherwise.
+     */
+    public static boolean hasSimpleNullCheck(Domain domain)
+    {
+        return isOnlyNullConstraint(domain) || isOnlyNotNullConstraint(domain);
+    }
+
+    /**
+     * Checks if a TupleDomain contains at least one column Domain that represents
+     * exclusively an 'IS NULL' or 'IS NOT NULL' constraint.
+     *
+     * @param tupleDomain The TupleDomain to inspect.
+     * @return true if a simple null check constraint exists, false otherwise.
+     */
+    public static boolean hasSimpleNullCheck(TupleDomain<String> tupleDomain)
+    {
+        // A 'None' TupleDomain implies contradiction, not a simple null check
+        if (tupleDomain.isNone()) {
+            return false;
+        }
+        Optional<Map<String, Domain>> domains = tupleDomain.getDomains();
+        // An 'All' TupleDomain has no constraints
+        if (domains.isEmpty()) {
+            return false;
+        }
+
+        // Iterate through the domains for each column in the TupleDomain
+        for (Domain domain : domains.get().values()) {
+            if (hasSimpleNullCheck(domain)) {
+                // Found a domain that is purely an IS NULL or IS NOT NULL check
+                return true;
+            }
+        }
+        // No domain matched the simple null check patterns
+        return false;
+    }
 }

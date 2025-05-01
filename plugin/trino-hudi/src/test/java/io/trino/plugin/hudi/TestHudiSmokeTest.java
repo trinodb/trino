@@ -51,11 +51,14 @@ import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hudi.HudiPageSourceProvider.createPageSource;
+import static io.trino.plugin.hudi.HudiSessionProperties.COLUMN_STATS_INDEX_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.METADATA_TABLE_ENABLED;
+import static io.trino.plugin.hudi.HudiSessionProperties.PARTITION_STATS_INDEX_ENABLED;
 import static io.trino.plugin.hudi.HudiSessionProperties.QUERY_PARTITION_FILTER_REQUIRED;
+import static io.trino.plugin.hudi.HudiSessionProperties.RECORD_LEVEL_INDEX_ENABLED;
+import static io.trino.plugin.hudi.HudiSessionProperties.SECONDARY_INDEX_ENABLED;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_MOR;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_RLI_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
@@ -129,25 +132,24 @@ public class TestHudiSmokeTest
     @Test
     public void testPartitionPruningReadMultiFgPartitionedMORTableVer8()
     {
-        // Stopgap to enable MDT
-        Session session = withMdtEnabled(getSession());
-        getQueryRunner().execute(session, "SET SESSION hudi.metadata_enabled=true");
+        // Test for partition pruning without MDT (i.e. w/o partition pruning using partition stats index)
+        Session session = withMdtDisabled(getSession());
         MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
         MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG'");
         int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
         int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
         assertThat(prunedSplits).isLessThan(totalSplits);
-        // With Partition pruning, only 2 splits in the partition should be returned
+        // With partition pruning, only 2 splits in the partition should be returned
         assertThat(prunedSplits).isEqualTo(2);
     }
 
     @Test
     public void testColStatsFileSkipping()
     {
-        // Stopgap to enable MDT
-        Session session = withMdtEnabled(getSession());
+        Session session = withColStatsIndexEnabled(getSession());
         MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG' AND name='a1'");
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR
+                + " WHERE country='SG' AND name='a1'");
         int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
         int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
         assertThat(prunedSplits).isLessThan(totalSplits);
@@ -158,12 +160,10 @@ public class TestHudiSmokeTest
     @Test
     public void testRecordLevelFileSkipping()
     {
-        // Stopgap to enable MDT
-        Session session = withMdtEnabled(getSession());
-        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_RLI_MOR);
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_RLI_MOR
+        Session session = withRecordLevelIndexEnabled(getSession());
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR
                 + " WHERE country='SG' AND id IN (1, 3) AND name = 'a1'");
-        // Apply predicate for all fileSlices
         int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
         int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
         assertThat(prunedSplits).isLessThan(totalSplits);
@@ -174,17 +174,33 @@ public class TestHudiSmokeTest
     @Test
     public void testSecondaryIndexFileSkipping()
     {
-        // Stopgap to enable MDT
-        Session session = withMdtEnabled(getSession());
-        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_RLI_MOR);
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_RLI_MOR
+        Session session = withSecondaryIndexEnabled(getSession());
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR
                 + " WHERE country='SG' AND price = 101.00");
-        // Apply predicate for all fileSlices
         int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
         int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
         assertThat(prunedSplits).isLessThan(totalSplits);
         // With SI file skipping, only 1 split should be returned
         assertThat(prunedSplits).isEqualTo(1);
+    }
+
+    @Test
+    public void testPartitionStatsIndexPartitionPruning()
+    {
+        Session session = withPartitionStatsIndexEnabled(getSession());
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR
+                // Add a constraint that is in colstats
+                + " WHERE ts < 1001 " +
+                // Add a constraint that is in colstats
+                "AND price < 200.00 " +
+                // Add a constraint on a column that is not in colstats
+                "AND _hoodie_file_name = 'abc' " +
+                // Add a simple null check constraint
+                "AND id is not null");
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        // With PSI, only 2 splits in the SG partitions will be scanned
+        assertThat(prunedSplits).isEqualTo(2);
     }
 
     @Test
@@ -544,6 +560,57 @@ public class TestHudiSmokeTest
     {
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), METADATA_TABLE_ENABLED, "true")
+                .build();
+    }
+
+    private static Session withMdtDisabled(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), METADATA_TABLE_ENABLED, "false")
+                .build();
+    }
+
+    private static Session withColStatsIndexEnabled(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), METADATA_TABLE_ENABLED, "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), RECORD_LEVEL_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), SECONDARY_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), COLUMN_STATS_INDEX_ENABLED, "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), PARTITION_STATS_INDEX_ENABLED, "false")
+                .build();
+    }
+
+    private static Session withRecordLevelIndexEnabled(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), METADATA_TABLE_ENABLED, "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), RECORD_LEVEL_INDEX_ENABLED, "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), SECONDARY_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), COLUMN_STATS_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), PARTITION_STATS_INDEX_ENABLED, "false")
+                .build();
+    }
+
+    private static Session withSecondaryIndexEnabled(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), METADATA_TABLE_ENABLED, "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), RECORD_LEVEL_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), SECONDARY_INDEX_ENABLED, "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), COLUMN_STATS_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), PARTITION_STATS_INDEX_ENABLED, "false")
+                .build();
+    }
+
+    private static Session withPartitionStatsIndexEnabled(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), METADATA_TABLE_ENABLED, "true")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), RECORD_LEVEL_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), SECONDARY_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), COLUMN_STATS_INDEX_ENABLED, "false")
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), PARTITION_STATS_INDEX_ENABLED, "true")
                 .build();
     }
 

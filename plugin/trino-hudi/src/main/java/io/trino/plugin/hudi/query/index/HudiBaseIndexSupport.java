@@ -15,6 +15,7 @@ package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
 import org.apache.hudi.common.model.FileSlice;
+import org.apache.hudi.common.model.HoodieIndexDefinition;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 
 import java.util.List;
@@ -45,5 +46,14 @@ public abstract class HudiBaseIndexSupport
                     candidateFileSize,
                     skippingPercent);
         }
+    }
+
+    protected Map<String, HoodieIndexDefinition> getAllIndexDefinitions()
+    {
+        if (metaClient.getIndexMetadata().isEmpty()) {
+            return Map.of();
+        }
+
+        return metaClient.getIndexMetadata().get().getIndexDefinitions();
     }
 }

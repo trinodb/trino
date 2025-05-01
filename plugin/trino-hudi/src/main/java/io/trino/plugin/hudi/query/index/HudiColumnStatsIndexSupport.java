@@ -62,6 +62,11 @@ public class HudiColumnStatsIndexSupport
         super(log, metaClient);
     }
 
+    public HudiColumnStatsIndexSupport(Logger log, HoodieTableMetaClient metaClient)
+    {
+        super(log, metaClient);
+    }
+
     @Override
     public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
             HoodieTableMetadata metadataTable, Map<String, List<FileSlice>> inputFileSlices,
@@ -94,21 +99,59 @@ public class HudiColumnStatsIndexSupport
                         .toMap(entry -> entry.getKey(), entry -> entry
                                 .getValue()
                                 .stream()
-                                .filter(fileSlice -> pruneFiles(fileSlice, statsByFileName, regularColumnPredicates, regularColumns))
+                                .filter(fileSlice -> shouldKeepFileSlice(fileSlice, statsByFileName, regularColumnPredicates, regularColumns))
                                 .collect(Collectors.toList())));
 
         this.printDebugMessage(candidateFileSlices, inputFileSlices);
         return candidateFileSlices;
     }
 
-    private static boolean pruneFiles(
+    @Override
+    public boolean canApply(TupleDomain<String> tupleDomain)
+    {
+        boolean isIndexSupported = isIndexSupportAvailable();
+        // indexDefinition is only available after table version EIGHT
+        // For tables that have versions < EIGHT, column stats index is available as long as partition in metadata is available
+        if (!isIndexSupported || metaClient.getTableConfig().getTableVersion().lesserThan(HoodieTableVersion.EIGHT)) {
+            log.debug("Column Stats Index partition is not enabled in metadata.");
+            return isIndexSupported;
+        }
+
+        Map<String, HoodieIndexDefinition> indexDefinitions = getAllIndexDefinitions();
+        HoodieIndexDefinition colStatsDefinition = indexDefinitions.get(HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS);
+        if (colStatsDefinition == null || colStatsDefinition.getSourceFields() == null || colStatsDefinition.getSourceFields().isEmpty()) {
+            log.warn("Column stats index definition is missing or has no source fields defined");
+            return false;
+        }
+
+        // Optimization applied: Only consider applicable if predicates reference indexed columns
+        List<String> sourceFields = colStatsDefinition.getSourceFields();
+        boolean applicable = TupleDomainUtils.areSomeFieldsReferenced(tupleDomain, sourceFields);
+
+        if (applicable) {
+            log.debug("Column Stats Index is available and applicable (predicates reference indexed columns).");
+        }
+        else {
+            log.debug("Column Stats Index is available, but predicates do not reference any indexed columns.");
+        }
+        return applicable;
+    }
+
+    public boolean isIndexSupportAvailable()
+    {
+        return metaClient.getTableConfig().getMetadataPartitions()
+                .contains(HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS);
+    }
+
+    // TODO: Move helper functions below to TupleDomain/DomainUtils
+    private static boolean shouldKeepFileSlice(
             FileSlice fileSlice,
             Map<String, List<HoodieMetadataColumnStats>> statsByFileName,
             TupleDomain<String> regularColumnPredicates,
             List<String> regularColumns)
     {
         String fileSliceName = fileSlice.getBaseFile().map(BaseFile::getFileName).orElse("");
-        // No stats found
+        // If no stats exist for this specific file, we cannot prune it.
         if (!statsByFileName.containsKey(fileSliceName)) {
             return true;
         }
@@ -116,7 +159,7 @@ public class HudiColumnStatsIndexSupport
         return evaluateStatisticPredicate(regularColumnPredicates, stats, regularColumns);
     }
 
-    private static boolean evaluateStatisticPredicate(
+    protected static boolean evaluateStatisticPredicate(
             TupleDomain<String> regularColumnPredicates,
             List<HoodieMetadataColumnStats> stats,
             List<String> regularColumns)
@@ -128,8 +171,8 @@ public class HudiColumnStatsIndexSupport
             Domain columnPredicate = regularColumnPredicates.getDomains().get().get(regularColumn);
             Optional<HoodieMetadataColumnStats> currentColumnStats = stats
                     .stream().filter(s -> s.getColumnName().equals(regularColumn)).findFirst();
-            if (!currentColumnStats.isPresent()) {
-                // Mo stats for column
+            if (currentColumnStats.isEmpty()) {
+                // No stats for column
             }
             else {
                 Domain domain = getDomain(regularColumn, columnPredicate.getType(), currentColumnStats.get());
@@ -227,25 +270,5 @@ public class HudiColumnStatsIndexSupport
         Range range = Range.range(type, min, true, max, true);
         ValueSet vs = ValueSet.ofRanges(ImmutableList.of(range));
         return Domain.create(vs, hasNullValue);
-    }
-
-    public static boolean isIndexSupportAvailable(HoodieTableMetaClient metaClient)
-    {
-        return metaClient.getTableConfig().getMetadataPartitions().contains(HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS);
-    }
-
-    public static boolean shouldUseIndex(HoodieTableMetaClient metaClient, TupleDomain<String> tupleDomain)
-    {
-        boolean isIndexSupported = isIndexSupportAvailable(metaClient);
-        if (!isIndexSupported || metaClient.getTableConfig().getTableVersion().lesserThan(HoodieTableVersion.EIGHT)) {
-            return isIndexSupported;
-        }
-
-        // indexDefinition is only available after table version EIGHT
-        // Optimization to check if constraints involves the use of at least one colstats index
-        Map<String, HoodieIndexDefinition> indexDefinitions = IndexSupportFactory.getIndexDefinitions(metaClient);
-        List<String> sourceFields = indexDefinitions.get(HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS)
-                .getSourceFields();
-        return TupleDomainUtils.areSomeFieldsReferenced(tupleDomain, sourceFields);
     }
 }
