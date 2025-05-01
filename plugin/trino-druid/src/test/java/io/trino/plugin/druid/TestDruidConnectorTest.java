@@ -78,6 +78,7 @@ public class TestDruidConnectorTest
     {
         druidServer = closeAfterClass(new TestingDruidServer());
         return DruidQueryRunner.builder(druidServer)
+                .addConnectorProperty("druid.count-distinct-strategy", "EXACT")
                 .setInitialTables(ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER))
                 .build();
     }
