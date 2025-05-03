@@ -257,7 +257,7 @@ The Redshift cluster and the configured S3 bucket must use the same AWS region.
 
 Use the `unload_enabled` [catalog session property](/sql/set-session) to
 deactivate the parallel read during a client session for a specific query, and
-potentially re-activate it again afterwards.
+potentially re-activate it again afterward.
 
 Additionally, define further required [S3 configuration such as IAM key, role,
 or region](/object-storage/file-system-s3), except `fs.native-s3.enabled`,

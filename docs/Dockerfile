@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM python:slim
+FROM python:3.12-slim
 
 # Required by pillow
 RUN apt update -y && apt install -y zlib1g-dev libjpeg-dev libxml2-dev libxslt-dev build-essential xsltproc

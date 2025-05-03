@@ -25,7 +25,6 @@ import jakarta.annotation.Nullable;
 import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.IntFunction;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -77,21 +76,9 @@ public class InterpretedHashGenerator
     @Override
     public long hashPosition(int position, Page page)
     {
-        // Note: this code is duplicated for performance but must logically match hashPosition(position, IntFunction<Block> blockProvider)
         long result = INITIAL_HASH_VALUE;
         for (int i = 0; i < hashCodeOperators.length; i++) {
             Block block = page.getBlock(hashChannels == null ? i : hashChannels[i]);
-            result = CombineHashFunction.getHash(result, nullSafeHash(i, block, position));
-        }
-        return result;
-    }
-
-    public long hashPosition(int position, IntFunction<Block> blockProvider)
-    {
-        // Note: this code is duplicated for performance but must logically match hashPosition(position, Page page)
-        long result = INITIAL_HASH_VALUE;
-        for (int i = 0; i < hashCodeOperators.length; i++) {
-            Block block = blockProvider.apply(hashChannels == null ? i : hashChannels[i]);
             result = CombineHashFunction.getHash(result, nullSafeHash(i, block, position));
         }
         return result;

@@ -55,6 +55,7 @@ import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.deleteIfExists;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class FileCatalogStore
@@ -75,7 +76,7 @@ public final class FileCatalogStore
         List<String> disabledCatalogs = firstNonNull(config.getDisabledCatalogs(), ImmutableList.of());
 
         for (File file : listCatalogFiles(catalogsDirectory)) {
-            String catalogName = getNameWithoutExtension(file.getName());
+            String catalogName = getNameWithoutExtension(file.getName()).toLowerCase(ENGLISH);
             checkArgument(!catalogName.equals(GlobalSystemConnector.NAME), "Catalog name SYSTEM is reserved for internal usage");
             if (disabledCatalogs.contains(catalogName)) {
                 log.info("Skipping disabled catalog %s", catalogName);

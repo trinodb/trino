@@ -98,7 +98,7 @@ versicolor |   34
 :::{function} any_value(x) -> [same as input]
 Returns an arbitrary non-null value `x`, if one exists. `x` can be any
 valid expression. This allows you to return values from columns that are not
-directly part of the aggregation, inluding expressions using these columns,
+directly part of the aggregation, including expressions using these columns,
 in a query.
 
 For example, the following query returns the customer name from the `name`

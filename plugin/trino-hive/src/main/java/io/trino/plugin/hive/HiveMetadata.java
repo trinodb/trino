@@ -2692,7 +2692,7 @@ public class HiveMetadata
         Set<Location> scannedPaths = splitSourceInfo.stream()
                 .map(file -> Location.of((String) file))
                 .collect(toImmutableSet());
-        // track remaining files to be delted for error reporting
+        // track remaining files to be deleted for error reporting
         Set<Location> remainingFilesToDelete = new HashSet<>(scannedPaths);
 
         // delete loop

@@ -175,8 +175,7 @@ public class ParquetWriter
 
         checkArgument(page.getChannelCount() == columnWriters.size());
 
-        Page validationPage = page;
-        recordValidation(validation -> validation.addPage(validationPage));
+        recordValidation(validation -> validation.addPage(page));
 
         int writeOffset = 0;
         while (writeOffset < page.getPositionCount()) {

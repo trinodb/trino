@@ -1,6 +1,6 @@
 # Regular expression functions
 
-All of the regular expression functions use the [Java pattern] syntax,
+All the regular expression functions use the [Java pattern] syntax,
 with a few notable exceptions:
 
 - When using multi-line mode (enabled via the `(?m)` flag),

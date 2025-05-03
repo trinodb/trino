@@ -36,6 +36,16 @@ public class TestDbResourceGroupsOracleFlywayMigration
     }
 
     @Override
+    protected final boolean tableExists(String tableName)
+    {
+        return jdbi.withHandle(handle ->
+                handle.createQuery("SELECT COUNT(*) FROM user_tables WHERE table_name = :tableName")
+                        .bind("tableName", tableName)
+                        .mapTo(Long.class)
+                        .one()) > 0;
+    }
+
+    @Override
     protected void dropAllTables()
     {
         String propertiesTable = "resource_groups_global_properties".toUpperCase(Locale.ENGLISH);

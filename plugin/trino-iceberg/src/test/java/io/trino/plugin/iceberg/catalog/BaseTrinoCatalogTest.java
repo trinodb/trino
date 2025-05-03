@@ -151,7 +151,8 @@ public abstract class BaseTrinoCatalogTest
                     false,
                     _ -> false,
                     newDirectExecutorService(),
-                    directExecutor());
+                    directExecutor(),
+                    newDirectExecutorService());
             assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                     .isFalse();
             assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -180,7 +181,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.newCreateTableTransaction(
                             SESSION,
                             schemaTableName,
-                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
                             Optional.of(tableLocation),
@@ -221,10 +222,10 @@ public abstract class BaseTrinoCatalogTest
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
         try {
             catalog.createNamespace(SESSION, namespace, defaultNamespaceProperties(namespace), new TrinoPrincipal(PrincipalType.USER, SESSION.getUser()));
-            Schema tableSchema = new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get()),
-                    Types.NestedField.of(2, true, "col2", Types.StringType.get()),
-                    Types.NestedField.of(3, true, "col3", Types.TimestampType.withZone()),
-                    Types.NestedField.of(4, true, "col4", Types.StringType.get()));
+            Schema tableSchema = new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get()),
+                    Types.NestedField.optional(2, "col2", Types.StringType.get()),
+                    Types.NestedField.optional(3, "col3", Types.TimestampType.withZone()),
+                    Types.NestedField.optional(4, "col4", Types.StringType.get()));
 
             SortOrder sortOrder = SortOrder.builderFor(tableSchema)
                     .asc("col1")
@@ -295,7 +296,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.newCreateTableTransaction(
                             SESSION,
                             sourceSchemaTableName,
-                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
                             Optional.of(arbitraryTableLocation(catalog, SESSION, sourceSchemaTableName)),
@@ -446,7 +447,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.newCreateTableTransaction(
                             SESSION,
                             table1,
-                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
                             Optional.of(arbitraryTableLocation(catalog, SESSION, table1)),
@@ -457,7 +458,7 @@ public abstract class BaseTrinoCatalogTest
             catalog.newCreateTableTransaction(
                             SESSION,
                             table2,
-                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                             PartitionSpec.unpartitioned(),
                             SortOrder.unsorted(),
                             Optional.of(arbitraryTableLocation(catalog, SESSION, table2)),

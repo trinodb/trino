@@ -114,7 +114,8 @@ implementation is used:
     in Iceberg version 0.11.0.
   - `true`
 * - `iceberg.max-partitions-per-writer`
-  - Maximum number of partitions handled per writer.
+  - Maximum number of partitions handled per writer. The equivalent catalog session property is
+    `max_partitions_per_writer`.
   - `100`
 * - `iceberg.target-max-file-size`
   - Target maximum size of written files; the actual size may be larger.
@@ -945,7 +946,7 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
   - Optionally specifies the file system location URI for the table.
 * - `format_version`
   - Optionally specifies the format version of the Iceberg specification to use
-    for new tables; either `1`, `2` or `3`. Defaults to `2`. Version `2` is required
+    for new tables; either `1` or `2`. Defaults to `2`. Version `2` is required
     for row level deletes.
 * - `max_commit_retry`
   - Number of times to retry a commit before failing. Defaults to the value of 
@@ -968,7 +969,7 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `data_location`
   - Optionally specifies the file system location URI for the table's data files
 * - `extra_properties`
-  - Additional properties added to a Iceberg table. The properties are not used by Trino,
+  - Additional properties added to an Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.
     The properties are not included in the output of `SHOW CREATE TABLE` statements.
 :::
@@ -1377,8 +1378,8 @@ The output of the query has the following columns:
     values in the file.
 * - `nan_value_counts`
   - `map(INTEGER, BIGINT)`
-  - Mapping between the Iceberg column ID and its corresponding count of non-
-    numerical values in the file.
+  - Mapping between the Iceberg column ID and its corresponding count of 
+    non-numerical values in the file.
 * - `lower_bounds`
   - `map(INTEGER, BIGINT)`
   - Mapping between the Iceberg column ID and its corresponding lower bound in

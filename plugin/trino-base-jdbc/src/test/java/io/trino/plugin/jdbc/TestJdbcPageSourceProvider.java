@@ -17,12 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import dev.failsafe.RetryPolicy;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.RecordCursor;
-import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -55,7 +56,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestJdbcRecordSetProvider
+public class TestJdbcPageSourceProvider
 {
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
@@ -101,20 +102,29 @@ public class TestJdbcRecordSetProvider
     }
 
     @Test
-    public void testGetRecordSet()
+    public void testGetPageSource()
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
-        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn));
-        assertThat(recordSet).withFailMessage("recordSet is null").isNotNull();
-
-        RecordCursor cursor = recordSet.cursor();
-        assertThat(cursor).withFailMessage("cursor is null").isNotNull();
+        JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn), DynamicFilter.EMPTY);
+        assertThat(pageSource).withFailMessage("pageSource is null").isNotNull();
 
         Map<String, Long> data = new LinkedHashMap<>();
-        while (cursor.advanceNextPosition()) {
-            data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(2));
-            assertThat(cursor.getSlice(0)).isEqualTo(cursor.getSlice(1));
+        for (SourcePage page = pageSource.getNextSourcePage(); ; page = pageSource.getNextSourcePage()) {
+            if (page == null) {
+                continue;
+            }
+            for (int position = 0; position < page.getPositionCount(); position++) {
+                assertThat(VARCHAR.getSlice(page.getBlock(0), position))
+                        .isEqualTo(VARCHAR.getSlice(page.getBlock(1), position));
+                data.put(
+                        VARCHAR.getSlice(page.getBlock(0), position).toStringUtf8(),
+                        BIGINT.getLong(page.getBlock(2), position));
+            }
+
+            if (pageSource.isFinished()) {
+                break;
+            }
         }
         assertThat(data).isEqualTo(ImmutableMap.<String, Long>builder()
                 .put("one", 1L)
@@ -197,7 +207,7 @@ public class TestJdbcRecordSetProvider
                                 true))));
     }
 
-    private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
+    private ConnectorPageSource getCursor(JdbcTableHandle jdbcTableHandle, List<ColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
         jdbcTableHandle = new JdbcTableHandle(
                 jdbcTableHandle.getRelationHandle(),
@@ -215,9 +225,7 @@ public class TestJdbcRecordSetProvider
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
-        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, jdbcTableHandle, columns);
-
-        return recordSet.cursor();
+        JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor, RetryPolicy.ofDefaults());
+        return pageSourceProvider.createPageSource(transaction, SESSION, split, jdbcTableHandle, columns, DynamicFilter.EMPTY);
     }
 }

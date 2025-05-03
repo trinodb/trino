@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static org.junit.jupiter.api.Assumptions.abort;
 
@@ -24,7 +23,7 @@ public class TestIcebergAvroConnectorTest
 {
     public TestIcebergAvroConnectorTest()
     {
-        super(AVRO, FORMAT_VERSION_SUPPORT_MAX);
+        super(AVRO);
     }
 
     @Override

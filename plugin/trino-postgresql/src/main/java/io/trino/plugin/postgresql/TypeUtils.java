@@ -59,6 +59,8 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.spi.type.UuidType.UUID;
+import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -221,6 +223,10 @@ final class TypeUtils
         if (trinoType instanceof ArrayType arrayType) {
             // process subarray of multi-dimensional array
             return getJdbcObjectArray(session, arrayType.getElementType(), (Block) trinoNative);
+        }
+
+        if (UUID.equals(trinoType)) {
+            return trinoUuidToJavaUuid((Slice) trinoNative);
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + trinoType);

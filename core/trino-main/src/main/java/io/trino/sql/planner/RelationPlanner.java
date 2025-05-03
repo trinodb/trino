@@ -40,6 +40,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Analysis.CorrespondingAnalysis;
 import io.trino.sql.analyzer.Analysis.JsonTableAnalysis;
 import io.trino.sql.analyzer.Analysis.TableArgumentAnalysis;
 import io.trino.sql.analyzer.Analysis.TableFunctionInvocationAnalysis;
@@ -1865,8 +1866,32 @@ class RelationPlanner
         ImmutableListMultimap.Builder<Symbol, Symbol> symbolMapping = ImmutableListMultimap.builder();
         ImmutableList.Builder<PlanNode> sources = ImmutableList.builder();
 
-        for (Relation child : node.getRelations()) {
+        List<Relation> relations = node.getRelations();
+        checkArgument(relations.size() == 2, "relations size must be 2");
+        for (Relation child : relations) {
             RelationPlan plan = process(child, null);
+
+            if (node.getCorresponding().isPresent()) {
+                int[] fieldIndexForVisibleColumn = new int[plan.getDescriptor().getVisibleFieldCount()];
+                int visibleColumn = 0;
+                for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
+                    if (!plan.getDescriptor().getFieldByIndex(i).isHidden()) {
+                        fieldIndexForVisibleColumn[visibleColumn] = i;
+                        visibleColumn++;
+                    }
+                }
+
+                CorrespondingAnalysis correspondingAnalysis = analysis.getCorrespondingAnalysis(child);
+                List<Symbol> requiredColumns = correspondingAnalysis.indexes().stream()
+                        .filter(column -> column < fieldIndexForVisibleColumn.length)
+                        .map(column -> fieldIndexForVisibleColumn[column])
+                        .map(plan::getSymbol)
+                        .collect(toImmutableList());
+
+                ProjectNode projectNode = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), Assignments.identity(requiredColumns));
+                Scope scope = Scope.builder().withRelationType(plan.getScope().getRelationId(), new RelationType(correspondingAnalysis.fields())).build();
+                plan = new RelationPlan(projectNode, scope, requiredColumns, plan.getOuterContext());
+            }
 
             NodeAndMappings planAndMappings;
             List<Type> types = analysis.getRelationCoercion(child);

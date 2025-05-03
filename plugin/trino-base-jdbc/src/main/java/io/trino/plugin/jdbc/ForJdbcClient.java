@@ -11,17 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.iceberg.deletes;
+package io.trino.plugin.jdbc;
 
-import java.nio.ByteBuffer;
+import com.google.inject.BindingAnnotation;
 
-public class TrinoRoaringPositionBitmap
-        extends RoaringPositionBitmap
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@BindingAnnotation
+public @interface ForJdbcClient
 {
-    public static TrinoRoaringPositionBitmap deserialize(ByteBuffer buffer)
-    {
-        TrinoRoaringPositionBitmap bitmap = new TrinoRoaringPositionBitmap();
-        bitmap.setAll(RoaringPositionBitmap.deserialize(buffer));
-        return bitmap;
-    }
 }

@@ -216,15 +216,22 @@ public class NodeStateManager
                 }
             }
             case SHUTTING_DOWN -> {
-                if (currState.state() == DRAINED && nodeState.compareAndSet(currState, currState.toShuttingDown())) {
+                if (isCoordinator) {
+                    throw new UnsupportedOperationException("Cannot shutdown coordinator");
+                }
+                VersionedState shuttingDown = currState.toShuttingDown();
+                if (currState.state() == DRAINED && nodeState.compareAndSet(currState, shuttingDown)) {
                     requestTerminate();
                     return;
                 }
+                nodeState.set(shuttingDown);
                 requestGracefulShutdown();
-                nodeState.set(currState.toShuttingDown());
                 return;
             }
             case DRAINING -> {
+                if (isCoordinator) {
+                    throw new UnsupportedOperationException("Cannot drain coordinator");
+                }
                 if (currState.state() == ACTIVE && nodeState.compareAndSet(currState, currState.toDraining())) {
                     requestDrain();
                     return;
@@ -245,10 +252,7 @@ public class NodeStateManager
 
     private synchronized void requestDrain()
     {
-        log.debug("Drain requested, NodeState: " + getServerState());
-        if (isCoordinator) {
-            throw new UnsupportedOperationException("Cannot drain coordinator");
-        }
+        log.debug("Drain requested, NodeState: %s", getServerState());
 
         // wait for a grace period (so that draining state is observed by the coordinator) before starting draining
         // when coordinator observes draining no new tasks are assigned to this worker
@@ -259,9 +263,6 @@ public class NodeStateManager
     private void requestTerminate()
     {
         log.info("Immediate Shutdown requested");
-        if (isCoordinator) {
-            throw new UnsupportedOperationException("Cannot shutdown coordinator");
-        }
 
         shutdownHandler.schedule(this::terminate, 0, MILLISECONDS);
     }
@@ -269,12 +270,9 @@ public class NodeStateManager
     private void requestGracefulShutdown()
     {
         log.info("Shutdown requested");
-        if (isCoordinator) {
-            throw new UnsupportedOperationException("Cannot shutdown coordinator");
-        }
 
-        // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
         VersionedState expectedState = nodeState.get();
+        // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
         shutdownHandler.schedule(() -> shutdown(expectedState), gracePeriod.toMillis(), MILLISECONDS);
     }
 
@@ -324,7 +322,7 @@ public class NodeStateManager
             log.info("Worker State change: DRAINING -> DRAINED, server can be safely SHUT DOWN.");
         }
         else {
-            log.info("Worker State change: " + nodeState.get() + ", expected: " + expectedState + ", will not transition to DRAINED");
+            log.info("Worker State change: %s, expected: %s, will not transition to DRAINED", nodeState.get(), expectedState);
         }
     }
 
@@ -334,7 +332,7 @@ public class NodeStateManager
         // Wait for all remaining tasks to finish.
         while (nodeState.get() == expectedState) {
             List<TaskInfo> activeTasks = getActiveTasks();
-            log.info("Waiting for " + activeTasks.size() + " active tasks to finish");
+            log.info("Waiting for %s active tasks to finish", activeTasks.size());
             if (activeTasks.isEmpty()) {
                 break;
             }
@@ -355,7 +353,7 @@ public class NodeStateManager
         for (TaskInfo taskInfo : activeTasks) {
             sqlTasksObservable.addStateChangeListener(taskInfo.taskStatus().getTaskId(), newState -> {
                 if (newState.isDone()) {
-                    log.info("Task " + taskInfo.taskStatus().getTaskId() + " has finished");
+                    log.info("Task %s has finished", taskInfo.taskStatus().getTaskId());
                     countDownLatch.countDown();
                 }
             });

@@ -276,7 +276,7 @@ public class OpenSearchMetadata
     {
         String path = appendPath(prefix, field.name());
 
-        checkArgument(!field.asRawJson() || !field.isArray(), format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", path));
+        checkArgument(!field.asRawJson() || !field.isArray(), "A column, (%s) cannot be declared as a Trino array and also be rendered as json.", path);
 
         if (field.asRawJson()) {
             return new TypeAndDecoder(VARCHAR, new RawJsonDecoder.Descriptor(path));

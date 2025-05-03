@@ -15,8 +15,8 @@ final training on a single instance.
 To solve a problem with the machine learning technique, especially as a
 supervised learning problem, it is necessary to represent the data set
 with the sequence of pairs of labels and feature vector. A label is a
-target value you want to predict from the unseen feature and a feature is a
-A N-dimensional vector whose elements are numerical values. In Trino, a
+target value you want to predict from the unseen feature and a feature is 
+a N-dimensional vector whose elements are numerical values. In Trino, a
 feature vector is represented as a map-type value, whose key is an index
 of each feature, so that it can express a sparse vector.
 Since classifiers and regressors can recognize the map-type feature

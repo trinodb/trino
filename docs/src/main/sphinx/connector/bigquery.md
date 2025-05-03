@@ -46,7 +46,7 @@ To connect to BigQuery, you need:
 - To configure BigQuery so that the Trino coordinator and workers have [permissions
   in BigQuery](https://cloud.google.com/bigquery/docs/reference/storage#permissions).
 
-- To set up authentication. Your authentiation options differ depending on whether
+- To set up authentication. Your authentication options differ depending on whether
   you are using Dataproc/Google Compute Engine (GCE) or not.
 
   **On Dataproc/GCE** the authentication is done from the machine's role.
@@ -123,6 +123,7 @@ required, additional JVM argument to the [](jvm-config):
 
 ```none
 --add-opens=java.base/java.nio=ALL-UNNAMED
+--sun-misc-unsafe-memory-access=allow
 ```
 
 (bigquery-reading-from-views)=
@@ -275,7 +276,7 @@ a few caveats:
   - Proxy URI to use if connecting through a proxy.
   -
 * - `bigquery.rpc-proxy.username`
-  - Proxy user name to use if connecting through a proxy.
+  - Proxy username to use if connecting through a proxy.
   -
 * - `bigquery.rpc-proxy.password`
   - Proxy password to use if connecting through a proxy.

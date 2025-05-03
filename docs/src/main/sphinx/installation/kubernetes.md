@@ -251,7 +251,7 @@ deployed in this cluster and the size of the cluster nodes.
 
 :::{warning}
 Some memory settings need to be tuned carefully as setting some values
-outside of the range of the maximum heap size will cause Trino startup to
+outside the range of the maximum heap size will cause Trino startup to
 fail. See the warnings listed on {doc}`/admin/properties-resource-management`.
 :::
 
@@ -341,7 +341,7 @@ below to run `kind` on your system.
    cluster with the `kind-` prefix added. Now you can look at all the
    Kubernetes objects running on your `kind` cluster.
 
-5. Set up Trino by folling the {ref}`running-trino-using-helm` steps. When
+5. Set up Trino by following the {ref}`running-trino-using-helm` steps. When
    running the `kubectl get all` command, add the `context` parameter.
 
    ```text

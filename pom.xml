@@ -5,12 +5,12 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>251</version>
+        <version>256</version>
     </parent>
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>475-SNAPSHOT</version>
+    <version>476-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -149,7 +149,7 @@
     <properties>
         <project.build.targetJdk>23</project.build.targetJdk>
         <!-- for reproducible build support, updated by release plugin -->
-        <project.build.outputTimestamp>2025-03-22T03:10:43Z</project.build.outputTimestamp>
+        <project.build.outputTimestamp>2025-04-23T23:42:41Z</project.build.outputTimestamp>
         <!-- TODO remove this property when no module overrides it -->
         <trino.error-prone.guarded-by>ERROR</trino.error-prone.guarded-by>
 
@@ -180,23 +180,23 @@
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default}</air.test.jvm.additional-arguments>
 
         <!-- keep dependency properties sorted -->
-        <dep.airlift.version>331</dep.airlift.version>
+        <dep.airlift.version>333</dep.airlift.version>
         <dep.alluxio.version>2.9.6</dep.alluxio.version>
         <dep.antlr.version>4.13.2</dep.antlr.version>
         <dep.avro.version>1.12.0</dep.avro.version>
         <dep.aws-sdk.version>1.12.782</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.8.0</dep.confluent.version>
-        <dep.docker.images.version>110</dep.docker.images.version>
+        <dep.docker.images.version>112</dep.docker.images.version>
         <dep.drift.version>1.22</dep.drift.version>
-        <dep.flyway.version>11.7.1</dep.flyway.version>
+        <dep.flyway.version>11.8.0</dep.flyway.version>
         <dep.frontend-maven-plugin.version>1.15.1</dep.frontend-maven-plugin.version>
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
-        <dep.google.http.client.version>1.46.3</dep.google.http.client.version>
+        <dep.google.http.client.version>1.47.0</dep.google.http.client.version>
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
-        <dep.iceberg.version>1.8.1</dep.iceberg.version>
+        <dep.iceberg.version>1.9.0</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
@@ -204,7 +204,7 @@
         <dep.okio.version>3.11.0</dep.okio.version>
         <dep.parquet.version>1.15.1</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
-        <dep.protobuf.version>3.25.6</dep.protobuf.version>
+        <dep.protobuf.version>3.25.7</dep.protobuf.version>
         <dep.snowflake.version>3.23.2</dep.snowflake.version>
         <dep.swagger.version>2.2.30</dep.swagger.version>
         <dep.takari.version>2.2.0</dep.takari.version>
@@ -226,7 +226,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.33</version>
+                <version>1.2.34</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -266,7 +266,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.1.119.Final</version>
+                <version>4.1.121.Final</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -282,7 +282,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.49.0</version>
+                <version>3.49.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -298,7 +298,7 @@
             <dependency>
                 <groupId>org.testcontainers</groupId>
                 <artifactId>testcontainers-bom</artifactId>
-                <version>1.20.6</version>
+                <version>1.21.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -306,7 +306,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.31.22</version>
+                <version>2.31.32</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -314,7 +314,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>4.0.0</version>
+                <version>4.1.1</version>
             </dependency>
 
             <dependency>
@@ -483,7 +483,7 @@
             <dependency>
                 <groupId>com.google.code.gson</groupId>
                 <artifactId>gson</artifactId>
-                <version>2.13.0</version>
+                <version>2.13.1</version>
             </dependency>
 
             <dependency>
@@ -622,7 +622,7 @@
             <dependency>
                 <groupId>info.picocli</groupId>
                 <artifactId>picocli</artifactId>
-                <version>4.7.6</version>
+                <version>4.7.7</version>
             </dependency>
 
             <!-- previous aircompressor used by tests and Iceberg puffin -->
@@ -1923,7 +1923,7 @@
             <dependency>
                 <groupId>org.apache.httpcomponents.client5</groupId>
                 <artifactId>httpclient5</artifactId>
-                <version>5.4.3</version>
+                <version>5.4.4</version>
             </dependency>
 
             <dependency>
@@ -2044,7 +2044,7 @@
             <dependency>
                 <groupId>org.apache.orc</groupId>
                 <artifactId>orc-format</artifactId>
-                <version>1.0.0</version>
+                <version>1.1.0</version>
                 <classifier>shaded-protobuf</classifier>
             </dependency>
 
@@ -2716,21 +2716,6 @@
                             <exception>
                                 <conflictingDependencies>
                                     <dependency>
-                                        <groupId>org.apache.orc</groupId>
-                                        <artifactId>orc-core</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.apache.orc</groupId>
-                                        <artifactId>orc-format</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <packages>
-                                    <package>org.apache.orc</package>
-                                </packages>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
                                         <groupId>org.apache.parquet</groupId>
                                         <artifactId>parquet-hadoop</artifactId>
                                     </dependency>
@@ -2953,6 +2938,7 @@
                                     -Xep:OrphanedFormatString:ERROR \
                                     -Xep:Overrides:ERROR \
                                     -Xep:PatternMatchingInstanceof:ERROR \
+                                    -Xep:PreconditionsExpensiveString:ERROR \
                                     <!-- flags List fields even if initialized with ImmutableList -->
                                     -Xep:PreferredInterfaceType:OFF \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \

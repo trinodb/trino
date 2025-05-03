@@ -46,7 +46,7 @@ Container
 : A lightweight virtual package of software that contains libraries, binaries,
   code, configuration files, and other dependencies needed to deploy an
   application. A running container does not include an operating system,
-  instead using the operating system of the host machine. To learn more, read
+  instead using the operating system of the host machine. To learn more, 
   read about [containers](https://kubernetes.io/docs/concepts/containers/)
   in the Kubernetes documentation.
 
