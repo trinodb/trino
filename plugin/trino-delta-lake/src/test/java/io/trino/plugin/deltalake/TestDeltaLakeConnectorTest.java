@@ -97,8 +97,11 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+import static java.util.Locale.ENGLISH;
 import static java.util.Map.entry;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -4454,32 +4457,6 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testTypeCoercionOnCreateTable()
     {
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.900000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.56'", "TIMESTAMP '1970-01-01 00:00:00.560000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.4896'", "TIMESTAMP '1970-01-01 00:00:00.489600'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.89356'", "TIMESTAMP '1970-01-01 00:00:00.893560'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.100000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.900000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.123456999999'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testTimestampCoercionOnCreateTable("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testCharCoercionOnCreateTable("CHAR 'ab '", "'ab '");
         testCharCoercionOnCreateTable("CHAR 'A'", "'A'");
         testCharCoercionOnCreateTable("CHAR 'é'", "'é'");
@@ -4488,15 +4465,20 @@ public class TestDeltaLakeConnectorTest
         testCharCoercionOnCreateTable("CHAR 'ABc'", "'ABc'");
     }
 
-    private void testTimestampCoercionOnCreateTable(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
+    @Test
+    public void testTimestampCoercionOnCreateTable()
     {
-        try (TestTable testTable = newTrinoTable(
-                "test_timestamp_coercion_on_create_table",
-                "(ts TIMESTAMP)")) {
-            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (" + actualValue + ")", 1);
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6)");
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES " + expectedValue);
-            assertTimestampNtzFeature(testTable.getName());
+        for (TypeCoercionTestSetup setup : typeCoercionTimestampProvider()) {
+            try (TestTable testTable = newTrinoTable(
+                    "test_timestamp_coercion_on_create_table",
+                    "(ts %s)".formatted(setup.newColumnType))) {
+                assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (" + setup.sourceValueLiteral + ")", 1);
+                assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo(setup.newColumnType);
+                assertThat(query("SELECT * FROM " + testTable.getName()))
+                        .skippingTypesCheck()
+                        .matches("SELECT " + setup.newValueLiteral);
+                assertTimestampNtzFeature(testTable.getName());
+            }
         }
     }
 
@@ -4514,32 +4496,6 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testTypeCoercionOnCreateTableAsSelect()
     {
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.900000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.56'", "TIMESTAMP '1970-01-01 00:00:00.560000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.4896'", "TIMESTAMP '1970-01-01 00:00:00.489600'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.89356'", "TIMESTAMP '1970-01-01 00:00:00.893560'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.100000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.900000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.123456999999'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testTimestampCoercionOnCreateTableAsSelect("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testCharCoercionOnCreateTableAsSelect("CHAR 'ab '", "'ab '");
         testCharCoercionOnCreateTableAsSelect("CHAR 'A'", "'A'");
         testCharCoercionOnCreateTableAsSelect("CHAR 'é'", "'é'");
@@ -4548,14 +4504,19 @@ public class TestDeltaLakeConnectorTest
         testCharCoercionOnCreateTableAsSelect("CHAR 'ABc'", "'ABc'");
     }
 
-    private void testTimestampCoercionOnCreateTableAsSelect(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
+    @Test
+    public void testTimestampCoercionOnCreateTableAsSelect()
     {
-        try (TestTable testTable = newTrinoTable(
-                "test_timestamp_coercion_on_create_table_as_select",
-                "AS SELECT %s ts".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6)");
-            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES " + expectedValue);
-            assertTimestampNtzFeature(testTable.getName());
+        for (TypeCoercionTestSetup setup : typeCoercionTimestampProvider()) {
+            try (TestTable testTable = newTrinoTable(
+                    "test_timestamp_coercion_on_create_table_as_select",
+                    "AS SELECT %s ts".formatted(setup.sourceValueLiteral))) {
+                assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo(setup.newColumnType);
+                assertThat(query("SELECT * FROM " + testTable.getName()))
+                        .skippingTypesCheck()
+                        .matches("SELECT " + setup.newValueLiteral);
+                assertTimestampNtzFeature(testTable.getName());
+            }
         }
     }
 
@@ -4572,32 +4533,6 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testTypeCoercionOnCreateTableAsSelectWithNoData()
     {
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.9'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.56'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.4896'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.89356'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123000'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.999'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '2020-09-27 12:34:56.1'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '2020-09-27 12:34:56.9'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '2020-09-27 12:34:56.123000'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '2020-09-27 12:34:56.999'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.1234561'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456499'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456499999'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.123456999999'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.1234565'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.111222333444'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 00:00:00.9999995'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1970-01-01 23:59:59.9999995'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.9999995'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.999999499999'");
-        testTimestampCoercionOnCreateTableAsSelectWithNoData("TIMESTAMP '1969-12-31 23:59:59.9999994'");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'ab '");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'A'");
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'é'");
@@ -4606,13 +4541,16 @@ public class TestDeltaLakeConnectorTest
         testCharCoercionOnCreateTableAsSelectWithNoData("CHAR 'ABc'");
     }
 
-    private void testTimestampCoercionOnCreateTableAsSelectWithNoData(@Language("SQL") String actualValue)
+    @Test
+    public void testTimestampCoercionOnCreateTableAsSelectWithNoData()
     {
-        try (TestTable testTable = newTrinoTable(
-                "test_timestamp_coercion_on_create_table_as_select_with_no_data",
-                "AS SELECT %s ts WITH NO DATA".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("timestamp(6)");
-            assertTimestampNtzFeature(testTable.getName());
+        for (TypeCoercionTestSetup setup : typeCoercionTimestampProvider()) {
+            try (TestTable testTable = newTrinoTable(
+                    "test_timestamp_coercion_on_create_table_as_select_with_no_data",
+                    "AS SELECT %s ts WITH NO DATA".formatted(setup.sourceValueLiteral))) {
+                assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo(setup.newColumnType);
+                assertTimestampNtzFeature(testTable.getName());
+            }
         }
     }
 
@@ -4628,32 +4566,6 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testTypeCoercionOnCreateTableAsWithRowType()
     {
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.56'", "TIMESTAMP '1970-01-01 00:00:00.56'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.4896'", "TIMESTAMP '1970-01-01 00:00:00.4896'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.89356'", "TIMESTAMP '1970-01-01 00:00:00.89356'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.123456999999'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testTimestampCoercionOnCreateTableAsWithRowType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testCharCoercionOnCreateTableAsWithRowType("CHAR 'ab '", "CHAR(3)", "'ab '");
         testCharCoercionOnCreateTableAsWithRowType("CHAR 'A'", "CHAR(3)", "'A  '");
         testCharCoercionOnCreateTableAsWithRowType("CHAR 'A'", "CHAR(1)", "'A'");
@@ -4663,16 +4575,19 @@ public class TestDeltaLakeConnectorTest
         testCharCoercionOnCreateTableAsWithRowType("CHAR 'ABc'", "CHAR(3)", "'ABc'");
     }
 
-    private void testTimestampCoercionOnCreateTableAsWithRowType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
+    @Test
+    public void testTimestampCoercionOnCreateTableAsWithRowType()
     {
-        try (TestTable testTable = newTrinoTable(
-                "test_timestamp_coercion_on_create_table_as_with_row_type",
-                "AS SELECT CAST(row(%s) AS row(value timestamp(6))) ts".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(value timestamp(6))");
-            assertThat(query("SELECT ts.value FROM " + testTable.getName()))
-                    .skippingTypesCheck()
-                    .matches("VALUES " + expectedValue);
-            assertTimestampNtzFeature(testTable.getName());
+        for (TypeCoercionTestSetup setup : typeCoercionTimestampProvider()) {
+            try (TestTable testTable = newTrinoTable(
+                    "test_timestamp_coercion_on_create_table_as_with_row_type",
+                    "AS SELECT CAST(row(%s) AS row(value %s)) ts".formatted(setup.sourceValueLiteral, setup.newColumnType))) {
+                assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("row(value %1$s)".formatted(setup.newColumnType));
+                assertThat(query("SELECT ts.value FROM " + testTable.getName()))
+                        .skippingTypesCheck()
+                        .matches("VALUES " + setup.newValueLiteral);
+                assertTimestampNtzFeature(testTable.getName());
+            }
         }
     }
 
@@ -4691,32 +4606,6 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testTypeCoercionOnCreateTableAsWithArrayType()
     {
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.56'", "TIMESTAMP '1970-01-01 00:00:00.56'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.4896'", "TIMESTAMP '1970-01-01 00:00:00.4896'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.89356'", "TIMESTAMP '1970-01-01 00:00:00.89356'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.123456999999'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testTimestampCoercionOnCreateTableAsWithArrayType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testCharCoercionOnCreateTableAsWithArrayType("CHAR 'ab '", "'ab '");
         testCharCoercionOnCreateTableAsWithArrayType("CHAR 'A'", "'A'");
         testCharCoercionOnCreateTableAsWithArrayType("CHAR 'é'", "'é'");
@@ -4725,16 +4614,19 @@ public class TestDeltaLakeConnectorTest
         testCharCoercionOnCreateTableAsWithArrayType("CHAR 'ABc'", "'ABc'");
     }
 
-    private void testTimestampCoercionOnCreateTableAsWithArrayType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
+    @Test
+    public void testTimestampCoercionOnCreateTableAsWithArrayType()
     {
-        try (TestTable testTable = newTrinoTable(
-                "test_timestamp_coercion_on_create_table_as_with_array_type",
-                "AS SELECT array[%s] ts".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("array(timestamp(6))");
-            assertThat(query("SELECT ts[1] FROM " + testTable.getName()))
-                    .skippingTypesCheck()
-                    .matches("VALUES " + expectedValue);
-            assertTimestampNtzFeature(testTable.getName());
+        for (TypeCoercionTestSetup setup : typeCoercionTimestampProvider()) {
+            try (TestTable testTable = newTrinoTable(
+                    "test_timestamp_coercion_on_create_table_as_with_array_type",
+                    "AS SELECT array[%s] ts".formatted(setup.sourceValueLiteral))) {
+                assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("array(%1$s)".formatted(setup.newColumnType));
+                assertThat(query("SELECT ts[1] FROM " + testTable.getName()))
+                        .skippingTypesCheck()
+                        .matches("VALUES " + setup.newValueLiteral);
+                assertTimestampNtzFeature(testTable.getName());
+            }
         }
     }
 
@@ -4753,32 +4645,6 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testTypeCoercionOnCreateTableAsWithMapType()
     {
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.56'", "TIMESTAMP '1970-01-01 00:00:00.56'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.4896'", "TIMESTAMP '1970-01-01 00:00:00.4896'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.89356'", "TIMESTAMP '1970-01-01 00:00:00.89356'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 00:00:00.123'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.999'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123456'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.1234561'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123456499'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "TIMESTAMP '1970-01-01 00:00:00.123456'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.123456999999'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.1234565'", "TIMESTAMP '1970-01-01 00:00:00.123457'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.111222'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 00:00:00.9999995'", "TIMESTAMP '1970-01-01 00:00:01.000000'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1970-01-01 23:59:59.9999995'", "TIMESTAMP '1970-01-02 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.9999995'", "TIMESTAMP '1970-01-01 00:00:00.000000'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
-        testTimestampCoercionOnCreateTableAsWithMapType("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'");
         testCharCoercionOnCreateTableAsWithMapType("CHAR 'ab '", "'ab '");
         testCharCoercionOnCreateTableAsWithMapType("CHAR 'A'", "'A'");
         testCharCoercionOnCreateTableAsWithMapType("CHAR 'é'", "'é'");
@@ -4787,16 +4653,19 @@ public class TestDeltaLakeConnectorTest
         testCharCoercionOnCreateTableAsWithMapType("CHAR 'ABc'", "'ABc'");
     }
 
-    private void testTimestampCoercionOnCreateTableAsWithMapType(@Language("SQL") String actualValue, @Language("SQL") String expectedValue)
+    @Test
+    public void testTimestampCoercionOnCreateTableAsWithMapType()
     {
-        try (TestTable testTable = newTrinoTable(
-                "test_timestamp_coercion_on_create_table_as_with_map_type",
-                "AS SELECT map(array[%1$s], array[%1$s]) ts".formatted(actualValue))) {
-            assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("map(timestamp(6), timestamp(6))");
-            assertThat(query("SELECT * FROM " + testTable.getName()))
-                    .skippingTypesCheck()
-                    .matches("SELECT map(array[%1$s], array[%1$s])".formatted(expectedValue));
-            assertTimestampNtzFeature(testTable.getName());
+        for (TypeCoercionTestSetup setup : typeCoercionFlatOnlyProvider()) {
+            try (TestTable testTable = newTrinoTable(
+                    "test_timestamp_coercion_on_create_table_as_with_map_type",
+                    "AS SELECT map(array[%1$s], array[%1$s]) ts".formatted(setup.sourceValueLiteral))) {
+                assertThat(getColumnType(testTable.getName(), "ts")).isEqualTo("map(%1$s, %1$s)".formatted(setup.newColumnType));
+                assertThat(query("SELECT * FROM " + testTable.getName()))
+                        .skippingTypesCheck()
+                        .matches("SELECT map(array[%1$s], array[%1$s])".formatted(setup.newValueLiteral));
+                assertTimestampNtzFeature(testTable.getName());
+            }
         }
     }
 
@@ -4809,6 +4678,74 @@ public class TestDeltaLakeConnectorTest
             assertThat(query("SELECT * FROM " + testTable.getName()))
                     .skippingTypesCheck()
                     .matches("SELECT map(array[%1$s], array[%1$s])".formatted(expectedValue));
+        }
+    }
+
+    private List<TypeCoercionTestSetup> typeCoercionFlatOnlyProvider()
+    {
+        return typeCoercionTimestamp().stream()
+                .filter(setup -> !isNestedType(setup.newColumnType()))
+                .collect(toList());
+    }
+
+    private List<TypeCoercionTestSetup> typeCoercionTimestampProvider()
+    {
+        return typeCoercionTimestamp();
+    }
+
+    private boolean isNestedType(String type)
+    {
+        String lowerType = type.toLowerCase(ENGLISH);
+        return (lowerType.contains("array(") || lowerType.contains("map("));
+    }
+
+    private List<TypeCoercionTestSetup> typeCoercionTimestamp()
+    {
+        return ImmutableList.<TypeCoercionTestSetup>builder()
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.900000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.56'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.560000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.4896'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.489600'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.89356'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.893560'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123000'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.999000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.1'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.100000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.9'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.900000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123000'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.999'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.999000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123456'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234561'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234565'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.111222'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:01.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1970-01-01 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-02 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                .add(new TypeCoercionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999994'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                // nested
+                .add(new TypeCoercionTestSetup("ARRAY[ARRAY[TIMESTAMP '1970-01-01 00:00:00.123456']]","array(array(timestamp(6)))","ARRAY[ARRAY[TIMESTAMP '1970-01-01 00:00:00.123456']]"))
+                .add(new TypeCoercionTestSetup("ARRAY[TIMESTAMP '2020-01-01 12:34:56.123456']","array(timestamp(6))","ARRAY[TIMESTAMP '2020-01-01 12:34:56.123456']"))
+                .add(new TypeCoercionTestSetup("MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:00.123456'], ARRAY[TIMESTAMP '1970-01-01 00:00:00.123456'])","map(timestamp(6), timestamp(6))","MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:00.123456'],ARRAY[TIMESTAMP '1970-01-01 00:00:00.123456'])"))
+                .build();
+    }
+
+    public record TypeCoercionTestSetup(@Language("SQL") String sourceValueLiteral, String newColumnType, @Language("SQL") String newValueLiteral)
+    {
+        public TypeCoercionTestSetup
+        {
+            requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
+            requireNonNull(newColumnType, "newColumnType is null");
+            requireNonNull(newValueLiteral, "newValueLiteral is null");
+        }
+
+        public TypeCoercionTestSetup withNewValueLiteral(String newValueLiteral)
+        {
+            return new TypeCoercionTestSetup(sourceValueLiteral, newColumnType, newValueLiteral);
         }
     }
 
