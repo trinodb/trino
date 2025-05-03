@@ -129,7 +129,7 @@ public class TrinoResultSet
             QueryStatusInfo results = client.currentStatusInfo();
             progressCallback.accept(QueryStats.create(results.getId(), results.getStats()));
             List<Column> columns = results.getColumns();
-            if (columns != null) {
+            if (columns != null && !results.getStats().getState().equals("FAILED")) {
                 return columns;
             }
             client.advance();
