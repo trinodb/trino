@@ -495,16 +495,19 @@ public class ParquetReader
     {
         ColumnChunk valueChunk = readColumnChunk(field.getValue());
 
-        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, 1);
-        if (valueChunk.getBlock().getPositionCount() == 0) {
+        int positionCount = valueChunk.getBlock().getPositionCount();
+        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, max(1, positionCount));
+        if (positionCount == 0) {
             variantBlock.appendNull();
         }
         else {
             ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
-            Slice value = VARBINARY.getSlice(valueChunk.getBlock(), 0);
-            Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), 0);
-            Variant variant = new Variant(value.byteArray(), metadata.byteArray());
-            VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
+            for (int position = 0; position < positionCount; position++) {
+                Slice value = VARBINARY.getSlice(valueChunk.getBlock(), position);
+                Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), position);
+                Variant variant = new Variant(value.getBytes(), metadata.getBytes());
+                VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
+            }
         }
         return new ColumnChunk(variantBlock.build(), valueChunk.getDefinitionLevels(), valueChunk.getRepetitionLevels());
     }
