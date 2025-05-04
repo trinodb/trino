@@ -1541,6 +1541,74 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see databricks154.variant_read_after_optimization
+     */
+    @Test
+    public void testVariantReadAfterOptimization()
+            throws Exception
+    {
+        String tableName = "test_variant_read_after_optimization_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks154/variant_read_after_optimization").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('id', 'integer')," +
+                        "('col_variant', 'json')");
+
+        // works with the version before executing optimization
+        assertThat(query("SELECT col_variant FROM " + tableName + " FOR VERSION AS OF 1"))
+                .matches(
+                        """
+                        VALUES
+                        JSON '["a","b","c"]',
+                        JSON '[1,"a",true,null]',
+                        JSON '{"a":1,"b":2}',
+                        JSON '{"a":[1,2],"b":{"x":true}}',
+                        JSON '[{"x":1},{"y":"z"}]'
+                        """);
+        // works correctly with json_extract function
+        assertThat(query("SELECT json_extract(col_variant, '$[1]') AS second_value FROM " + tableName + " FOR VERSION AS OF 1"))
+                .skippingTypesCheck()
+                .matches("VALUES '\"b\"', '\"a\"', NULL, NULL, '{\"y\":\"z\"}'");
+        assertThat(query("SELECT json_extract(col_variant, '$.a') AS second_value FROM " + tableName + " FOR VERSION AS OF 1"))
+                .skippingTypesCheck()
+                .matches("VALUES NULL, NULL, '1', '[1,2]', NULL");
+
+        // after optimization,
+        // all rows of variant column read successfully
+        assertThat(query("SELECT col_variant FROM " + tableName))
+                .matches(
+                        """
+                        VALUES
+                        JSON '["a","b","c"]',
+                        JSON '[1,"a",true,null]',
+                        JSON '{"a":1,"b":2}',
+                        JSON '{"a":[1,2],"b":{"x":true}}',
+                        JSON '[{"x":1},{"y":"z"}]',
+                        JSON '{"nested":[{"x":1},2,null]}',
+                        JSON '{"deep":{"deeper_a":{"value":"va"}}}',
+                        JSON '{"deep":{"deeper_a":{"value":"vaa"},"deeper_b":{"value":"vbb"}}}',
+                        JSON '{"deep":{"deeper_c":{"value":"vc"}}}'
+                        """);
+        // works correctly with json_extract function
+        assertThat(query("SELECT json_extract(col_variant, '$[1]') AS second_value FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES '\"b\"', '\"a\"', NULL, NULL, '{\"y\":\"z\"}', NULL, NULL, NULL, NULL");
+        assertThat(query("SELECT json_extract(col_variant, '$.a') as variant_a FROM " + tableName + " WHERE id <= 4"))
+                .skippingTypesCheck()
+                .matches("VALUES NULL, NULL, '1', '[1,2]'");
+        assertThat(query("SELECT json_extract(col_variant, '$.deep.deeper_a') as variant_deeper_a FROM " + tableName + " WHERE id >= 7"))
+                .skippingTypesCheck()
+                .matches("VALUES '{\"value\":\"va\"}', '{\"value\":\"vaa\"}', NULL");
+        assertThat(query("SELECT json_extract(col_variant, '$.deep.deeper_c') as variant_deeper_c FROM " + tableName + " WHERE id >= 7"))
+                .skippingTypesCheck()
+                .matches("VALUES NULL, NULL, '{\"value\":\"vc\"}'");
+    }
+
+    /**
      * @see databricks153.variant_types
      */
     @Test
