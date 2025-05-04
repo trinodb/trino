@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SourcePage;
 import org.roaringbitmap.longlong.ImmutableLongBitmapDataProvider;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
@@ -39,7 +40,7 @@ public final class PositionDeleteFilter
     }
 
     @Override
-    public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long dataSequenceNumber)
+    public RowPredicate createPredicate(ConnectorSession session, List<IcebergColumnHandle> columns, long dataSequenceNumber)
     {
         int filePosChannel = rowPositionChannel(columns);
         return (page, position) -> {

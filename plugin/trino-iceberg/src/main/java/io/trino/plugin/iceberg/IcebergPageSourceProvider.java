@@ -349,6 +349,7 @@ public class IcebergPageSourceProvider
         if (!deletes.isEmpty()) {
             Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
                     .getDeletePredicate(
+                            session,
                             path,
                             dataSequenceNumber,
                             deletes,

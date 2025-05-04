@@ -95,6 +95,7 @@ import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
+import static io.trino.plugin.iceberg.delete.TrinoRow.rowData;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -291,6 +292,18 @@ public class TestIcebergV2
         Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
+    }
+
+    @Test
+    public void testV2TableWithEqualityDeleteWhenColumnIsRow()
+            throws Exception
+    {
+        String tableName = "test_v2_equality_delete_column_is_row" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS " +
+                "SELECT CAST(ROW(1, 2) AS ROW(x BIGINT, y DOUBLE)) row_column, regionkey FROM tpch.tiny.nation", 25);
+        Table icebergTable = loadTable(tableName);
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.empty(), ImmutableMap.of("row_column", rowData(1L, 2.0)));
+        assertQueryReturnsEmptyResult("SELECT row_column.x FROM " + tableName);
     }
 
     @Test
