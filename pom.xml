@@ -202,7 +202,7 @@
         <dep.jts.version>1.20.0</dep.jts.version>
         <dep.kafka-clients.version>4.0.0</dep.kafka-clients.version>
         <dep.okio.version>3.11.0</dep.okio.version>
-        <dep.parquet.version>1.15.1</dep.parquet.version>
+        <dep.parquet.version>1.15.2</dep.parquet.version>
         <dep.plugin.failsafe.version>${dep.plugin.surefire.version}</dep.plugin.failsafe.version>
         <dep.protobuf.version>3.25.7</dep.protobuf.version>
         <dep.snowflake.version>3.23.2</dep.snowflake.version>
