@@ -81,14 +81,15 @@ extensions = [
     'issue',
     'sphinx_copybutton',
     'redirects',
-    'sphinxcontrib.jquery'
+    'sphinxcontrib.jquery',
+    'sphinx_immaterial'
 ]
 
 redirects_file = 'redirects.txt'
 
 templates_path = ['templates']
 
-source_suffix = '.rst'
+source_suffix = '.md'
 
 master_doc = 'index'
 
@@ -122,7 +123,7 @@ myst_substitutions = {
 
 # -- Options for HTML output ---------------------------------------------------
 
-html_theme = 'sphinx_material'
+html_theme = 'sphinx_immaterial'
 
 html_static_path = ['static']
 
@@ -141,17 +142,56 @@ html_sidebars = {
 }
 
 html_theme_options = {
-    'base_url': html_baseurl,
-    'globaltoc_depth': -1,
-    'theme_color': '2196f3',
-    'color_primary': '',  # set in CSS
-    'color_accent': '',   # set in CSS
+    'site_url': html_baseurl,
+    'toc_title': 'Contents',
+    'features': [
+        'content.action.edit',
+        'content.action.view',
+        'content.code.copy',
+        'content.tabs.link',
+        'content.tooltips'
+        'navigation.expand',
+        'navigation.footer',
+        'navigation.sections',
+        'navigation.top',
+        'navigation.tracking',
+        'search.share',
+        'search.suggest',
+        'toc.follow',
+    ],
+    'icon': {
+        'repo': 'fontawesome/brands/github-alt'
+    },
+    'palette': [
+        {
+            'media': '(prefers-color-scheme)',
+            'scheme': 'default',
+            'toggle': {
+                'icon': 'material/brightness-auto',
+                'name': 'Switch to light mode',
+            }
+        },
+        {
+            'media': '(prefers-color-scheme: light)',
+            'scheme': 'default',
+            'toggle': {
+                'icon': 'material/weather-sunny',
+                'name': 'Switch to dark mode',
+            }
+        },
+        {
+            'media': '(prefers-color-scheme: dark)',
+            'scheme': 'slate',
+            'toggle': {
+                'icon': 'material/weather-night',
+                'name': 'Switch to system preference',
+            }
+        },
+    ],
     'repo_url': 'https://github.com/trinodb/trino',
     'repo_name': 'Trino',
-    'version_json': '../versions.json',
-    'nav_previous_text': 'Previous',
-    'nav_next_text': 'Next',
-    'search_placeholder_text': 'Search'
+    'version_dropdown': True,
+    'version_json': '../versions.json'
 }
 
 html_css_files = [
@@ -160,4 +200,12 @@ html_css_files = [
 
 suppress_warnings = [
     'config.cache'
+]
+
+object_description_options = [
+    ("c:.*", dict(toc_icon_class=None, toc_icon_text=None)),
+    ("cpp:.*", dict(toc_icon_class=None, toc_icon_text=None)),
+    ("py:.*", dict(toc_icon_class=None, toc_icon_text=None)),
+    ("json:.*", dict(toc_icon_class=None, toc_icon_text=None)),
+    ("std:.*", dict(toc_icon_class=None, toc_icon_text=None))
 ]
