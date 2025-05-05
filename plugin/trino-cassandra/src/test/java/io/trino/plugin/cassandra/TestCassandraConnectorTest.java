@@ -94,6 +94,7 @@ public class TestCassandraConnectorTest
                  SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                  SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
                  SUPPORTS_CREATE_VIEW,
+                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_MAP_TYPE,
                  SUPPORTS_MERGE,
                  SUPPORTS_NOT_NULL_CONSTRAINT,
