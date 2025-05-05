@@ -16,9 +16,9 @@ package io.trino.execution;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
-import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -26,9 +26,11 @@ import io.trino.operator.BlockedReason;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
@@ -48,7 +50,7 @@ public class StageStats
 {
     private final DateTime schedulingComplete;
 
-    private final DistributionSnapshot getSplitDistribution;
+    private final Map<PlanNodeId, DistributionSnapshot> getSplitDistribution;
 
     private final int totalTasks;
     private final int runningTasks;
@@ -124,7 +126,7 @@ public class StageStats
     public StageStats(
             @JsonProperty("schedulingComplete") DateTime schedulingComplete,
 
-            @JsonProperty("getSplitDistribution") DistributionSnapshot getSplitDistribution,
+            @JsonProperty("getSplitDistribution") Map<PlanNodeId, DistributionSnapshot> getSplitDistribution,
 
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
@@ -197,7 +199,7 @@ public class StageStats
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
         this.schedulingComplete = schedulingComplete;
-        this.getSplitDistribution = requireNonNull(getSplitDistribution, "getSplitDistribution is null");
+        this.getSplitDistribution = ImmutableMap.copyOf(requireNonNull(getSplitDistribution, "getSplitDistribution is null"));
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
         this.totalTasks = totalTasks;
@@ -297,7 +299,7 @@ public class StageStats
     }
 
     @JsonProperty
-    public DistributionSnapshot getGetSplitDistribution()
+    public Map<PlanNodeId, DistributionSnapshot> getGetSplitDistribution()
     {
         return getSplitDistribution;
     }
@@ -753,7 +755,7 @@ public class StageStats
         Duration zeroSeconds = new Duration(0, SECONDS);
         return new StageStats(
                 null,
-                new Distribution().snapshot(),
+                ImmutableMap.of(),
                 0,
                 0,
                 0,

@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -56,6 +57,7 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.execution.StageState.ABORTED;
@@ -89,7 +91,7 @@ public class StageStateMachine
     private final AtomicReference<ExecutionFailureInfo> failureCause = new AtomicReference<>();
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
-    private final Distribution getSplitDistribution = new Distribution();
+    private final Map<PlanNodeId, Distribution> getSplitDistribution = new ConcurrentHashMap<>();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
     private final AtomicLong peakRevocableMemory = new AtomicLong();
@@ -604,7 +606,7 @@ public class StageStateMachine
 
         StageStats stageStats = new StageStats(
                 schedulingComplete.get(),
-                getSplitDistribution.snapshot(),
+                getSplitDistributionSnapshot(),
 
                 totalTasks,
                 runningTasks,
@@ -741,10 +743,10 @@ public class StageStateMachine
         return operatorStatsBuilder.build();
     }
 
-    public void recordGetSplitTime(long startNanos)
+    public void recordGetSplitTime(PlanNodeId nodeId, long startNanos)
     {
         long elapsedNanos = System.nanoTime() - startNanos;
-        getSplitDistribution.add(elapsedNanos);
+        getSplitDistribution.computeIfAbsent(nodeId, (_) -> new Distribution()).add(elapsedNanos);
         scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
     }
 
@@ -755,5 +757,12 @@ public class StageStateMachine
                 .add("stageId", stageId)
                 .add("stageState", stageState)
                 .toString();
+    }
+
+    private Map<PlanNodeId, Distribution.DistributionSnapshot> getSplitDistributionSnapshot()
+    {
+        return getSplitDistribution.entrySet()
+                .stream()
+                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().snapshot()));
     }
 }

@@ -247,7 +247,7 @@ public class SourcePartitionedScheduler
                 nextSplitBatchFuture = splitSource.getNextBatch(splitBatchSize);
 
                 long start = System.nanoTime();
-                addSuccessCallback(nextSplitBatchFuture, () -> stageExecution.recordGetSplitTime(start));
+                addSuccessCallback(nextSplitBatchFuture, () -> stageExecution.recordGetSplitTime(partitionedNode, start));
             }
 
             if (nextSplitBatchFuture.isDone()) {
