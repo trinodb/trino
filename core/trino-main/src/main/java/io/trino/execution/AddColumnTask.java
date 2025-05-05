@@ -32,6 +32,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.LiteralInterpreter;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
@@ -55,10 +56,12 @@ import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.ColumnDefaultOptions.evaluateLiteral;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -108,6 +111,7 @@ public class AddColumnTask
         TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, tableHandle);
         Map<String, ColumnMetadata> columns = tableMetadata.columns().stream()
                 .collect(toImmutableMap(ColumnMetadata::getName, identity()));
+        LiteralInterpreter literalInterpreter = new LiteralInterpreter(plannerContext, session);
 
         ColumnDefinition element = statement.getColumn();
         Identifier columnName = element.getName().getOriginalParts().get(0);
@@ -132,6 +136,9 @@ public class AddColumnTask
                 }
                 return immediateVoidFuture();
             }
+            if (element.getDefaultValue().isPresent() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE)) {
+                throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support default value for column name '%s'", catalogHandle, columnName);
+            }
             if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                 throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, columnName);
             }
@@ -149,9 +156,11 @@ public class AddColumnTask
                     bindParameters(statement, parameters),
                     true);
 
+            Type supportedType = getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type);
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
-                    .setType(getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type))
+                    .setType(supportedType)
+                    .setDefaultValue(element.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, type)))
                     .setNullable(element.isNullable())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)

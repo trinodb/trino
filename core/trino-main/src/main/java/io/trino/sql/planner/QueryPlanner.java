@@ -786,6 +786,7 @@ class QueryPlanner
         Metadata metadata = plannerContext.getMetadata();
         List<ColumnSchema> dataColumnSchemas = mergeAnalysis.getDataColumnSchemas();
         ImmutableList.Builder<WhenClause> whenClauses = ImmutableList.builder();
+        Map<ColumnHandle, Expression> defaultColumnValues = mergeAnalysis.getDefaultColumnValues();
         Set<ColumnHandle> nonNullableColumnHandles = mergeAnalysis.getNonNullableColumnHandles();
         for (int caseNumber = 0; caseNumber < merge.getMergeCases().size(); caseNumber++) {
             MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
@@ -819,10 +820,15 @@ class QueryPlanner
                 }
                 else {
                     Expression expression = field.toSymbolReference();
-                    if (mergeCase instanceof MergeInsert && nonNullableColumnHandles.contains(dataColumnHandle)) {
+                    if (mergeCase instanceof MergeInsert) {
                         ColumnSchema columnSchema = dataColumnSchemas.get(fieldNumber);
-                        String columnName = columnSchema.getName();
-                        expression = new Coalesce(expression, new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
+                        if (defaultColumnValues.containsKey(dataColumnHandle)) {
+                            expression = defaultColumnValues.get(dataColumnHandle);
+                        }
+                        if (nonNullableColumnHandles.contains(dataColumnHandle)) {
+                            String columnName = columnSchema.getName();
+                            expression = new Coalesce(expression, new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), columnSchema.getType()));
+                        }
                     }
 
                     rowBuilder.add(expression);
