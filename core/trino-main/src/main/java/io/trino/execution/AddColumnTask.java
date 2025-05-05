@@ -27,16 +27,19 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.LiteralInterpreter;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.Literal;
 
 import java.util.List;
 import java.util.Map;
@@ -52,9 +55,11 @@ import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
@@ -108,6 +113,7 @@ public class AddColumnTask
         TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, tableHandle);
         Map<String, ColumnMetadata> columns = tableMetadata.columns().stream()
                 .collect(toImmutableMap(ColumnMetadata::getName, identity()));
+        LiteralInterpreter literalInterpreter = new LiteralInterpreter(plannerContext, session);
 
         ColumnDefinition element = statement.getColumn();
         Identifier columnName = element.getName().getOriginalParts().get(0);
@@ -132,6 +138,9 @@ public class AddColumnTask
                 }
                 return immediateVoidFuture();
             }
+            if (element.getDefaultValue().isPresent() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE)) {
+                throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support default value for column name '%s'", catalogHandle, columnName);
+            }
             if (!element.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                 throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogHandle, columnName);
             }
@@ -149,9 +158,11 @@ public class AddColumnTask
                     bindParameters(statement, parameters),
                     true);
 
+            Type supportedType = getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type);
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
-                    .setType(getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type))
+                    .setType(supportedType)
+                    .setDefaultValue(element.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, supportedType)))
                     .setNullable(element.isNullable())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)
@@ -247,6 +258,17 @@ public class AddColumnTask
         return plannerContext.getMetadata()
                 .getSupportedType(session, catalogHandle, tableProperties, type)
                 .orElse(type);
+    }
+
+    private static NullableValue evaluateLiteral(LiteralInterpreter literalInterpreter, Literal literal, Type type)
+    {
+        try {
+            // NullableValue constructor checks the type compatibility between type and value
+            return new NullableValue(type, literalInterpreter.evaluate(literal, type));
+        }
+        catch (RuntimeException e) {
+            throw semanticException(INVALID_LITERAL, literal, e, "'%s' is not a valid %s literal", literal, type.getDisplayName().toUpperCase(ENGLISH));
+        }
     }
 
     private static io.trino.spi.connector.ColumnPosition toConnectorColumnPosition(ColumnPosition columnPosition)

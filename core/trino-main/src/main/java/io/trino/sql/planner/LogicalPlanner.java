@@ -50,6 +50,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.statistics.TableStatistics;
@@ -535,7 +536,7 @@ public class LogicalPlanner
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                expression = new Constant(column.getType(), null);
+                expression = new Constant(column.getType(), column.getDefaultValue().map(NullableValue::getValue).orElse(null));
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);

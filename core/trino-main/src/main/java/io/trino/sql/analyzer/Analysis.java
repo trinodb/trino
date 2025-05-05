@@ -52,6 +52,7 @@ import io.trino.spi.eventlistener.TableReferenceInfo;
 import io.trino.spi.eventlistener.ViewReferenceInfo;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -1874,6 +1875,7 @@ public class Analysis
         private final List<List<ColumnHandle>> mergeCaseColumnHandles;
         // Case number map to columns
         private final Multimap<Integer, ColumnHandle> updateCaseColumnHandles;
+        private final Map<ColumnHandle, NullableValue> defaultColumnValues;
         private final Set<ColumnHandle> nonNullableColumnHandles;
         private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
         private final RowType mergeRowType;
@@ -1890,6 +1892,7 @@ public class Analysis
                 List<ColumnHandle> redistributionColumnHandles,
                 List<List<ColumnHandle>> mergeCaseColumnHandles,
                 Multimap<Integer, ColumnHandle> updateCaseColumnHandles,
+                Map<ColumnHandle, NullableValue> defaultColumnValues,
                 Set<ColumnHandle> nonNullableColumnHandles,
                 Map<ColumnHandle, Integer> columnHandleFieldNumbers,
                 RowType mergeRowType,
@@ -1905,6 +1908,7 @@ public class Analysis
             this.redistributionColumnHandles = requireNonNull(redistributionColumnHandles, "redistributionColumnHandles is null");
             this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
             this.updateCaseColumnHandles = requireNonNull(updateCaseColumnHandles, "updateCaseColumnHandles is null");
+            this.defaultColumnValues = ImmutableMap.copyOf(defaultColumnValues);
             this.nonNullableColumnHandles = requireNonNull(nonNullableColumnHandles, "nonNullableColumnHandles is null");
             this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
             this.mergeRowType = requireNonNull(mergeRowType, "mergeRowType is null");
@@ -1943,6 +1947,11 @@ public class Analysis
         public Multimap<Integer, ColumnHandle> getUpdateCaseColumnHandles()
         {
             return updateCaseColumnHandles;
+        }
+
+        public Map<ColumnHandle, NullableValue> getDefaultColumnValues()
+        {
+            return defaultColumnValues;
         }
 
         public Set<ColumnHandle> getNonNullableColumnHandles()
