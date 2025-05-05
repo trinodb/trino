@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
@@ -38,6 +39,7 @@ import io.trino.metadata.TablePropertyManager;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewPropertyManager;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -50,13 +52,32 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DateType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ColumnDefinition;
@@ -64,12 +85,17 @@ import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.DecimalLiteral;
+import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.ExplainAnalyze;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.GrantObject;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
@@ -160,6 +186,11 @@ import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static io.trino.sql.tree.LogicalExpression.and;
 import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.type.DateTimes.formatTimestamp;
+import static io.trino.util.DateTimeUtils.printDate;
+import static java.lang.Double.longBitsToDouble;
+import static java.lang.Float.intBitsToFloat;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -637,8 +668,10 @@ public final class ShowQueriesRewrite
                                 column.getProperties(),
                                 allColumnProperties);
                         return new ColumnDefinition(
+                                node.getLocation().orElse(null),
                                 QualifiedName.of(column.getName()),
                                 toSqlType(column.getType()),
+                                column.getDefaultValue().map((Object value) -> toLiteral(column.getType(), value)),
                                 column.isNullable(),
                                 propertyNodes,
                                 Optional.ofNullable(column.getComment()));
@@ -657,6 +690,51 @@ public final class ShowQueriesRewrite
                     propertyNodes,
                     connectorTableMetadata.getComment());
             return singleValueQuery("Create Table", formatSql(createTable).trim());
+        }
+
+        private static Literal toLiteral(Type type, Object value)
+                throws TrinoException
+        {
+            // TODO: Support all literals
+            return switch (type) {
+                case BooleanType _ -> new BooleanLiteral(value.toString());
+                case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> new LongLiteral(value.toString());
+                case RealType _ -> {
+                    float real = intBitsToFloat((Integer) value);
+                    yield new GenericLiteral("REAL", Float.toString(real));
+                }
+                case DoubleType _ -> {
+                    double doubleValue = longBitsToDouble((Long) value);
+                    yield new DoubleLiteral(Double.toString(doubleValue));
+                }
+                case DecimalType decimalType -> {
+                    if (decimalType.isShort()) {
+                        yield new DecimalLiteral(Decimals.toString((int) value, decimalType.getScale()));
+                    }
+                    yield new DecimalLiteral(Decimals.toString(((Int128) value).toBigInteger(), decimalType.getScale()));
+                }
+                case CharType _, VarcharType _ -> new StringLiteral(((Slice) value).toStringUtf8());
+                case VarbinaryType _ -> new BinaryLiteral(null, value.toString());
+                // TODO: Support INTERVAL YEAR TO MONTH and INTERVAL DAY TO SECOND types
+                case TimeType timeType -> new GenericLiteral("TIME", SqlTime.newInstance(timeType.getPrecision(), (long) value).toString());
+                case DateType _ -> new GenericLiteral("DATE", printDate((int) value));
+                case TimestampType timestampType -> {
+                    long epochMicros;
+                    int fraction;
+
+                    if (timestampType.isShort()) {
+                        epochMicros = (long) value;
+                        fraction = 0;
+                    }
+                    else {
+                        LongTimestamp timestamp = (LongTimestamp) value;
+                        epochMicros = timestamp.getEpochMicros();
+                        fraction = timestamp.getPicosOfMicro();
+                    }
+                    yield new GenericLiteral("TIMESTAMP", formatTimestamp(timestampType.getPrecision(), epochMicros, fraction, UTC));
+                }
+                default -> throw new IllegalArgumentException("Unsupported type: " + type);
+            };
         }
 
         private Query showCreateSchema(ShowCreate node)

@@ -15,17 +15,23 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
@@ -34,11 +40,13 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -47,12 +55,14 @@ import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,6 +70,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestAddColumnTask
         extends BaseDataDefinitionTaskTest
 {
+    @Override
+    @BeforeEach
+    public void setUp()
+    {
+        super.setUp();
+        metadata = new MockMetadataWithDefaultValue(TEST_CATALOG_NAME, ImmutableSet.of(DEFAULT_COLUMN_VALUE));
+        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+    }
+
     @Test
     public void testAddColumn()
     {
@@ -122,6 +141,64 @@ public class TestAddColumnTask
                                 .setType(INTEGER)
                                 .setComment(Optional.of("test comment"))
                                 .build());
+    }
+
+    @Test
+    void testAddDefaultColumn()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
+                .containsExactly(new ColumnMetadata("test", BIGINT));
+
+        ColumnDefinition column = new ColumnDefinition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("new_col"),
+                toSqlType(INTEGER),
+                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")),
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+
+        getFutureValue(executeAddColumn(asQualifiedName(tableName), column, new ColumnPosition.Last(), false, false));
+
+        List<ColumnMetadata> columns = metadata.getTableMetadata(testSession, table).columns();
+        assertThat(columns).hasSize(2);
+
+        assertThat(columns.get(0).getName()).isEqualTo("test");
+
+        assertThat(columns.get(1).getName()).isEqualTo("new_col");
+        assertThat(columns.get(1).getDefaultValue()).contains(123L);
+    }
+
+    @Test
+    void testAddDefaultColumnWithUnsupportedConnector()
+    {
+        Metadata metadata = new MockMetadataWithDefaultValue(TEST_CATALOG_NAME, ImmutableSet.of());
+        PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
+                .containsExactly(new ColumnMetadata("test", BIGINT));
+
+        ColumnDefinition column = new ColumnDefinition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("new_col"),
+                toSqlType(INTEGER),
+                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")),
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+        AddColumn addColumn = new AddColumn(new NodeLocation(1, 1), asQualifiedName(tableName), column, Optional.of(new ColumnPosition.Last()), false, false);
+
+        assertTrinoExceptionThrownBy(() ->
+                getFutureValue(new AddColumnTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager)
+                        .execute(addColumn, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP)))
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessage("line 1:1: Catalog 'test_catalog' does not support default value for column name 'new_col'");
     }
 
     @Test
@@ -357,5 +434,23 @@ public class TestAddColumnTask
     {
         return new ConnectorTableMetadata(tableName.asSchemaTableName(), ImmutableList.of(
                 new ColumnMetadata("col", rowType(fields))));
+    }
+
+    private static class MockMetadataWithDefaultValue
+            extends MockMetadata
+    {
+        private final Set<ConnectorCapabilities> capabilities;
+
+        public MockMetadataWithDefaultValue(String catalogName, Set<ConnectorCapabilities> capabilities)
+        {
+            super(catalogName);
+            this.capabilities = ImmutableSet.copyOf(capabilities);
+        }
+
+        @Override
+        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogHandle catalogHandle)
+        {
+            return capabilities;
+        }
     }
 }

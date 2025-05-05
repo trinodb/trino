@@ -535,7 +535,7 @@ public class LogicalPlanner
                 if (supportsMissingColumnsOnInsert) {
                     continue;
                 }
-                expression = new Constant(column.getType(), null);
+                expression = new Constant(column.getType(), column.getDefaultValue().orElse(null));
             }
             else {
                 Symbol input = visibleFieldMappings.get(index);
