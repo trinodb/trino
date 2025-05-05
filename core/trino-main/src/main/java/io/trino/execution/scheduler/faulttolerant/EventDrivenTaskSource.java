@@ -52,8 +52,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
-import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -83,7 +83,7 @@ class EventDrivenTaskSource
     private final int splitBatchSize;
     private final long targetExchangeSplitSizeInBytes;
     private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
-    private final LongConsumer getSplitTimeRecorder;
+    private final BiConsumer<PlanNodeId, Long> getSplitTimeRecorder;
 
     @GuardedBy("this")
     private boolean initialized;
@@ -112,7 +112,7 @@ class EventDrivenTaskSource
             int splitBatchSize,
             long targetExchangeSplitSizeInBytes,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            LongConsumer getSplitTimeRecorder)
+            BiConsumer<PlanNodeId, Long> getSplitTimeRecorder)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
@@ -256,7 +256,7 @@ class EventDrivenTaskSource
         private final Optional<PlanFragmentId> sourceFragmentId;
         private final SplitSource splitSource;
         private final int splitBatchSize;
-        private final LongConsumer getSplitTimeRecorder;
+        private final BiConsumer<PlanNodeId, Long> getSplitTimeRecorder;
 
         @GuardedBy("this")
         private Optional<CallbackProxyFuture<SplitBatchReference>> future = Optional.empty();
@@ -272,7 +272,7 @@ class EventDrivenTaskSource
                 Optional<PlanFragmentId> sourceFragmentId,
                 SplitSource splitSource,
                 int splitBatchSize,
-                LongConsumer getSplitTimeRecorder)
+                BiConsumer<PlanNodeId, Long> getSplitTimeRecorder)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
@@ -288,7 +288,7 @@ class EventDrivenTaskSource
             if (future.isEmpty() && !finished) {
                 long start = System.nanoTime();
                 future = Optional.of(new CallbackProxyFuture<>(Futures.transform(splitSource.getNextBatch(splitBatchSize), batch -> {
-                    getSplitTimeRecorder.accept(start);
+                    getSplitTimeRecorder.accept(planNodeId, start);
                     if (batch.isLastBatch()) {
                         Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
                         // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.

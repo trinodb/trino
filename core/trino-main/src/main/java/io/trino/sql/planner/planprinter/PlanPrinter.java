@@ -192,6 +192,7 @@ public class PlanPrinter
     private final PlanRepresentation representation;
     private final Function<TableScanNode, TableInfo> tableInfoSupplier;
     private final Map<DynamicFilterId, DynamicFilterDomainStats> dynamicFilterDomainStats;
+    private final Map<PlanNodeId, Long> getSplitsTotalTimeNanos;
     private final ValuePrinter valuePrinter;
     private final Anonymizer anonymizer;
 
@@ -204,18 +205,21 @@ public class PlanPrinter
             ValuePrinter valuePrinter,
             StatsAndCosts estimatedStatsAndCosts,
             Optional<Map<PlanNodeId, PlanNodeStats>> stats,
+            Map<PlanNodeId, Long> getSplitsTotalTimeNanos,
             Anonymizer anonymizer)
     {
         requireNonNull(planRoot, "planRoot is null");
         requireNonNull(tableInfoSupplier, "tableInfoSupplier is null");
         requireNonNull(dynamicFilterDomainStats, "dynamicFilterDomainStats is null");
         requireNonNull(valuePrinter, "valuePrinter is null");
+        requireNonNull(getSplitsTotalTimeNanos, "getSplitsTotalTimeNanos is null");
         requireNonNull(estimatedStatsAndCosts, "estimatedStatsAndCosts is null");
         requireNonNull(stats, "stats is null");
         requireNonNull(anonymizer, "anonymizer is null");
 
         this.tableInfoSupplier = tableInfoSupplier;
         this.dynamicFilterDomainStats = ImmutableMap.copyOf(dynamicFilterDomainStats);
+        this.getSplitsTotalTimeNanos = ImmutableMap.copyOf(getSplitsTotalTimeNanos);
         this.valuePrinter = valuePrinter;
         this.anonymizer = anonymizer;
 
@@ -264,6 +268,7 @@ public class PlanPrinter
                 valuePrinter,
                 StatsAndCosts.empty(),
                 Optional.empty(),
+                ImmutableMap.of(),
                 new NoOpAnonymizer())
                 .toJson();
     }
@@ -284,6 +289,7 @@ public class PlanPrinter
                 valuePrinter,
                 estimatedStatsAndCosts,
                 Optional.empty(),
+                ImmutableMap.of(),
                 new NoOpAnonymizer())
                 .toJson();
     }
@@ -342,6 +348,7 @@ public class PlanPrinter
                                 valuePrinter,
                                 planFragment.getStatsAndCosts(),
                                 Optional.empty(),
+                                ImmutableMap.of(),
                                 anonymizer)
                                 .toJsonRenderedNode()));
         return DISTRIBUTED_PLAN_CODEC.toJson(anonymizedPlan);
@@ -380,6 +387,7 @@ public class PlanPrinter
                 valuePrinter,
                 estimatedStatsAndCosts,
                 Optional.empty(),
+                ImmutableMap.of(),
                 new NoOpAnonymizer())
                 .toText(verbose, level));
         return builder.toString();
@@ -504,10 +512,6 @@ public class PlanPrinter
                             stageStats.getPeakUserMemoryReservation().succinct(),
                             tasks.size(),
                             maxPeakTaskMemoryUsage.succinct()));
-            if (stageStats.getGetSplitDistribution().getTotal() > 0) {
-                builder.append(indentString(1))
-                        .append(format("Total split distribution time: %sms\n", formatDouble(stageStats.getGetSplitDistribution().getTotal() / 1_000_000)));
-            }
             Optional<DistributionSnapshot> outputBufferUtilization = stageInfo.get().getStageStats().getOutputBufferUtilization();
             if (verbose && outputBufferUtilization.isPresent()) {
                 builder.append(indentString(1))
@@ -581,6 +585,10 @@ public class PlanPrinter
         partitioningScheme.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sOutput partition count: %s\n", indentString(1), partitionCount)));
         fragment.getPartitionCount().ifPresent(partitionCount -> builder.append(format("%sInput partition count: %s\n", indentString(1), partitionCount)));
 
+        Map<PlanNodeId, Long> getSplitsTotalTimeNanos = stageInfo.map(info -> info.getStageStats().getGetSplitDistribution()
+                        .entrySet().stream()
+                        .collect(toImmutableMap(Entry::getKey, entry -> (long) entry.getValue().getTotal())))
+                .orElse(ImmutableMap.of());
         builder.append(
                         new PlanPrinter(
                                 fragment.getRoot(),
@@ -589,6 +597,7 @@ public class PlanPrinter
                                 valuePrinter,
                                 fragment.getStatsAndCosts(),
                                 planNodeStats,
+                                getSplitsTotalTimeNanos,
                                 anonymizer).toText(verbose, 1))
                 .append("\n");
 
@@ -1146,7 +1155,7 @@ public class PlanPrinter
                         formatPositions(nodeStats.getPlanNodeInputPositions()),
                         nodeStats.getPlanNodeInputDataSize().toString());
                 addPhysicalInputStats(nodeStats, inputDetailBuilder, argsBuilder);
-                addSplits(nodeStats, inputDetailBuilder, argsBuilder);
+                addSplits(node.getId(), nodeStats, inputDetailBuilder, argsBuilder);
                 appendDetailsFromBuilder(nodeOutput, inputDetailBuilder, argsBuilder);
             }
             return null;
@@ -1281,7 +1290,7 @@ public class PlanPrinter
                             nodeStats.getPlanNodeInputDataSize().toString(),
                             formatDouble(filtered));
                     addPhysicalInputStats(nodeStats, inputDetailBuilder, argsBuilder);
-                    addSplits(nodeStats, inputDetailBuilder, argsBuilder);
+                    addSplits(scanNode.get().getId(), nodeStats, inputDetailBuilder, argsBuilder);
                     appendDetailsFromBuilder(nodeOutput, inputDetailBuilder, argsBuilder);
                 }
                 List<DynamicFilterDomainStats> collectedDomainStats = dynamicFilters.stream()
@@ -1312,9 +1321,13 @@ public class PlanPrinter
             return null;
         }
 
-        private void addSplits(PlanNodeStats nodeStats, StringBuilder inputDetailBuilder, ImmutableList.Builder<String> argsBuilder)
+        private void addSplits(PlanNodeId scanNodeId, PlanNodeStats nodeStats, StringBuilder inputDetailBuilder, ImmutableList.Builder<String> argsBuilder)
         {
             buildFormatString(inputDetailBuilder, argsBuilder, ", Splits: %s", String.valueOf(nodeStats.getOperatorStats().values().iterator().next().getTotalDrivers()));
+            Long totalTime = getSplitsTotalTimeNanos.get(scanNodeId);
+            if (totalTime != null) {
+                inputDetailBuilder.append(format(", Splits generation wait time: %sms", formatDouble(totalTime / 1_000_000.0d)));
+            }
         }
 
         private static void addPhysicalInputStats(PlanNodeStats nodeStats, StringBuilder inputDetailBuilder, ImmutableList.Builder<String> argsBuilder)

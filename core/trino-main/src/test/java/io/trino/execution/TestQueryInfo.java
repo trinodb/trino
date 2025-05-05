@@ -269,7 +269,7 @@ public class TestQueryInfo
     {
         return new StageStats(
                 new DateTime(value),
-                new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value),
+                ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value)),
                 value,
                 value,
                 value,

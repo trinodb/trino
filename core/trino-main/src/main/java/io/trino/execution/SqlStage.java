@@ -283,9 +283,9 @@ public final class SqlStage
         return Optional.of(task);
     }
 
-    public void recordGetSplitTime(long start)
+    public void recordGetSplitTime(PlanNodeId nodeId, long start)
     {
-        stateMachine.recordGetSplitTime(start);
+        stateMachine.recordGetSplitTime(nodeId, start);
     }
 
     private void updateTaskStatus(TaskStatus status)
