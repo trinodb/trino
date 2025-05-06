@@ -102,7 +102,7 @@ public class BenchmarkArraysOverlap
 
             TestingFunctionResolution functionResolution = new TestingFunctionResolution();
             ArrayType arrayType = new ArrayType(elementType);
-            ImmutableList<RowExpression> projections = ImmutableList.of(new CallExpression(
+            List<RowExpression> projections = ImmutableList.of(new CallExpression(
                     functionResolution.resolveFunction(name, fromTypes(arrayType, arrayType)),
                     ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 

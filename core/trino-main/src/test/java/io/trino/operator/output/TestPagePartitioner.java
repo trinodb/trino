@@ -690,7 +690,7 @@ public class TestPagePartitioner
         private final OutputBuffer outputBuffer;
         private final DriverContextBuilder driverContextBuilder;
 
-        private ImmutableList<Integer> partitionChannels = ImmutableList.of(0);
+        private List<Integer> partitionChannels = ImmutableList.of(0);
         private List<Optional<NullableValue>> partitionConstants = ImmutableList.of();
         private PartitionFunction partitionFunction = new SumModuloPartitionFunction(PARTITION_COUNT, 0);
         private boolean shouldReplicate;
@@ -709,7 +709,7 @@ public class TestPagePartitioner
             return withPartitionChannels(ImmutableList.copyOf(partitionChannels));
         }
 
-        public PagePartitionerBuilder withPartitionChannels(ImmutableList<Integer> partitionChannels)
+        public PagePartitionerBuilder withPartitionChannels(List<Integer> partitionChannels)
         {
             this.partitionChannels = partitionChannels;
             return this;

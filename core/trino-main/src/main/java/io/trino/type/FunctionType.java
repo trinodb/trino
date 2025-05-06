@@ -86,7 +86,7 @@ public class FunctionType
     @Override
     public String getDisplayName()
     {
-        ImmutableList<String> names = getTypeParameters().stream()
+        List<String> names = getTypeParameters().stream()
                 .map(Type::getDisplayName)
                 .collect(toImmutableList());
         return "function(" + Joiner.on(",").join(names) + ")";

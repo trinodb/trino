@@ -379,7 +379,7 @@ public class SourcePartitionedScheduler
     {
         ImmutableSet.Builder<RemoteTask> newTasks = ImmutableSet.builder();
 
-        ImmutableSet<InternalNode> nodes = ImmutableSet.copyOf(splitAssignment.keySet());
+        Set<InternalNode> nodes = ImmutableSet.copyOf(splitAssignment.keySet());
         for (InternalNode node : nodes) {
             // source partitioned tasks can only receive broadcast data; otherwise it would have a different distribution
             ImmutableMultimap<PlanNodeId, Split> splits = ImmutableMultimap.<PlanNodeId, Split>builder()

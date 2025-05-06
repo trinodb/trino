@@ -275,7 +275,7 @@ public final class DeltaLakeParquetStatisticsUtils
         return nullCounts.buildOrThrow();
     }
 
-    private static ImmutableMap<String, Object> toNullCount(RowType rowType, SqlRow row)
+    private static Map<String, Object> toNullCount(RowType rowType, SqlRow row)
     {
         List<RowType.Field> fields = rowType.getFields();
         ImmutableMap.Builder<String, Object> nullCounts = ImmutableMap.builderWithExpectedSize(fields.size());

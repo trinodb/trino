@@ -442,7 +442,7 @@ public class TransactionLogAccess
         return columnsWithStats(DeltaLakeSchemaSupport.extractSchema(metadataEntry, protocolEntry, typeManager), metadataEntry.getOriginalPartitionColumns());
     }
 
-    public static ImmutableList<DeltaLakeColumnMetadata> columnsWithStats(List<DeltaLakeColumnMetadata> schema, List<String> partitionColumns)
+    public static List<DeltaLakeColumnMetadata> columnsWithStats(List<DeltaLakeColumnMetadata> schema, List<String> partitionColumns)
     {
         return schema.stream()
                 .filter(column -> !partitionColumns.contains(column.name()))

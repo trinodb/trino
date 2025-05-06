@@ -326,7 +326,7 @@ public class FileSystemExchange
     @Override
     public void close()
     {
-        ImmutableList<URI> toDelete;
+        List<URI> toDelete;
         synchronized (this) {
             toDelete = allSinks.stream()
                     .map(this::getTaskOutputDirectory)

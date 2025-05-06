@@ -114,7 +114,7 @@ public class Driver
         requireNonNull(driverContext, "driverContext is null");
         requireNonNull(firstOperator, "firstOperator is null");
         requireNonNull(otherOperators, "otherOperators is null");
-        ImmutableList<Operator> operators = ImmutableList.<Operator>builder()
+        List<Operator> operators = ImmutableList.<Operator>builder()
                 .add(firstOperator)
                 .add(otherOperators)
                 .build();

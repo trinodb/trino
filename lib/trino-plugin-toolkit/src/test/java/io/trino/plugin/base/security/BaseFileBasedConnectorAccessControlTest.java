@@ -570,7 +570,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     private static void assertFilterSchemas(ConnectorAccessControl accessControl)
     {
-        ImmutableSet<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown", "ptf_schema", "procedure-schema");
+        Set<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown", "ptf_schema", "procedure-schema");
         assertThat(accessControl.filterSchemas(ADMIN, allSchemas)).isEqualTo(allSchemas);
         assertThat(accessControl.filterSchemas(ALICE, allSchemas)).isEqualTo(ImmutableSet.of("specific-schema", "alice-schema", "ptf_schema"));
         assertThat(accessControl.filterSchemas(BOB, allSchemas)).isEqualTo(ImmutableSet.of("specific-schema", "bob-schema", "procedure-schema"));

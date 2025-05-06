@@ -250,7 +250,7 @@ public class TestMemoryRevokingScheduler
 
     private void assertMemoryRevokingRequestedFor(OperatorContext... operatorContexts)
     {
-        ImmutableSet<OperatorContext> operatorContextsSet = ImmutableSet.copyOf(operatorContexts);
+        Set<OperatorContext> operatorContextsSet = ImmutableSet.copyOf(operatorContexts);
         operatorContextsSet.forEach(
                 operatorContext -> assertThat(operatorContext.isMemoryRevokingRequested())
                         .describedAs("expected memory requested for operator " + operatorContext.getOperatorId())

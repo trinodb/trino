@@ -115,7 +115,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestCachingHiveMetastore
 {
     private static final HiveBasicStatistics TEST_BASIC_STATS = new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(2398040535435L), OptionalLong.empty(), OptionalLong.empty());
-    private static final ImmutableMap<String, HiveColumnStatistics> TEST_COLUMN_STATS = ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
+    private static final Map<String, HiveColumnStatistics> TEST_COLUMN_STATS = ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty()));
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
             .setBasicStatistics(TEST_BASIC_STATS)
             .setColumnStatistics(TEST_COLUMN_STATS)
@@ -294,7 +294,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testGetPartitionNames()
     {
-        ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
+        List<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
         assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
@@ -382,7 +382,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testGetPartitionNamesByParts()
     {
-        ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
+        List<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
 
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
         assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);

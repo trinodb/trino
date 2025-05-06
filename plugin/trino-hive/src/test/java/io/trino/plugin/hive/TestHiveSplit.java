@@ -29,6 +29,7 @@ import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -53,8 +54,8 @@ public class TestHiveSplit
                 .put("bar", "baz")
                 .buildOrThrow();
 
-        ImmutableList<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
-        ImmutableList<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
+        List<HivePartitionKey> partitionKeys = ImmutableList.of(new HivePartitionKey("a", "apple"), new HivePartitionKey("b", "42"));
+        List<HostAddress> addresses = ImmutableList.of(HostAddress.fromParts("127.0.0.1", 44), HostAddress.fromParts("127.0.0.1", 45));
 
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(Location.of("file:///data/fullacid"));
         acidInfoBuilder.addDeleteDelta(Location.of("file:///data/fullacid/delete_delta_0000004_0000004_0000"));

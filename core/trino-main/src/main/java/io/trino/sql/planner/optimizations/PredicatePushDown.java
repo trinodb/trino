@@ -1023,8 +1023,8 @@ public class PredicatePushDown
                     .filter(conjunct -> !isInferenceCandidate(conjunct))
                     .toList();
 
-            ImmutableSet<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
-            ImmutableSet<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
+            Set<Symbol> leftScope = ImmutableSet.copyOf(leftSymbols);
+            Set<Symbol> rightScope = ImmutableSet.copyOf(rightSymbols);
 
             EqualityInference allInference = new EqualityInference(
                     ImmutableList.<Expression>builder()
@@ -1332,7 +1332,7 @@ public class PredicatePushDown
             PlanNode rewrittenFilteringSource = context.defaultRewrite(node.getFilteringSource(), TRUE);
 
             // Push inheritedPredicates down to the source if they don't involve the semi join output
-            ImmutableSet<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
+            Set<Symbol> sourceScope = ImmutableSet.copyOf(node.getSource().getOutputSymbols());
             EqualityInference inheritedInference = new EqualityInference(inheritedPredicate);
             EqualityInference.nonInferrableConjuncts(inheritedPredicate).forEach(conjunct -> {
                 Expression rewrittenConjunct = inheritedInference.rewrite(conjunct, sourceScope);

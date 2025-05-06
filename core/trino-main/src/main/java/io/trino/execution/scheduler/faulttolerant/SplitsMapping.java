@@ -52,7 +52,7 @@ public final class SplitsMapping
     // not using Multimap to avoid extensive data structure copying when building updated SplitsMapping
     private final Map<PlanNodeId, Map<Integer, List<Split>>> splits; // plan-node -> hash-partition -> Split
 
-    private SplitsMapping(ImmutableMap<PlanNodeId, Map<Integer, List<Split>>> splits)
+    private SplitsMapping(Map<PlanNodeId, Map<Integer, List<Split>>> splits)
     {
         // Builder implementations ensure that external map as well as Maps/Lists used in values
         // are immutable.

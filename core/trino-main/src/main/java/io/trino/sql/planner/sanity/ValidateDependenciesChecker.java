@@ -885,7 +885,7 @@ public final class ValidateDependenciesChecker
 
             checkDependencies(node.getInput().getOutputSymbols(), node.getCorrelation(), "APPLY input must provide all the necessary correlation symbols for subquery");
 
-            ImmutableSet<Symbol> inputs = ImmutableSet.<Symbol>builder()
+            Set<Symbol> inputs = ImmutableSet.<Symbol>builder()
                     .addAll(createInputs(node.getSubquery(), boundSymbols))
                     .addAll(createInputs(node.getInput(), boundSymbols))
                     .build();
@@ -931,7 +931,7 @@ public final class ValidateDependenciesChecker
             return null;
         }
 
-        private static ImmutableSet<Symbol> createInputs(PlanNode source, Set<Symbol> boundSymbols)
+        private static Set<Symbol> createInputs(PlanNode source, Set<Symbol> boundSymbols)
         {
             return ImmutableSet.<Symbol>builder()
                     .addAll(source.getOutputSymbols())

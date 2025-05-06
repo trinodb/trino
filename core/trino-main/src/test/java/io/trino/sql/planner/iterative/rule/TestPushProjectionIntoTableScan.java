@@ -125,7 +125,7 @@ public class TestPushProjectionIntoTableScan
             Symbol identity = new Symbol(ROW_TYPE, "symbol_identity");
             Symbol dereference = new Symbol(BIGINT, "symbol_dereference");
             Symbol constant = new Symbol(BIGINT, "symbol_constant");
-            ImmutableMap<Symbol, Type> types = ImmutableMap.of(
+            Map<Symbol, Type> types = ImmutableMap.of(
                     baseColumn, ROW_TYPE,
                     identity, ROW_TYPE,
                     dereference, BIGINT,
@@ -141,12 +141,12 @@ public class TestPushProjectionIntoTableScan
             // Compute expected symbols after applyProjection
             TransactionId transactionId = ruleTester.getPlanTester().getTransactionManager().beginTransaction(false);
             Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getPlanTester().getTransactionManager(), ruleTester.getPlanTester().getAccessControl());
-            ImmutableMap<Symbol, String> connectorNames = inputProjections.entrySet().stream()
+            Map<Symbol, String> connectorNames = inputProjections.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue()).get().toString()));
-            ImmutableMap<Symbol, String> newNames = ImmutableMap.of(
+            Map<Symbol, String> newNames = ImmutableMap.of(
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference));
-            ImmutableMap<Symbol, Expression> constants = ImmutableMap.of(
+            Map<Symbol, Expression> constants = ImmutableMap.of(
                     constant, requireNonNull(inputProjections.get(constant)));
             Map<String, ColumnHandle> expectedColumns = newNames.entrySet().stream()
                     .collect(toImmutableMap(

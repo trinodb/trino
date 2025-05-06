@@ -39,7 +39,7 @@ public class FileSessionPropertyManager
             () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES))
             .listJsonCodec(SessionMatchSpec.class);
 
-    private final ImmutableList<SessionMatchSpec> sessionMatchSpecs;
+    private final List<SessionMatchSpec> sessionMatchSpecs;
 
     @Inject
     public FileSessionPropertyManager(FileSessionPropertyManagerConfig config)

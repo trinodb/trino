@@ -120,7 +120,7 @@ public class RemoveUnsupportedDynamicFilters
         public PlanWithConsumedDynamicFilters visitJoin(JoinNode node, Set<DynamicFilterId> allowedDynamicFilterIds)
         {
             Map<DynamicFilterId, Symbol> currentJoinDynamicFilters = getJoinDynamicFilters(node);
-            ImmutableSet<DynamicFilterId> allowedDynamicFilterIdsProbeSide = ImmutableSet.<DynamicFilterId>builder()
+            Set<DynamicFilterId> allowedDynamicFilterIdsProbeSide = ImmutableSet.<DynamicFilterId>builder()
                     .addAll(currentJoinDynamicFilters.keySet())
                     .addAll(allowedDynamicFilterIds)
                     .build();

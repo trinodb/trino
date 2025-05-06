@@ -121,7 +121,7 @@ public class BenchmarkArrayDistinct
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            List<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(blocks);
         }

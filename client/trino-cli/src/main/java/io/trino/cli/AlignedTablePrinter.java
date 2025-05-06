@@ -120,7 +120,7 @@ public class AlignedTablePrinter
             int maxLines = 1;
             for (int i = 0; i < columns; i++) {
                 String value = formatValue(row.get(i));
-                ImmutableList<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(value));
+                List<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(value));
                 columnLines.add(lines);
                 maxLines = max(maxLines, lines.size());
             }

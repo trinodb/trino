@@ -133,7 +133,7 @@ public class TestWebUi
 {
     private static final String LOCALHOST_KEYSTORE = Resources.getResource("cert/localhost.pem").getPath();
     private static final String ALLOWED_USER_MAPPING_PATTERN = "(.*)@allowed";
-    private static final ImmutableMap<String, String> SECURE_PROPERTIES = ImmutableMap.<String, String>builder()
+    private static final Map<String, String> SECURE_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("http-server.https.enabled", "true")
             .put("http-server.https.keystore.path", LOCALHOST_KEYSTORE)
             .put("http-server.https.keystore.key", "")
@@ -143,7 +143,7 @@ public class TestWebUi
     private static final String STATE_KEY = "test-state-key";
     public static final String TOKEN_ISSUER = "http://example.com/";
     public static final String OAUTH_CLIENT_ID = "client";
-    private static final ImmutableMap<String, String> OAUTH2_PROPERTIES = ImmutableMap.<String, String>builder()
+    private static final Map<String, String> OAUTH2_PROPERTIES = ImmutableMap.<String, String>builder()
             .putAll(SECURE_PROPERTIES)
             .put("web-ui.authentication.type", "oauth2")
             .put("http-server.authentication.oauth2.state-key", STATE_KEY)
