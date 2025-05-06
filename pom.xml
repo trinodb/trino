@@ -197,7 +197,7 @@
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
         <dep.httpcore5.version>5.3.5</dep.httpcore5.version>
-        <dep.iceberg.version>1.9.2</dep.iceberg.version>
+        <dep.iceberg.version>1.10.0</dep.iceberg.version>
         <dep.jna.version>5.17.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.13.0</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
