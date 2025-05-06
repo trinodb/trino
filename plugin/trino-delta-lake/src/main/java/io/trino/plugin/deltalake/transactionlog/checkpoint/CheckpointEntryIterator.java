@@ -595,7 +595,7 @@ public class CheckpointEntryIterator
                 nullCount);
     }
 
-    private ImmutableMap<String, Object> parseMinMax(@Nullable SqlRow row, List<DeltaLakeColumnMetadata> eligibleColumns)
+    private Map<String, Object> parseMinMax(@Nullable SqlRow row, List<DeltaLakeColumnMetadata> eligibleColumns)
     {
         if (row == null) {
             // Statistics were not collected

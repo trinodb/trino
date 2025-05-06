@@ -411,7 +411,7 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
     {
         return getTablesInternal(
                 _ -> {},
@@ -424,7 +424,7 @@ public class GlueHiveMetastore
     private List<TableInfo> getTablesInternal(Consumer<Table> cacheTable, String databaseName, Predicate<software.amazon.awssdk.services.glue.model.Table> filter)
     {
         try {
-            ImmutableList<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
+            List<software.amazon.awssdk.services.glue.model.Table> glueTables = stats.getGetTables()
                     .call(() -> glueClient.getTablesPaginator(builder -> builder
                                     .databaseName(databaseName)).stream()
                             .map(GetTablesResponse::tableList)

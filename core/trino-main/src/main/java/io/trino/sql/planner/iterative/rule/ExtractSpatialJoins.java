@@ -508,7 +508,7 @@ public class ExtractSpatialJoins
 
     private static QualifiedObjectName toQualifiedObjectName(String name, String catalog, String schema)
     {
-        ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
+        List<String> ids = ImmutableList.copyOf(Splitter.on('.').split(name));
         if (ids.size() == 3) {
             return new QualifiedObjectName(ids.get(0), ids.get(1), ids.get(2));
         }

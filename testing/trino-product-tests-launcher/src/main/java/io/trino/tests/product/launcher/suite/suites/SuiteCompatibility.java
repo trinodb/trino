@@ -54,12 +54,12 @@ public class SuiteCompatibility
     {
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
-        ImmutableList<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
+        List<SuiteTestRun> trinoCompatibilityTestRuns = testedTrinoDockerImages().stream()
                 .map(testedImage -> testOnEnvironment(EnvSinglenodeCompatibility.class, Map.of("compatibility.testVersion", Integer.toString(testedImage.version), "compatibility.testDockerImage", testedImage.image))
                         .withGroups(CONFIGURED_FEATURES, HIVE_VIEW_COMPATIBILITY, ICEBERG_FORMAT_VERSION_COMPATIBILITY)
                         .build())
                 .collect(toImmutableList());
-        ImmutableList<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
+        List<SuiteTestRun> prestoCompatibilityTestRuns = testedPrestoDockerImages().stream()
                 .map(testedImage -> testOnEnvironment(EnvSinglenodeCompatibility.class, Map.of("compatibility.testVersion", Integer.toString(testedImage.version), "compatibility.testDockerImage", testedImage.image))
                         .withGroups(CONFIGURED_FEATURES, HIVE_VIEW_COMPATIBILITY)
                         .build())

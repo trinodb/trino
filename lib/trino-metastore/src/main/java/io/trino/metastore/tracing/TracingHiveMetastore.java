@@ -13,7 +13,6 @@
  */
 package io.trino.metastore.tracing;
 
-import com.google.common.collect.ImmutableSet;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.metastore.AcidOperation;
@@ -166,7 +165,7 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
     {
         Span span = tracer.spanBuilder("HiveMetastore.getTableNamesWithParameters")
                 .setAttribute(SCHEMA, databaseName)

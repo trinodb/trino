@@ -193,7 +193,7 @@ public class StripeReader
                 diskRangesBuilder.put(entry);
             }
         }
-        ImmutableMap<StreamId, DiskRange> diskRanges = diskRangesBuilder.buildOrThrow();
+        Map<StreamId, DiskRange> diskRanges = diskRangesBuilder.buildOrThrow();
 
         // read the file regions
         Map<StreamId, OrcChunkLoader> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, memoryUsage);

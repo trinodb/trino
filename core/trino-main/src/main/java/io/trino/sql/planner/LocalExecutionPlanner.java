@@ -926,12 +926,12 @@ public class LocalExecutionPlanner
             context.setDriverInstanceCount(1);
 
             OrderingScheme orderingScheme = node.getOrderingScheme().get();
-            ImmutableMap<Symbol, Integer> layout = makeLayout(node);
+            Map<Symbol, Integer> layout = makeLayout(node);
             List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), layout);
             List<SortOrder> sortOrder = orderingScheme.orderingList();
 
             List<Type> types = getSourceOperatorTypes(node);
-            ImmutableList<Integer> outputChannels = IntStream.range(0, types.size())
+            List<Integer> outputChannels = IntStream.range(0, types.size())
                     .boxed()
                     .collect(toImmutableList());
 
@@ -2339,12 +2339,12 @@ public class LocalExecutionPlanner
             return new PhysicalOperation(operatorFactory, outputMappings.buildOrThrow(), source);
         }
 
-        private ImmutableMap<Symbol, Integer> makeLayout(PlanNode node)
+        private Map<Symbol, Integer> makeLayout(PlanNode node)
         {
             return makeLayoutFromOutputSymbols(node.getOutputSymbols());
         }
 
-        private ImmutableMap<Symbol, Integer> makeLayoutFromOutputSymbols(List<Symbol> outputSymbols)
+        private Map<Symbol, Integer> makeLayoutFromOutputSymbols(List<Symbol> outputSymbols)
         {
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();
             int channel = 0;
@@ -2973,7 +2973,7 @@ public class LocalExecutionPlanner
                             .collect(toImmutableList()))
                     .orElse(ImmutableList.of());
 
-            ImmutableList<Type> buildOutputTypes = buildOutputChannels.stream()
+            List<Type> buildOutputTypes = buildOutputChannels.stream()
                     .map(buildSource.getTypes()::get)
                     .collect(toImmutableList());
             List<Type> buildTypes = buildSource.getTypes();
@@ -3760,7 +3760,7 @@ public class LocalExecutionPlanner
             context.setInputDriver(false);
 
             OrderingScheme orderingScheme = node.getOrderingScheme().get();
-            ImmutableMap<Symbol, Integer> layout = makeLayout(node);
+            Map<Symbol, Integer> layout = makeLayout(node);
             List<Integer> sortChannels = getChannelsForSymbols(orderingScheme.orderBy(), layout);
             List<SortOrder> orderings = orderingScheme.orderingList();
             OperatorFactory operatorFactory = new LocalMergeSourceOperatorFactory(
@@ -3941,7 +3941,7 @@ public class LocalExecutionPlanner
                         pagesIndexFactory);
             }
 
-            ImmutableList<Type> intermediateTypes = aggregationImplementation.getAccumulatorStateDescriptors().stream()
+            List<Type> intermediateTypes = aggregationImplementation.getAccumulatorStateDescriptors().stream()
                     .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
                     .collect(toImmutableList());
             Type intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);

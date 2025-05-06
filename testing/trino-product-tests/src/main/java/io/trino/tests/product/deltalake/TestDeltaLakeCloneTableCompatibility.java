@@ -80,7 +80,7 @@ public class TestDeltaLakeCloneTableCompatibility
             List<String> cdfFilesPostOnlyInsertAndUpdate = getFilesFromTableDirectory(directoryName + clonedTable + changeDataPrefix);
             assertThat(cdfFilesPostOnlyInsertAndUpdate).hasSize(2);
 
-            ImmutableList<Row> expectedRowsClonedTableOnTrino = ImmutableList.of(
+            List<Row> expectedRowsClonedTableOnTrino = ImmutableList.of(
                     row(2, "b", "insert", 1L),
                     row(1, "a", "update_preimage", 2L),
                     row(2, "a", "update_postimage", 2L),
@@ -90,7 +90,7 @@ public class TestDeltaLakeCloneTableCompatibility
             assertThat(onTrino().executeQuery("SELECT a_int, b_string, _change_type, _commit_version FROM TABLE(delta.system.table_changes('default', '" + clonedTable + "', 0))"))
                     .containsOnly(expectedRowsClonedTableOnTrino);
 
-            ImmutableList<Row> expectedRowsClonedTableOnSpark = ImmutableList.of(
+            List<Row> expectedRowsClonedTableOnSpark = ImmutableList.of(
                     row(1, "a", "insert", 0L),
                     row(2, "b", "insert", 1L),
                     row(1, "a", "update_preimage", 2L),
@@ -101,7 +101,7 @@ public class TestDeltaLakeCloneTableCompatibility
                     "SELECT a_int, b_string, _change_type, _commit_version FROM table_changes('default." + clonedTable + "', 0)"))
                     .containsOnly(expectedRowsClonedTableOnSpark);
 
-            ImmutableList<Row> expectedRows = ImmutableList.of(row(2, "a"), row(3, "b"));
+            List<Row> expectedRows = ImmutableList.of(row(2, "a"), row(3, "b"));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTable)).containsOnly(expectedRows);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTable)).containsOnly(expectedRows);
         }
@@ -204,7 +204,7 @@ public class TestDeltaLakeCloneTableCompatibility
             assertThat(clonedTableV4ActiveDataFiles).hasSize(2)
                     .hasSameElementsAs(clonedTableV4AllDataFiles);
 
-            ImmutableList<Row> expectedRowsClonedTable = ImmutableList.of(row(2, "a"), row(3, "b"));
+            List<Row> expectedRowsClonedTable = ImmutableList.of(row(2, "a"), row(3, "b"));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTable))
                     .containsOnly(expectedRowsClonedTable);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTable))

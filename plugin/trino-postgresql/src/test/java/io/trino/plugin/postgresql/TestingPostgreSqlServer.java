@@ -274,7 +274,7 @@ public class TestingPostgreSqlServer
 
         public Stream<String> streamQueriesContaining(String queryPart, String... alternativeQueryParts)
         {
-            ImmutableList<String> queryParts = ImmutableList.<String>builder()
+            List<String> queryParts = ImmutableList.<String>builder()
                     .add(queryPart)
                     .addAll(ImmutableList.copyOf(alternativeQueryParts))
                     .build();

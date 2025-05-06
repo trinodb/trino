@@ -121,7 +121,7 @@ public class BenchmarkArrayTransform
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            List<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             pageBuilder = new PageBuilder(projections.stream().map(RowExpression::type).collect(Collectors.toList()));
             page = new Page(blocks);

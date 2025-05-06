@@ -60,8 +60,8 @@ public class TestTransformCorrelatedScalarSubquery
     private static final ResolvedFunction ADD_INTEGER = FUNCTIONS.resolveOperator(OperatorType.ADD, ImmutableList.of(INTEGER, INTEGER));
     private static final ResolvedFunction MULTIPLY_INTEGER = FUNCTIONS.resolveOperator(OperatorType.MULTIPLY, ImmutableList.of(INTEGER, INTEGER));
 
-    private static final ImmutableList<List<Expression>> ONE_ROW = ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)));
-    private static final ImmutableList<List<Expression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)), ImmutableList.of(new Constant(INTEGER, 2L)));
+    private static final List<List<Expression>> ONE_ROW = ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)));
+    private static final List<List<Expression>> TWO_ROWS = ImmutableList.of(ImmutableList.of(new Constant(INTEGER, 1L)), ImmutableList.of(new Constant(INTEGER, 2L)));
 
     private Rule<?> rule = new TransformCorrelatedScalarSubquery(createTestMetadataManager());
 

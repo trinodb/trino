@@ -138,7 +138,7 @@ public class BenchmarkTransformValue
                                     new VariableReferenceExpression("y", elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
 
-            ImmutableList<RowExpression> projections = projectionsBuilder.build();
+            List<RowExpression> projections = projectionsBuilder.build();
             pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
             page = new Page(block);
         }

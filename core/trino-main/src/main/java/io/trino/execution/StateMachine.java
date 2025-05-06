@@ -119,7 +119,7 @@ public class StateMachine<T>
 
         T oldState;
         FutureStateChange<T> futureStateChange;
-        ImmutableList<StateChangeListener<T>> stateChangeListeners;
+        List<StateChangeListener<T>> stateChangeListeners;
         synchronized (lock) {
             if (state.equals(newState) || isTerminalState(state)) {
                 return state;
@@ -186,7 +186,7 @@ public class StateMachine<T>
         requireNonNull(newState, "newState is null");
 
         FutureStateChange<T> futureStateChange;
-        ImmutableList<StateChangeListener<T>> stateChangeListeners;
+        List<StateChangeListener<T>> stateChangeListeners;
         synchronized (lock) {
             if (!state.equals(expectedState)) {
                 return false;

@@ -987,7 +987,7 @@ public class DistributedQueryRunner
                     .buildOrThrow();
         }
 
-        protected static ImmutableMap<String, String> addProperty(Map<String, String> extraProperties, String key, String value)
+        protected static Map<String, String> addProperty(Map<String, String> extraProperties, String key, String value)
         {
             return ImmutableMap.<String, String>builder()
                     .putAll(requireNonNull(extraProperties, "properties is null"))

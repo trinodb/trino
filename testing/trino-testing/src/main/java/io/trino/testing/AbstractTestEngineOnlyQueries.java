@@ -46,6 +46,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -5366,7 +5367,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 getSession().getQueryDataEncoding());
         MaterializedResult result = computeActual(session, "SHOW SESSION");
 
-        ImmutableMap<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
+        Map<String, MaterializedRow> properties = Maps.uniqueIndex(result.getMaterializedRows(), input -> {
             assertThat(input.getFieldCount()).isEqualTo(5);
             return (String) input.getField(0);
         });

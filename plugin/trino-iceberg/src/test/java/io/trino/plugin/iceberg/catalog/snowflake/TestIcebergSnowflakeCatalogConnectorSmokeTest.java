@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.sql.SQLException;
+import java.util.Map;
 
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_JDBC_URI;
@@ -98,7 +99,7 @@ public class TestIcebergSnowflakeCatalogConnectorSmokeTest
                     .formatted(TpchTable.REGION.getTableName(), TpchTable.REGION.getTableName()));
         }
 
-        ImmutableMap<String, String> properties = ImmutableMap.<String, String>builder()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("fs.native-s3.enabled", "true")
                 .put("s3.aws-access-key", S3_ACCESS_KEY)
                 .put("s3.aws-secret-key", S3_SECRET_KEY)

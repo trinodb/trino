@@ -41,7 +41,7 @@ public class MergingHashAggregationBuilder
     private final List<AggregatorFactory> aggregatorFactories;
     private final AggregationNode.Step step;
     private final int expectedGroups;
-    private final ImmutableList<Integer> groupByPartialChannels;
+    private final List<Integer> groupByPartialChannels;
     private final Optional<Integer> hashChannel;
     private final OperatorContext operatorContext;
     private final WorkProcessor<Page> sortedPages;

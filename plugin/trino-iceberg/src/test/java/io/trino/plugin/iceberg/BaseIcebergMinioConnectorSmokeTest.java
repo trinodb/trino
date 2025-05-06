@@ -106,7 +106,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 .build();
     }
 
-    public ImmutableMap<String, String> getAdditionalIcebergProperties()
+    public Map<String, String> getAdditionalIcebergProperties()
     {
         return ImmutableMap.of();
     }

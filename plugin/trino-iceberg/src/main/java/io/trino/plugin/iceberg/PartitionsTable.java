@@ -117,7 +117,7 @@ public class PartitionsTable
             this.columnMetricTypes = ImmutableList.of();
         }
 
-        ImmutableList<ColumnMetadata> columnMetadata = columnMetadataBuilder.build();
+        List<ColumnMetadata> columnMetadata = columnMetadataBuilder.build();
         this.resultTypes = columnMetadata.stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());

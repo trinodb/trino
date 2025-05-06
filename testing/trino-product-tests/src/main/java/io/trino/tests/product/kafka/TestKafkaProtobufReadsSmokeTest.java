@@ -133,7 +133,7 @@ public class TestKafkaProtobufReadsSmokeTest
     private void selectStructuralDataType(KafkaCatalog kafkaCatalog)
             throws Exception
     {
-        ImmutableMap<String, Object> record = ImmutableMap.of(
+        Map<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 101L),
                 "a_map", ImmutableMap.of(
                         "key", "key1",

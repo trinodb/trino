@@ -176,7 +176,7 @@ public class TestQueues
             QueryId firstDashboardQuery = createDashboardQuery(queryRunner);
             QueryId secondDashboardQuery = createDashboardQuery(queryRunner);
 
-            ImmutableSet<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
+            Set<QueryState> queuedOrRunning = ImmutableSet.of(QUEUED, RUNNING);
             waitForQueryState(queryRunner, firstDashboardQuery, queuedOrRunning);
             waitForQueryState(queryRunner, secondDashboardQuery, queuedOrRunning);
         }

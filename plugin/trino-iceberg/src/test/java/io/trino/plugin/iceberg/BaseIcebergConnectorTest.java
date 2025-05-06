@@ -5095,7 +5095,7 @@ public abstract class BaseIcebergConnectorTest
         String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
 
         TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
-        ImmutableMap<String, String> newProperties = ImmutableMap.<String, String>builder()
+        Map<String, String> newProperties = ImmutableMap.<String, String>builder()
                 .putAll(tableMetadata.properties())
                 .put("orc.bloom.filter.columns", "x,y") // legacy incorrect property
                 .put("orc.bloom.filter.fpp", "0.2") // legacy incorrect property
