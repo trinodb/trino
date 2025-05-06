@@ -1613,6 +1613,39 @@ public class TestMapOperators
     }
 
     @Test
+    public void testMapLiteral()
+    {
+        assertThat(assertions.expression("{}"))
+                .hasType(mapType(UNKNOWN, UNKNOWN))
+                .isEqualTo(ImmutableMap.of());
+
+        assertThat(assertions.expression("{'x' : 1, 'y' : 2}"))
+                .hasType(mapType(createVarcharType(1), INTEGER))
+                .isEqualTo(ImmutableMap.of("x", 1, "y", 2));
+
+        assertThat(assertions.expression("{{'a' : 1, 'b' : 2} : 11, {'c' : 3, 'd' : 4} : 22}"))
+                .hasType(mapType(mapType(createVarcharType(1), INTEGER), INTEGER))
+                .isEqualTo(ImmutableMap.of(ImmutableMap.of("a", 1, "b", 2), 11, ImmutableMap.of("c", 3, "d", 4), 22));
+
+        Map<String, Integer> expectedNullValueMap = new HashMap<>();
+        expectedNullValueMap.put("x", 1);
+        expectedNullValueMap.put("y", null);
+        assertThat(assertions.expression("{'x' : 1, 'y' : null}"))
+                .hasType(mapType(createVarcharType(1), INTEGER))
+                .isEqualTo(expectedNullValueMap);
+
+        // invalid invocation
+        assertTrinoExceptionThrownBy(assertions.expression("{'a' : 1, 'a' : 2}")::evaluate)
+                .hasMessage("Duplicate map keys (a) are not allowed");
+
+        assertTrinoExceptionThrownBy(assertions.expression("{1 : 'a', 1 : 'b'}")::evaluate)
+                .hasMessage("Duplicate map keys (1) are not allowed");
+
+        assertTrinoExceptionThrownBy(assertions.expression("{'a' : 1, null : 2}")::evaluate)
+                .hasMessage("map key cannot be null");
+    }
+
+    @Test
     public void testMapFromEntries()
     {
         assertThat(assertions.function("map_from_entries", "null"))
