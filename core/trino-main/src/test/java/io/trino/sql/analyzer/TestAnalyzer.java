@@ -7517,6 +7517,7 @@ public class TestAnalyzer
 
         // materialized view referencing table in same schema
         MaterializedViewDefinition materializedViewData1 = new MaterializedViewDefinition(
+                new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"),
                 "select a from t1",
                 Optional.of(TPCH_CATALOG),
                 Optional.of("s1"),
@@ -7528,7 +7529,7 @@ public class TestAnalyzer
                 Optional.empty());
         inSetupTransaction(session -> metadata.createMaterializedView(
                 session,
-                new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"),
+                materializedViewData1.getViewName(),
                 materializedViewData1,
                 ImmutableMap.of(),
                 false,
@@ -7646,6 +7647,7 @@ public class TestAnalyzer
                 session,
                 tableViewAndMaterializedView,
                 new MaterializedViewDefinition(
+                        tableViewAndMaterializedView,
                         "SELECT a FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
@@ -7700,6 +7702,7 @@ public class TestAnalyzer
                 session,
                 freshMaterializedView,
                 new MaterializedViewDefinition(
+                        freshMaterializedView,
                         "SELECT a, b FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
@@ -7720,6 +7723,7 @@ public class TestAnalyzer
                 session,
                 freshMaterializedViewMismatchedColumnCount,
                 new MaterializedViewDefinition(
+                        freshMaterializedViewMismatchedColumnCount,
                         "SELECT a FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
@@ -7739,6 +7743,7 @@ public class TestAnalyzer
                 session,
                 freshMaterializedMismatchedColumnName,
                 new MaterializedViewDefinition(
+                        freshMaterializedMismatchedColumnName,
                         "SELECT a, b as c FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
@@ -7758,6 +7763,7 @@ public class TestAnalyzer
                 session,
                 freshMaterializedMismatchedColumnType,
                 new MaterializedViewDefinition(
+                        freshMaterializedMismatchedColumnType,
                         "SELECT a, null b FROM t1",
                         Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
