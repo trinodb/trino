@@ -51,6 +51,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
@@ -212,10 +213,18 @@ public final class FilesTable
                 }
 
                 generator.writeFieldName("lower_bound");
-                SingleValueParser.toJson(field.type(), columnMetrics.get(4, Object.class), generator);
+                Object lowerBound = columnMetrics.get(4, Object.class);
+                if (field.type().equals(Types.UUIDType.get()) && lowerBound != null) {
+                    lowerBound = UUID.fromString((String) lowerBound);
+                }
+                SingleValueParser.toJson(field.type(), lowerBound, generator);
 
                 generator.writeFieldName("upper_bound");
-                SingleValueParser.toJson(field.type(), columnMetrics.get(5, Object.class), generator);
+                Object upperBound = columnMetrics.get(5, Object.class);
+                if (field.type().equals(Types.UUIDType.get()) && upperBound != null) {
+                    upperBound = UUID.fromString((String) upperBound);
+                }
+                SingleValueParser.toJson(field.type(), upperBound, generator);
 
                 generator.writeEndObject();
             }
