@@ -1076,10 +1076,10 @@ public abstract class BaseIcebergConnectorTest
                 "\\QUnable to parse partitioning value: Cannot partition by non-primitive source field: struct<3: child: optional string>");
         assertQueryFails(
                 "CREATE TABLE test_partitioned_table_nested_field_inside_array (parent ARRAY(ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"parent.child\"'])",
-                "\\QPartitioning field [parent.element.child] cannot be contained in a array");
+                "\\QUnable to parse partitioning value: Invalid partition field parent: list<struct<3: child: optional string>>");
         assertQueryFails(
                 "CREATE TABLE test_partitioned_table_nested_field_inside_map (parent MAP(ROW(child INTEGER), ARRAY(VARCHAR))) WITH (partitioning = ARRAY['\"parent.key.child\"'])",
-                "\\QPartitioning field [parent.key.child] cannot be contained in a map");
+                "\\QUnable to parse partitioning value: Invalid partition field parent: map<struct<4: child: optional int>, list<string>>");
         assertQueryFails(
                 "CREATE TABLE test_partitioned_table_nested_field_year_transform_in_string (parent ROW(child VARCHAR)) WITH (partitioning = ARRAY['year(\"parent.child\")'])",
                 "\\QUnable to parse partitioning value: Invalid source type string for transform: year");
@@ -1831,9 +1831,9 @@ public abstract class BaseIcebergConnectorTest
         String tableName = "test_drop_partition_column_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR, age INTEGER) WITH (partitioning = ARRAY['id', 'truncate(name, 5)', 'void(age)'])");
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY[]");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN id", "Cannot drop column which is used by an old partition spec: id");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN name", "Cannot drop column which is used by an old partition spec: name");
-        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN age", "Cannot drop column which is used by an old partition spec: age");
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN id");
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN name");
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
         assertUpdate("DROP TABLE " + tableName);
     }
 
