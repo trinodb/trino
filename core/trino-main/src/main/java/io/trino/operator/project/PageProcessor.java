@@ -156,7 +156,6 @@ public class PageProcessor
         private SourcePage page;
         private final Block[] previouslyComputedResults;
         private SelectedPositions selectedPositions;
-        private long retainedSizeInBytes;
 
         // remember if we need to re-use the same batch size if we yield last time
         private boolean lastComputeYielded;
@@ -274,7 +273,7 @@ public class PageProcessor
                 }
             }
 
-            retainedSizeInBytes = INSTANCE_SIZE +
+            long retainedSizeInBytes = INSTANCE_SIZE +
                     selectedPositions.getRetainedSizeInBytes() +
                     sizeOf(previouslyComputedResults) +
                     visitor.getRetainedSizeInBytes();
