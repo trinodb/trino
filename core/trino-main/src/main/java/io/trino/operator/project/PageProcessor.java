@@ -117,19 +117,18 @@ public class PageProcessor
             return WorkProcessor.of();
         }
 
-        SelectedPositions activePositions = positionsRange(0, page.getPositionCount());
-        FilterEvaluator.SelectionResult dynamicFilterResult = new FilterEvaluator.SelectionResult(activePositions, 0);
+        SelectedPositions selectedPositions = positionsRange(0, page.getPositionCount());
         if (dynamicFilterEvaluator.isPresent()) {
-            dynamicFilterResult = dynamicFilterEvaluator.get().evaluate(session, activePositions, page);
-            metrics.recordDynamicFilterMetrics(dynamicFilterResult.filterTimeNanos(), dynamicFilterResult.selectedPositions().size());
+            FilterEvaluator.SelectionResult dynamicFilterResult = dynamicFilterEvaluator.get().evaluate(session, selectedPositions, page);
+            selectedPositions = dynamicFilterResult.selectedPositions();
+            metrics.recordDynamicFilterMetrics(dynamicFilterResult.filterTimeNanos(), selectedPositions.size());
         }
 
-        FilterEvaluator.SelectionResult result = dynamicFilterResult;
         if (filterEvaluator.isPresent()) {
-            result = filterEvaluator.get().evaluate(session, dynamicFilterResult.selectedPositions(), page);
-            metrics.recordFilterTime(result.filterTimeNanos());
+            FilterEvaluator.SelectionResult filterResult = filterEvaluator.get().evaluate(session, selectedPositions, page);
+            selectedPositions = filterResult.selectedPositions();
+            metrics.recordFilterTime(filterResult.filterTimeNanos());
         }
-        SelectedPositions selectedPositions = result.selectedPositions();
 
         if (selectedPositions.isEmpty()) {
             return WorkProcessor.of();
