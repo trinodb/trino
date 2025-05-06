@@ -42,6 +42,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
@@ -409,6 +410,7 @@ public class SqlTaskExecution
         for (int i = 0; i < finishedFutures.size(); i++) {
             ListenableFuture<Void> finishedFuture = finishedFutures.get(i);
             DriverSplitRunner splitRunner = runners.get(i);
+            Optional<CatalogName> catalogName = splitRunner.getCatalogName();
 
             Futures.addCallback(finishedFuture, new FutureCallback<Object>()
             {
@@ -421,7 +423,7 @@ public class SqlTaskExecution
                             checkTaskCompletion();
                         }
 
-                        splitMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        splitMonitor.splitCompletedEvent(taskId, getDriverStats(), catalogName);
                     }
                 }
 
@@ -437,7 +439,7 @@ public class SqlTaskExecution
                         }
 
                         // fire failed event with cause
-                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
+                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), catalogName, cause);
                     }
                 }
 
@@ -908,6 +910,11 @@ public class SqlTaskExecution
             if (driver != null) {
                 driver.close();
             }
+        }
+
+        private Optional<CatalogName> getCatalogName()
+        {
+            return partitionedSplit == null ? Optional.empty() : Optional.of(partitionedSplit.getSplit().getCatalogHandle().getCatalogName());
         }
 
         private static String formatSplitInfo(Split split)
