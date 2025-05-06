@@ -312,6 +312,14 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .hasMessageMatching("Failed to load table: (.*)");
     }
 
+    @Test
+    @Override
+    public void testCreateOrReplaceTable()
+    {
+        // tabulario/iceberg-rest docker image is using iceberg-1.6
+        // Without this change https://github.com/apache/iceberg/pull/11779 from iceberg-1.8, CREATE OR REPLACE clears snapshotLog resulting in incorrect results in history metadata table
+    }
+
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {
