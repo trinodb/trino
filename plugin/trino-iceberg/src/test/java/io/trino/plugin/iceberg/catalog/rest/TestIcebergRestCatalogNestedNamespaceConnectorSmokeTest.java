@@ -236,8 +236,7 @@ final class TestIcebergRestCatalogNestedNamespaceConnectorSmokeTest
                 .isInstanceOf(QueryFailedException.class)
                 .cause()
                 .hasMessageContaining("Failed to drop table")
-                .cause()
-                .hasMessageMatching("Server error: NotFoundException: Failed to open input stream for file: (.*)");
+                .hasNoCause();
     }
 
     @Test
