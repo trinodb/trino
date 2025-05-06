@@ -241,6 +241,20 @@ public abstract class BaseIcebergSystemTables
 
         // Test the number of history entries
         assertQuery("SELECT count(*) FROM test_schema.\"test_table$history\"", "VALUES 3");
+
+        try (TestTable table = newTrinoTable("test_history", "AS SELECT 1 id")) {
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$history\"", "VALUES 1");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$history\"", "VALUES 2");
+
+            // Perform a stage only commit
+            Table icebergTable = this.loadTable(table.getName());
+            icebergTable.newAppend().set("table_id", "1").stageOnly().commit();
+
+            // Check if history table doesn't contain the stage commit snapshot
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$history\"", "VALUES 2");
+            assertQuery("SELECT count(*) FROM \"" + table.getName() + "$snapshots\"", "VALUES 3");
+        }
     }
 
     @Test

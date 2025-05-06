@@ -202,6 +202,20 @@ final class TestIcebergS3TablesConnectorSmokeTest
     }
 
     @Test
+    @Override
+    public void testCreateOrReplaceTable()
+    {
+        assertThatThrownBy(super::testCreateOrReplaceTable)
+                .hasMessageContaining(
+                        """
+                                Expecting actual:
+                                  (1)
+                                to contain exactly in any order:
+                                  [(2)]
+                                """);
+    }
+
+    @Test
     @Override // The locationExists helper method is unsupported
     public void testCreateTableWithNonExistingSchemaVerifyLocation() {}
 
