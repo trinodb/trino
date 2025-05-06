@@ -18,7 +18,7 @@ import io.trino.operator.aggregation.state.LongState;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
-import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Decomposition;
 import io.trino.spi.function.InputFunction;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.WindowAccumulator;
@@ -38,13 +38,7 @@ public final class CountAggregation
         state.setValue(state.getValue() + 1);
     }
 
-    @CombineFunction
-    public static void combine(@AggregationState LongState state, @AggregationState LongState otherState)
-    {
-        state.setValue(state.getValue() + otherState.getValue());
-    }
-
-    @OutputFunction(StandardTypes.BIGINT)
+    @OutputFunction(value = StandardTypes.BIGINT, decomposition = @Decomposition(partial = "count", output = "$sum0"))
     public static void output(@AggregationState LongState state, BlockBuilder out)
     {
         BIGINT.writeLong(out, state.getValue());
