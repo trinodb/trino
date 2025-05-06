@@ -370,32 +370,8 @@ public class PageProcessor
         }
     }
 
-    private static class ProcessBatchResult
+    private record ProcessBatchResult(ProcessBatchState state, Page page)
     {
-        private final ProcessBatchState state;
-        private final Page page;
-
-        private ProcessBatchResult(ProcessBatchState state, Page page)
-        {
-            this.state = state;
-            this.page = page;
-        }
-
-        public static ProcessBatchResult processBatchYield()
-        {
-            return new ProcessBatchResult(ProcessBatchState.YIELD, null);
-        }
-
-        public static ProcessBatchResult processBatchTooLarge()
-        {
-            return new ProcessBatchResult(ProcessBatchState.PAGE_TOO_LARGE, null);
-        }
-
-        public static ProcessBatchResult processBatchSuccess(Page page)
-        {
-            return new ProcessBatchResult(ProcessBatchState.SUCCESS, requireNonNull(page));
-        }
-
         public boolean isYieldFinish()
         {
             return state == ProcessBatchState.YIELD;
@@ -415,6 +391,21 @@ public class PageProcessor
         {
             verify(state == ProcessBatchState.SUCCESS);
             return verifyNotNull(page);
+        }
+
+        public static ProcessBatchResult processBatchYield()
+        {
+            return new ProcessBatchResult(ProcessBatchState.YIELD, null);
+        }
+
+        public static ProcessBatchResult processBatchTooLarge()
+        {
+            return new ProcessBatchResult(ProcessBatchState.PAGE_TOO_LARGE, null);
+        }
+
+        public static ProcessBatchResult processBatchSuccess(Page page)
+        {
+            return new ProcessBatchResult(ProcessBatchState.SUCCESS, requireNonNull(page));
         }
 
         private enum ProcessBatchState
