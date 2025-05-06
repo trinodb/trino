@@ -70,6 +70,15 @@ driver documentation](https://clickhouse.com/docs/en/interfaces/jdbc/)
 ```{include} jdbc-authentication.fragment
 ```
 
+### Cluster mode
+
+If the clickhouse connected by `connection-url` belongs to the cluster mode, it is recommended to add this item, so that the ddl statement will be executed on all nodes of the cluster by default,
+which will be as convenient as the stand-alone clickhouse.
+
+```properties
+cluster-name=examplecluster
+```
+
 ### Multiple ClickHouse servers
 
 If you have multiple ClickHouse servers you need to configure one
