@@ -18,7 +18,6 @@ import jakarta.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -26,7 +25,6 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.arraySame;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
-import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static java.lang.String.format;
@@ -45,9 +43,9 @@ public final class RowBlock
      */
     private final Block[] fieldBlocks;
     private final List<Block> fieldBlocksList;
-    private final int fixedSizePerRow;
 
     private volatile long sizeInBytes = -1;
+    private volatile long retainedSizeInBytes = -1;
 
     /**
      * Create a row block directly from field blocks. The returned RowBlock will not contain any null rows, although the fields may contain null values.
@@ -81,25 +79,14 @@ public final class RowBlock
 
     static RowBlock createRowBlockInternal(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
     {
-        int fixedSize = Byte.BYTES;
-        for (Block fieldBlock : fieldBlocks) {
-            OptionalInt fieldFixedSize = fieldBlock.fixedSizeInBytesPerPosition();
-            if (fieldFixedSize.isEmpty()) {
-                // found a block without a single per-position size
-                fixedSize = -1;
-                break;
-            }
-            fixedSize += fieldFixedSize.getAsInt();
-        }
-
-        return new RowBlock(positionCount, rowIsNull, fieldBlocks, fixedSize);
+        return new RowBlock(positionCount, rowIsNull, fieldBlocks);
     }
 
     /**
      * Use createRowBlockInternal or fromFieldBlocks instead of this method. The caller of this method is assumed to have
      * validated the arguments with validateConstructorArguments.
      */
-    private RowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks, int fixedSizePerRow)
+    private RowBlock(int positionCount, @Nullable boolean[] rowIsNull, Block[] fieldBlocks)
     {
         if (positionCount < 0) {
             throw new IllegalArgumentException("positionCount is negative");
@@ -124,7 +111,6 @@ public final class RowBlock
         this.rowIsNull = positionCount == 0 ? null : rowIsNull;
         this.fieldBlocks = fieldBlocks;
         this.fieldBlocksList = List.of(fieldBlocks);
-        this.fixedSizePerRow = fixedSizePerRow;
     }
 
     Block[] getRawFieldBlocks()
@@ -191,9 +177,13 @@ public final class RowBlock
     @Override
     public long getRetainedSizeInBytes()
     {
-        long retainedSizeInBytes = INSTANCE_SIZE + sizeOf(rowIsNull);
-        for (Block fieldBlock : fieldBlocks) {
-            retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
+        long retainedSizeInBytes = this.retainedSizeInBytes;
+        if (retainedSizeInBytes < 0) {
+            retainedSizeInBytes = INSTANCE_SIZE + sizeOf(fieldBlocks) + sizeOf(rowIsNull);
+            for (Block fieldBlock : fieldBlocks) {
+                retainedSizeInBytes += fieldBlock.getRetainedSizeInBytes();
+            }
+            this.retainedSizeInBytes = retainedSizeInBytes;
         }
         return retainedSizeInBytes;
     }
@@ -233,7 +223,7 @@ public final class RowBlock
         for (int i = 0; i < fieldBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].copyWithAppendedNull();
         }
-        return new RowBlock(positionCount + 1, newRowIsNull, newBlocks, fixedSizePerRow);
+        return new RowBlock(positionCount + 1, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -254,7 +244,7 @@ public final class RowBlock
             }
         }
 
-        return new RowBlock(length, newRowIsNull, newBlocks, fixedSizePerRow);
+        return new RowBlock(length, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -270,13 +260,7 @@ public final class RowBlock
         for (int i = 0; i < newBlocks.length; i++) {
             newBlocks[i] = fieldBlocks[i].getRegion(positionOffset, length);
         }
-        return new RowBlock(length, newRowIsNull, newBlocks, fixedSizePerRow);
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return fixedSizePerRow > 0 ? OptionalInt.of(fixedSizePerRow) : OptionalInt.empty();
+        return new RowBlock(length, newRowIsNull, newBlocks);
     }
 
     @Override
@@ -289,28 +273,6 @@ public final class RowBlock
             regionSizeInBytes += fieldBlock.getRegionSizeInBytes(position, length);
         }
         return regionSizeInBytes;
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedRowPositions)
-    {
-        checkValidPositions(positions, positionCount);
-        if (selectedRowPositions == 0) {
-            return 0;
-        }
-        if (selectedRowPositions == positionCount) {
-            return getSizeInBytes();
-        }
-
-        if (fixedSizePerRow > 0) {
-            return fixedSizePerRow * (long) selectedRowPositions;
-        }
-
-        long sizeInBytes = Byte.BYTES * (long) selectedRowPositions;
-        for (Block fieldBlock : fieldBlocks) {
-            sizeInBytes += fieldBlock.getPositionsSizeInBytes(positions, selectedRowPositions);
-        }
-        return sizeInBytes;
     }
 
     @Override
@@ -327,7 +289,7 @@ public final class RowBlock
         if (newRowIsNull == rowIsNull && arraySame(newBlocks, fieldBlocks)) {
             return this;
         }
-        return new RowBlock(length, newRowIsNull, newBlocks, fixedSizePerRow);
+        return new RowBlock(length, newRowIsNull, newBlocks);
     }
 
     public SqlRow getRow(int position)
@@ -349,7 +311,7 @@ public final class RowBlock
             newBlocks[i] = fieldBlocks[i].getSingleValueBlock(position);
         }
         boolean[] newRowIsNull = isNull(position) ? new boolean[] {true} : null;
-        return new RowBlock(1, newRowIsNull, newBlocks, fixedSizePerRow);
+        return new RowBlock(1, newRowIsNull, newBlocks);
     }
 
     @Override
