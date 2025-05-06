@@ -96,6 +96,7 @@ public class TestStageStats
             DataSize.ofBytes(35),
             DataSize.ofBytes(36),
             37,
+            0,
             38,
             Metrics.EMPTY,
 
