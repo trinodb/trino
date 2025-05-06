@@ -1401,6 +1401,22 @@ public abstract class BaseJdbcConnectorTest
     }
 
     @Test
+    public void testJoinPushdownWithEmptyCondition()
+    {
+        try (TestTable leftTable = newTrinoTable(
+                "test_join_pushdown_empty_left",
+                "(c_num bigint, c_date DATE)");
+                TestTable rightTable = newTrinoTable(
+                        "test_join_pushdown_empty_right",
+                        "(c_num bigint, c_date DATE)")) {
+            assertThat(query(
+                    joinPushdownEnabled(getSession()),
+                    "SELECT a.c_num FROM " + leftTable.getName() + " a LEFT JOIN " + rightTable.getName() + " b ON DATE '2025-03-19' = b.c_date"))
+                    .joinIsNotFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testComplexJoinPushdown()
     {
         String catalog = getSession().getCatalog().orElseThrow();

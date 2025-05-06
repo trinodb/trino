@@ -107,6 +107,9 @@ public class PushJoinIntoTableScan
         }
 
         Expression effectiveFilter = getEffectiveFilter(joinNode);
+        if (effectiveFilter.equals(Booleans.TRUE)){
+            return Result.empty();
+        }
         ConnectorExpressionTranslation translation = ConnectorExpressionTranslator.translateConjuncts(
                 context.getSession(),
                 effectiveFilter);
