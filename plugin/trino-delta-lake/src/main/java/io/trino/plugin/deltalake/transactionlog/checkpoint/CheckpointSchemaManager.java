@@ -30,6 +30,7 @@ import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -37,6 +38,8 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.escapeSpecialChars;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
 import static io.trino.plugin.hive.util.HiveTypeUtil.getTypeSignature;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -114,7 +117,10 @@ public class CheckpointSchemaManager
             boolean requireWriteStatsAsStruct,
             boolean usePartitionValues)
     {
-        List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, protocolEntry, typeManager);
+        Set<String> dataSkippingStatsColumns = getDataSkippingStatsColumns(metadataEntry.getDataSkippingStatsColumnProperty());
+        List<DeltaLakeColumnMetadata> columnsWithStats = extractSchema(metadataEntry, protocolEntry, typeManager).stream()
+                .filter(column -> dataSkippingStatsColumns.isEmpty() || dataSkippingStatsColumns.contains(escapeSpecialChars(column.name())))
+                .collect(toImmutableList());
         List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, protocolEntry, typeManager);
         minMaxColumns = minMaxColumns.stream()
                 .filter(column -> addStatsMinMaxColumnFilter.test(column.name()))
@@ -144,7 +150,7 @@ public class CheckpointSchemaManager
 
         statsColumns.add(RowType.field(
                 "nullCount",
-                RowType.from(allColumns.stream().map(column -> buildNullCountType(Optional.of(column.physicalName()), column.physicalColumnType())).collect(toImmutableList()))));
+                RowType.from(columnsWithStats.stream().map(column -> buildNullCountType(Optional.of(column.physicalName()), column.physicalColumnType())).collect(toImmutableList()))));
 
         MapType stringMap = (MapType) typeManager.getType(TypeSignature.mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
         ImmutableList.Builder<RowType.Field> addFields = ImmutableList.builder();

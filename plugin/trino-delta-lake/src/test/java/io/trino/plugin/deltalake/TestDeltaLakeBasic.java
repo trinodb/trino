@@ -39,12 +39,15 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMap
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
+import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SourcePage;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.SqlDate;
 import io.trino.spi.type.SqlTimestamp;
@@ -52,6 +55,7 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingSession;
 import io.trino.testing.sql.TestTable;
 import org.apache.parquet.schema.PrimitiveType;
@@ -78,16 +82,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -97,8 +105,10 @@ import static io.trino.plugin.deltalake.DeltaLakeConfig.DEFAULT_TRANSACTION_LOG_
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
 import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
+import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -638,6 +648,153 @@ public class TestDeltaLakeBasic
         assertQuery("SELECT * FROM " + tableName, "VALUES 3");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    /**
+     * @see deltalake.data_skipping_stats_columns
+     */
+    @Test
+    public void testDataSkippingStatsColumnsProperty()
+            throws Exception
+    {
+        String tableName = "test_data_skip_stats_columns_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/data_skipping_stats_columns").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+
+        assertThat(getDataSkippingStatsColumns(tableName)).isEqualTo("lower,`UPPER`,`a.dot`,a.nested");
+
+        // Adding a new column shouldn't change the property
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN new_col int");
+        assertThat(getDataSkippingStatsColumns(tableName)).isEqualTo("lower,`UPPER`,`a.dot`,a.nested");
+
+        // Renaming a column should update delta.dataSkippingStatsColumns property
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN lower TO renamed_lower");
+        assertThat(getDataSkippingStatsColumns(tableName)).isEqualTo("renamed_lower,UPPER,`a.dot`,a.nested");
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN \"a.dot\" TO \"a.dot111\"");
+        assertThat(getDataSkippingStatsColumns(tableName)).isEqualTo("renamed_lower,UPPER,`a.dot111`,a.nested");
+
+        // Dropping a column should update delta.dataSkippingStatsColumns property
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN \"a.dot111\"");
+        assertThat(getDataSkippingStatsColumns(tableName)).isEqualTo("renamed_lower,UPPER,a.nested");
+
+        // TODO: move renaming together
+        // Dropping a column should update delta.dataSkippingStatsColumns property
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN a TO a_renamed");
+        assertThat(getDataSkippingStatsColumns(tableName)).isEqualTo("renamed_lower,UPPER,a_renamed.nested");
+
+        assertQueryFails("ALTER TABLE " + tableName + " RENAME COLUMN a_renamed.nested TO nested11", "This connector does not support renaming fields");
+    }
+
+    private String getDataSkippingStatsColumns(String tableName)
+    {
+        return (String) computeScalar("SELECT value FROM \"" + tableName + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'");
+    }
+
+    @Test
+    public void testDataSkippingStatsColumnsStats()
+            throws IOException
+    {
+        try (TestTable table = newTrinoTable("test_skipping_stats_columns_stats_", "(id int, v1 int, \"a.dot\" int) " +
+                "WITH (checkpoint_interval = 2, column_mapping_mode = 'name', data_skipping_stats_columns='v1,`a.dot`')")) {
+            String tableLocation = getTableLocation(table.getName());
+            Path location = Path.of(tableLocation);
+            MetadataEntry metadataEntry = loadMetadataEntry(0, location);
+            ProtocolEntry protocolEntry = loadProtocolEntry(0, location);
+            assertThat(metadataEntry.getDataSkippingStatsColumnProperty()).isEqualTo(Optional.of("v1,`a.dot`"));
+
+            Map<String, DeltaLakeColumnHandle> columns = extractSchema(metadataEntry, protocolEntry, TESTING_TYPE_MANAGER).stream()
+                    .map(column -> new DeltaLakeColumnHandle(column.name(), column.type(), OptionalInt.empty(), column.physicalName(), column.physicalColumnType(), DeltaLakeColumnType.REGULAR, Optional.empty()))
+                    .collect(toImmutableMap(DeltaLakeColumnHandle::columnName, Function.identity()));
+
+            // version 1
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1, 1)", 1);
+
+            AddFileEntry add = getEntriesFromJson(1, location.resolve("_delta_log").toString()).stream()
+                    .filter(entry -> entry.getAdd() != null)
+                    .collect(onlyElement())
+                    .getAdd();
+            assertThat(add.getStats()).isPresent();
+            assertThat(add.getStats().get().getMinColumnValue(columns.get("id"))).isEmpty();
+            assertThat(add.getStats().get().getMaxColumnValue(columns.get("id"))).isEmpty();
+            assertThat(add.getStats().get().getNullCount(columns.get("id").basePhysicalColumnName())).isEmpty();
+            assertThat(add.getStats().get().getMinColumnValue(columns.get("v1"))).isEqualTo(Optional.of(1L));
+            assertThat(add.getStats().get().getMaxColumnValue(columns.get("v1"))).isEqualTo(Optional.of(1L));
+            assertThat(add.getStats().get().getNullCount(columns.get("v1").basePhysicalColumnName())).isEqualTo(Optional.of(0L));
+            assertThat(add.getStats().get().getMinColumnValue(columns.get("a.dot"))).isEqualTo(Optional.of(1L));
+            assertThat(add.getStats().get().getMaxColumnValue(columns.get("a.dot"))).isEqualTo(Optional.of(1L));
+            assertThat(add.getStats().get().getNullCount(columns.get("a.dot").basePhysicalColumnName())).isEqualTo(Optional.of(0L));
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 3, 3)", 1);
+            // version 2 has checkpoint
+            AddFileEntry add2 = getEntriesFromJson(2, location.resolve("_delta_log").toString()).stream()
+                    .filter(entry -> entry.getAdd() != null)
+                    .collect(onlyElement())
+                    .getAdd();
+            assertThat(add2.getStats()).isPresent();
+            assertThat(add2.getStats().get().getMinColumnValue(columns.get("id"))).isEmpty();
+            assertThat(add2.getStats().get().getMaxColumnValue(columns.get("id"))).isEmpty();
+            assertThat(add2.getStats().get().getNullCount(columns.get("id").basePhysicalColumnName())).isEmpty();
+            assertThat(add2.getStats().get().getMinColumnValue(columns.get("v1"))).isEqualTo(Optional.of(3L));
+            assertThat(add2.getStats().get().getMaxColumnValue(columns.get("v1"))).isEqualTo(Optional.of(3L));
+            assertThat(add2.getStats().get().getNullCount(columns.get("v1").basePhysicalColumnName())).isEqualTo(Optional.of(0L));
+            assertThat(add2.getStats().get().getMinColumnValue(columns.get("a.dot"))).isEqualTo(Optional.of(3L));
+            assertThat(add2.getStats().get().getMaxColumnValue(columns.get("a.dot"))).isEqualTo(Optional.of(3L));
+            assertThat(add2.getStats().get().getNullCount(columns.get("a.dot").basePhysicalColumnName())).isEqualTo(Optional.of(0L));
+
+            Location checkpointLocation = Location.of(location.resolve("_delta_log/00000000000000000002.checkpoint.parquet").toString());
+            TrinoInputFile checkpointFile = FILE_SYSTEM.newInputFile(checkpointLocation);
+            CheckpointEntryIterator iterator = new CheckpointEntryIterator(
+                    checkpointFile,
+                    TestingConnectorSession.SESSION,
+                    checkpointFile.length(),
+                    new CheckpointSchemaManager(TESTING_TYPE_MANAGER),
+                    TESTING_TYPE_MANAGER,
+                    ImmutableSet.of(ADD),
+                    Optional.of(metadataEntry),
+                    Optional.of(protocolEntry),
+                    new FileFormatDataSourceStats(),
+                    new ParquetReaderConfig().toParquetReaderOptions(),
+                    true,
+                    new DeltaLakeConfig().getDomainCompactionThreshold(),
+                    TupleDomain.all(),
+                    Optional.of(alwaysTrue()));
+
+            // check DeltaLakeParquetFileStatistics works correctly
+            List<DeltaLakeTransactionLogEntry> addFileEntries = ImmutableList.copyOf(iterator);
+            assertThat(addFileEntries.size()).isEqualTo(2);
+            // make sure the entry by comparing the file modifed time
+            AddFileEntry checkpointAdd1 = addFileEntries.get(0).getAdd();
+            AddFileEntry checkpointAdd2 = addFileEntries.get(1).getAdd();
+            if (checkpointAdd1.getModificationTime() > checkpointAdd2.getModificationTime()) {
+                AddFileEntry tmp = checkpointAdd1;
+                checkpointAdd1 = checkpointAdd2;
+                checkpointAdd2 = tmp;
+            }
+
+            assertThat(checkpointAdd1.getStats()).isPresent();
+            assertThat(checkpointAdd1.getStats().get().getMinColumnValue(columns.get("id"))).isEmpty();
+            assertThat(checkpointAdd1.getStats().get().getMaxColumnValue(columns.get("id"))).isEmpty();
+            assertThat(checkpointAdd1.getStats().get().getNullCount(columns.get("id").basePhysicalColumnName())).isEmpty();
+            assertThat(checkpointAdd1.getStats().get().getMinColumnValue(columns.get("v1"))).isEqualTo(Optional.of(1L));
+            assertThat(checkpointAdd1.getStats().get().getMaxColumnValue(columns.get("v1"))).isEqualTo(Optional.of(1L));
+            assertThat(checkpointAdd1.getStats().get().getNullCount(columns.get("v1").basePhysicalColumnName())).isEqualTo(Optional.of(0L));
+            assertThat(checkpointAdd1.getStats().get().getMinColumnValue(columns.get("a.dot"))).isEqualTo(Optional.of(1L));
+            assertThat(checkpointAdd1.getStats().get().getMaxColumnValue(columns.get("a.dot"))).isEqualTo(Optional.of(1L));
+            assertThat(checkpointAdd1.getStats().get().getNullCount(columns.get("a.dot").basePhysicalColumnName())).isEqualTo(Optional.of(0L));
+
+            assertThat(checkpointAdd2.getStats()).isPresent();
+            assertThat(checkpointAdd2.getStats().get().getMinColumnValue(columns.get("id"))).isEmpty();
+            assertThat(checkpointAdd2.getStats().get().getMaxColumnValue(columns.get("id"))).isEmpty();
+            assertThat(checkpointAdd2.getStats().get().getNullCount(columns.get("id").basePhysicalColumnName())).isEmpty();
+            assertThat(checkpointAdd2.getStats().get().getMinColumnValue(columns.get("v1"))).isEqualTo(Optional.of(3L));
+            assertThat(checkpointAdd2.getStats().get().getMaxColumnValue(columns.get("v1"))).isEqualTo(Optional.of(3L));
+            assertThat(checkpointAdd2.getStats().get().getNullCount(columns.get("v1").basePhysicalColumnName())).isEqualTo(Optional.of(0L));
+            assertThat(checkpointAdd2.getStats().get().getMinColumnValue(columns.get("a.dot"))).isEqualTo(Optional.of(3L));
+            assertThat(checkpointAdd2.getStats().get().getMaxColumnValue(columns.get("a.dot"))).isEqualTo(Optional.of(3L));
+            assertThat(checkpointAdd2.getStats().get().getNullCount(columns.get("a.dot").basePhysicalColumnName())).isEqualTo(Optional.of(0L));
+        }
     }
 
     /**

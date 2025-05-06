@@ -195,11 +195,13 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Maps.filterKeys;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.primitives.Ints.max;
 import static io.airlift.units.DataSize.Unit.BYTE;
@@ -256,6 +258,7 @@ import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getColumnMappin
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getDeletionVectorsEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getLocation;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getPartitionedBy;
+import static io.trino.plugin.deltalake.DeltaLakeTableProperties.getSkippingStatsColumnsProperty;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.containsSchemaString;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.getLastTransactionVersion;
 import static io.trino.plugin.deltalake.metastore.DeltaLakeTableMetadataScheduler.isSameTransactionVersion;
@@ -270,10 +273,12 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.CO
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.ID;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode.NONE;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.DATA_SKIP_STATS_COLUMN_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.IsolationLevel;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.MAX_COLUMN_ID_CONFIGURATION_KEY;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.changeDataFeedEnabled;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.deserializeType;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.dropSkipStatsColumn;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.enabledUniversalFormats;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
@@ -286,6 +291,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ge
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getMaxColumnId;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isAppendOnly;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
+import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.renameSkipStatsColumn;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeColumnType;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeSchemaAsJson;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.serializeStatsAsJson;
@@ -301,6 +307,8 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTra
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.getEntriesFromJson;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail.loadNewTail;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.escapeSpecialChars;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileModifiedTimeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.fileSizeMatchesPredicate;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.getFileModifiedTimeDomain;
@@ -1271,6 +1279,7 @@ public class DeltaLakeMetadata
         Optional<Boolean> changeDataFeedEnabled = getChangeDataFeedEnabled(tableMetadata.getProperties());
         ColumnMappingMode columnMappingMode = getColumnMappingMode(tableMetadata.getProperties());
         boolean deletionVectorsEnabled = getDeletionVectorsEnabled(tableMetadata.getProperties());
+        Optional<String> skippingStatsColumns = getSkippingStatsColumnsProperty(tableMetadata.getProperties());
         AtomicInteger fieldId = new AtomicInteger();
 
         validateTableColumns(tableMetadata);
@@ -1341,7 +1350,7 @@ public class DeltaLakeMetadata
                                 .setDescription(tableMetadata.getComment())
                                 .setSchemaString(serializeSchemaAsJson(deltaTable.build()))
                                 .setPartitionColumns(getPartitionedBy(tableMetadata.getProperties()))
-                                .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, deletionVectorsEnabled, columnMappingMode, maxFieldId)));
+                                .setConfiguration(configurationForNewTable(checkpointInterval, changeDataFeedEnabled, skippingStatsColumns, deletionVectorsEnabled, columnMappingMode, maxFieldId)));
 
                 transactionLogWriter.flush();
 
@@ -1569,7 +1578,8 @@ public class DeltaLakeMetadata
 
     private void validateTableColumns(ConnectorTableMetadata tableMetadata)
     {
-        checkPartitionColumns(tableMetadata.getColumns(), getPartitionedBy(tableMetadata.getProperties()));
+        List<String> partitions = getPartitionedBy(tableMetadata.getProperties());
+        checkPartitionColumns(tableMetadata.getColumns(), partitions);
         checkColumnTypes(tableMetadata.getColumns());
         if (getChangeDataFeedEnabled(tableMetadata.getProperties()).orElse(false)) {
             Set<String> conflicts = Sets.intersection(tableMetadata.getColumns().stream().map(ColumnMetadata::getName).collect(toImmutableSet()), CHANGE_DATA_FEED_COLUMN_NAMES);
@@ -1577,6 +1587,8 @@ public class DeltaLakeMetadata
                 throw new TrinoException(NOT_SUPPORTED, "Unable to use %s when change data feed is enabled".formatted(conflicts));
             }
         }
+
+        checkDataSkippingStatsColumns(tableMetadata.getColumns(), getDataSkippingStatsColumns(getSkippingStatsColumnsProperty(tableMetadata.getProperties())), partitions);
     }
 
     private void validateTableForReplaceOperation(DeltaLakeTableHandle tableHandle, ConnectorTableMetadata existingTableMetadata, ConnectorTableMetadata newTableMetadata)
@@ -1611,6 +1623,54 @@ public class DeltaLakeMetadata
         if (columns.size() == partitionColumnNames.size()) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Using all columns for partition columns is unsupported");
         }
+    }
+
+    private static void checkDataSkippingStatsColumns(List<ColumnMetadata> columns, Set<String> dataSkippingStatsColumns, List<String> partitionColumnNames)
+    {
+        Set<String> columnNames = getFullColumnNames(columns);
+        List<String> invalidSkippingStatsColumnNames = dataSkippingStatsColumns.stream()
+                .filter(skippingStatsColumnName -> !columnNames.contains(skippingStatsColumnName))
+                .collect(toImmutableList());
+        if (!invalidSkippingStatsColumnNames.isEmpty()) {
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Table property 'skipping_stats_columns' contained column names which do not exist: " + invalidSkippingStatsColumnNames);
+        }
+
+        Set<String> invalidSkippingStatsColumns = Sets.intersection(dataSkippingStatsColumns, ImmutableSet.copyOf(partitionColumnNames));
+        if (!invalidSkippingStatsColumns.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Skipping stats columns must not contains partition columns: %s".formatted(invalidSkippingStatsColumns));
+        }
+    }
+
+    private static Set<String> getFullColumnNames(List<ColumnMetadata> columns)
+    {
+        ImmutableSet.Builder<String> columnNamesBuilder = ImmutableSet.builder();
+        for (ColumnMetadata column : columns) {
+            String name = escapeSpecialChars(column.getName());
+            Set<String> subFields = getFullColumnNames(column.getType());
+            columnNamesBuilder.add(name);
+            subFields.stream()
+                    .map(subField -> name + "." + subField)
+                    .forEach(columnNamesBuilder::add);
+        }
+        return columnNamesBuilder.build();
+    }
+
+    private static Set<String> getFullColumnNames(Type type)
+    {
+        ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+        if (type instanceof RowType typ) {
+            for (RowType.Field field : typ.getFields()) {
+                if (field.getName().isPresent()) {
+                    String name = escapeSpecialChars(field.getName().get());
+                    Set<String> subFields = getFullColumnNames(field.getType());
+                    builder.add(name);
+                    subFields.stream()
+                            .map(subName -> name + "." + subName)
+                            .forEach(builder::add);
+                }
+            }
+        }
+        return builder.build();
     }
 
     private void checkColumnTypes(List<ColumnMetadata> columnMetadata)
@@ -1702,7 +1762,7 @@ public class DeltaLakeMetadata
                             .setDescription(handle.comment())
                             .setSchemaString(schemaString)
                             .setPartitionColumns(handle.partitionedBy())
-                            .setConfiguration(configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), handle.deletionVectorsEnabled(), columnMappingMode, handle.maxColumnId())));
+                            .setConfiguration(configurationForNewTable(handle.checkpointInterval(), handle.changeDataFeedEnabled(), Optional.empty(), handle.deletionVectorsEnabled(), columnMappingMode, handle.maxColumnId())));
             appendAddFileEntries(transactionLogWriter, dataFileInfos, physicalPartitionNames, columnNames, true);
             if (handle.readVersion().isPresent()) {
                 long writeTimestamp = Instant.now().toEpochMilli();
@@ -2013,6 +2073,16 @@ public class DeltaLakeMetadata
         }
 
         String schemaString = serializeSchemaAsJson(deltaTable);
+
+        ImmutableMap.Builder<String, String> configuration = ImmutableMap.builder();
+        configuration.putAll(filterKeys(metadataEntry.getConfiguration(), key -> !key.equals(DATA_SKIP_STATS_COLUMN_CONFIGURATION_KEY)));
+
+        metadataEntry.getDataSkippingStatsColumnProperty().ifPresent(skipStatsColumns -> {
+            String newSkipStatsColumns = dropSkipStatsColumn(skipStatsColumns, dropColumnName);
+            if (!isNullOrEmpty(newSkipStatsColumns)) {
+                configuration.put(DATA_SKIP_STATS_COLUMN_CONFIGURATION_KEY, newSkipStatsColumns);
+            }
+        });
         try {
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, table.getLocation());
             appendTableEntries(
@@ -2022,7 +2092,8 @@ public class DeltaLakeMetadata
                     session,
                     protocolEntry,
                     MetadataEntry.builder(metadataEntry)
-                            .setSchemaString(schemaString));
+                            .setSchemaString(schemaString)
+                            .setConfiguration(configuration.buildOrThrow()));
             transactionLogWriter.flush();
             enqueueUpdateInfo(session, table.getSchemaName(), table.getTableName(), commitVersion, schemaString, Optional.ofNullable(metadataEntry.getDescription()));
         }
@@ -2080,6 +2151,11 @@ public class DeltaLakeMetadata
                 .renameColumn(sourceColumnName, newColumnName)
                 .build();
         String schemaString = serializeSchemaAsJson(deltaTable);
+
+        ImmutableMap.Builder<String, String> configuration = ImmutableMap.builderWithExpectedSize(metadataEntry.getConfiguration().size());
+        configuration.putAll(filterKeys(metadataEntry.getConfiguration(), key -> !key.equals(DATA_SKIP_STATS_COLUMN_CONFIGURATION_KEY)));
+
+        metadataEntry.getDataSkippingStatsColumnProperty().ifPresent(columns -> configuration.put(DATA_SKIP_STATS_COLUMN_CONFIGURATION_KEY, renameSkipStatsColumn(columns, sourceColumnName, newColumnName)));
         try {
             TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, table.getLocation());
             appendTableEntries(
@@ -2090,7 +2166,8 @@ public class DeltaLakeMetadata
                     protocolEntry,
                     MetadataEntry.builder(metadataEntry)
                             .setSchemaString(schemaString)
-                            .setPartitionColumns(partitionColumns));
+                            .setPartitionColumns(partitionColumns)
+                            .setConfiguration(configuration.buildOrThrow()));
             transactionLogWriter.flush();
             enqueueUpdateInfo(session, table.getSchemaName(), table.getTableName(), commitVersion, schemaString, Optional.ofNullable(metadataEntry.getDescription()));
             // Don't update extended statistics because it uses physical column names internally

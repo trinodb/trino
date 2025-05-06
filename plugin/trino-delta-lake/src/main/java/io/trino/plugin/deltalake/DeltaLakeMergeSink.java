@@ -61,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -86,6 +87,7 @@ import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVecto
 import static io.trino.plugin.deltalake.delete.DeletionVectors.toFileName;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.writeDeletionVectors;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.deserializePartitionValue;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
 import static io.trino.plugin.hive.HiveCompressionCodecs.toCompressionCodec;
 import static io.trino.spi.block.RowBlock.getRowFieldsFromBlock;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -133,6 +135,7 @@ public class DeltaLakeMergeSink
     private final Map<String, DeletionVectorEntry> deletionVectors;
     private final int randomPrefixLength;
     private final Optional<String> shallowCloneSourceTableLocation;
+    private final Set<String> dataSkippingStatsColumns;
 
     @Nullable
     private DeltaLakeCdfPageSink cdfPageSink;
@@ -158,7 +161,8 @@ public class DeltaLakeMergeSink
             boolean deletionVectorEnabled,
             Map<String, DeletionVectorEntry> deletionVectors,
             int randomPrefixLength,
-            Optional<String> shallowCloneSourceTableLocation)
+            Optional<String> shallowCloneSourceTableLocation,
+            Optional<String> dataSkippingStatsColumnProperty)
     {
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.session = requireNonNull(session, "session is null");
@@ -188,6 +192,7 @@ public class DeltaLakeMergeSink
         this.deletionVectors = ImmutableMap.copyOf(requireNonNull(deletionVectors, "deletionVectors is null"));
         this.randomPrefixLength = randomPrefixLength;
         this.shallowCloneSourceTableLocation = requireNonNull(shallowCloneSourceTableLocation, "shallowCloneSourceTableLocation is null");
+        this.dataSkippingStatsColumns = getDataSkippingStatsColumns(dataSkippingStatsColumnProperty);
 
         dataColumnsIndices = new int[tableColumnCount];
         dataAndRowIdColumnsIndices = new int[tableColumnCount + 1];
@@ -430,7 +435,7 @@ public class DeltaLakeMergeSink
                     lastModified.toEpochMilli(),
                     DATA,
                     deletion.partitionValues,
-                    readStatistics(parquetMetadata, dataColumns, rowCount),
+                    readStatistics(parquetMetadata, dataColumns, rowCount, dataSkippingStatsColumns),
                     Optional.of(deletionVectorEntry));
             DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues, Optional.of(sourceReferencePath), Optional.ofNullable(oldDeletionVector), Optional.of(newFileInfo));
             return utf8Slice(mergeResultJsonCodec.toJson(result));
@@ -484,7 +489,8 @@ public class DeltaLakeMergeSink
                     deletion.partitionValues(),
                     writerStats,
                     dataColumns,
-                    DATA);
+                    DATA,
+                    dataSkippingStatsColumns);
 
             Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
 
