@@ -397,16 +397,21 @@ public class TestIcebergRedirectionToHive
         String hiveTableName = "hive.default." + tableName;
         String icebergTableName = "iceberg.default." + tableName;
 
-        createHiveTable(hiveTableName, false);
+        // hive ORC format doesn't support drop column, so use PARQUET format here
+        onTrino().executeQuery(
+                "CREATE TABLE " + hiveTableName + " WITH(format = 'PARQUET')" +
+                    " AS " +
+                    "SELECT nationkey, name, comment, regionkey FROM tpch.tiny.nation " +
+                    "WITH DATA");
 
         onTrino().executeQuery("ALTER TABLE " + icebergTableName + " DROP COLUMN comment");
 
         assertThat(onTrino().executeQuery("DESCRIBE " + icebergTableName).column(1))
                 .containsOnly("nationkey", "name", "regionkey");
 
-        // After dropping the column from the Hive metastore, access ORC columns by name
+        // After dropping the column from the Hive metastore, access PARQUET columns by name
         // in order to avoid mismatches between column indexes
-        onTrino().executeQuery("SET SESSION hive.orc_use_column_names = true");
+        onTrino().executeQuery("SET SESSION hive.parquet_use_column_names = true");
         assertResultsEqual(
                 onTrino().executeQuery("TABLE " + hiveTableName),
                 onTrino().executeQuery("SELECT nationkey, name, regionkey FROM tpch.tiny.nation"));
