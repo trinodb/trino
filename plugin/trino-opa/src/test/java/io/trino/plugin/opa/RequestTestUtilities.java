@@ -34,17 +34,20 @@ public final class RequestTestUtilities
 
     private static final JsonMapper jsonMapper = new JsonMapper();
 
+    public static JsonNode toJsonNode(String item)
+    {
+        try {
+            return jsonMapper.readTree(item);
+        }
+        catch (IOException e) {
+            throw new IllegalStateException("Cannot parse to a JsonNode", e);
+        }
+    }
+
     public static void assertStringRequestsEqual(Set<String> expectedRequests, Collection<JsonNode> actualRequests, String extractPath)
     {
         Set<JsonNode> parsedExpectedRequests = expectedRequests.stream()
-                .map(expectedRequest -> {
-                    try {
-                        return jsonMapper.readTree(expectedRequest);
-                    }
-                    catch (IOException e) {
-                        throw new AssertionError("Cannot parse expected request", e);
-                    }
-                })
+                .map(RequestTestUtilities::toJsonNode)
                 .collect(toImmutableSet());
         Set<JsonNode> extractedActualRequests = actualRequests.stream().map(node -> node.at(extractPath)).collect(toImmutableSet());
         assertThat(extractedActualRequests).containsExactlyInAnyOrderElementsOf(parsedExpectedRequests);
