@@ -212,6 +212,8 @@ public class MockManagedQueryExecution
                         DataSize.ofBytes(25),
                         DataSize.ofBytes(26),
 
+                        DataSize.ofBytes(27),
+
                         !state.isDone(),
                         state.isDone() ? OptionalDouble.empty() : OptionalDouble.of(8.88),
                         state.isDone() ? OptionalDouble.empty() : OptionalDouble.of(0),

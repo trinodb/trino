@@ -264,7 +264,7 @@ public class TestStageStateMachine
         assertThat(stats.getFailedScheduledTime()).isEqualTo(succinctDuration(1, MILLISECONDS));
         assertThat(stats.getRunningPercentage()).isEmpty();
         assertThat(stats.getProgressPercentage()).isEmpty();
-        assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(0));
+        assertThat(stats.getSpilledDataSize()).isEqualTo(succinctBytes(expectedStatsValue));
     }
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts)
@@ -292,6 +292,7 @@ public class TestStageStateMachine
                 baseValue,
                 baseValue,
                 baseValue,
+                DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
                 DataSize.ofBytes(baseValue),
