@@ -28,6 +28,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.operator.RetryPolicy;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.server.BasicQueryStats;
 import io.trino.server.ResultQueryInfo;
@@ -270,6 +271,7 @@ public class TestQueryInfo
         return new StageStats(
                 new DateTime(value),
                 ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Distribution.DistributionSnapshot(value, value, value, value, value, value, value, value, value, value, value, value, value, value)),
+                ImmutableMap.of(new PlanNodeId(Integer.toString(value)), new Metrics(ImmutableMap.of("abc", new LongCount(value)))),
                 value,
                 value,
                 value,

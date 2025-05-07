@@ -13,6 +13,8 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.metrics.Metrics;
+
 import java.io.Closeable;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +51,17 @@ public interface ConnectorSplitSource
     default Optional<List<Object>> getTableExecuteSplitsInfo()
     {
         return Optional.empty();
+    }
+
+    /**
+     * Returns the split source's metrics, mapping a metric id to its latest value.
+     * Each call must return an immutable snapshot of available metrics.
+     * The metrics for each split source are collected independently and exposed via StageStats and OperatorStats.
+     * This method can be called after the split source is closed, and in that case the final metrics should be returned.
+     */
+    default Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
     }
 
     class ConnectorSplitBatch

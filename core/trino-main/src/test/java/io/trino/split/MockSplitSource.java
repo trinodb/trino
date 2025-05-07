@@ -22,6 +22,7 @@ import com.google.errorprone.annotations.ThreadSafe;
 import io.trino.metadata.Split;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.metrics.Metrics;
 
 import java.util.Collections;
 import java.util.List;
@@ -139,6 +140,12 @@ public class MockSplitSource
     public Optional<List<Object>> getTableExecuteSplitsInfo()
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return Metrics.EMPTY;
     }
 
     public synchronized int getNextBatchInvocationCount()

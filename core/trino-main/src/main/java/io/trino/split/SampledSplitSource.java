@@ -16,6 +16,7 @@ package io.trino.split;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.metrics.Metrics;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -75,5 +76,11 @@ public class SampledSplitSource
             throw new IllegalStateException("Cannot use SampledSplitSource with SplitSource which returns non-empty TableExecuteSplitsInfo=" + splitInfo);
         });
         return Optional.empty();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return splitSource.getMetrics();
     }
 }

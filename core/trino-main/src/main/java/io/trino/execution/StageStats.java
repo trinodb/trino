@@ -51,6 +51,7 @@ public class StageStats
     private final DateTime schedulingComplete;
 
     private final Map<PlanNodeId, DistributionSnapshot> getSplitDistribution;
+    private final Map<PlanNodeId, Metrics> splitSourceMetrics;
 
     private final int totalTasks;
     private final int runningTasks;
@@ -127,6 +128,7 @@ public class StageStats
             @JsonProperty("schedulingComplete") DateTime schedulingComplete,
 
             @JsonProperty("getSplitDistribution") Map<PlanNodeId, DistributionSnapshot> getSplitDistribution,
+            @JsonProperty("splitSourceMetrics") Map<PlanNodeId, Metrics> splitSourceMetrics,
 
             @JsonProperty("totalTasks") int totalTasks,
             @JsonProperty("runningTasks") int runningTasks,
@@ -200,6 +202,7 @@ public class StageStats
     {
         this.schedulingComplete = schedulingComplete;
         this.getSplitDistribution = ImmutableMap.copyOf(requireNonNull(getSplitDistribution, "getSplitDistribution is null"));
+        this.splitSourceMetrics = ImmutableMap.copyOf(requireNonNull(splitSourceMetrics, "splitSourceMetrics is null"));
 
         checkArgument(totalTasks >= 0, "totalTasks is negative");
         this.totalTasks = totalTasks;
@@ -302,6 +305,12 @@ public class StageStats
     public Map<PlanNodeId, DistributionSnapshot> getGetSplitDistribution()
     {
         return getSplitDistribution;
+    }
+
+    @JsonProperty
+    public Map<PlanNodeId, Metrics> getSplitSourceMetrics()
+    {
+        return splitSourceMetrics;
     }
 
     @JsonProperty
@@ -689,6 +698,7 @@ public class StageStats
         return new StageStats(
                 schedulingComplete,
                 getSplitDistribution,
+                splitSourceMetrics,
                 totalTasks,
                 runningTasks,
                 completedTasks,
@@ -755,6 +765,7 @@ public class StageStats
         Duration zeroSeconds = new Duration(0, SECONDS);
         return new StageStats(
                 null,
+                ImmutableMap.of(),
                 ImmutableMap.of(),
                 0,
                 0,
