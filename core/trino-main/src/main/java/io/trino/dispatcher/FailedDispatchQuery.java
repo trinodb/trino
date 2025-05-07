@@ -299,6 +299,7 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
+                DataSize.ofBytes(0),
                 false,
                 OptionalDouble.empty(),
                 OptionalDouble.empty(),

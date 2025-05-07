@@ -54,6 +54,8 @@ public class TestPipelineStats
             DataSize.ofBytes(5),
             DataSize.ofBytes(6),
 
+            DataSize.ofBytes(7),
+
             getTestDistribution(8),
             getTestDistribution(9),
 
@@ -119,6 +121,8 @@ public class TestPipelineStats
 
         assertThat(actual.getUserMemoryReservation()).isEqualTo(DataSize.ofBytes(5));
         assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(6));
+
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(7));
 
         assertThat(actual.getQueuedTime().getCount()).isEqualTo(8.0);
         assertThat(actual.getElapsedTime().getCount()).isEqualTo(9.0);

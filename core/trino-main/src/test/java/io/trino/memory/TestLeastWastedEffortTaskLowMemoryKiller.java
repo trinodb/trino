@@ -307,6 +307,7 @@ public class TestLeastWastedEffortTaskLowMemoryKiller
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
                         DataSize.ofBytes(0),
+                        DataSize.ofBytes(0),
                         scheduledTime,
                         new Duration(0, MILLISECONDS),
                         blockedTime,
