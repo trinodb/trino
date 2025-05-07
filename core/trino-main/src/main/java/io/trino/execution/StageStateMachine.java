@@ -92,6 +92,7 @@ public class StageStateMachine
 
     private final AtomicReference<DateTime> schedulingComplete = new AtomicReference<>();
     private final Map<PlanNodeId, Distribution> getSplitDistribution = new ConcurrentHashMap<>();
+    private final Map<PlanNodeId, Metrics> splitSourceMetrics = new ConcurrentHashMap<>();
 
     private final AtomicLong peakUserMemory = new AtomicLong();
     private final AtomicLong peakRevocableMemory = new AtomicLong();
@@ -607,6 +608,7 @@ public class StageStateMachine
         StageStats stageStats = new StageStats(
                 schedulingComplete.get(),
                 getSplitDistributionSnapshot(),
+                splitSourceMetrics,
 
                 totalTasks,
                 runningTasks,
@@ -743,11 +745,12 @@ public class StageStateMachine
         return operatorStatsBuilder.build();
     }
 
-    public void recordGetSplitTime(PlanNodeId nodeId, long startNanos)
+    public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long startNanos)
     {
         long elapsedNanos = System.nanoTime() - startNanos;
         getSplitDistribution.computeIfAbsent(nodeId, (_) -> new Distribution()).add(elapsedNanos);
         scheduledStats.getGetSplitTime().add(elapsedNanos, NANOSECONDS);
+        splitSourceMetrics.put(nodeId, metrics);
     }
 
     @Override

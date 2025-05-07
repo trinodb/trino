@@ -40,6 +40,7 @@ import io.trino.spi.exchange.ExchangeSinkHandle;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandleSource;
+import io.trino.spi.metrics.Metrics;
 import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -322,7 +323,7 @@ public class TestEventDrivenTaskSource
                 1,
                 1,
                 partitioningScheme,
-                (_, _) -> getSplitInvocations.incrementAndGet())) {
+                (_, _, _) -> getSplitInvocations.incrementAndGet())) {
             while (tester.getTaskDescriptors().isEmpty()) {
                 AssignmentResult result = taskSource.process().orElseThrow().get(10, SECONDS);
                 tester.update(result);
@@ -501,6 +502,12 @@ public class TestEventDrivenTaskSource
         public Optional<List<Object>> getTableExecuteSplitsInfo()
         {
             return Optional.empty();
+        }
+
+        @Override
+        public Metrics getMetrics()
+        {
+            return Metrics.EMPTY;
         }
 
         public synchronized boolean isClosed()

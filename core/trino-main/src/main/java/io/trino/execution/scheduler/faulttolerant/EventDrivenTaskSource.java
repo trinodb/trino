@@ -36,6 +36,7 @@ import io.trino.spi.exchange.Exchange;
 import io.trino.spi.exchange.ExchangeSourceHandle;
 import io.trino.spi.exchange.ExchangeSourceHandleSource;
 import io.trino.spi.exchange.ExchangeSourceHandleSource.ExchangeSourceHandleBatch;
+import io.trino.spi.metrics.Metrics;
 import io.trino.split.RemoteSplit;
 import io.trino.split.SplitSource;
 import io.trino.split.SplitSource.SplitBatch;
@@ -52,7 +53,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -83,7 +83,7 @@ class EventDrivenTaskSource
     private final int splitBatchSize;
     private final long targetExchangeSplitSizeInBytes;
     private final FaultTolerantPartitioningScheme sourcePartitioningScheme;
-    private final BiConsumer<PlanNodeId, Long> getSplitTimeRecorder;
+    private final SplitSourceMetricsRecorder metricsRecorder;
 
     @GuardedBy("this")
     private boolean initialized;
@@ -112,7 +112,7 @@ class EventDrivenTaskSource
             int splitBatchSize,
             long targetExchangeSplitSizeInBytes,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            BiConsumer<PlanNodeId, Long> getSplitTimeRecorder)
+            SplitSourceMetricsRecorder metricsRecorder)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
@@ -124,7 +124,7 @@ class EventDrivenTaskSource
         this.splitBatchSize = splitBatchSize;
         this.targetExchangeSplitSizeInBytes = targetExchangeSplitSizeInBytes;
         this.sourcePartitioningScheme = requireNonNull(sourcePartitioningScheme, "sourcePartitioningScheme is null");
-        this.getSplitTimeRecorder = requireNonNull(getSplitTimeRecorder, "getSplitTimeRecorder is null");
+        this.metricsRecorder = requireNonNull(metricsRecorder, "metricsRecorder is null");
     }
 
     public synchronized Optional<ListenableFuture<AssignmentResult>> process()
@@ -157,10 +157,10 @@ class EventDrivenTaskSource
             verify(remoteSourceNodeId != null, "remote source not found for fragment: %s", sourceFragmentId);
             ExchangeSourceHandleSource handleSource = closer.register(entry.getValue().getSourceHandles());
             ExchangeSplitSource splitSource = closer.register(new ExchangeSplitSource(handleSource, targetExchangeSplitSizeInBytes));
-            splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, remoteSourceNodeId, Optional.of(sourceFragmentId), splitSource, splitBatchSize, getSplitTimeRecorder)));
+            splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, remoteSourceNodeId, Optional.of(sourceFragmentId), splitSource, splitBatchSize, metricsRecorder)));
         }
         for (Map.Entry<PlanNodeId, SplitSource> entry : splitSourceSupplier.get().entrySet()) {
-            splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, entry.getKey(), Optional.empty(), closer.register(entry.getValue()), splitBatchSize, getSplitTimeRecorder)));
+            splitSources.add(closer.register(new IdempotentSplitSource(queryId, tableExecuteContextManager, entry.getKey(), Optional.empty(), closer.register(entry.getValue()), splitBatchSize, metricsRecorder)));
         }
         this.splitSources = splitSources.build();
     }
@@ -256,7 +256,7 @@ class EventDrivenTaskSource
         private final Optional<PlanFragmentId> sourceFragmentId;
         private final SplitSource splitSource;
         private final int splitBatchSize;
-        private final BiConsumer<PlanNodeId, Long> getSplitTimeRecorder;
+        private final SplitSourceMetricsRecorder metricsRecorder;
 
         @GuardedBy("this")
         private Optional<CallbackProxyFuture<SplitBatchReference>> future = Optional.empty();
@@ -272,7 +272,7 @@ class EventDrivenTaskSource
                 Optional<PlanFragmentId> sourceFragmentId,
                 SplitSource splitSource,
                 int splitBatchSize,
-                BiConsumer<PlanNodeId, Long> getSplitTimeRecorder)
+                SplitSourceMetricsRecorder metricsRecorder)
         {
             this.queryId = requireNonNull(queryId, "queryId is null");
             this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
@@ -280,7 +280,7 @@ class EventDrivenTaskSource
             this.sourceFragmentId = requireNonNull(sourceFragmentId, "sourceFragmentId is null");
             this.splitSource = requireNonNull(splitSource, "splitSource is null");
             this.splitBatchSize = splitBatchSize;
-            this.getSplitTimeRecorder = requireNonNull(getSplitTimeRecorder, "getSplitTimeRecorder is null");
+            this.metricsRecorder = requireNonNull(metricsRecorder, "metricsRecorder is null");
         }
 
         public synchronized Optional<ListenableFuture<SplitBatchReference>> getNext()
@@ -288,7 +288,7 @@ class EventDrivenTaskSource
             if (future.isEmpty() && !finished) {
                 long start = System.nanoTime();
                 future = Optional.of(new CallbackProxyFuture<>(Futures.transform(splitSource.getNextBatch(splitBatchSize), batch -> {
-                    getSplitTimeRecorder.accept(planNodeId, start);
+                    metricsRecorder.record(planNodeId, splitSource.getMetrics(), start);
                     if (batch.isLastBatch()) {
                         Optional<List<Object>> tableExecuteSplitsInfo = splitSource.getTableExecuteSplitsInfo();
                         // Here we assume that we can get non-empty tableExecuteSplitsInfo only for queries which facilitate single split source.
@@ -442,6 +442,12 @@ class EventDrivenTaskSource
         public Optional<List<Object>> getTableExecuteSplitsInfo()
         {
             return Optional.empty();
+        }
+
+        @Override
+        public Metrics getMetrics()
+        {
+            return Metrics.EMPTY;
         }
 
         @Override

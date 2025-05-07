@@ -26,6 +26,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -283,9 +284,9 @@ public final class SqlStage
         return Optional.of(task);
     }
 
-    public void recordGetSplitTime(PlanNodeId nodeId, long start)
+    public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long start)
     {
-        stateMachine.recordGetSplitTime(nodeId, start);
+        stateMachine.recordSplitSourceMetrics(nodeId, metrics, start);
     }
 
     private void updateTaskStatus(TaskStatus status)
