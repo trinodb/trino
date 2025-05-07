@@ -57,6 +57,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.Utils;
@@ -75,6 +76,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -272,7 +274,10 @@ public class DeltaLakePageSourceProvider
                 PositionDeleteFilter deleteFilter = readDeletes(fileSystem, Location.of(table.location()), split.getDeletionVector().get());
                 return deleteFilter.createPredicate(requiredColumns);
             });
-            delegate = TransformConnectorPageSource.create(delegate, page -> pageFilterSupplier.get().apply(page));
+
+            // trim output columns list so we do not expose PARQUET_ROW_INDEX_COLUMN added for internal purposes
+            int[] retainedColumns = IntStream.range(0, regularColumns.size()).toArray();
+            delegate = TransformConnectorPageSource.create(delegate, page -> SourcePage.create(pageFilterSupplier.get().apply(page).getColumns(retainedColumns)));
         }
 
         return projectColumns(
