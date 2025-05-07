@@ -21,16 +21,17 @@ gsheets.metadata-sheet-id=exampleId
 
 The following configuration properties are available:
 
-| Property name                 | Description                                                      |
-| ----------------------------- | ---------------------------------------------------------------- |
-| `gsheets.credentials-path`    | Path to the Google API JSON key file                             |
-| `gsheets.credentials-key`     | The base64 encoded credentials key                               |
-| `gsheets.metadata-sheet-id`   | Sheet ID of the spreadsheet, that contains the table mapping     |
-| `gsheets.max-data-cache-size` | Maximum number of spreadsheets to cache, defaults to `1000`      |
-| `gsheets.data-cache-ttl`      | How long to cache spreadsheet data or metadata, defaults to `5m` |
-| `gsheets.connection-timeout`  | Timeout when connection to Google Sheets API, defaults to `20s`  |
-| `gsheets.read-timeout`        | Timeout when reading from Google Sheets API, defaults to `20s`   |
-| `gsheets.write-timeout`       | Timeout when writing to Google Sheets API, defaults to `20s`     |
+| Property name                  | Description                                                                       |
+|--------------------------------|-----------------------------------------------------------------------------------|
+| `gsheets.credentials-path`     | Path to the Google API JSON key file                                              |
+| `gsheets.credentials-key`      | The base64 encoded credentials key                                                |
+| `gsheets.delegated-user-email` | User email to impersonate the service account with domain-wide delegation enabled |
+| `gsheets.metadata-sheet-id`    | Sheet ID of the spreadsheet, that contains the table mapping                      |
+| `gsheets.max-data-cache-size`  | Maximum number of spreadsheets to cache, defaults to `1000`                       |
+| `gsheets.data-cache-ttl`       | How long to cache spreadsheet data or metadata, defaults to `5m`                  |
+| `gsheets.connection-timeout`   | Timeout when connection to Google Sheets API, defaults to `20s`                   |
+| `gsheets.read-timeout`         | Timeout when reading from Google Sheets API, defaults to `20s`                    |
+| `gsheets.write-timeout`        | Timeout when writing to Google Sheets API, defaults to `20s`                      |
 
 ## Credentials
 
@@ -50,6 +51,9 @@ The exact name of the file does not matter -- it can be named anything.
 
 Alternatively, set the `gsheets.credentials-key` configuration property.
 It should contain the contents of the JSON file, encoded using base64.
+
+Optionally, set the `gsheets.delegated-user-email` property to impersonate a user.
+This allows you to share Google Sheets with this email instead of the service account.
 
 ## Metadata sheet
 
