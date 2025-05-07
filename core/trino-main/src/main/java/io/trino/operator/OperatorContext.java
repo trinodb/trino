@@ -619,7 +619,6 @@ public class OperatorContext
             implements SpillContext
     {
         private final DriverContext driverContext;
-        private final AtomicLong reservedBytes = new AtomicLong();
         private final AtomicLong spilledBytes = new AtomicLong();
 
         public OperatorSpillContext(DriverContext driverContext)
@@ -631,12 +630,10 @@ public class OperatorContext
         public void updateBytes(long bytes)
         {
             if (bytes >= 0) {
-                reservedBytes.addAndGet(bytes);
                 driverContext.reserveSpill(bytes);
                 spilledBytes.addAndGet(bytes);
             }
             else {
-                reservedBytes.accumulateAndGet(-bytes, this::decrementSpilledReservation);
                 driverContext.freeSpill(-bytes);
             }
         }
@@ -644,13 +641,6 @@ public class OperatorContext
         public long getSpilledBytes()
         {
             return spilledBytes.longValue();
-        }
-
-        private long decrementSpilledReservation(long reservedBytes, long bytesBeingFreed)
-        {
-            checkArgument(bytesBeingFreed >= 0);
-            checkArgument(bytesBeingFreed <= reservedBytes, "tried to free %s spilled bytes from %s bytes reserved", bytesBeingFreed, reservedBytes);
-            return reservedBytes - bytesBeingFreed;
         }
 
         @Override
@@ -664,7 +654,7 @@ public class OperatorContext
         public String toString()
         {
             return toStringHelper(this)
-                    .add("usedBytes", reservedBytes.get())
+                    .add("spilledBytes", spilledBytes.get())
                     .toString();
         }
     }
