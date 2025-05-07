@@ -159,7 +159,6 @@ html_theme_options = {
         'search.suggest',
         'toc.integrate',
         'toc.follow',
-        'toc.sticky',
     ],
     'icon': {
         'repo': 'fontawesome/brands/github-alt'
