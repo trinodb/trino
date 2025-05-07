@@ -400,8 +400,10 @@ public class DriverContext
         }
 
         ImmutableSet.Builder<BlockedReason> builder = ImmutableSet.builder();
+        long spilledDataSize = 0;
         long physicalWrittenDataSize = 0;
         for (OperatorStats operator : operators) {
+            spilledDataSize += operator.getSpilledDataSize().toBytes();
             physicalWrittenDataSize += operator.getPhysicalWrittenDataSize().toBytes();
             if (operator.getBlockedReason().isPresent()) {
                 builder.add(operator.getBlockedReason().get());
@@ -416,6 +418,7 @@ public class DriverContext
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 succinctBytes(driverMemoryContext.getUserMemory()),
                 succinctBytes(driverMemoryContext.getRevocableMemory()),
+                succinctBytes(spilledDataSize),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

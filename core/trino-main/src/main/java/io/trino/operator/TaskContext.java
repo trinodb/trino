@@ -461,6 +461,8 @@ public class TaskContext
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
+        long spilledDataSize = 0;
+
         long totalScheduledTime = 0;
         long totalCpuTime = 0;
         long totalBlockedTime = 0;
@@ -511,6 +513,8 @@ public class TaskContext
             runningPartitionedSplitsWeight += pipeline.getRunningPartitionedSplitsWeight();
             blockedDrivers += pipeline.getBlockedDrivers();
             completedDrivers += pipeline.getCompletedDrivers();
+
+            spilledDataSize += pipeline.getSpilledDataSize().toBytes();
 
             totalScheduledTime += pipeline.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += pipeline.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -600,6 +604,7 @@ public class TaskContext
                 succinctBytes(userMemory),
                 getPeakMemoryReservation().succinct(),
                 succinctBytes(taskMemoryContext.getRevocableMemory()),
+                succinctBytes(spilledDataSize),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),

@@ -56,6 +56,8 @@ public class PipelineStats
     private final DataSize userMemoryReservation;
     private final DataSize revocableMemoryReservation;
 
+    private final DataSize spilledDataSize;
+
     private final DistributionSnapshot queuedTime;
     private final DistributionSnapshot elapsedTime;
 
@@ -113,6 +115,8 @@ public class PipelineStats
 
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
+
+            @JsonProperty("spilledDataSize") DataSize spilledDataSize,
 
             @JsonProperty("queuedTime") DistributionSnapshot queuedTime,
             @JsonProperty("elapsedTime") DistributionSnapshot elapsedTime,
@@ -178,6 +182,8 @@ public class PipelineStats
 
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.revocableMemoryReservation = requireNonNull(revocableMemoryReservation, "revocableMemoryReservation is null");
+
+        this.spilledDataSize = requireNonNull(spilledDataSize, "spilledDataSize is null");
 
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
@@ -322,6 +328,12 @@ public class PipelineStats
     public DataSize getRevocableMemoryReservation()
     {
         return revocableMemoryReservation;
+    }
+
+    @JsonProperty
+    public DataSize getSpilledDataSize()
+    {
+        return spilledDataSize;
     }
 
     @JsonProperty
@@ -482,6 +494,7 @@ public class PipelineStats
                 completedDrivers,
                 userMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 queuedTime,
                 elapsedTime,
                 totalScheduledTime,
@@ -527,6 +540,7 @@ public class PipelineStats
                 completedDrivers,
                 userMemoryReservation,
                 revocableMemoryReservation,
+                spilledDataSize,
                 queuedTime,
                 elapsedTime,
                 totalScheduledTime,
