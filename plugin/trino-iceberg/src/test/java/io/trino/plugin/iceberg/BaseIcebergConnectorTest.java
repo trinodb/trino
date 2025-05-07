@@ -120,6 +120,7 @@ import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -6602,6 +6603,22 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33s')",
                 "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.expire-snapshots.min-retention configuration property or iceberg.expire_snapshots_min_retention session property");
+    }
+
+    @Test
+    public void testRemoveOrphanFilesWithUnexpectedMissingManifest()
+            throws Exception
+    {
+        String tableName = "test_remove_orphan_files_with_missing_manifest_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        String manifestFileToRemove = (String) computeScalar("SELECT path FROM \"" + tableName + "$manifests\"");
+        fileSystem.deleteFile(Location.of(manifestFileToRemove));
+
+        assertThat(query("ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES"))
+                .failure()
+                .hasErrorCode(ICEBERG_INVALID_METADATA)
+                .hasMessage("Manifest file does not exist: " + manifestFileToRemove);
     }
 
     @Test
