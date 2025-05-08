@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -159,8 +160,8 @@ public class TestTransactionScopeCachingDirectoryLister
             implements DirectoryLister
     {
         private final Map<Location, List<TrinoFileStatus>> fileStatuses;
-        private int listCount;
-        private boolean throwException;
+        private final AtomicInteger listCount = new AtomicInteger();
+        private volatile boolean throwException;
 
         public CountingDirectoryLister(Map<Location, List<TrinoFileStatus>> fileStatuses)
         {
@@ -171,7 +172,7 @@ public class TestTransactionScopeCachingDirectoryLister
         public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
         {
             // No specific recursive files-only listing implementation
-            listCount++;
+            listCount.incrementAndGet();
             return throwingRemoteIterator(requireNonNull(fileStatuses.get(location)), throwException);
         }
 
@@ -182,7 +183,7 @@ public class TestTransactionScopeCachingDirectoryLister
 
         public int getListCount()
         {
-            return listCount;
+            return listCount.get();
         }
 
         @Override
