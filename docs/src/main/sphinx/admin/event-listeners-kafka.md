@@ -21,7 +21,7 @@ and avoids downtime for non-client-facing changes.
 
 You need to perform the following steps:
 
-- Provide an Kafka service that is network-accessible to Trino.
+- Provide a Kafka service that is network-accessible to Trino.
 - Configure `kafka-event-listener.broker-endpoints` in the event listener
   properties file with the URI of the service
 - Configure what events to send as detailed
@@ -47,6 +47,31 @@ in [](config-properties):
 
 ```properties
 event-listener.config-files=etc/kafka-event-listener.properties,...
+```
+
+In some cases, such as when using specialized authentication methods, it is
+necessary to specify additional Kafka client properties in order to access
+your Kafka cluster. To do so, add the `kafka-event-listener.config.resources`
+property to reference your Kafka config files. Note that configs can be
+overwritten if defined explicitly in `kafka-event-listener.properties`:
+
+```properties
+event-listener.name=kafka
+kafka-event-listener.broker-endpoints=kafka.example.com:9093
+kafka-event-listener.created-event.topic=query_create
+kafka-event-listener.completed-event.topic=query_complete
+kafka-event-listener.client-id=trino-example
+kafka.config.resources=/etc/kafka-configuration.properties
+```
+
+The contents of `/etc/kafka-configuration.properties` can for example be:
+
+```properties
+sasl.mechanism=SCRAM-SHA-512
+security.protocol=SASL_SSL
+sasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required \
+  username="kafkaclient1" \
+  password="kafkaclient1-secret";
 ```
 
 Use the following properties for further configuration.
@@ -95,10 +120,6 @@ Use the following properties for further configuration.
 * - `kafka-event-listener.excluded-fields`
   - Comma-separated list of field names to exclude from the Kafka event, for
     example `payload,user`. Values are replaced with null.
-  - 
-* - `kafka-event-listener.client-config-overrides`
-  - Comma-separated list of key-value pairs to specify Kafka client configuration
-    overrides, for example `buffer.memory=67108864,compression.type=zstd`.
   -
 * - `kafka-event-listener.request-timeout`
   - Timeout [duration](prop-type-duration) to complete a Kafka request. Minimum
@@ -115,5 +136,10 @@ Use the following properties for further configuration.
     environment variable on the cluster is set at
     `TRINO_INSIGHTS_CLUSTER_ID=foo`, then the Kafka payload metadata contains
     `CLUSTER_ID=foo`.
+  -
+* - `kafka-event-listener.config.resources`
+  - A comma-separated list of Kafka client configuration files. These files
+    must exist on the machines running Trino. Only specify this if absolutely
+    necessary to access Kafka. Example: `/etc/kafka-configuration.properties`
   -
 :::

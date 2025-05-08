@@ -15,40 +15,48 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
+import dev.failsafe.RetryPolicy;
+import io.trino.plugin.base.MappedPageSource;
 import io.trino.plugin.jdbc.MergeJdbcPageSource.ColumnAdaptation;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.RecordPageSource;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.trino.plugin.jdbc.DefaultJdbcMetadata.MERGE_ROW_ID;
 import static io.trino.plugin.jdbc.MergeJdbcPageSource.MergedRowAdaptation;
 import static io.trino.plugin.jdbc.MergeJdbcPageSource.SourceColumn;
+import static io.trino.plugin.jdbc.RetryingModule.retry;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.UnaryOperator.identity;
 
 public class JdbcPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final JdbcClient jdbcClient;
-    private final ConnectorRecordSetProvider recordSetProvider;
+    private final ExecutorService executor;
+    private final RetryPolicy<Object> policy;
 
     @Inject
-    public JdbcPageSourceProvider(JdbcClient jdbcClient, ConnectorRecordSetProvider recordSetProvider)
+    public JdbcPageSourceProvider(JdbcClient jdbcClient, @ForJdbcClient ExecutorService executor, RetryPolicy<Object> policy)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.executor = requireNonNull(executor, "executor is null");
+        this.policy = requireNonNull(policy, "policy is null");
     }
 
     @Override
@@ -60,27 +68,45 @@ public class JdbcPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        JdbcSplit jdbcSplit = (JdbcSplit) split;
+        List<JdbcColumnHandle> jdbcColumns = columns.stream()
+                .map(JdbcColumnHandle.class::cast)
+                .collect(toImmutableList());
+
         if (table instanceof JdbcProcedureHandle procedureHandle) {
-            return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, procedureHandle, columns));
+            List<JdbcColumnHandle> sourceColumns = procedureHandle.getColumns().orElseThrow();
+            Map<JdbcColumnHandle, Integer> columnIndexMap = IntStream.range(0, sourceColumns.size())
+                    .boxed()
+                    .collect(toImmutableMap(sourceColumns::get, identity()));
+
+            return new MappedPageSource(
+                    createPageSource(session, jdbcSplit, procedureHandle, sourceColumns),
+                    jdbcColumns.stream()
+                            .map(columnIndexMap::get)
+                            .collect(toImmutableList()));
         }
 
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        Optional<JdbcColumnHandle> mergeRowId = columns.stream()
-                .map(JdbcColumnHandle.class::cast)
+        Optional<JdbcColumnHandle> mergeRowId = jdbcColumns.stream()
                 .filter(column -> column.getColumnName().equalsIgnoreCase(MERGE_ROW_ID))
                 .collect(toOptional());
         if (mergeRowId.isEmpty()) {
-            return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, tableHandle, columns));
+            return new JdbcPageSource(
+                    jdbcClient,
+                    executor,
+                    session,
+                    jdbcSplit,
+                    tableHandle.intersectedWithConstraint(jdbcSplit.getDynamicFilter().transformKeys(ColumnHandle.class::cast)),
+                    jdbcColumns);
         }
 
-        return createMergePageSource(transaction, session, split, columns, tableHandle, mergeRowId);
+        return createMergePageSource(session, jdbcSplit, jdbcColumns, tableHandle, mergeRowId);
     }
 
     private MergeJdbcPageSource createMergePageSource(
-            ConnectorTransactionHandle transaction,
             ConnectorSession session,
-            ConnectorSplit split,
-            List<ColumnHandle> columns,
+            JdbcSplit jdbcSplit,
+            List<JdbcColumnHandle> columns,
             JdbcTableHandle tableHandle,
             Optional<JdbcColumnHandle> mergeRowId)
     {
@@ -88,7 +114,7 @@ public class JdbcPageSourceProvider
         List<JdbcColumnHandle> scanColumns = getScanColumns(session, jdbcClient, tableHandle, primaryKeys);
 
         ImmutableList.Builder<ColumnAdaptation> columnAdaptationsBuilder = ImmutableList.builder();
-        for (ColumnHandle columnHandle : columns) {
+        for (JdbcColumnHandle columnHandle : columns) {
             if (columnHandle.equals(mergeRowId.get())) {
                 columnAdaptationsBuilder.add(buildMergeIdColumnAdaptation(scanColumns, primaryKeys));
             }
@@ -109,8 +135,17 @@ public class JdbcPageSourceProvider
                 tableHandle.getAuthorization(),
                 tableHandle.getUpdateAssignments());
         return new MergeJdbcPageSource(
-                new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, newTableHandle, scanColumns)),
+                createPageSource(session, jdbcSplit, newTableHandle, scanColumns),
                 columnAdaptationsBuilder.build());
+    }
+
+    private JdbcPageSource createPageSource(
+            ConnectorSession session,
+            JdbcSplit jdbcSplit,
+            BaseJdbcConnectorTableHandle table,
+            List<JdbcColumnHandle> columnHandles)
+    {
+        return retry(policy, () -> new JdbcPageSource(jdbcClient, executor, session, jdbcSplit, table, columnHandles));
     }
 
     private static List<JdbcColumnHandle> getScanColumns(

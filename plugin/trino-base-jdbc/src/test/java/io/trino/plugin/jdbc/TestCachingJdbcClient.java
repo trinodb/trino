@@ -86,7 +86,7 @@ public class TestCachingJdbcClient
 {
     private static final Duration FOREVER = new Duration(1, DAYS);
 
-    private static final ImmutableList<PropertyMetadata<?>> PROPERTY_METADATA = ImmutableList.of(
+    private static final List<PropertyMetadata<?>> PROPERTY_METADATA = ImmutableList.of(
             stringProperty(
                     "session_name",
                     "Session name",

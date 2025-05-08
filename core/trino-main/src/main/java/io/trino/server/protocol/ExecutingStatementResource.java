@@ -238,6 +238,10 @@ public class ExecutingStatementResource
             response.header(protocolHeaders.responseResetAuthorizationUser(), true);
         }
 
+        // add set original roles
+        resultsResponse.setOriginalRoles()
+                        .forEach(name -> response.header(protocolHeaders.responseOriginalRole(), name));
+
         // add set session properties
         resultsResponse.setSessionProperties()
                 .forEach((key, value) -> response.header(protocolHeaders.responseSetSession(), key + '=' + urlEncode(value)));

@@ -67,6 +67,7 @@ import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.union;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.filesystem.tracing.FileSystemAttributes.FILE_LOCATION;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
@@ -135,7 +136,8 @@ public class TestTransactionLogAccess
                 deltaLakeConfig,
                 fileFormatDataSourceStats,
                 tracingFileSystemFactory,
-                new ParquetReaderConfig());
+                new ParquetReaderConfig(),
+                newDirectExecutorService());
 
         DeltaLakeTableHandle tableHandle = new DeltaLakeTableHandle(
                 "schema",
@@ -394,26 +396,23 @@ public class TestTransactionLogAccess
     }
 
     @Test
-    public void testAllGetProtocolEntries()
+    public void testGetProtocolEntry()
             throws Exception
     {
-        testAllGetProtocolEntries("person", "databricks73/person");
-        testAllGetProtocolEntries("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
-        testAllGetProtocolEntries("person_without_old_jsons", "databricks73/person_without_old_jsons");
-        testAllGetProtocolEntries("person_without_checkpoints", "databricks73/person_without_checkpoints");
+        testGetProtocolEntry("person", "databricks73/person");
+        testGetProtocolEntry("person_without_last_checkpoint", "databricks73/person_without_last_checkpoint");
+        testGetProtocolEntry("person_without_old_jsons", "databricks73/person_without_old_jsons");
+        testGetProtocolEntry("person_without_checkpoints", "databricks73/person_without_checkpoints");
     }
 
-    private void testAllGetProtocolEntries(String tableName, String resourcePath)
+    private void testGetProtocolEntry(String tableName, String resourcePath)
             throws Exception
     {
         setupTransactionLogAccessFromResources(tableName, resourcePath);
 
-        try (Stream<ProtocolEntry> protocolEntryStream = transactionLogAccess.getProtocolEntries(SESSION, tableSnapshot)) {
-            List<ProtocolEntry> protocolEntries = protocolEntryStream.toList();
-            assertThat(protocolEntries).hasSize(1);
-            assertThat(protocolEntries.get(0).minReaderVersion()).isEqualTo(1);
-            assertThat(protocolEntries.get(0).minWriterVersion()).isEqualTo(2);
-        }
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
+        assertThat(protocolEntry.minReaderVersion()).isEqualTo(1);
+        assertThat(protocolEntry.minWriterVersion()).isEqualTo(2);
     }
 
     @Test

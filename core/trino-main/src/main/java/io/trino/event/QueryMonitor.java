@@ -48,6 +48,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.DoubleSymmetricDistribution;
+import io.trino.spi.eventlistener.DynamicFilterDomainStatistics;
 import io.trino.spi.eventlistener.LongDistribution;
 import io.trino.spi.eventlistener.LongSymmetricDistribution;
 import io.trino.spi.eventlistener.OutputColumnMetadata;
@@ -93,6 +94,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.StageInfo.getAllStages;
@@ -238,6 +240,7 @@ public class QueryMonitor
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(),
+                        ImmutableList.of(),
                         Optional.empty()),
                 createQueryContext(
                         queryInfo.getSession(),
@@ -353,9 +356,21 @@ public class QueryMonitor
                 getStageOutputBufferUtilizations(queryInfo),
                 getStageOutputBufferMetrics(queryInfo),
                 getStageTaskStatistics(queryInfo),
+                getDynamicFilterDomainStats(queryInfo),
                 memoize(() -> operatorStats.stream().map(operatorStatsCodec::toJson).toList()),
                 ImmutableList.copyOf(queryInfo.getQueryStats().getOptimizerRulesSummaries()),
                 serializedPlanNodeStatsAndCosts);
+    }
+
+    private static List<DynamicFilterDomainStatistics> getDynamicFilterDomainStats(QueryInfo queryInfo)
+    {
+        return queryInfo.getQueryStats().getDynamicFiltersStats().getDynamicFilterDomainStats()
+                .stream()
+                .map(stats -> new DynamicFilterDomainStatistics(
+                        stats.getDynamicFilterId().toString(),
+                        stats.getSimplifiedDomain(),
+                        stats.getCollectionDuration().map(io.airlift.units.Duration::toJavaTime)))
+                .collect(toImmutableList());
     }
 
     private QueryContext createQueryContext(SessionRepresentation session, Optional<ResourceGroupId> resourceGroup, Optional<QueryType> queryType, RetryPolicy retryPolicy)
@@ -363,6 +378,7 @@ public class QueryMonitor
         return new QueryContext(
                 session.getUser(),
                 session.getOriginalUser(),
+                session.getOriginalRoles(),
                 session.getPrincipal(),
                 session.getEnabledRoles(),
                 session.getGroups(),
@@ -859,7 +875,26 @@ public class QueryMonitor
             lastEndTimeScaledDistribution = DoubleSymmetricDistribution.ZERO;
             endTimeScaledDistribution = DoubleSymmetricDistribution.ZERO;
         }
-        DistributionSnapshot getSplitDistribution = stageInfo.getStageStats().getGetSplitDistribution();
+
+        Map<String, DoubleSymmetricDistribution> getSplitDistribution = stageInfo.getStageStats().getGetSplitDistribution()
+                .entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().toString(), entry -> {
+                    DistributionSnapshot distributionSnapshot = entry.getValue();
+                    return new DoubleSymmetricDistribution(
+                            distributionSnapshot.getP01(),
+                            distributionSnapshot.getP05(),
+                            distributionSnapshot.getP10(),
+                            distributionSnapshot.getP25(),
+                            distributionSnapshot.getP50(),
+                            distributionSnapshot.getP75(),
+                            distributionSnapshot.getP90(),
+                            distributionSnapshot.getP95(),
+                            distributionSnapshot.getP99(),
+                            distributionSnapshot.getMin(),
+                            distributionSnapshot.getMax(),
+                            distributionSnapshot.getTotal(),
+                            distributionSnapshot.getCount());
+                }));
         return new StageTaskStatistics(
                 stageInfo.getStageId().getId(),
                 stageInfo.getTasks().size(),
@@ -886,20 +921,7 @@ public class QueryMonitor
                 terminatingStartTimeScaledDistribution,
                 lastEndTimeScaledDistribution,
                 endTimeScaledDistribution,
-                new DoubleSymmetricDistribution(
-                        getSplitDistribution.getP01(),
-                        getSplitDistribution.getP05(),
-                        getSplitDistribution.getP10(),
-                        getSplitDistribution.getP25(),
-                        getSplitDistribution.getP50(),
-                        getSplitDistribution.getP75(),
-                        getSplitDistribution.getP90(),
-                        getSplitDistribution.getP95(),
-                        getSplitDistribution.getP99(),
-                        getSplitDistribution.getMin(),
-                        getSplitDistribution.getMax(),
-                        getSplitDistribution.getTotal(),
-                        getSplitDistribution.getCount()));
+                getSplitDistribution);
     }
 
     private static LongDistribution getTasksDistribution(StageInfo stageInfo, Function<TaskInfo, Optional<Long>> metricFunction)

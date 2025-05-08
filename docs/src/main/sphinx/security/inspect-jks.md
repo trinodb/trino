@@ -98,7 +98,7 @@ uses the alias to address individual entries.
 Remember that there may be no need to identify a local truststore when
 directly using a signed PEM-encoded certificate, independent of a keystore.
 PEM certs can contain the server's private key and the certificate chain all
-the way back to a recognzied CA.
+the way back to a recognized CA.
 :::
 
 Truststore files contain a list of {ref}`Certificate Authorities <glossCA>`

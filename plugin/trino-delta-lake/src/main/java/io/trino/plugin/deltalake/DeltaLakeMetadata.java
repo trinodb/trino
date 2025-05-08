@@ -100,6 +100,7 @@ import io.trino.spi.connector.ColumnPosition;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorAnalyzeMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
@@ -116,6 +117,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RetryMode;
@@ -145,6 +147,8 @@ import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.FixedWidthType;
 import io.trino.spi.type.HyperLogLogType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
@@ -159,6 +163,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Collections;
@@ -289,6 +295,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.un
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.unsupportedWriterFeatures;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.configurationForNewTable;
+import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getMandatoryCurrentVersion;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogJsonEntryPath;
@@ -344,13 +351,14 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.time.Instant.EPOCH;
-import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Locale.ENGLISH;
@@ -430,6 +438,8 @@ public class DeltaLakeMetadata
             .build();
 
     private static final String CHECK_CONSTRAINT_CONVERT_FAIL_EXPRESSION = "CAST(fail('Failed to convert Delta check constraints to Trino expression') AS boolean)";
+
+    private static final int TEMPORAL_TIME_TRAVEL_LINEAR_SEARCH_MAX_SIZE = 1000;
 
     private final DeltaLakeMetastore metastore;
     private final TransactionLogAccess transactionLogAccess;
@@ -533,13 +543,58 @@ public class DeltaLakeMetadata
         }
     }
 
-    private static long getVersion(TrinoFileSystem fileSystem, String tableLocation, ConnectorTableVersion version)
+    private static long getVersion(ConnectorSession session, TrinoFileSystem fileSystem, String tableLocation, ConnectorTableVersion version, Executor executor)
     {
         return switch (version.getPointerType()) {
-            // TODO https://github.com/trinodb/trino/issues/21024 Add support for reading tables with temporal versions
-            case TEMPORAL -> throw new TrinoException(NOT_SUPPORTED, "This connector does not support reading tables with TIMESTAMP AS OF");
+            case TEMPORAL -> getTemporalSnapshotIdFromVersion(session, fileSystem, tableLocation, version, executor);
             case TARGET_ID -> getTargetVersion(fileSystem, tableLocation, version);
         };
+    }
+
+    private static long getTemporalSnapshotIdFromVersion(ConnectorSession session, TrinoFileSystem fileSystem, String tableLocation, ConnectorTableVersion version, Executor executor)
+    {
+        Type versionType = version.getVersionType();
+        if (versionType.equals(DATE)) {
+            // Retrieve the latest snapshot made before or at the beginning of the day of the specified date in the session's time zone
+            long epochMillis = LocalDate.ofEpochDay((Long) version.getVersion())
+                    .atStartOfDay()
+                    .atZone(session.getTimeZoneKey().getZoneId())
+                    .toInstant()
+                    .toEpochMilli();
+            return findSnapshotIdAsOfTime(fileSystem, tableLocation, epochMillis, executor);
+        }
+        if (versionType instanceof TimestampType timestampVersionType) {
+            long epochMicrosUtc = timestampVersionType.isShort()
+                    ? (long) version.getVersion()
+                    : ((LongTimestamp) version.getVersion()).getEpochMicros();
+            long epochMillisUtc = floorDiv(epochMicrosUtc, MICROSECONDS_PER_MILLISECOND);
+            long epochMillis = Instant.ofEpochMilli(epochMillisUtc)
+                    .atOffset(ZoneOffset.UTC)
+                    .atZoneSameInstant(session.getTimeZoneKey().getZoneId())
+                    .toInstant()
+                    .toEpochMilli();
+            return findSnapshotIdAsOfTime(fileSystem, tableLocation, epochMillis, executor);
+        }
+        if (versionType instanceof TimestampWithTimeZoneType timeZonedVersionType) {
+            long epochMillis = timeZonedVersionType.isShort()
+                    ? unpackMillisUtc((long) version.getVersion())
+                    : ((LongTimestampWithTimeZone) version.getVersion()).getEpochMillis();
+            return findSnapshotIdAsOfTime(fileSystem, tableLocation, epochMillis, executor);
+        }
+
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type for temporal table version: " + versionType.getDisplayName());
+    }
+
+    private static long findSnapshotIdAsOfTime(TrinoFileSystem fileSystem, String tableLocation, long epochMillis, Executor executor)
+    {
+        try {
+            return findLatestVersionUsingTemporal(fileSystem, tableLocation, epochMillis, executor, TEMPORAL_TIME_TRAVEL_LINEAR_SEARCH_MAX_SIZE);
+        }
+        catch (IOException e) {
+            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR,
+                    format("Unexpected IO exception occurred while reading the entries under the location %s for finding latest snapshot id before or at %s",
+                            tableLocation, Instant.ofEpochMilli(epochMillis)), e);
+        }
     }
 
     private static long getTargetVersion(TrinoFileSystem fileSystem, String tableLocation, ConnectorTableVersion version)
@@ -632,7 +687,7 @@ public class DeltaLakeMetadata
 
         String tableLocation = table.location();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        TableSnapshot tableSnapshot = getSnapshot(session, tableName, tableLocation, endVersion.map(version -> getVersion(fileSystem, tableLocation, version)));
+        TableSnapshot tableSnapshot = getSnapshot(session, tableName, tableLocation, endVersion.map(version -> getVersion(session, fileSystem, tableLocation, version, metadataFetchingExecutor)));
 
         MetadataAndProtocolEntries logEntries;
         try {
@@ -996,51 +1051,69 @@ public class DeltaLakeMetadata
     @Override
     public Iterator<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        List<SchemaTableName> tables = prefix.getTable()
-                .map(_ -> singletonList(prefix.toSchemaTableName()))
-                .orElseGet(() -> listTables(session, prefix.getSchema()));
+        throw new UnsupportedOperationException("The deprecated streamTableColumns is not supported because streamRelationColumns is implemented instead");
+    }
+
+    @Override
+    public Iterator<RelationColumnsMetadata> streamRelationColumns(
+            ConnectorSession session,
+            Optional<String> schemaName,
+            UnaryOperator<Set<SchemaTableName>> relationFilter)
+    {
+        Map<SchemaTableName, RelationColumnsMetadata> relationColumns = new HashMap<>();
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        for (SchemaTableName tableName : listTables(session, schemaName)) {
+            try {
+                if (redirectTable(session, tableName).isPresent()) {
+                    // put "redirect marker" for current table
+                    relationColumns.put(tableName, RelationColumnsMetadata.forRedirectedTable(tableName));
+                    continue;
+                }
 
-        return tables.stream()
-                .flatMap(tableName -> {
-                    try {
-                        if (redirectTable(session, tableName).isPresent()) {
-                            // put "redirect marker" for current table
-                            return Stream.of(TableColumnsMetadata.forRedirectedTable(tableName));
-                        }
+                Optional<Table> metastoreTable = metastore.getRawMetastoreTable(tableName.getSchemaName(), tableName.getTableName());
+                if (metastoreTable.isEmpty()) {
+                    // this may happen when table is being deleted concurrently,
+                    continue;
+                }
 
-                        Optional<Table> metastoreTable = metastore.getRawMetastoreTable(tableName.getSchemaName(), tableName.getTableName());
-                        if (metastoreTable.isEmpty()) {
-                            // this may happen when table is being deleted concurrently,
-                            return Stream.of();
-                        }
+                Table table = metastoreTable.get();
+                verifyDeltaLakeTable(table);
 
-                        Table table = metastoreTable.get();
-                        verifyDeltaLakeTable(table);
+                String tableLocation = HiveMetastoreBackedDeltaLakeMetastore.getTableLocation(table);
+                if (containsSchemaString(table) && canUseTableParametersFromMetastore(session, fileSystem, table, tableLocation)) {
+                    List<ColumnMetadata> columnsMetadata = metadataScheduler.getColumnsMetadata(table);
+                    relationColumns.put(tableName, RelationColumnsMetadata.forTable(tableName, columnsMetadata));
+                    continue;
+                }
+                TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, tableName, tableLocation, Optional.empty());
+                MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
+                ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
+                List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
+                enqueueUpdateInfo(session, table.getDatabaseName(), table.getTableName(), snapshot.getVersion(), metadata.getSchemaString(), Optional.ofNullable(metadata.getDescription()));
+                relationColumns.put(tableName, RelationColumnsMetadata.forTable(tableName, columnMetadata));
+            }
+            catch (NotADeltaLakeTableException | IOException _) {
+                // this indicates that the table is not a Delta Lake table or the table files are temporarily inaccessible
+                // safe to ignore and skip this table.
+            }
+            catch (RuntimeException e) {
+                // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
+                // there can be several different exceptions thrown this is why all RTE are caught and ignored here
+                LOG.debug(e, "Ignored exception when trying to list columns from %s", tableName);
+            }
+        }
 
-                        String tableLocation = HiveMetastoreBackedDeltaLakeMetastore.getTableLocation(table);
-                        if (containsSchemaString(table) && canUseTableParametersFromMetastore(session, fileSystem, table, tableLocation)) {
-                            List<ColumnMetadata> columnsMetadata = metadataScheduler.getColumnsMetadata(table);
-                            return Stream.of(TableColumnsMetadata.forTable(tableName, columnsMetadata));
-                        }
-                        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, tableName, tableLocation, Optional.empty());
-                        MetadataEntry metadata = transactionLogAccess.getMetadataEntry(session, snapshot);
-                        ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
-                        List<ColumnMetadata> columnMetadata = getTableColumnMetadata(metadata, protocol);
-                        enqueueUpdateInfo(session, table.getDatabaseName(), table.getTableName(), snapshot.getVersion(), metadata.getSchemaString(), Optional.ofNullable(metadata.getDescription()));
-                        return Stream.of(TableColumnsMetadata.forTable(tableName, columnMetadata));
-                    }
-                    catch (NotADeltaLakeTableException | IOException e) {
-                        return Stream.empty();
-                    }
-                    catch (RuntimeException e) {
-                        // this may happen when table is being deleted concurrently, it still exists in metastore but TL is no longer present
-                        // there can be several different exceptions thrown this is why all RTE are caught and ignored here
-                        LOG.debug(e, "Ignored exception when trying to list columns from %s", tableName);
-                        return Stream.empty();
-                    }
-                })
+        for (Map.Entry<SchemaTableName, ConnectorViewDefinition> entry : getViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
+        for (Map.Entry<SchemaTableName, ConnectorMaterializedViewDefinition> entry : getMaterializedViews(session, schemaName).entrySet()) {
+            relationColumns.put(entry.getKey(), RelationColumnsMetadata.forMaterializedView(entry.getKey(), entry.getValue().getColumns()));
+        }
+
+        return relationFilter.apply(relationColumns.keySet()).stream()
+                .map(relationColumns::get)
                 .iterator();
     }
 

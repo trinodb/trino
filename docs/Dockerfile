@@ -19,9 +19,7 @@ RUN apt-get update -y && apt-get install -y \
     libxml2-dev \
     libxslt-dev \
     build-essential \
-    xsltproc \
-    git \
-    && rm -rf /var/lib/apt/lists/*
+    xsltproc 
 
 # Setup working directory and cache directory
 WORKDIR /docs
@@ -29,4 +27,4 @@ RUN mkdir -p /.cache && chmod 777 /.cache
 
 # Install Python dependencies
 COPY requirements.txt /docs/
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt

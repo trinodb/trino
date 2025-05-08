@@ -28,6 +28,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.spi.Page;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
@@ -57,7 +58,7 @@ public class TestingExchangeHttpClientHandler
     @Override
     public Response handle(Request request)
     {
-        ImmutableList<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
+        List<String> parts = ImmutableList.copyOf(Splitter.on("/").omitEmptyStrings().split(request.getUri().getPath()));
         if (request.getMethod().equals("DELETE")) {
             assertThat(parts).hasSize(1);
             return new TestingResponse(HttpStatus.NO_CONTENT, ImmutableListMultimap.of(), new byte[0]);

@@ -80,6 +80,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
@@ -276,6 +278,8 @@ public class ParquetReader
     private class ParquetSourcePage
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(ParquetSourcePage.class);
+
         private final int expectedPageId = currentPageId;
         private final Block[] blocks = new Block[columnFields.size() + (appendRowNumberColumn ? 1 : 0)];
         private final int rowNumberColumnIndex = appendRowNumberColumn ? columnFields.size() : -1;
@@ -287,6 +291,7 @@ public class ParquetReader
         public ParquetSourcePage(int positionCount)
         {
             selectedPositions = new SelectedPositions(positionCount, null);
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
         }
 
         @Override
@@ -307,9 +312,19 @@ public class ParquetReader
             return retainedSizeInBytes;
         }
 
+        private long shallowRetainedSizeInBytes()
+        {
+            return INSTANCE_SIZE +
+                    sizeOf(blocks) +
+                    selectedPositions.retainedSizeInBytes();
+        }
+
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(blocks, sizeOf(blocks));
+            consumer.accept(selectedPositions, selectedPositions.retainedSizeInBytes());
             for (Block block : blocks) {
                 if (block != null) {
                     block.retainedBytesForEachPart(consumer);
@@ -363,7 +378,7 @@ public class ParquetReader
         public void selectPositions(int[] positions, int offset, int size)
         {
             selectedPositions = selectedPositions.selectPositions(positions, offset, size);
-            retainedSizeInBytes = 0;
+            retainedSizeInBytes = shallowRetainedSizeInBytes();
             for (int i = 0; i < blocks.length; i++) {
                 Block block = blocks[i];
                 if (block != null) {
@@ -377,6 +392,13 @@ public class ParquetReader
 
     private record SelectedPositions(int positionCount, @Nullable int[] positions)
     {
+        private static final long INSTANCE_SIZE = instanceSize(SelectedPositions.class);
+
+        public long retainedSizeInBytes()
+        {
+            return INSTANCE_SIZE + sizeOf(positions);
+        }
+
         @CheckReturnValue
         public Block apply(Block block)
         {
@@ -495,16 +517,19 @@ public class ParquetReader
     {
         ColumnChunk valueChunk = readColumnChunk(field.getValue());
 
-        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, 1);
-        if (valueChunk.getBlock().getPositionCount() == 0) {
+        int positionCount = valueChunk.getBlock().getPositionCount();
+        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, max(1, positionCount));
+        if (positionCount == 0) {
             variantBlock.appendNull();
         }
         else {
             ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
-            Slice value = VARBINARY.getSlice(valueChunk.getBlock(), 0);
-            Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), 0);
-            Variant variant = new Variant(value.byteArray(), metadata.byteArray());
-            VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
+            for (int position = 0; position < positionCount; position++) {
+                Slice value = VARBINARY.getSlice(valueChunk.getBlock(), position);
+                Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), position);
+                Variant variant = new Variant(value.getBytes(), metadata.getBytes());
+                VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
+            }
         }
         return new ColumnChunk(variantBlock.build(), valueChunk.getDefinitionLevels(), valueChunk.getRepetitionLevels());
     }

@@ -695,7 +695,7 @@ public class TestHashAggregationOperator
         TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
 
         List<Integer> hashChannels = Ints.asList(1);
-        ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, types);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(10, 100, 0, 100, 0)

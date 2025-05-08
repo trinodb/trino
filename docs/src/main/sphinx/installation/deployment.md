@@ -46,11 +46,21 @@ Download the Trino server tarball, {maven_download}`server`, and unpack it. The
 tarball contains a single top-level directory, `trino-server-|trino_version|`,
 which we call the *installation* directory.
 
+The default tarball contains all plugins and must be configured for use. The
+minimal `server-core` tarball, {maven_download}`server-core`, contains a minimal
+set of essential plugins, and it is therefore mostly suitable as a base for
+custom tarball creation.
+
+The [trino-packages project](https://github.com/trinodb/trino-packages) includes
+a module to create a fully configured tarball with an example configuration. The
+custom tarball is ready to use and can be further configured and adjusted to
+your needs.
+
 Trino needs a *data* directory for storing logs, etc. By default, an
 installation from the tarball uses the same location for the installation and data
 directories.
 
-We recommend creating a data directory outside of the installation directory,
+We recommend creating a data directory outside the installation directory,
 which allows it to be easily preserved when upgrading Trino. This directory path
 must be configured with the [](node-properties).
 
@@ -248,8 +258,8 @@ Further configuration can include [](/admin/logging), [](/admin/opentelemetry),
 
 Trino accesses data in a [data source](trino-concept-data-source) with a
 [connector](trino-concept-connector), which is configured in a
-[catalog](trino-concept-catalog). The connector provides all of the schemas and
-tables inside of the catalog.
+[catalog](trino-concept-catalog). The connector provides all the schemas and
+tables inside the catalog.
 
 For example, the Hive connector maps each Hive database to a schema. If the Hive
 connector is configured in the `example` catalog, and Hive contains a table

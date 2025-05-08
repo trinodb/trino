@@ -486,7 +486,7 @@ public class ParquetPageSourceFactory
             HiveColumnHandle baseColumn = column.getBaseColumn();
             Optional<org.apache.parquet.schema.Type> parquetType = getBaseColumnParquetType(baseColumn, fileSchema, useColumnNames);
             if (parquetType.isEmpty()) {
-                transforms.constantValue(column.getBaseType().createNullBlock());
+                transforms.constantValue(column.getType().createNullBlock());
                 continue;
             }
             String baseColumnName = useColumnNames ? baseColumn.getBaseColumnName() : fileSchema.getFields().get(baseColumn.getBaseHiveColumnIndex()).getName();

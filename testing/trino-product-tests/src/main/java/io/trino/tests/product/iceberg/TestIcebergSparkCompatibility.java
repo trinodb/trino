@@ -1964,18 +1964,11 @@ public class TestIcebergSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testSparkReadsTrinoRowLevelDeletes(StorageFormat storageFormat)
     {
-        // V1 doesn't support row level deletes
-        testSparkReadsTrinoRowLevelDeletes(storageFormat, 2);
-        testSparkReadsTrinoRowLevelDeletes(storageFormat, 3);
-    }
-
-    private static void testSparkReadsTrinoRowLevelDeletes(StorageFormat storageFormat, int formatVersion)
-    {
         String tableName = toLowerCase(format("test_spark_reads_trino_row_level_deletes_%s_%s", storageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
-        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(a INT, b INT) WITH(partitioning = ARRAY['b'], format_version = " + formatVersion + ", format = '" + storageFormat.name() + "')");
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(a INT, b INT) WITH(partitioning = ARRAY['b'], format_version = 2, format = '" + storageFormat.name() + "')");
         onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
         // Delete one row in a file
         onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE a = 13");
@@ -1996,48 +1989,14 @@ public class TestIcebergSparkCompatibility
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
-    public void testSparkReadsTrinoMultipleDeleteFiles(StorageFormat storageFormat)
-    {
-        // V1 doesn't support row level deletes
-        testSparkReadsTrinoMultipleDeleteFiles(storageFormat, 2);
-        testSparkReadsTrinoMultipleDeleteFiles(storageFormat, 3);
-    }
-
-    private static void testSparkReadsTrinoMultipleDeleteFiles(StorageFormat storageFormat, int formatVersion)
-    {
-        String tableName = toLowerCase(format("test_spark_reads_trino_multiple_delete_files_%s_%s", storageFormat.name(), randomNameSuffix()));
-        String sparkTableName = sparkTableName(tableName);
-        String trinoTableName = trinoTableName(tableName);
-
-        onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(a INT, b INT) WITH(partitioning = ARRAY['b'], format_version = " + formatVersion + ", format = '" + storageFormat.name() + "')");
-        onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
-
-        // Delete one row from each data file
-        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE a IN (1, 11)");
-
-        List<Row> expected = ImmutableList.of(row(2, 2), row(3, 2), row(12, 12), row(13, 12));
-        assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(expected);
-        assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(expected);
-
-        onSpark().executeQuery("DROP TABLE " + sparkTableName);
-    }
-
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testSparkReadsTrinoRowLevelDeletesWithRowTypes(StorageFormat storageFormat)
-    {
-        // V1 doesn't support row level deletes
-        testSparkReadsTrinoRowLevelDeletesWithRowTypes(storageFormat, 2);
-        testSparkReadsTrinoRowLevelDeletesWithRowTypes(storageFormat, 3);
-    }
-
-    private static void testSparkReadsTrinoRowLevelDeletesWithRowTypes(StorageFormat storageFormat, int formatVersion)
     {
         String tableName = toLowerCase(format("test_spark_reads_trino_row_level_deletes_row_types_%s_%s", storageFormat.name(), randomNameSuffix()));
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
 
         onTrino().executeQuery("CREATE TABLE " + trinoTableName + "(part_key INT, int_t INT, row_t ROW(a INT, b INT)) " +
-                "WITH(partitioning = ARRAY['part_key'], format_version = " + formatVersion + ", format = '" + storageFormat.name() + "') ");
+                "WITH(partitioning = ARRAY['part_key'], format_version = 2, format = '" + storageFormat.name() + "') ");
         onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (1, 1, row(1, 2)), (1, 2, row(3, 4)), (1, 3, row(5, 6)), (2, 4, row(1, 2))");
         onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE int_t = 2");
 
@@ -2109,27 +2068,21 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + " (name STRING, country STRING) USING ICEBERG " +
                 "PARTITIONED BY (country) TBLPROPERTIES ('write.metadata.metrics.default'='none')");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES ('Christoph', 'AT'), (NULL, 'RO')");
-        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s.%s.\"%s$partitions\" WHERE data IS NOT NULL", TRINO_CATALOG, TEST_SCHEMA_NAME, tableName)))
+        assertThat(onTrino().executeQuery(format("SELECT count(*) FROM %s.%s.\"%s$partitions\" WHERE data.name IS NOT NULL", TRINO_CATALOG, TEST_SCHEMA_NAME, tableName)))
                 .containsOnly(row(0));
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testOptimizeIcebergTable()
-    {
-        testOptimizeIcebergTable(2);
-        testOptimizeIcebergTable(3);
-    }
-
-    private static void testOptimizeIcebergTable(int formatVersion)
+    public void testOptimizeOnV2IcebergTable()
     {
         String tableName = format("test_optimize_on_v2_iceberg_table_%s", randomNameSuffix());
         String sparkTableName = sparkTableName(tableName);
         String trinoTableName = trinoTableName(tableName);
         onSpark().executeQuery("CREATE TABLE " + sparkTableName + "(a INT, b INT) " +
                 "USING ICEBERG PARTITIONED BY (b) " +
-                "TBLPROPERTIES ('format-version'='" + formatVersion + "', 'write.delete.mode'='merge-on-read')");
+                "TBLPROPERTIES ('format-version'='2', 'write.delete.mode'='merge-on-read')");
         onSpark().executeQuery("INSERT INTO " + sparkTableName + " VALUES (1, 2), (2, 2), (3, 2), (11, 12), (12, 12), (13, 12)");
         onTrino().executeQuery(format("ALTER TABLE %s EXECUTE OPTIMIZE", trinoTableName));
 

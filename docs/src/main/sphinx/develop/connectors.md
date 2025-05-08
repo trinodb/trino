@@ -269,7 +269,7 @@ only a `Limit`, the `applyLimit` method is called, and the connector can
 return results in an arbitrary order.
 
 If the connector could benefit from the information passed to these methods but
-can't guarantee that it's be able to produce fewer rows than the provided
+can't guarantee that it'd be able to produce fewer rows than the provided
 limit, it should return a non-empty result containing a new handle for the
 derived table and the `limitGuaranteed` (in `LimitApplicationResult`) or
 `topNGuaranteed` (in `TopNApplicationResult`) flag set to false.
@@ -640,7 +640,7 @@ set can be built using lists of values for every row, which can be simpler than
 implementing a `RecordCursor`.
 
 A `RecordCursor` implementation needs to keep track of the current record.
-It return values for columns by a numerical position, in the data type matching
+It returns values for columns by a numerical position, in the data type matching
 the column definition in the table. When the engine is done reading the current
 record it calls `advanceNextPosition` on the cursor.
 

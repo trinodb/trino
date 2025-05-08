@@ -137,6 +137,8 @@ final class TestMysqlEventListener
             // not stored
             Collections.emptyList(),
             // not stored
+            Collections.emptyList(),
+            // not stored
             List.of("{operator: \"operator1\"}", "{operator: \"operator2\"}"),
             // not stored
             Collections.emptyList(),
@@ -146,6 +148,7 @@ final class TestMysqlEventListener
     private static final QueryContext FULL_QUERY_CONTEXT = new QueryContext(
             "user",
             "originalUser",
+            Set.of("role1"),
             Optional.of("principal"),
             Set.of("role1", "role2"),
             Set.of("group1", "group2"),
@@ -301,6 +304,8 @@ final class TestMysqlEventListener
             Collections.emptyList(),
             // not stored
             Collections.emptyList(),
+            // not stored
+            Collections.emptyList(),
             Collections.emptyList(),
             Collections.emptyList(),
             // not stored
@@ -309,6 +314,7 @@ final class TestMysqlEventListener
     private static final QueryContext MINIMAL_QUERY_CONTEXT = new QueryContext(
             "user",
             "originalUser",
+            Set.of(),
             Optional.empty(),
             Set.of(),
             Set.of(),

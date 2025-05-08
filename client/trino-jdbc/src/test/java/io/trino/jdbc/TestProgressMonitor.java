@@ -23,7 +23,7 @@ import io.trino.client.Column;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
 import io.trino.client.TypedQueryData;
-import io.trino.server.protocol.spooling.QueryDataJacksonModule;
+import io.trino.server.protocol.spooling.ServerQueryDataJacksonModule;
 import io.trino.spi.type.StandardTypes;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -57,7 +57,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestProgressMonitor
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = new JsonCodecFactory(new ObjectMapperProvider()
-            .withModules(ImmutableSet.of(new QueryDataJacksonModule())))
+            .withModules(ImmutableSet.of(new ServerQueryDataJacksonModule())))
             .jsonCodec(QueryResults.class);
 
     private MockWebServer server;

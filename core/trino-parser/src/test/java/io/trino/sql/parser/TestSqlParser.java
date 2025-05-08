@@ -26,6 +26,7 @@ import io.trino.sql.tree.AnchorPattern;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AtTimeZone;
+import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
@@ -38,6 +39,7 @@ import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.Corresponding;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
@@ -66,6 +68,7 @@ import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
 import io.trino.sql.tree.EmptyPattern;
 import io.trino.sql.tree.EmptyTableTreatment;
+import io.trino.sql.tree.Except;
 import io.trino.sql.tree.Execute;
 import io.trino.sql.tree.ExecuteImmediate;
 import io.trino.sql.tree.ExistsPredicate;
@@ -849,9 +852,26 @@ public class TestSqlParser
         assertStatement("SELECT 123 INTERSECT DISTINCT SELECT 123 INTERSECT ALL SELECT 123",
                 query(new Intersect(
                         ImmutableList.of(
-                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true),
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.empty()),
                                 createSelect123()),
-                        false)));
+                        false,
+                        Optional.empty())));
+
+        assertStatement("SELECT 123 INTERSECT DISTINCT CORRESPONDING SELECT 123 INTERSECT ALL CORRESPONDING SELECT 123",
+                query(new Intersect(
+                        ImmutableList.of(
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                                createSelect123()),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+
+        assertStatement("SELECT 123 INTERSECT DISTINCT CORRESPONDING BY (x) SELECT 123 INTERSECT ALL CORRESPONDING SELECT 123",
+                query(new Intersect(
+                        ImmutableList.of(
+                                new Intersect(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                                createSelect123()),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
     }
 
     @Test
@@ -860,9 +880,54 @@ public class TestSqlParser
         assertStatement("SELECT 123 UNION DISTINCT SELECT 123 UNION ALL SELECT 123",
                 query(new Union(
                         ImmutableList.of(
-                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true),
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.empty()),
                                 createSelect123()),
-                        false)));
+                        false,
+                        Optional.empty())));
+
+        assertStatement("SELECT 123 UNION DISTINCT CORRESPONDING SELECT 123 UNION ALL CORRESPONDING SELECT 123",
+                query(new Union(
+                        ImmutableList.of(
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                                createSelect123()),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+
+        assertStatement("SELECT 123 UNION DISTINCT CORRESPONDING BY (x) SELECT 123 UNION ALL CORRESPONDING SELECT 123",
+                query(new Union(
+                        ImmutableList.of(
+                                new Union(ImmutableList.of(createSelect123(), createSelect123()), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                                createSelect123()),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+    }
+
+    @Test
+    public void testExcept()
+    {
+        assertStatement("SELECT 123 EXCEPT DISTINCT SELECT 123 EXCEPT ALL SELECT 123",
+                query(new Except(
+                        location(1, 1),
+                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.empty()),
+                        createSelect123(),
+                        false,
+                        Optional.empty())));
+
+        assertStatement("SELECT 123 EXCEPT DISTINCT CORRESPONDING SELECT 123 EXCEPT ALL CORRESPONDING SELECT 123",
+                query(new Except(
+                        location(1, 1),
+                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.of(new Corresponding(location(1 ,1), List.of()))),
+                        createSelect123(),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
+
+        assertStatement("SELECT 123 EXCEPT DISTINCT CORRESPONDING BY (x) SELECT 123 EXCEPT ALL CORRESPONDING SELECT 123",
+                query(new Except(
+                        location(1, 1),
+                        new Except(location(1, 1), createSelect123(), createSelect123(), true, Optional.of(new Corresponding(location(1 ,1), List.of(identifier("x"))))),
+                        createSelect123(),
+                        false,
+                        Optional.of(new Corresponding(location(1 ,1), List.of())))));
     }
 
     private static QuerySpecification createSelect123()
@@ -1805,6 +1870,69 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty()));
 
+        assertThat(statement("SELECT * FROM table1 GROUP BY AUTO"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8), Optional.empty(), ImmutableList.of()))),
+                                Optional.of(new Table(location(1, 15), qualifiedName(location(1, 15), "table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(location(1, 31), false, ImmutableList.of(new AutoGroupBy(location(1, 31))))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement("SELECT * FROM table1 GROUP BY ALL AUTO"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8), Optional.empty(), ImmutableList.of()))),
+                                Optional.of(new Table(location(1, 15), qualifiedName(location(1, 15), "table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(location(1, 31), false, ImmutableList.of(new AutoGroupBy(location(1, 35))))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        assertThat(statement("SELECT * FROM table1 GROUP BY DISTINCT AUTO"))
+                .isEqualTo(new Query(
+                        location(1, 1),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        Optional.empty(),
+                        new QuerySpecification(
+                                location(1, 1),
+                                new Select(location(1, 1), false, ImmutableList.of(new AllColumns(location(1, 8), Optional.empty(), ImmutableList.of()))),
+                                Optional.of(new Table(location(1, 15), qualifiedName(location(1, 15), "table1"))),
+                                Optional.empty(),
+                                Optional.of(new GroupBy(location(1, 31), true, ImmutableList.of(new AutoGroupBy(location(1, 40))))),
+                                Optional.empty(),
+                                ImmutableList.of(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
         assertStatement("SELECT * FROM table1 GROUP BY GROUPING SETS (a)",
                 simpleQuery(
                         selectList(new AllColumns()),
@@ -2084,7 +2212,9 @@ public class TestSqlParser
 
         // with LIKE
         assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table)",
-                new CreateTable(QualifiedName.of("bar"),
+                new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("bar"),
                         ImmutableList.of(
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
@@ -2094,7 +2224,9 @@ public class TestSqlParser
 
         assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR, LIKE like_table)"))
                 .ignoringLocation()
-                .isEqualTo(new CreateTable(QualifiedName.of("bar"),
+                .isEqualTo(new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("bar"),
                         ImmutableList.of(
                                 new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
@@ -2105,7 +2237,9 @@ public class TestSqlParser
 
         assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR, LIKE like_table, d BIGINT)"))
                 .ignoringLocation()
-                .isEqualTo(new CreateTable(QualifiedName.of("bar"),
+                .isEqualTo(new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("bar"),
                         ImmutableList.of(
                                 new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
@@ -2116,7 +2250,8 @@ public class TestSqlParser
                         Optional.empty()));
 
         assertStatement("CREATE TABLE IF NOT EXISTS bar (LIKE like_table INCLUDING PROPERTIES)",
-                new CreateTable(QualifiedName.of("bar"),
+                new CreateTable(new NodeLocation(1, 1),
+                        QualifiedName.of("bar"),
                         ImmutableList.of(
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.INCLUDING))),
@@ -2126,7 +2261,9 @@ public class TestSqlParser
 
         assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR, LIKE like_table EXCLUDING PROPERTIES)"))
                 .ignoringLocation()
-                .isEqualTo(new CreateTable(QualifiedName.of("bar"),
+                .isEqualTo(new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("bar"),
                         ImmutableList.of(
                                 new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
@@ -2137,7 +2274,9 @@ public class TestSqlParser
 
         assertThat(statement("CREATE TABLE IF NOT EXISTS bar (c VARCHAR, LIKE like_table EXCLUDING PROPERTIES) COMMENT 'test'"))
                 .ignoringLocation()
-                .isEqualTo(new CreateTable(QualifiedName.of("bar"),
+                .isEqualTo(new CreateTable(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("bar"),
                         ImmutableList.of(
                                 new ColumnDefinition(QualifiedName.of("c"), simpleType(location(1, 35), "VARCHAR"), true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
@@ -2160,6 +2299,7 @@ public class TestSqlParser
                 """))
                 .ignoringLocation()
                 .isEqualTo(new CreateTable(
+                        new NodeLocation(1, 1),
                         QualifiedName.of("foo"),
                         ImmutableList.of(
                                 new ColumnDefinition(QualifiedName.of("a"), simpleType(location(1, 20), "VARCHAR"), false, emptyList(), Optional.of("column a")),
@@ -2989,10 +3129,10 @@ public class TestSqlParser
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
-        assertStatement(queryParenthesizedWith, new CreateTableAsSelect(table, query, FAIL, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
-        assertStatement(queryUnparenthesizedWith, new CreateTableAsSelect(table, query, FAIL, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
-        assertStatement(queryParenthesizedWithHasAlias, new CreateTableAsSelect(table, query, FAIL, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
-        assertStatement(queryUnparenthesizedWithHasAlias, new CreateTableAsSelect(table, query, FAIL, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
+        assertStatement(queryParenthesizedWith, new CreateTableAsSelect(location(1, 1), table, query, FAIL, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
+        assertStatement(queryUnparenthesizedWith, new CreateTableAsSelect(location(1, 1), table, query, FAIL, ImmutableList.of(), false, Optional.empty(), Optional.empty()));
+        assertStatement(queryParenthesizedWithHasAlias, new CreateTableAsSelect(location(1, 1), table, query, FAIL, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
+        assertStatement(queryUnparenthesizedWithHasAlias, new CreateTableAsSelect(location(1, 1), table, query, FAIL, ImmutableList.of(), false, Optional.of(ImmutableList.of(new Identifier("a"))), Optional.empty()));
     }
 
     @Test
@@ -3100,10 +3240,10 @@ public class TestSqlParser
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
         assertStatement("INSERT INTO a.\"b/c\".d SELECT * FROM t",
-                new Insert(table, Optional.empty(), query));
+                new Insert(location(1, 1), table, Optional.empty(), query));
 
         assertStatement("INSERT INTO a.\"b/c\".d (c1, c2) SELECT * FROM t",
-                new Insert(table, Optional.of(ImmutableList.of(identifier("c1"), identifier("c2"))), query));
+                new Insert(location(1, 1), table, Optional.of(ImmutableList.of(identifier("c1"), identifier("c2"))), query));
     }
 
     @Test
@@ -3815,21 +3955,22 @@ public class TestSqlParser
     {
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t")));
 
-        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
-        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW a AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE OR REPLACE VIEW a AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, true, Optional.empty(), Optional.empty(), ImmutableList.of()));
 
-        assertStatement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
-        assertStatement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+        assertStatement("CREATE VIEW a SECURITY DEFINER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.empty(), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+        assertStatement("CREATE VIEW a SECURITY INVOKER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.empty(), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
-        assertStatement("CREATE VIEW a COMMENT 'comment' SECURITY DEFINER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
-        assertStatement("CREATE VIEW a COMMENT '' SECURITY INVOKER AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
+        assertStatement("CREATE VIEW a COMMENT 'comment' SECURITY DEFINER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.of("comment"), Optional.of(CreateView.Security.DEFINER), ImmutableList.of()));
+        assertStatement("CREATE VIEW a COMMENT '' SECURITY INVOKER AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.of(""), Optional.of(CreateView.Security.INVOKER), ImmutableList.of()));
 
-        assertStatement("CREATE VIEW a COMMENT 'comment' AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
-        assertStatement("CREATE VIEW a COMMENT '' AS SELECT * FROM t", new CreateView(QualifiedName.of("a"), query, false, Optional.of(""), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW a COMMENT 'comment' AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.of("comment"), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW a COMMENT '' AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("a"), query, false, Optional.of(""), Optional.empty(), ImmutableList.of()));
 
         assertStatement(
                 "CREATE VIEW a WITH (property_1 = 'value_1', property_2 = 2) AS SELECT * FROM t",
                 new CreateView(
+                        location(1, 1),
                         QualifiedName.of("a"),
                         query,
                         false,
@@ -3839,9 +3980,9 @@ public class TestSqlParser
                                 new Property(new Identifier("property_1"), new StringLiteral("value_1")),
                                 new Property(new Identifier("property_2"), new LongLiteral("2")))));
 
-        assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(QualifiedName.of("bar", "foo"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
-        assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome view"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
-        assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(QualifiedName.of("awesome schema", "awesome view"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW bar.foo AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("bar", "foo"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW \"awesome view\" AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("awesome view"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
+        assertStatement("CREATE VIEW \"awesome schema\".\"awesome view\" AS SELECT * FROM t", new CreateView(location(1, 1), QualifiedName.of("awesome schema", "awesome view"), query, false, Optional.empty(), Optional.empty(), ImmutableList.of()));
     }
 
     @Test
@@ -4242,13 +4383,15 @@ public class TestSqlParser
     public void testExplain()
     {
         assertStatement("EXPLAIN SELECT * FROM t",
-                new Explain(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), ImmutableList.of()));
+                new Explain(location(1, 1), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), ImmutableList.of()));
         assertStatement("EXPLAIN (TYPE LOGICAL) SELECT * FROM t",
                 new Explain(
+                        location(1, 1),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         ImmutableList.of(new ExplainType(location(1, 1), ExplainType.Type.LOGICAL))));
         assertStatement("EXPLAIN (TYPE LOGICAL, FORMAT TEXT) SELECT * FROM t",
                 new Explain(
+                        location(1, 1),
                         simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))),
                         ImmutableList.of(
                                 new ExplainType(location(1, 1), ExplainType.Type.LOGICAL),
@@ -4265,10 +4408,10 @@ public class TestSqlParser
     public void testExplainAnalyze()
     {
         assertStatement("EXPLAIN ANALYZE SELECT * FROM t",
-                new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false));
+                new ExplainAnalyze(location(1, 1), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), false));
 
         assertStatement("EXPLAIN ANALYZE VERBOSE SELECT * FROM t",
-                new ExplainAnalyze(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true));
+                new ExplainAnalyze(location(1, 1), simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("t"))), true));
 
         assertStatementIsInvalid("EXPLAIN ANALYZE (type DISTRIBUTED) SELECT * FROM t")
                 .withMessage("line 1:18: mismatched input 'type'. Expecting: '(', 'SELECT', 'TABLE', 'VALUES'");
@@ -4529,7 +4672,7 @@ public class TestSqlParser
     public void testPrepare()
     {
         assertStatement("PREPARE myquery FROM select * from foo",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new AllColumns()),
                         table(QualifiedName.of("foo")))));
     }
@@ -4538,7 +4681,9 @@ public class TestSqlParser
     public void testPrepareDropView()
     {
         assertStatement("PREPARE statement1 FROM DROP VIEW IF EXISTS \"catalog-test\".\"test\".\"foo\"",
-                new Prepare(identifier("statement1"),
+                new Prepare(
+                        location(1, 1),
+                        identifier("statement1"),
                         new DropView(location(1, 25), QualifiedName.of("catalog-test", "test", "foo"), true)));
         assertStatementIsInvalid("PREPARE statement1 FROM DROP VIEW IF EXISTS catalog-test.test.foo")
                 .withMessage("line 1:52: mismatched input '-'. Expecting: '.', <EOF>");
@@ -4548,12 +4693,12 @@ public class TestSqlParser
     public void testPrepareWithParameters()
     {
         assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0), new Parameter(1)),
                         table(QualifiedName.of("foo")))));
 
         assertStatement("PREPARE myquery FROM SELECT * FROM foo LIMIT ?",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new AllColumns()),
                         table(QualifiedName.of("foo")),
                         Optional.empty(),
@@ -4564,7 +4709,7 @@ public class TestSqlParser
                         Optional.of(new Limit(new Parameter(0))))));
 
         assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo LIMIT ?",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0), new Parameter(1)),
                         table(QualifiedName.of("foo")),
                         Optional.empty(),
@@ -4575,7 +4720,7 @@ public class TestSqlParser
                         Optional.of(new Limit(new Parameter(2))))));
 
         assertStatement("PREPARE myquery FROM SELECT ? FROM foo FETCH FIRST ? ROWS ONLY",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0)),
                         table(QualifiedName.of("foo")),
                         Optional.empty(),
@@ -4586,7 +4731,7 @@ public class TestSqlParser
                         Optional.of(new FetchFirst(new Parameter(1))))));
 
         assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo FETCH NEXT ? ROWS WITH TIES",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0), new Parameter(1)),
                         table(QualifiedName.of("foo")),
                         Optional.empty(),
@@ -4597,7 +4742,7 @@ public class TestSqlParser
                         Optional.of(new FetchFirst(new Parameter(2), true)))));
 
         assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo OFFSET ? ROWS",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0), new Parameter(1)),
                         table(QualifiedName.of("foo")),
                         Optional.empty(),
@@ -4608,7 +4753,7 @@ public class TestSqlParser
                         Optional.empty())));
 
         assertStatement("PREPARE myquery FROM SELECT ? FROM foo OFFSET ? ROWS LIMIT ?",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0)),
                         table(QualifiedName.of("foo")),
                         Optional.empty(),
@@ -4619,7 +4764,7 @@ public class TestSqlParser
                         Optional.of(new Limit(new Parameter(2))))));
 
         assertStatement("PREPARE myquery FROM SELECT ? FROM foo OFFSET ? ROWS FETCH FIRST ? ROWS WITH TIES",
-                new Prepare(identifier("myquery"), simpleQuery(
+                new Prepare(location(1, 1), identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0)),
                         table(QualifiedName.of("foo")),
                         Optional.empty(),
@@ -4724,7 +4869,7 @@ public class TestSqlParser
 
         for (String fullName : tableNames) {
             QualifiedName qualifiedName = makeQualifiedName(fullName);
-            assertStatement("SHOW STATS FOR %s".formatted(qualifiedName), new ShowStats(new Table(qualifiedName)));
+            assertStatement("SHOW STATS FOR %s".formatted(qualifiedName), new ShowStats(location(1, 1), new Table(qualifiedName)));
         }
     }
 
@@ -4900,6 +5045,7 @@ public class TestSqlParser
     private static ShowStats createShowStats(QualifiedName name, List<SelectItem> selects, Optional<Expression> where)
     {
         return new ShowStats(
+                location(1, 1),
                 new TableSubquery(simpleQuery(new Select(false, selects),
                         new Table(name),
                         where,

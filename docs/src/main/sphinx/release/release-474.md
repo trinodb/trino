@@ -1,5 +1,10 @@
 # Release 474 (21 Mar 2025)
 
+```{warning}
+This release contains a bug in memory tracking that can cause queries to fail
+with EXCEEDED_LOCAL_MEMORY_LIMIT unnecessarily. See: ({issue}`25600`)
+```
+
 ## General
 
 * Add `originalUser` and `authenticatedUser` as resource group selectors. ({issue}`24662`)

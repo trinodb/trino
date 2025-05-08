@@ -58,7 +58,7 @@ public class TestPushTopNIntoTableScan
     private static final String metricName = "metric";
     private static final ColumnHandle metricColumn = new TpchColumnHandle(metricName, BIGINT);
 
-    private static final ImmutableMap<String, ColumnHandle> assignments = ImmutableMap.of(
+    private static final Map<String, ColumnHandle> assignments = ImmutableMap.of(
             dimensionName, dimensionColumn,
             metricName, metricColumn);
 

@@ -203,6 +203,10 @@ values. Typical usage does not require you to configure them.
   - Number of threads used for retrieving metadata. Currently, only table loading 
     is parallelized.
   - `8`
+* - `delta.checkpoint-processing.parallelism`
+  - Number of threads used for retrieving checkpoint files of each table. Currently, only 
+    retrievals of V2 Checkpoint's sidecar files are parallelized.
+  - `4`
 :::
 
 ### Catalog session properties
@@ -454,6 +458,42 @@ number corresponding to the version of the table to be retrieved:
 ```sql
 SELECT *
 FROM example.testdb.customer_orders FOR VERSION AS OF 3
+```
+
+A different approach of retrieving historical data is to specify a point in time
+in the past, such as a day or week ago. The latest snapshot of the table taken
+before or at the specified timestamp in the query is internally used for
+providing the previous state of the table:
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 America/Los_Angeles';
+```
+
+The connector allows to create a new snapshot through Delta Lake's [replace table](delta-lake-create-or-replace).
+
+```sql
+CREATE OR REPLACE TABLE example.testdb.customer_orders AS
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 09:59:29.803 America/Los_Angeles';
+```
+
+You can use a date to specify a point a time in the past for using a snapshot of a table in a query.
+Assuming that the session time zone is `America/Los_Angeles` the following queries are equivalent:
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF DATE '2022-03-23';
+```
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 00:00:00';
+```
+
+```sql
+SELECT *
+FROM example.testdb.customer_orders FOR TIMESTAMP AS OF TIMESTAMP '2022-03-23 00:00:00.000 America/Los_Angeles';
 ```
 
 Use the `$history` metadata table to determine the snapshot ID of the

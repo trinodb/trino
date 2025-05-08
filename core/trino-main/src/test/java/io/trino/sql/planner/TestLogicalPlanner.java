@@ -1555,7 +1555,7 @@ public class TestLogicalPlanner
     @Test
     public void testDistributedSort()
     {
-        ImmutableList<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
+        List<PlanMatchPattern.Ordering> orderBy = ImmutableList.of(sort("ORDERKEY", DESCENDING, LAST));
         assertDistributedPlan(
                 "SELECT orderkey FROM orders ORDER BY orderkey DESC",
                 output(
@@ -2578,6 +2578,18 @@ public class TestLogicalPlanner
                                 builder -> builder
                                         .left(any(unnest(values("array"))))
                                         .right(exchange(tableScan("nation"))))))));
+    }
+
+    @Test
+    public void testRewriteExcludeColumnsFunctionToProjection()
+    {
+        assertPlan("""
+                   SELECT *
+                   FROM TABLE(system.builtin.exclude_columns(
+                       INPUT => TABLE(orders),
+                       COLUMNS => DESCRIPTOR(comment)))
+                   """,
+                output(tableScan("orders")));
     }
 
     private Session noJoinReordering()

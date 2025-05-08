@@ -95,6 +95,7 @@ class StatementClientV1
     private final AtomicReference<List<String>> setPath = new AtomicReference<>();
     private final AtomicReference<String> setAuthorizationUser = new AtomicReference<>();
     private final AtomicBoolean resetAuthorizationUser = new AtomicBoolean();
+    private final Set<ClientSelectedRole> setOriginalRoles = Sets.newConcurrentHashSet();
     private final Map<String, String> setSessionProperties = new ConcurrentHashMap<>();
     private final Set<String> resetSessionProperties = Sets.newConcurrentHashSet();
     private final Map<String, ClientSelectedRole> setRoles = new ConcurrentHashMap<>();
@@ -135,6 +136,7 @@ class StatementClientV1
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+        this.setOriginalRoles.addAll(session.getOriginalRoles());
         this.clientCapabilities = Joiner.on(",").join(clientCapabilities.orElseGet(() -> stream(ClientCapabilities.values())
                 .map(Enum::name)
                 .collect(toImmutableSet())));
@@ -190,6 +192,10 @@ class StatementClientV1
         Map<String, String> resourceEstimates = session.getResourceEstimates();
         for (Entry<String, String> entry : resourceEstimates.entrySet()) {
             builder.addHeader(TRINO_HEADERS.requestResourceEstimate(), entry.getKey() + "=" + urlEncode(entry.getValue()));
+        }
+
+        for (ClientSelectedRole selectedRole : session.getOriginalRoles()) {
+            builder.addHeader(TRINO_HEADERS.requestOriginalRole(), selectedRole.toString());
         }
 
         Map<String, ClientSelectedRole> roles = session.getRoles();
@@ -325,6 +331,12 @@ class StatementClientV1
     public boolean isResetAuthorizationUser()
     {
         return resetAuthorizationUser.get();
+    }
+
+    @Override
+    public Set<ClientSelectedRole> getSetOriginalRoles()
+    {
+        return ImmutableSet.copyOf(setOriginalRoles);
     }
 
     @Override
@@ -538,6 +550,11 @@ class StatementClientV1
             this.resetAuthorizationUser.set(Boolean.parseBoolean(resetAuthorizationUser));
         }
 
+        setOriginalRoles.addAll(headers.values(TRINO_HEADERS.responseOriginalRole())
+                .stream()
+                .map(role -> ClientSelectedRole.valueOf(urlDecode(role)))
+                .collect(toImmutableSet()));
+
         for (String setSession : headers.values(TRINO_HEADERS.responseSetSession())) {
             List<String> keyValue = COLLECTION_HEADER_SPLITTER.splitToList(setSession);
             if (keyValue.size() != 2) {
@@ -664,7 +681,7 @@ class StatementClientV1
     private enum State
     {
         /**
-         * submitted to server, not in terminal state (including planning, queued, running, etc)
+         * submitted to server, not in terminal state (including planning, queued, running, etc.)
          */
         RUNNING,
         CLIENT_ERROR,

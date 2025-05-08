@@ -31,7 +31,6 @@ import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.OutputBufferStateMachine;
-import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.PipelinedOutputBuffers.OutputBufferId;
@@ -50,7 +49,6 @@ import io.trino.operator.TaskContext;
 import io.trino.operator.output.TaskOutputOperator.TaskOutputOperatorFactory;
 import io.trino.spi.Page;
 import io.trino.spi.QueryId;
-import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spiller.SpillSpaceTracker;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
@@ -79,9 +77,9 @@ import static io.trino.execution.TaskState.FLUSHING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
-import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PagesSerdeUtil.getSerializedPagePositionCount;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Objects.requireNonNull;
@@ -127,7 +125,7 @@ public class TestSqlTaskExecution
                     TABLE_SCAN_NODE_ID,
                     outputBuffer,
                     Function.identity(),
-                    new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE));
+                    createTestingPagesSerdeFactory());
             LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
                     ImmutableList.of(new DriverFactory(
                             0,

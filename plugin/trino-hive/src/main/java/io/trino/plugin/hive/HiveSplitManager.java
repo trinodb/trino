@@ -347,17 +347,17 @@ public class HiveSplitManager
                     Lists.transform(partitionBatch, HivePartition::getPartitionId));
 
             if (partitionBatch.size() != partitions.size()) {
-                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s for %s", partitionBatch.size(), partitions.size(), tableName));
             }
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builderWithExpectedSize(partitionBatch.size());
             for (HivePartition hivePartition : partitionBatch) {
                 Optional<Partition> partition = partitions.get(hivePartition.getPartitionId());
                 if (partition == null) {
-                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Partition not loaded: %s for %s", hivePartition, tableName));
                 }
                 if (partition.isEmpty()) {
-                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + hivePartition.getPartitionId());
+                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, format("Partition %s no longer exists for %s", hivePartition.getPartitionId(), tableName));
                 }
                 results.add(toPartitionMetadata(
                         typeManager,

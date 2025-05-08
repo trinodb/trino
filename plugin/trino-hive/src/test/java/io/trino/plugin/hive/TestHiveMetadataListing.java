@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.metastore.Column;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveBucketProperty;
@@ -77,7 +76,7 @@ public class TestHiveMetadataListing
             "VIRTUAL_VIEW",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("PRESTO_VIEW_FLAG", "value3"),
             Optional.of("SELECT 1"),
             Optional.of("SELECT 1"),
@@ -90,7 +89,7 @@ public class TestHiveMetadataListing
             "VIRTUAL_VIEW",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("PRESTO_VIEW_FLAG", "value3"),
             Optional.of("SELECT 1"),
             Optional.of("SELECT 1"),
@@ -103,7 +102,7 @@ public class TestHiveMetadataListing
             "VIRTUAL_VIEW",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("PRESTO_VIEW_FLAG", "value3"),
             Optional.of("SELECT 1"),
             Optional.of("SELECT 1"),
@@ -116,7 +115,7 @@ public class TestHiveMetadataListing
             "MANAGED_TABLE",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("param", "value3"),
             Optional.empty(),
             Optional.empty(),
@@ -129,7 +128,7 @@ public class TestHiveMetadataListing
             "MANAGED_TABLE",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("param", "value3"),
             Optional.empty(),
             Optional.empty(),
@@ -142,7 +141,7 @@ public class TestHiveMetadataListing
             "MANAGED_TABLE",
             TABLE_STORAGE,
             ImmutableList.of(TABLE_COLUMN),
-            ImmutableList.of(TABLE_COLUMN),
+            ImmutableList.of(),
             ImmutableMap.of("param", "value3"),
             Optional.empty(),
             Optional.empty(),
@@ -246,7 +245,7 @@ public class TestHiveMetadataListing
         }
 
         @Override
-        public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+        public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
         {
             throw new UnsupportedOperationException();
         }

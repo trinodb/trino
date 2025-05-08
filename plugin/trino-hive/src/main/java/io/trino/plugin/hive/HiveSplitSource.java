@@ -263,7 +263,7 @@ class HiveSplitSource
                 throw new UnsupportedOperationException();
         }
 
-        ListenableFuture<ImmutableList<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {
+        ListenableFuture<List<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
             ImmutableList.Builder<HiveSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;

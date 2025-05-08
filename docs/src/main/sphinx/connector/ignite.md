@@ -15,7 +15,7 @@ database from Trino.
 
 ## Requirements
 
-To connect to a Ignite server, you need:
+To connect to an Ignite server, you need:
 
 - Ignite version 2.9.0 or latter
 - Network access from the Trino coordinator and workers to the Ignite
@@ -26,7 +26,7 @@ To connect to a Ignite server, you need:
 
 The Ignite connector expose `public` schema by default.
 
-The connector can query a Ignite instance. Create a catalog properties file
+The connector can query an Ignite instance. Create a catalog properties file
 that specifies the Ignite connector by setting the `connector.name` to
 `ignite`.
 

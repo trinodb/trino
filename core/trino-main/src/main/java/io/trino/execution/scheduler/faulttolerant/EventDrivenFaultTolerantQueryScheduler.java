@@ -662,13 +662,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             eventsDebugInfos.asMap().entrySet().stream()
                     .sorted(comparingByKey())
                     .forEachOrdered(entry -> {
-                        log.debug("Recent events for " + entry.getKey());
+                        log.debug("Recent events for %s", entry.getKey());
                         for (String eventDebugInfo : entry.getValue()) {
                             // logging events in separate log events as some events may be huge and otherwise rarely we could hit logging framework constraints
-                            log.debug("   " + eventDebugInfo);
+                            log.debug("   %s", eventDebugInfo);
                         }
                     });
-            log.debug("Filtered events count " + filteredEventsCounter);
+            log.debug("Filtered events count %s", filteredEventsCounter);
         }
     }
 
@@ -2449,7 +2449,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (outputStats.isEmpty()) {
                 // it is rare but possible to get empty spooling output stats for task which completed successfully.
                 // As we need this information in FTE mode we need to fail such task artificially
-                log.warn("Failing task " + taskId + " because we received empty spooling output stats");
+                log.warn("Failing task %s because we received empty spooling output stats", taskId);
                 return Optional.of(taskFailed(taskId, Failures.toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "Treating FINISHED task as FAILED because we received empty spooling output stats")), taskStatus));
             }
 

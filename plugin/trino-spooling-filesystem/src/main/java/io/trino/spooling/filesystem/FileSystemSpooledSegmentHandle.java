@@ -86,7 +86,6 @@ public record FileSystemSpooledSegmentHandle(
                 .add("encoding", encoding)
                 .add("expires", Instant.ofEpochMilli(ULID.getTimestampBinary(uuid)))
                 .add("identifier", identifier())
-                .add("encoding", encoding)
                 .add("encryptionKey", encryptionKey.map(_ -> "[redacted]").orElse("[none"))
                 .toString();
     }

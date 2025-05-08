@@ -170,6 +170,8 @@ public class PartitionData
             case TIMESTAMP_NANO:
             // TODO https://github.com/trinodb/trino/issues/24538 Support variant type
             case VARIANT:
+            case GEOMETRY:
+            case GEOGRAPHY:
             case UNKNOWN:
             case LIST:
             case MAP:

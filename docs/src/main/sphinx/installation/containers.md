@@ -1,9 +1,18 @@
 # Trino in a Docker container
 
-The Trino project provides the [trinodb/trino](https://hub.docker.com/r/trinodb/trino)
-Docker image that includes the Trino server and a default configuration. The
-Docker image is published to Docker Hub and can be used with the Docker runtime,
-among several others.
+The Trino project provides the default
+[trinodb/trino](https://hub.docker.com/r/trinodb/trino) Docker image that
+includes the Trino server, all plugins, and a default configuration.
+
+The additional [trinodb/trino-core](https://hub.docker.com/r/trinodb/trino-core)
+Docker images contains only a minimal set of essential plugins, and it is
+therefore mostly suitable as a base for custom container creation. The
+[trino-packages project](https://github.com/trinodb/trino-packages) includes a
+module to create a customized Docker image with your own selection of plugins.
+
+The Docker images are published to Docker Hub and can be used with the Docker
+runtime, among several others. The images are suitable to use with the [Trino
+Helm chart](https://github.com/trinodb/charts).
 
 ## Running the container
 

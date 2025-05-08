@@ -128,7 +128,7 @@ public final class MemoryQueryRunner
                 throws Exception
         {
             Path exchangeManagerDirectory = createTempDirectory(null);
-            ImmutableMap<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
+            Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
                     .put("exchange.base-directories", exchangeManagerDirectory.toAbsolutePath().toString())
                     .buildOrThrow();
 

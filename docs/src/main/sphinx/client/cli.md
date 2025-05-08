@@ -34,7 +34,7 @@ Download {maven_download}`cli`, rename it to `trino`, make it executable with
 
 Run the CLI with `--help` or `-h` to see all available options.
 
-Windows users, and users unable to execute the preceeding steps, can use the
+Windows users, and users unable to execute the preceding steps, can use the
 equivalent `java` command with the `-jar` option to run the CLI, and show
 the version:
 
@@ -269,7 +269,7 @@ certificate usage:
 * - `--use-system-keystore`
   - Use a client certificate obtained from the system keystore of the operating
     system. Windows and macOS are supported. For other operating systems, the
-    default Java keystore is used. The keystore type can be overriden using
+    default Java keystore is used. The keystore type can be overridden using
     `--keystore-type`.
 * - `--truststore-password`
   - The password for the truststore. This must match the password you specified
@@ -300,7 +300,7 @@ Username and password authentication is typically configured in a cluster using
 the `PASSWORD` {doc}`authentication type </security/authentication-types>`,
 for example with {doc}`/security/ldap` or {doc}`/security/password-file`.
 
-The following code example connects to the server, establishes your user name,
+The following code example connects to the server, establishes your username,
 and prompts the CLI for your password:
 
 ```text

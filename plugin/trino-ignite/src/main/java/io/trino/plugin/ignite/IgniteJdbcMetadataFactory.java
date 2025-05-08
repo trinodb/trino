@@ -37,7 +37,7 @@ public class IgniteJdbcMetadataFactory
     {
         super(jdbcClient, timestampTimeZoneDomain, jdbcQueryEventListeners, identityCacheMapping);
         this.timestampTimeZoneDomain = requireNonNull(timestampTimeZoneDomain, "timestampTimeZoneDomain is null");
-        this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
+        this.jdbcQueryEventListeners = ImmutableSet.copyOf(jdbcQueryEventListeners);
     }
 
     @Override

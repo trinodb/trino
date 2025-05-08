@@ -44,7 +44,7 @@ See also `element_at` function that returns `NULL` in such case.
 SELECT name_to_age_map['Bob'] AS bob_age;
 ```
 
-The following example constructs a map and then accesses the element with the
+The following example constructs a map and then accesses the element with 
 the key `key2`:
 
 ```sql

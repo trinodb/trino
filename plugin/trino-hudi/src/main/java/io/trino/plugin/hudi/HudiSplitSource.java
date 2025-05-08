@@ -27,11 +27,11 @@ import io.trino.plugin.hudi.query.HudiReadOptimizedDirectoryLister;
 import io.trino.plugin.hudi.split.HudiBackgroundSplitLoader;
 import io.trino.plugin.hudi.split.HudiSplitWeightProvider;
 import io.trino.plugin.hudi.split.SizeBasedSplitWeightProvider;
-import io.trino.plugin.hudi.table.HudiTableMetaClient;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
 
 import java.util.List;
 import java.util.Map;
@@ -73,7 +73,7 @@ public class HudiSplitSource
             int maxOutstandingSplits,
             List<String> partitions)
     {
-        HudiTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
+        HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
 

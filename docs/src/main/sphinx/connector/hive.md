@@ -209,6 +209,13 @@ Hive connector documentation.
       in schemas `fruit` and `vegetable`
     * `*` to cache listings for all tables in all schemas
   -
+* - `hive.file-status-cache.excluded-tables`
+  - Whereas `hive.file-status-cache-tables` is an inclusion list, this is an exclusion list for the cache. 
+      * `fruit.apple,fruit.orange` to *NOT* cache listings only for tables
+        `apple` and `orange` in schema `fruit`
+      * `fruit.*,vegetable.*` to *NOT* cache listings for all tables
+        in schemas `fruit` and `vegetable`
+  -  
 * - `hive.file-status-cache.max-retained-size`
   - Maximum retained size of cached file status entries.
   - `1GB`
@@ -284,6 +291,14 @@ Hive connector documentation.
 * - `hive.partition-projection-enabled`
   - Enables Athena partition projection support
   - `true`
+* - `hive.s3-glacier-filter`
+  - Filter S3 objects based on their storage class and restored status if applicable. Possible
+    values are
+      * `READ_ALL` - read files from all S3 storage classes
+      * `READ_NON_GLACIER` - read files from non S3 Glacier storage classes
+      * `READ_NON_GLACIER_AND_RESTORED` - read files from non S3 Glacier storage classes and 
+        restored objects from Glacier storage class
+  - `READ_ALL`
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000
@@ -688,7 +703,7 @@ maximum value of `127`).
 
 Trino supports querying and manipulating Hive tables with the Avro storage
 format, which has the schema set based on an Avro schema file/literal. Trino is
-also capable of creating the tables in Trino by infering the schema from a
+also capable of creating the tables in Trino by inferring the schema from a
 valid Avro schema file located locally, or remotely in HDFS/Web server.
 
 To specify that the Avro schema should be used for interpreting table data, use

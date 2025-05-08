@@ -1415,7 +1415,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
             throws Exception
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
-        ImmutableList<ColumnSchema> columns = Stream.of("private", "restricted", "masked", "masked_with_user")
+        List<ColumnSchema> columns = Stream.of("private", "restricted", "masked", "masked_with_user")
                 .map(BaseFileBasedSystemAccessControlTest::createColumnSchema)
                 .collect(toImmutableList());
 

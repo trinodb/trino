@@ -36,6 +36,11 @@ public interface SpoolingController
 
     Mode execute(Mode mode, long positions, long size);
 
+    default void finish()
+    {
+        execute(Mode.SPOOL, 0, 0);
+    }
+
     MetricSnapshot getMetrics(Mode mode);
 
     @VisibleForTesting

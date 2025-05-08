@@ -189,6 +189,7 @@ public class TestQueryStateInfo
                 Optional.empty(),
                 Optional.empty(),
                 false,
+                ImmutableSet.of(),
                 ImmutableMap.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(),

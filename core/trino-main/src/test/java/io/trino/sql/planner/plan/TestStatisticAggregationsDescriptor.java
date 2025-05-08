@@ -32,13 +32,15 @@ import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStatisticAggregationsDescriptor
 {
-    private static final ImmutableList<String> COLUMNS = ImmutableList.of("", "col1", "$:###:;", "abc+dddd___");
+    private static final List<String> COLUMNS = ImmutableList.of("", "col1", "$:###:;", "abc+dddd___");
 
     @Test
     public void testSerializationRoundTrip()

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
@@ -197,8 +196,18 @@ public final class IcebergTestUtils
             String schemaName)
     {
         IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
+        TrinoCatalog catalog = getTrinoCatalog(metastore, fileSystemFactory, catalogName);
+        return loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
+    }
+
+    public static TrinoCatalog getTrinoCatalog(
+            HiveMetastore metastore,
+            TrinoFileSystemFactory fileSystemFactory,
+            String catalogName)
+    {
+        IcebergTableOperationsProvider tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
         CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
-        TrinoCatalog catalog = new TrinoHiveCatalog(
+        return new TrinoHiveCatalog(
                 new CatalogName(catalogName),
                 cachingHiveMetastore,
                 new TrinoViewHiveMetastore(cachingHiveMetastore, false, "trino-version", "test"),
@@ -210,7 +219,6 @@ public final class IcebergTestUtils
                 false,
                 new IcebergConfig().isHideMaterializedViewStorageTable(),
                 directExecutor());
-        return loadIcebergTable(catalog, tableOperationsProvider, SESSION, new SchemaTableName(schemaName, tableName));
     }
 
     public static Map<String, Long> getMetadataFileAndUpdatedMillis(TrinoFileSystem trinoFileSystem, String tableLocation)
@@ -238,17 +246,5 @@ public final class IcebergTestUtils
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    public static List<String> listFiles(TrinoFileSystem trinoFileSystem, String location)
-            throws IOException
-    {
-        ImmutableList.Builder<String> files = ImmutableList.builder();
-        FileIterator fileIterator = trinoFileSystem.listFiles(Location.of(location));
-        while (fileIterator.hasNext()) {
-            FileEntry entry = fileIterator.next();
-            files.add(entry.location().fileName());
-        }
-        return files.build();
     }
 }

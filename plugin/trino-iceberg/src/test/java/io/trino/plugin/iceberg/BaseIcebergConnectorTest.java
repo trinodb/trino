@@ -120,6 +120,7 @@ import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_SCALE_WRITERS_ENABLED;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -184,15 +185,13 @@ public abstract class BaseIcebergConnectorTest
     private static final Pattern WITH_CLAUSE_EXTRACTOR = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
 
     protected final IcebergFileFormat format;
-    private final int formatVersion;
 
     protected TrinoFileSystem fileSystem;
     protected TimeUnit storageTimePrecision;
 
-    protected BaseIcebergConnectorTest(IcebergFileFormat format, int formatVersion)
+    protected BaseIcebergConnectorTest(IcebergFileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
-        this.formatVersion = formatVersion;
     }
 
     @Override
@@ -208,7 +207,6 @@ public abstract class BaseIcebergConnectorTest
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(ImmutableMap.<String, String>builder()
                         .put("iceberg.file-format", format.name())
-                        .put("iceberg.format-version", Integer.toString(formatVersion))
                         // Only allow some extra properties. Add "sorted_by" so that we can test that the property is disallowed by the connector explicitly.
                         .put("iceberg.allowed-extra-properties", "extra.property.one,extra.property.two,extra.property.three,sorted_by")
                         // Allows testing the sorting writer flushing to the file system with smaller tables
@@ -380,7 +378,7 @@ public abstract class BaseIcebergConnectorTest
                         ")\n" +
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
-                        "   format_version = " + formatVersion + ",\n" +
+                        "   format_version = 2,\n" +
                         "   location = '\\E.*/tpch/orders-.*\\Q',\n" +
                         "   max_commit_retry = 4\n" +
                         ")\\E");
@@ -1954,13 +1952,12 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = %s,
+                           format_version = 2,
                            location = '%s',
                            max_commit_retry = 4,
                            partitioning = ARRAY['adate']
                         )""",
                 format,
-                formatVersion,
                 tempDirPath));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy0 (LIKE test_create_table_like_original, col2 INTEGER)");
@@ -1972,12 +1969,11 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = %s,
+                           format_version = 2,
                            location = '%s',
                            max_commit_retry = 4
                         )""",
                 format,
-                formatVersion,
                 getTableLocation("test_create_table_like_copy1")));
 
         assertUpdate("CREATE TABLE test_create_table_like_copy2 (LIKE test_create_table_like_original EXCLUDING PROPERTIES)");
@@ -1985,12 +1981,11 @@ public abstract class BaseIcebergConnectorTest
                 """
                         WITH (
                            format = '%s',
-                           format_version = %s,
+                           format_version = 2,
                            location = '%s',
                            max_commit_retry = 4
                         )""",
                 format,
-                formatVersion,
                 getTableLocation("test_create_table_like_copy2")));
         assertUpdate("DROP TABLE test_create_table_like_copy2");
 
@@ -4236,7 +4231,14 @@ public abstract class BaseIcebergConnectorTest
                             // total_size is not exactly deterministic, so grab whatever value there is
                             "(SELECT total_size FROM \"test_partitions_with_conflict$partitions\"), " +
                             "CAST(" +
-                            " NULL AS row(" +
+                            "  ROW (" +
+                            (partitioned ? "" : "  NULL, ") +
+                            "    NULL, " +
+                            "    NULL, " +
+                            "    NULL, " +
+                            "    NULL " +
+                            "  ) " +
+                            " AS row(" +
                             (partitioned ? "" : "    p row(min integer, max integer, null_count bigint, nan_count bigint), ") +
                             "    row_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
                             "    record_count row(min integer, max integer, null_count bigint, nan_count bigint), " +
@@ -5094,7 +5096,7 @@ public abstract class BaseIcebergConnectorTest
         String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
 
         TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
-        ImmutableMap<String, String> newProperties = ImmutableMap.<String, String>builder()
+        Map<String, String> newProperties = ImmutableMap.<String, String>builder()
                 .putAll(tableMetadata.properties())
                 .put("orc.bloom.filter.columns", "x,y") // legacy incorrect property
                 .put("orc.bloom.filter.fpp", "0.2") // legacy incorrect property
@@ -5620,6 +5622,42 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testOptimizeFilesDoNotInheritSequenceNumber()
+            throws IOException
+    {
+        String tableName = "test_optimize_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM nation", 25);
+
+        assertUpdate("DELETE FROM " + tableName + " WHERE nationkey = 7", 1);
+
+        // Verify that delete file exists
+        assertQuery(
+                "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
+                "VALUES '1'");
+
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+        computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+
+        List<IcebergEntry> activeEntries = getIcebergEntries(tableName);
+        assertThat(activeEntries).hasSize(3);
+
+        // New rewritten data file should not inherit sequence number as it is a rewrite
+        assertThat(activeEntries.stream().filter(entry -> entry.status() == 1))
+                .hasSize(1)
+                .allMatch(entry -> entry.sequenceNumber() == 2 && entry.fileSequenceNumber() == 3);
+
+        // Other files should inherit sequence number
+        assertThat(activeEntries.stream().filter(entry -> entry.status() == 2))
+                .hasSize(2)
+                .allMatch(entry -> entry.sequenceNumber().equals(entry.fileSequenceNumber()));
+
+        assertThat(query("SELECT * FROM " + tableName))
+                .matches("SELECT * FROM nation WHERE nationkey != 7");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testOptimizeSnapshot()
     {
         String tableName = "test_optimize_snapshot_" + randomNameSuffix();
@@ -5709,6 +5747,17 @@ public abstract class BaseIcebergConnectorTest
                 .map(String.class::cast)
                 .collect(toImmutableList());
     }
+
+    private List<IcebergEntry> getIcebergEntries(String tableName)
+    {
+        return computeActual(format("SELECT status, data_file.file_path, sequence_number, file_sequence_number FROM \"%s$entries\"", tableName))
+                .getMaterializedRows()
+                .stream()
+                .map(row -> new IcebergEntry((int) row.getField(0), (String) row.getField(1), (Long) row.getField(2), (Long) row.getField(3)))
+                .collect(toImmutableList());
+    }
+
+    private record IcebergEntry(int status, String filePath, Long sequenceNumber, Long fileSequenceNumber) {}
 
     protected String getTableLocation(String tableName)
     {
@@ -6554,6 +6603,22 @@ public abstract class BaseIcebergConnectorTest
         assertQueryFails(
                 "ALTER TABLE nation EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '33s')",
                 "\\QRetention specified (33.00s) is shorter than the minimum retention configured in the system (7.00d). Minimum retention can be changed with iceberg.expire-snapshots.min-retention configuration property or iceberg.expire_snapshots_min_retention session property");
+    }
+
+    @Test
+    public void testRemoveOrphanFilesWithUnexpectedMissingManifest()
+            throws Exception
+    {
+        String tableName = "test_remove_orphan_files_with_missing_manifest_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (key varchar, value integer)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES ('one', 1)", 1);
+        String manifestFileToRemove = (String) computeScalar("SELECT path FROM \"" + tableName + "$manifests\"");
+        fileSystem.deleteFile(Location.of(manifestFileToRemove));
+
+        assertThat(query("ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES"))
+                .failure()
+                .hasErrorCode(ICEBERG_INVALID_METADATA)
+                .hasMessage("Manifest file does not exist: " + manifestFileToRemove);
     }
 
     @Test
@@ -8942,7 +9007,7 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col.element.c varchar");
             assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col.element.b");
 
-            String expected = format == ORC ? "CAST(array[row(NULL)] AS array(row(c varchar)))" : "CAST(NULL AS array(row(c varchar)))";
+            String expected = format == ORC || format == AVRO ? "CAST(array[row(NULL)] AS array(row(c varchar)))" : "CAST(NULL AS array(row(c varchar)))";
             assertThat(query("SELECT * FROM " + table.getName()))
                     .matches("VALUES " + expected);
         }

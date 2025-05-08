@@ -259,7 +259,7 @@ property, setting it to `FILE` or `CONFLUENT`. Each table description
 supplier has a separate set of configuration properties.
 
 Refer to the following subsections for more detail. The `FILE` table
-description supplier is the default, and the value is case insensitive.
+description supplier is the default, and the value is case-insensitive.
 
 ### File table description supplier
 
@@ -457,8 +457,8 @@ To manually specify the key and value subjects, append to the topic name,
 for example: `<topic name>&key-subject=<key subject>&value-subject=<value
 subject>`. Both the `key-subject` and `value-subject` parameters are
 optional. If neither is specified, then the default `TopicNameStrategy` is
-used to resolve the subject name via the topic name. Note that a case
-insensitive match must be done, as identifiers cannot contain upper case
+used to resolve the subject name via the topic name. Note that a 
+case-insensitive match must be done, as identifiers cannot contain upper case
 characters.
 
 #### Protobuf-specific type handling in Confluent table description supplier

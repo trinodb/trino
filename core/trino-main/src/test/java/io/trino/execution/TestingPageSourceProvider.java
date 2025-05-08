@@ -59,7 +59,7 @@ public class TestingPageSourceProvider
     {
         requireNonNull(columns, "columns is null");
 
-        ImmutableList<Block> blocks = columns.stream()
+        List<Block> blocks = columns.stream()
                 .map(column -> new ByteArrayBlock(1, Optional.of(new boolean[] {true}), new byte[1]))
                 .collect(toImmutableList());
 

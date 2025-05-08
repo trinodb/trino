@@ -50,6 +50,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -68,7 +69,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestCreateCatalogTask
 {
     private static final String TEST_CATALOG = "test_catalog";
-    private static final ImmutableList<Property> TPCH_PROPERTIES = ImmutableList.of(new Property(new Identifier("tpch.partitioning-enabled"), new StringLiteral("false")));
+    private static final List<Property> TPCH_PROPERTIES = ImmutableList.of(new Property(new Identifier("tpch.partitioning-enabled"), new StringLiteral("false")));
 
     protected QueryRunner queryRunner;
     private QueryStateMachine queryStateMachine;

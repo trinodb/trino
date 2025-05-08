@@ -491,7 +491,7 @@ public class TestJdbcConnection
         testRole("none", new ClientSelectedRole(ClientSelectedRole.Type.NONE, Optional.empty()), ImmutableSet.of("public"));
     }
 
-    private void testRole(String roleParameterValue, ClientSelectedRole clientSelectedRole, ImmutableSet<String> currentRoles)
+    private void testRole(String roleParameterValue, ClientSelectedRole clientSelectedRole, Set<String> currentRoles)
             throws SQLException
     {
         try (Connection connection = createConnection("roles=hive:" + roleParameterValue)) {
@@ -1003,6 +1003,12 @@ public class TestJdbcConnection
         public boolean isResetAuthorizationUser()
         {
             return true;
+        }
+
+        @Override
+        public Set<ClientSelectedRole> getSetOriginalRoles()
+        {
+            return Set.of();
         }
 
         @Override

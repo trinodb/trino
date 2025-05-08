@@ -224,6 +224,7 @@ public class Analysis
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
 
     private final Map<Field, ColumnHandle> columns = new LinkedHashMap<>();
+    private final Map<NodeRef<Node>, CorrespondingAnalysis> correspondingAnalysis = new LinkedHashMap<>();
 
     private final Map<NodeRef<SampledRelation>, Double> sampleRatios = new LinkedHashMap<>();
 
@@ -765,6 +766,16 @@ public class Analysis
     public ColumnHandle getColumn(Field field)
     {
         return columns.get(field);
+    }
+
+    public CorrespondingAnalysis getCorrespondingAnalysis(Node node)
+    {
+        return correspondingAnalysis.get(NodeRef.of(node));
+    }
+
+    public void setCorrespondingAnalysis(Node node, CorrespondingAnalysis correspondingAnalysis)
+    {
+        this.correspondingAnalysis.put(NodeRef.of(node), correspondingAnalysis);
     }
 
     public Optional<AnalyzeMetadata> getAnalyzeMetadata()
@@ -2545,6 +2556,16 @@ public class Analysis
             requireNonNull(transactionHandle, "transactionHandle is null");
             requireNonNull(parametersType, "parametersType is null");
             requireNonNull(orderedOutputColumns, "orderedOutputColumns is null");
+        }
+    }
+
+    public record CorrespondingAnalysis(List<Integer> indexes, List<Field> fields)
+    {
+        public CorrespondingAnalysis
+        {
+            indexes = ImmutableList.copyOf(indexes);
+            fields = ImmutableList.copyOf(fields);
+            checkArgument(indexes.size() == fields.size(), "indexes and fields must have the same size");
         }
     }
 }

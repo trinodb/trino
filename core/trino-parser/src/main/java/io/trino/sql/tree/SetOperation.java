@@ -16,20 +16,29 @@ package io.trino.sql.tree;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public abstract class SetOperation
         extends QueryBody
 {
     private final boolean distinct;
+    private final Optional<Corresponding> corresponding;
 
-    protected SetOperation(Optional<NodeLocation> location, boolean distinct)
+    protected SetOperation(Optional<NodeLocation> location, boolean distinct, Optional<Corresponding> corresponding)
     {
         super(location);
         this.distinct = distinct;
+        this.corresponding = requireNonNull(corresponding, "corresponding is null");
     }
 
     public boolean isDistinct()
     {
         return distinct;
+    }
+
+    public Optional<Corresponding> getCorresponding()
+    {
+        return corresponding;
     }
 
     @Override

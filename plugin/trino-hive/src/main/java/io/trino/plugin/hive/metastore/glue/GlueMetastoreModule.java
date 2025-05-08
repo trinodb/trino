@@ -74,7 +74,6 @@ public final class GlueMetastoreModule
 
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(GlueContext.class).in(Scopes.SINGLETON);
         binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
         newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
@@ -87,6 +86,7 @@ public final class GlueMetastoreModule
         Multibinder<ExecutionInterceptor> executionInterceptorMultibinder = newSetBinder(binder, ExecutionInterceptor.class, ForGlueHiveMetastore.class);
         executionInterceptorMultibinder.addBinding().toProvider(TelemetryExecutionInterceptorProvider.class).in(Scopes.SINGLETON);
         executionInterceptorMultibinder.addBinding().to(GlueHiveExecutionInterceptor.class).in(Scopes.SINGLETON);
+        executionInterceptorMultibinder.addBinding().to(GlueCatalogIdInterceptor.class).in(Scopes.SINGLETON);
 
         closingBinder(binder).registerCloseable(GlueClient.class);
     }

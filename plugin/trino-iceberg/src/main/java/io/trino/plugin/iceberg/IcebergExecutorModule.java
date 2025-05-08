@@ -37,8 +37,9 @@ public class IcebergExecutorModule
     public void configure(Binder binder)
     {
         closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergMetadata.class));
-        closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitManager.class));
-        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergScanPlanning.class));
+        closingBinder(binder).registerExecutor(Key.get(ListeningExecutorService.class, ForIcebergSplitSource.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergSplitManager.class));
+        closingBinder(binder).registerExecutor(Key.get(ExecutorService.class, ForIcebergPlanning.class));
     }
 
     @Singleton
@@ -51,7 +52,7 @@ public class IcebergExecutorModule
 
     @Provides
     @Singleton
-    @ForIcebergSplitManager
+    @ForIcebergSplitSource
     public ListeningExecutorService createSplitSourceExecutor(CatalogName catalogName)
     {
         return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("iceberg-split-source-" + catalogName + "-%s")));
@@ -59,8 +60,8 @@ public class IcebergExecutorModule
 
     @Provides
     @Singleton
-    @ForIcebergScanPlanning
-    public ExecutorService createScanPlanningExecutor(CatalogName catalogName, IcebergConfig config)
+    @ForIcebergSplitManager
+    public ExecutorService createSplitManagerExecutor(CatalogName catalogName, IcebergConfig config)
     {
         if (config.getSplitManagerThreads() == 0) {
             return newDirectExecutorService();
@@ -68,5 +69,18 @@ public class IcebergExecutorModule
         return newFixedThreadPool(
                 config.getSplitManagerThreads(),
                 daemonThreadsNamed("iceberg-split-manager-" + catalogName + "-%s"));
+    }
+
+    @Provides
+    @Singleton
+    @ForIcebergPlanning
+    public ExecutorService createPlanningExecutor(CatalogName catalogName, IcebergConfig config)
+    {
+        if (config.getPlanningThreads() == 0) {
+            return newDirectExecutorService();
+        }
+        return newFixedThreadPool(
+                config.getPlanningThreads(),
+                daemonThreadsNamed("iceberg-planning-" + catalogName + "-%s"));
     }
 }

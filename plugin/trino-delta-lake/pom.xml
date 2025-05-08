@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>475-SNAPSHOT</version>
+        <version>476-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -189,17 +189,7 @@
 
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>aws-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
             <artifactId>glue</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>utils</artifactId>
         </dependency>
 
         <dependency>

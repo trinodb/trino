@@ -94,7 +94,7 @@ public class TestHashBuilderOperator
                 .addOperatorContext(0, new PlanNodeId("0"), HashBuilderOperator.class.getName());
         OperatorContext anotherOperatorContext = driverContext
                 .addOperatorContext(1, new PlanNodeId("1"), "another operator");
-        ImmutableList<Type> types = ImmutableList.of(BIGINT, BIGINT);
+        List<Type> types = ImmutableList.of(BIGINT, BIGINT);
         PartitionedLookupSourceFactory lookupSourceFactory = new PartitionedLookupSourceFactory(
                 types,
                 ImmutableList.of(BIGINT),

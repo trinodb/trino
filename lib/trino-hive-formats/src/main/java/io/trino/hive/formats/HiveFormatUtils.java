@@ -232,10 +232,15 @@ public final class HiveFormatUtils
             }
         }
 
-        return parseHiveTimestamp(value);
+        return parseTrimmedHiveTimestamp(value);
     }
 
     public static DecodedTimestamp parseHiveTimestamp(String value)
+    {
+        return parseTrimmedHiveTimestamp(value.trim());
+    }
+
+    private static DecodedTimestamp parseTrimmedHiveTimestamp(String value)
     {
         // Otherwise try default timestamp parsing
         // default parser uses Java util time

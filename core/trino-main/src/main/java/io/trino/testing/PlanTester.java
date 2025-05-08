@@ -66,6 +66,7 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.ScheduledSplit;
+import io.trino.execution.SessionPropertyEvaluator;
 import io.trino.execution.SplitAssignment;
 import io.trino.execution.TableExecuteContextManager;
 import io.trino.execution.TaskManagerConfig;
@@ -151,6 +152,7 @@ import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.split.SplitSource;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
@@ -817,7 +819,7 @@ public class PlanTester
         }
 
         // add split assignments to the drivers
-        ImmutableSet<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
+        Set<PlanNodeId> partitionedSources = ImmutableSet.copyOf(subplan.getFragment().getPartitionedSources());
         for (SplitAssignment splitAssignment : splitAssignments) {
             DriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
             checkState(driverFactory != null);
@@ -951,6 +953,10 @@ public class PlanTester
 
     private AnalyzerFactory createAnalyzerFactory(QueryExplainerFactory queryExplainerFactory)
     {
+        SessionPropertyResolver sessionPropertyResolver = new SessionPropertyResolver(
+                new SessionPropertyEvaluator(plannerContext, accessControl, sessionPropertyManager, new SqlEnvironmentConfig()),
+                accessControl);
+
         return new AnalyzerFactory(
                 statementAnalyzerFactory,
                 new StatementRewrite(ImmutableSet.of(
@@ -968,7 +974,7 @@ public class PlanTester
                                 viewPropertyManager,
                                 materializedViewPropertyManager),
                         new ShowStatsRewrite(plannerContext.getMetadata(), queryExplainerFactory, statsCalculator),
-                        new ExplainRewrite(queryExplainerFactory, new QueryPreparer(sqlParser)))),
+                        new ExplainRewrite(queryExplainerFactory, sessionPropertyResolver, new QueryPreparer(sqlParser)))),
                 plannerContext.getTracer());
     }
 

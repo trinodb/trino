@@ -70,7 +70,7 @@ public class WindowNode
         // Make the defensive copy eagerly, so it can be used for both the validation checks and assigned directly to the field afterwards
         prePartitionedInputs = ImmutableSet.copyOf(prePartitionedInputs);
 
-        ImmutableSet<Symbol> partitionBy = ImmutableSet.copyOf(specification.partitionBy());
+        Set<Symbol> partitionBy = ImmutableSet.copyOf(specification.partitionBy());
         Optional<OrderingScheme> orderingScheme = specification.orderingScheme();
         checkArgument(partitionBy.containsAll(prePartitionedInputs), "prePartitionedInputs must be contained in partitionBy");
         checkArgument(preSortedOrderPrefix == 0 || (orderingScheme.isPresent() && preSortedOrderPrefix <= orderingScheme.get().orderBy().size()), "Cannot have sorted more symbols than those requested");

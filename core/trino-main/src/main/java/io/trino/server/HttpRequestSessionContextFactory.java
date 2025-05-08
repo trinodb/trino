@@ -254,18 +254,14 @@ public class HttpRequestSessionContextFactory
         String user = trinoUser != null ? trinoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
         assertRequest(user != null, "User must be set");
         SelectedRole systemRole = parseSystemRoleHeaders(protocolHeaders, headers);
-        ImmutableSet.Builder<String> systemEnabledRoles = ImmutableSet.builder();
-        if (systemRole.getType() == Type.ROLE) {
-            systemEnabledRoles.add(systemRole.getRole().orElseThrow());
-        }
-        return authenticatedIdentity
+        Identity newIdentity = authenticatedIdentity
                 .map(identity -> Identity.from(identity).withUser(user))
                 .orElseGet(() -> Identity.forUser(user))
-                .withEnabledRoles(systemEnabledRoles.build())
                 .withAdditionalConnectorRoles(parseConnectorRoleHeaders(protocolHeaders, headers))
                 .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
                 .build();
+        return addEnabledRoles(newIdentity, systemRole, metadata);
     }
 
     private Identity buildSessionOriginalIdentity(Identity identity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
@@ -273,12 +269,18 @@ public class HttpRequestSessionContextFactory
         // We derive original identity using this header, but older clients will not send it, so fall back to identity
         Optional<String> optionalOriginalUser = Optional
                 .ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestOriginalUser())));
-        Identity originalIdentity = optionalOriginalUser.map(originalUser -> Identity.from(identity)
-                        .withUser(originalUser)
-                        .withExtraCredentials(new HashMap<>())
-                        .withGroups(groupProvider.getGroups(originalUser))
-                        .build())
-                .orElse(identity);
+        Optional<String> originalRoles = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestOriginalRole())));
+        Identity originalIdentity = optionalOriginalUser.map(originalUser -> {
+            Identity newIdentity = Identity.from(identity)
+                    .withUser(originalUser)
+                    .withExtraCredentials(new HashMap<>())
+                    .withGroups(groupProvider.getGroups(originalUser))
+                    .build();
+            if (originalRoles.isPresent()) {
+                newIdentity = addEnabledRoles(newIdentity, SelectedRole.valueOf(originalRoles.get()), metadata);
+            }
+            return newIdentity;
+        }).orElse(identity);
         return originalIdentity;
     }
 
