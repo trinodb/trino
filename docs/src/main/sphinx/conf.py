@@ -204,9 +204,9 @@ suppress_warnings = [
 ]
 
 object_description_options = [
-    ("c:.*", dict(toc_icon_class=None)),
-    ("cpp:.*", dict(toc_icon_class=None)),
-    ("py:.*", dict(toc_icon_class=None)),
-    ("json:.*", dict(toc_icon_class=None)),
-    ("std:.*", dict(toc_icon_class=None))
+    ("c:.*", dict(toc_icon_class=None, toc_icon_text=None)),
+    ("cpp:.*", dict(toc_icon_class=None, toc_icon_text=None)),
+    ("py:.*", dict(toc_icon_class=None, toc_icon_text=None)),
+    ("json:.*", dict(toc_icon_class=None, toc_icon_text=None)),
+    ("std:.*", dict(toc_icon_class=None, toc_icon_text=None))
 ]
