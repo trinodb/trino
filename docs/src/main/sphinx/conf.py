@@ -202,3 +202,11 @@ html_css_files = [
 suppress_warnings = [
     'config.cache'
 ]
+
+object_description_options = [
+    ("c:.*", dict(toc_icon_class=None)),
+    ("cpp:.*", dict(toc_icon_class=None)),
+    ("py:.*", dict(toc_icon_class=None)),
+    ("json:.*", dict(toc_icon_class=None)),
+    ("std:.*", dict(toc_icon_class=None))
+]
