@@ -1232,6 +1232,26 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitCreateBranch(CreateBranch node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitDropBranch(DropBranch node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitFastForwardBranch(FastForwardBranch node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitShowBranches(ShowBranches node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
     protected R visitSessionProperty(SessionProperty node, C context)
     {
         return visitNode(node, context);
