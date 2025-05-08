@@ -506,15 +506,6 @@ public class OperatorContext
         return format("%s-%s", operatorType, planNodeId);
     }
 
-    public static Metrics getOperatorMetrics(Metrics operatorMetrics, long inputPositions, double cpuTimeSeconds, double wallTimeSeconds, double blockedWallSeconds)
-    {
-        return operatorMetrics.mergeWith(new Metrics(ImmutableMap.of(
-                "Input rows distribution", TDigestHistogram.fromValue(inputPositions),
-                "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
-                "Scheduled time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
-                "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds))));
-    }
-
     public <C, R> R accept(QueryContextVisitor<C, R> visitor, C context)
     {
         return visitor.visitOperatorContext(this, context);
@@ -557,7 +548,6 @@ public class OperatorContext
 
                 dynamicFilterSplitsProcessed.get(),
                 getOperatorMetrics(
-                        metrics.get(),
                         inputPositionsCount,
                         new Duration(addInputTiming.getCpuNanos() + getOutputTiming.getCpuNanos() + finishTiming.getCpuNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
                         new Duration(addInputTiming.getWallNanos() + getOutputTiming.getWallNanos() + finishTiming.getWallNanos(), NANOSECONDS).convertTo(SECONDS).getValue(),
@@ -584,6 +574,15 @@ public class OperatorContext
 
                 memoryFuture.get().isDone() ? Optional.empty() : Optional.of(WAITING_FOR_MEMORY),
                 info);
+    }
+
+    private Metrics getOperatorMetrics(long inputPositions, double cpuTimeSeconds, double wallTimeSeconds, double blockedWallSeconds)
+    {
+        return metrics.get().mergeWith(new Metrics(ImmutableMap.of(
+                "Input rows distribution", TDigestHistogram.fromValue(inputPositions),
+                "CPU time distribution (s)", TDigestHistogram.fromValue(cpuTimeSeconds),
+                "Scheduled time distribution (s)", TDigestHistogram.fromValue(wallTimeSeconds),
+                "Blocked time distribution (s)", TDigestHistogram.fromValue(blockedWallSeconds))));
     }
 
     private static long nanosBetween(long start, long end)
