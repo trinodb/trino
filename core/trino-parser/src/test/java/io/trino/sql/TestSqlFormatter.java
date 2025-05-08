@@ -19,12 +19,15 @@ import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Comment;
+import io.trino.sql.tree.CreateBranch;
 import io.trino.sql.tree.CreateCatalog;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
 import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.ExecuteImmediate;
+import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.GenericDataType;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LongLiteral;
@@ -32,6 +35,7 @@ import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
 import io.trino.sql.tree.ShowFunctions;
@@ -51,6 +55,8 @@ import static io.trino.sql.QueryUtil.table;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.tree.CreateView.Security.DEFINER;
 import static io.trino.sql.tree.SaveMode.FAIL;
+import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -576,5 +582,91 @@ public class TestSqlFormatter
                         ImmutableList.of())))
                 .isEqualTo("EXECUTE IMMEDIATE\n" +
                         "'SELECT * FROM foo WHERE col1 = ''攻殻機動隊'''");
+    }
+
+    @Test
+    void testCreateBranch()
+    {
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        IGNORE,
+                        ImmutableList.of())))
+                .isEqualTo("CREATE BRANCH IF NOT EXISTS branch IN TABLE a");
+
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        REPLACE,
+                        ImmutableList.of())))
+                .isEqualTo("CREATE OR REPLACE BRANCH branch IN TABLE a");
+
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        FAIL,
+                        ImmutableList.of())))
+                .isEqualTo("CREATE BRANCH branch IN TABLE a");
+
+        assertThat(formatSql(
+                new CreateBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("branch"),
+                        FAIL,
+                        ImmutableList.of(new Property(new Identifier("property_1"), new StringLiteral("property_value"))))))
+                .isEqualTo(
+                        """
+                        CREATE BRANCH branch
+                        WITH (
+                           property_1 = 'property_value'
+                        ) IN TABLE a\
+                        """);
+    }
+
+    @Test
+    void testDropBranch()
+    {
+        assertThat(formatSql(
+                new DropBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        false,
+                        new Identifier("branch"))))
+                .isEqualTo("DROP BRANCH branch IN TABLE a");
+
+        assertThat(formatSql(
+                new DropBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        true,
+                        new Identifier("branch"))))
+                .isEqualTo("DROP BRANCH IF EXISTS branch IN TABLE a");
+    }
+
+    @Test
+    void testFastForwardBranch()
+    {
+        assertThat(formatSql(
+                new FastForwardBranch(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("a"),
+                        new Identifier("source"),
+                        new Identifier("target"))))
+                .isEqualTo("ALTER BRANCH source IN TABLE a FAST FORWARD TO target");
+    }
+
+    @Test
+    public void testShowBranches()
+    {
+        assertThat(formatSql(
+                new ShowBranches(new NodeLocation(1, 1), QualifiedName.of("a"))))
+                .isEqualTo("SHOW BRANCHES FROM TABLE a");
     }
 }
