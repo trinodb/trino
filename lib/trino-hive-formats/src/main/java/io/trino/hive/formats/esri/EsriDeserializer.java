@@ -1,0 +1,383 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.hive.formats.esri;
+
+import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.GeometryEngine;
+import com.esri.core.geometry.MapGeometry;
+import com.esri.core.geometry.ogc.OGCGeometry;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slices;
+import io.trino.hive.formats.line.Column;
+import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalConversions;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Int128;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
+
+import java.io.IOException;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.math.BigDecimal;
+import java.nio.ByteOrder;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.Map;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.overflows;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.Varchars.truncateToLength;
+import static java.lang.Float.floatToRawIntBits;
+import static java.lang.StrictMath.floorDiv;
+import static java.lang.StrictMath.floorMod;
+import static java.lang.StrictMath.toIntExact;
+import static java.lang.String.format;
+import static java.math.RoundingMode.HALF_UP;
+import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
+import static org.joda.time.DateTimeZone.UTC;
+
+public final class EsriDeserializer
+{
+    private static final VarHandle INT_HANDLE_BIG_ENDIAN = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
+    private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
+    private static final String GEOMETRY_FIELD_NAME = "geometry";
+    private static final String ATTRIBUTES_FIELD_NAME = "attributes";
+    private static final DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-M-d").withZone(UTC_ZONE);
+    private static final List<DateTimeFormatter> TIMESTAMP_FORMATTERS = List.of(
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(UTC_ZONE),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(UTC_ZONE),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(UTC_ZONE),
+            DATE_FORMATTER);
+
+    private final int numColumns;
+    private final int geometryColumn;
+    private final List<String> columnNames;
+    private final Map<String, Integer> columnNameToIndex;
+    private final List<Type> columnTypes;
+
+    public EsriDeserializer(List<Column> columns)
+    {
+        numColumns = columns.size();
+        columnNames = columns.stream().map(Column::name).collect(toImmutableList());
+        columnTypes = columns.stream().map(Column::type).collect(toImmutableList());
+        columnNameToIndex = createColumnNameToIndexMap();
+
+        int geometryColumn = -1;
+        for (int i = 0; i < numColumns; i++) {
+            if (columnTypes.get(i) == VARBINARY) {
+                if (geometryColumn >= 0) {
+                    throw new IllegalArgumentException("Multiple binary columns defined. Define only one binary column for geometries");
+                }
+                geometryColumn = i;
+            }
+        }
+        this.geometryColumn = geometryColumn;
+    }
+
+    private ImmutableMap<String, Integer> createColumnNameToIndexMap()
+    {
+        ImmutableMap.Builder<String, Integer> mapBuilder = ImmutableMap.builder();
+        for (int i = 0; i < columnNames.size(); i++) {
+            mapBuilder.put(columnNames.get(i).toLowerCase(ENGLISH), i);
+        }
+
+        return mapBuilder.buildOrThrow();
+    }
+
+    public void deserialize(PageBuilder pageBuilder, JsonParser parser)
+            throws IOException
+    {
+        for (JsonToken token = parser.nextToken(); token != null && token != JsonToken.END_OBJECT; token = parser.nextToken()) {
+            if (token != JsonToken.START_OBJECT) {
+                continue;
+            }
+
+            if (GEOMETRY_FIELD_NAME.equals(parser.currentName())) {
+                if (geometryColumn > -1) {
+                    OGCGeometry ogcGeom = parseGeom(parser);
+                    if (ogcGeom != null) {
+                        byte[] esriShapeBytes = geometryToEsriShape(ogcGeom);
+                        VARBINARY.writeSlice(pageBuilder.getBlockBuilder(geometryColumn), Slices.wrappedBuffer(esriShapeBytes));
+                    }
+                }
+                else {
+                    parser.skipChildren();
+                }
+            }
+            else if (ATTRIBUTES_FIELD_NAME.equals(parser.currentName())) {
+                for (JsonToken token2 = parser.nextToken(); token2 != null && token2 != JsonToken.END_OBJECT; token2 = parser.nextToken()) {
+                    String name = parser.getText().toLowerCase(ENGLISH);
+                    parser.nextToken();
+                    Integer fieldIndex = columnNameToIndex.get(name);
+                    if (fieldIndex != null) {
+                        Type columnType = columnTypes.get(fieldIndex);
+                        String columnName = columnNames.get(fieldIndex);
+                        serializeValue(parser, columnType, columnName, pageBuilder.getBlockBuilder(fieldIndex), true);
+                    }
+                }
+            }
+        }
+
+        pageBuilder.declarePosition();
+
+        for (int i = 0; i < numColumns; i++) {
+            BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(i);
+            if (blockBuilder.getPositionCount() != pageBuilder.getPositionCount()) {
+                blockBuilder.appendNull();
+            }
+        }
+    }
+
+    private OGCGeometry parseGeom(JsonParser parser)
+    {
+        MapGeometry mapGeom = GeometryEngine.jsonToGeometry(parser);
+        return OGCGeometry.createFromEsriGeometry(mapGeom.getGeometry(), mapGeom.getSpatialReference());
+    }
+
+    private byte[] geometryToEsriShape(OGCGeometry ogcGeometry)
+    {
+        requireNonNull(ogcGeometry, "ogcGeometry must not be null");
+
+        int wkid = ogcGeometry.SRID();
+
+        OGCType ogcType;
+        String typeName = ogcGeometry.geometryType();
+        ogcType = switch (typeName) {
+            case "Point" -> OGCType.ST_POINT;
+            case "LineString" -> OGCType.ST_LINESTRING;
+            case "Polygon" -> OGCType.ST_POLYGON;
+            case "MultiPoint" -> OGCType.ST_MULTIPOINT;
+            case "MultiLineString" -> OGCType.ST_MULTILINESTRING;
+            case "MultiPolygon" -> OGCType.ST_MULTIPOLYGON;
+            case null -> OGCType.UNKNOWN;
+            default -> OGCType.UNKNOWN;
+        };
+
+        return serializeGeometry(ogcGeometry.getEsriGeometry(), wkid, ogcType);
+    }
+
+    private static byte[] serializeGeometry(Geometry geometry, int wkid, OGCType type)
+    {
+        if (geometry == null) {
+            return null;
+        }
+        else {
+            byte[] shape = GeometryEngine.geometryToEsriShape(geometry);
+            if (shape == null) {
+                return null;
+            }
+            else {
+                byte[] shapeWithData = new byte[shape.length + 4 + 1];
+                System.arraycopy(shape, 0, shapeWithData, 5, shape.length);
+
+                setWKID(shapeWithData, wkid);
+                setType(shapeWithData, type);
+
+                return shapeWithData;
+            }
+        }
+    }
+
+    private static void setWKID(byte[] geomref, int wkid)
+    {
+        INT_HANDLE_BIG_ENDIAN.set(geomref, 0, wkid);
+    }
+
+    private static void setType(byte[] geomref, OGCType type)
+    {
+        geomref[4] = (byte) type.getIndex();
+    }
+
+    private void serializeValue(JsonParser parser, Type columnType, String columnName, BlockBuilder builder, boolean nullOnParseError)
+    {
+        if (parser.getCurrentToken() == JsonToken.VALUE_NULL) {
+            builder.appendNull();
+            return;
+        }
+
+        try {
+            if (BOOLEAN.equals(columnType)) {
+                columnType.writeBoolean(builder, parser.getBooleanValue());
+            }
+            else if (BIGINT.equals(columnType)) {
+                columnType.writeLong(builder, parser.getLongValue());
+            }
+            else if (INTEGER.equals(columnType)) {
+                columnType.writeLong(builder, parser.getIntValue());
+            }
+            else if (SMALLINT.equals(columnType)) {
+                columnType.writeLong(builder, parser.getShortValue());
+            }
+            else if (TINYINT.equals(columnType)) {
+                columnType.writeLong(builder, parser.getByteValue());
+            }
+            else if (columnType instanceof DecimalType decimalType) {
+                serializeDecimal(parser.getText(), decimalType, builder);
+            }
+            else if (REAL.equals(columnType)) {
+                columnType.writeLong(builder, floatToRawIntBits(parser.getFloatValue()));
+            }
+            else if (DOUBLE.equals(columnType)) {
+                columnType.writeDouble(builder, parser.getDoubleValue());
+            }
+            else if (DATE.equals(columnType)) {
+                columnType.writeLong(builder, toIntExact(parseDate(parser).getTime() / 86400000L));
+            }
+            else if (columnType instanceof TimestampType timestampType) {
+                Timestamp timestamp = parseTime(parser);
+                DecodedTimestamp decodedTimestamp = createDecodedTimestamp(timestamp);
+
+                createTimestampEncoder(timestampType, UTC).write(decodedTimestamp, builder);
+            }
+            else if (columnType instanceof VarcharType varcharType) {
+                columnType.writeSlice(builder, truncateToLength(Slices.utf8Slice(parser.getText()), varcharType));
+            }
+            else if (columnType instanceof CharType charType) {
+                columnType.writeSlice(builder, truncateToLengthAndTrimSpaces(Slices.utf8Slice(parser.getText()), charType));
+            }
+            else {
+                throw new RuntimeException("Column '" + columnName + "' with type: " + columnType.getDisplayName() + " is not supported");
+            }
+        }
+        catch (Exception e) {
+            // invalid columns are ignored
+            if (nullOnParseError) {
+                builder.appendNull();
+            }
+            else {
+                throw new TrinoException(GENERIC_USER_ERROR, "Error Parsing a column in the table: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    private static DecodedTimestamp createDecodedTimestamp(Timestamp timestamp)
+    {
+        long millis = timestamp.getTime();
+        long epochSeconds = floorDiv(millis, (long) MILLISECONDS_PER_SECOND);
+        long fractionalSecond = floorMod(millis, (long) MILLISECONDS_PER_SECOND);
+        int nanosOfSecond = toIntExact(fractionalSecond * (long) NANOSECONDS_PER_MILLISECOND);
+
+        return new DecodedTimestamp(epochSeconds, nanosOfSecond);
+    }
+
+    private static void serializeDecimal(String value, DecimalType decimalType, BlockBuilder builder)
+    {
+        BigDecimal bigDecimal;
+        try {
+            bigDecimal = new BigDecimal(value).setScale(DecimalConversions.intScale(decimalType.getScale()), HALF_UP);
+        }
+        catch (NumberFormatException e) {
+            throw new NumberFormatException(format("Cannot convert '%s' to %s. Value is not a number.", value, decimalType));
+        }
+
+        if (overflows(bigDecimal, decimalType.getPrecision())) {
+            throw new IllegalArgumentException(format("Cannot convert '%s' to %s. Value too large.", value, decimalType));
+        }
+
+        if (decimalType.isShort()) {
+            decimalType.writeLong(builder, bigDecimal.unscaledValue().longValueExact());
+        }
+        else {
+            decimalType.writeObject(builder, Int128.valueOf(bigDecimal.unscaledValue()));
+        }
+    }
+
+    // NOTE: It only supports UTC timezone.
+    private Date parseDate(JsonParser parser)
+            throws IOException
+    {
+        if (JsonToken.VALUE_NUMBER_INT.equals(parser.getCurrentToken())) {
+            long epoch = parser.getLongValue();
+            return new Date(epoch);
+        }
+
+        try {
+            LocalDate localDate = LocalDate.parse(parser.getText(), DATE_FORMATTER);
+            // Add 12 hours (43200000L milliseconds) to handle noon conversion
+            return new Date(localDate.atStartOfDay(UTC_ZONE)
+                    .toInstant()
+                    .toEpochMilli() + 43200000L);
+        }
+        catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                    String.format("Value '%s' cannot be parsed to a Date. Expected format: yyyy-MM-dd",
+                            parser.getText()), e);
+        }
+    }
+
+    private Timestamp parseTime(JsonParser parser)
+            throws IOException
+    {
+        if (JsonToken.VALUE_NUMBER_INT.equals(parser.getCurrentToken())) {
+            long epoch = parser.getLongValue();
+            return new Timestamp(epoch);
+        }
+
+        String value = parser.getText();
+        int point = value.indexOf('.');
+        String dateStr = point < 0 ? value : value.substring(0, Math.min(point + 4, value.length()));
+
+        for (DateTimeFormatter formatter : TIMESTAMP_FORMATTERS) {
+            try {
+                Instant instant;
+                if (formatter.equals(DATE_FORMATTER)) {
+                    LocalDate localDate = LocalDate.parse(dateStr, formatter);
+                    instant = localDate.atStartOfDay(UTC_ZONE).toInstant();
+                }
+                else {
+                    LocalDateTime dateTime = LocalDateTime.parse(dateStr, formatter);
+                    instant = dateTime.atZone(UTC_ZONE).toInstant();
+                }
+                return Timestamp.from(instant);
+            }
+            catch (DateTimeParseException e) {
+                // Try next formatter
+            }
+        }
+
+        throw new IllegalArgumentException(
+            String.format("Value '%s' cannot be parsed to a Timestamp", dateStr));
+    }
+}
