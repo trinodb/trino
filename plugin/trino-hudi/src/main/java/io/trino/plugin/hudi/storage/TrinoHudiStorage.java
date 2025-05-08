@@ -27,6 +27,7 @@ import org.apache.hudi.storage.StorageConfiguration;
 import org.apache.hudi.storage.StoragePath;
 import org.apache.hudi.storage.StoragePathFilter;
 import org.apache.hudi.storage.StoragePathInfo;
+import org.apache.hudi.storage.inline.InLineFSUtils;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -80,6 +81,9 @@ public class TrinoHudiStorage
     @Override
     public HoodieStorage newInstance(StoragePath path, StorageConfiguration<?> config)
     {
+        if (InLineFSUtils.SCHEME.equals(path.toUri().getScheme())) {
+            return new TrinoHudiInlineStorage(this);
+        }
         return this;
     }
 
@@ -112,7 +116,7 @@ public class TrinoHudiStorage
     @Override
     public URI getUri()
     {
-        return URI.create("");
+        return URI.create(getScheme());
     }
 
     @Override

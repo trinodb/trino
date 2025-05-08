@@ -109,6 +109,10 @@ public class HiveHudiPartitionInfo
         this.hivePartitionKeys = buildPartitionKeys(partitionColumns, partition.get().getValues());
     }
 
+    public String getHivePartitionName() {
+        return hivePartitionName;
+    }
+
     private static String getRelativePartitionPath(Location baseLocation, Location fullPartitionLocation)
     {
         String basePath = baseLocation.path();
