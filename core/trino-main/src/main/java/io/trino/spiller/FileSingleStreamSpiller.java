@@ -44,6 +44,8 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
@@ -71,8 +73,8 @@ public class FileSingleStreamSpiller
 
     private final ListeningExecutorService executor;
 
-    private boolean writable = true;
-    private long spilledPagesInMemorySize;
+    private final AtomicBoolean writable = new AtomicBoolean(true);
+    private final AtomicLong spilledPagesInMemorySize = new AtomicLong();
     private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
 
     private final Runnable fileSystemErrorHandler;
@@ -127,7 +129,7 @@ public class FileSingleStreamSpiller
     @Override
     public long getSpilledPagesInMemorySize()
     {
-        return spilledPagesInMemorySize;
+        return spilledPagesInMemorySize.longValue();
     }
 
     @Override
@@ -145,7 +147,7 @@ public class FileSingleStreamSpiller
 
     private void writePages(Iterator<Page> pageIterator)
     {
-        checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
+        checkState(writable.get(), "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
 
         Optional<SecretKey> encryptionKey = this.encryptionKey;
         checkState(encrypted == encryptionKey.isPresent(), "encryptionKey has been discarded");
@@ -153,7 +155,7 @@ public class FileSingleStreamSpiller
         try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
-                spilledPagesInMemorySize += page.getSizeInBytes();
+                spilledPagesInMemorySize.addAndGet(page.getSizeInBytes());
                 Slice serializedPage = serializer.serialize(page);
                 long pageSize = serializedPage.length();
                 localSpillContext.updateBytes(pageSize);
@@ -169,8 +171,7 @@ public class FileSingleStreamSpiller
 
     private Iterator<Page> readPages()
     {
-        checkState(writable, "Repeated reads are disallowed to prevent potential resource leaks");
-        writable = false;
+        checkState(writable.getAndSet(false), "Repeated reads are disallowed to prevent potential resource leaks");
 
         try {
             Optional<SecretKey> encryptionKey = this.encryptionKey;
