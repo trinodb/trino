@@ -37,6 +37,8 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.Scan;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.metrics.InMemoryMetricsReporter;
+import org.apache.iceberg.metrics.MetricsReporter;
 import org.apache.iceberg.util.SnapshotUtil;
 
 import java.util.concurrent.ExecutorService;
@@ -96,7 +98,8 @@ public class IcebergSplitManager
         Table icebergTable = icebergMetadata.getIcebergTable(session, table.getSchemaTableName());
         Duration dynamicFilteringWaitTimeout = getDynamicFilteringWaitTimeout(session);
 
-        Scan scan = getScan(icebergMetadata, icebergTable, table, icebergPlanningExecutor);
+        InMemoryMetricsReporter metricsReporter = new InMemoryMetricsReporter();
+        Scan scan = getScan(icebergMetadata, icebergTable, table, metricsReporter, icebergPlanningExecutor);
 
         IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,
@@ -112,12 +115,13 @@ public class IcebergSplitManager
                 table.isRecordScannedFiles(),
                 getMinimumAssignedSplitWeight(session),
                 cachingHostAddressProvider,
+                metricsReporter,
                 splitSourceExecutor);
 
         return new ClassLoaderSafeConnectorSplitSource(splitSource, IcebergSplitManager.class.getClassLoader());
     }
 
-    private Scan<?, FileScanTask, CombinedScanTask> getScan(IcebergMetadata icebergMetadata, Table icebergTable, IcebergTableHandle table, ExecutorService executor)
+    private Scan<?, FileScanTask, CombinedScanTask> getScan(IcebergMetadata icebergMetadata, Table icebergTable, IcebergTableHandle table, MetricsReporter metricsReporter, ExecutorService executor)
     {
         Long fromSnapshot = icebergMetadata.getIncrementalRefreshFromSnapshot().orElse(null);
         if (fromSnapshot != null) {
@@ -131,14 +135,20 @@ public class IcebergSplitManager
                     }
                 }
                 if (!containsModifiedRows) {
-                    return icebergTable.newIncrementalAppendScan().fromSnapshotExclusive(fromSnapshot).planWith(executor);
+                    return icebergTable.newIncrementalAppendScan()
+                            .fromSnapshotExclusive(fromSnapshot)
+                            .planWith(executor)
+                            .metricsReporter(metricsReporter);
                 }
             }
             // fromSnapshot is missing (could be due to snapshot expiration or rollback), or snapshot range contains modifications
             // (deletes or overwrites), so we cannot perform incremental refresh. Falling back to full refresh.
             icebergMetadata.disableIncrementalRefresh();
         }
-        return icebergTable.newScan().useSnapshot(table.getSnapshotId().get()).planWith(executor);
+        return icebergTable.newScan()
+                .useSnapshot(table.getSnapshotId().get())
+                .planWith(executor)
+                .metricsReporter(metricsReporter);
     }
 
     @Override
