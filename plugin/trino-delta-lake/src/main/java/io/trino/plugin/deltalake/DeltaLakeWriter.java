@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.trino.filesystem.Location;
 import io.trino.parquet.ParquetDataSourceId;
@@ -50,6 +51,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -60,6 +62,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.hasInvalidStatistics;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMax;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMin;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.escapeSpecialChars;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -81,6 +84,7 @@ public final class DeltaLakeWriter
     private final Map<Integer, Function<Block, Block>> coercers;
     private final List<DeltaLakeColumnHandle> columnHandles;
     private final DataFileType dataFileType;
+    private final Set<String> dataSkippingStatsColumns;
 
     private long rowCount;
     private long inputSizeInBytes;
@@ -92,7 +96,8 @@ public final class DeltaLakeWriter
             List<String> partitionValues,
             DeltaLakeWriterStats stats,
             List<DeltaLakeColumnHandle> columnHandles,
-            DataFileType dataFileType)
+            DataFileType dataFileType,
+            Set<String> dataSkippingStatsColumns)
     {
         this.fileWriter = requireNonNull(fileWriter, "fileWriter is null");
         this.rootTableLocation = requireNonNull(rootTableLocation, "rootTableLocation is null");
@@ -112,6 +117,7 @@ public final class DeltaLakeWriter
         }
         this.coercers = coercers.buildOrThrow();
         this.dataFileType = requireNonNull(dataFileType, "dataFileType is null");
+        this.dataSkippingStatsColumns = ImmutableSet.copyOf(dataSkippingStatsColumns);
     }
 
     @Override
@@ -187,14 +193,15 @@ public final class DeltaLakeWriter
                 creationTime,
                 dataFileType,
                 partitionValues,
-                readStatistics(parquetMetadata, columnHandles, rowCount),
+                readStatistics(parquetMetadata, columnHandles, rowCount, dataSkippingStatsColumns),
                 Optional.empty());
     }
 
-    public static DeltaLakeJsonFileStatistics readStatistics(ParquetMetadata parquetMetadata, List<DeltaLakeColumnHandle> columnHandles, long rowCount)
+    public static DeltaLakeJsonFileStatistics readStatistics(ParquetMetadata parquetMetadata, List<DeltaLakeColumnHandle> columnHandles, long rowCount, Set<String> dataSkippingStatsColumns)
             throws IOException
     {
         Map</* lowercase */ String, Type> typeForColumn = columnHandles.stream()
+                .filter(column -> dataSkippingStatsColumns.isEmpty() || dataSkippingStatsColumns.contains(escapeSpecialChars(column.baseColumnName())))
                 // Lowercase because the subsequent logic expects lowercase
                 .collect(toImmutableMap(column -> column.basePhysicalColumnName().toLowerCase(ENGLISH), DeltaLakeColumnHandle::basePhysicalType));
 
@@ -205,7 +212,9 @@ public final class DeltaLakeWriter
                     continue; // Only base column stats are supported
                 }
                 String columnName = getOnlyElement(columnChunkMetaData.getPath());
-                metadataForColumn.put(columnName, columnChunkMetaData);
+                if (typeForColumn.containsKey(columnName)) {
+                    metadataForColumn.put(columnName, columnChunkMetaData);
+                }
             }
         }
 

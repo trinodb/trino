@@ -64,6 +64,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
@@ -77,6 +78,9 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.IC
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.IDENTITY_COLUMNS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTableFeatures.INVARIANTS_FEATURE_NAME;
 import static io.trino.plugin.deltalake.transactionlog.MetadataEntry.DELTA_CHANGE_DATA_FEED_ENABLED_PROPERTY;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.escapeSpecialChars;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.toDataSkippingStatsColumnsString;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -113,6 +117,8 @@ public final class DeltaLakeSchemaSupport
     public static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
     // https://github.com/delta-io/delta/blob/master/docs/source/delta-uniform.md
     private static final String UNIVERSAL_FORMAT_CONFIGURATION_KEY = "delta.universalFormat.enabledFormats";
+
+    public static final String DATA_SKIP_STATS_COLUMN_CONFIGURATION_KEY = "delta.dataSkippingStatsColumns";
 
     public enum ColumnMappingMode
     {
@@ -155,6 +161,42 @@ public final class DeltaLakeSchemaSupport
             .buildOrThrow();
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
+
+    public static String renameSkipStatsColumn(String skippingStatsColumnsProperty, String sourceColumn, String newColumn)
+    {
+        String sourceColumnName = escapeSpecialChars(sourceColumn);
+        String newColumnName = escapeSpecialChars(newColumn);
+
+        Set<String> skippingStatsColumns = getDataSkippingStatsColumns(Optional.of(skippingStatsColumnsProperty));
+        if (!skippingStatsColumns.contains(sourceColumnName)) {
+            return toDataSkippingStatsColumnsString(skippingStatsColumns.stream()
+                    .map(name -> {
+                        if (name.startsWith(sourceColumnName + ".")) {
+                            return newColumnName + "." + name.substring(sourceColumnName.length() + 1);
+                        }
+                        return name;
+                    })
+                    .collect(toImmutableSet()));
+        }
+
+        return toDataSkippingStatsColumnsString(skippingStatsColumns.stream()
+                .map(name -> !name.equalsIgnoreCase(sourceColumnName) ? name : newColumnName)
+                .collect(toImmutableSet()));
+    }
+
+    public static String dropSkipStatsColumn(String skippingStatsColumnsProperty, String dropColumn)
+    {
+        Set<String> skippingStatsColumns = getDataSkippingStatsColumns(Optional.of(skippingStatsColumnsProperty));
+        String dropColumnName = escapeSpecialChars(dropColumn);
+        if (!skippingStatsColumns.contains(dropColumnName)) {
+            return toDataSkippingStatsColumnsString(skippingStatsColumns.stream()
+                    .filter(name -> !name.startsWith(dropColumnName + "."))
+                    .collect(toImmutableSet()));
+        }
+        return toDataSkippingStatsColumnsString(skippingStatsColumns.stream()
+                .filter(name -> !name.equalsIgnoreCase(dropColumnName))
+                .collect(toImmutableSet()));
+    }
 
     public static boolean isAppendOnly(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)
     {

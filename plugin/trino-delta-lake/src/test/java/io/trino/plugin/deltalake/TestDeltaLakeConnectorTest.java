@@ -5893,4 +5893,103 @@ public class TestDeltaLakeConnectorTest
             assertQuery("SELECT COUNT(*) FROM " + table.getName(), "VALUES " + size);
         }
     }
+
+    @Test
+    public void testDataSkippingStatsColumnsProperty()
+    {
+        try (TestTable table = newTrinoTable("test_data_skipping_stats_columns",
+                "(id int, id2 int, \"a.dot\" int, \"a$bc\" int, a row(nested int, nested2 int, nested3 int), \"abc#b\" int) " +
+                        "WITH (column_mapping_mode = 'name', data_skipping_stats_columns = 'id,id2,`a.dot`,a.nested,a.nested3,`abc#b`')")) {
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'id,id2,`a.dot`,a.nested,a.nested3,`abc#b`'");
+
+            // Add column
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col int");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'id,id2,`a.dot`,a.nested,a.nested3,`abc#b`'");
+
+            // Drop column not exists in skipping_stats_columns
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN col");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'id,id2,`a.dot`,a.nested,a.nested3,`abc#b`'");
+            // Drop column exists in skipping_stats_columns
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN id");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'id2,`a.dot`,a.nested,a.nested3,`abc#b`'");
+            // Drop column exists in skipping_stats_columns and the column has special character
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN \"abc#b\"");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'id2,`a.dot`,a.nested,a.nested3'");
+
+            // Rename column
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN id2 TO renamed_id2");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'renamed_id2,`a.dot`,a.nested,a.nested3'");
+            // Rename column with special character
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN \"a.dot\" TO \"a.dot111\"");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'renamed_id2,`a.dot111`,a.nested,a.nested3'");
+            // Rename column with row type
+            assertQueryFails("ALTER TABLE " + table.getName() + " RENAME COLUMN a.nested TO nested_rename", "This connector does not support renaming fields");
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN a TO a_renamed");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'renamed_id2,`a.dot111`,a_renamed.nested,a_renamed.nested3'");
+            // Rename row type to name contains special character
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN a_renamed TO \"a.#bc\"");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'renamed_id2,`a.dot111`,`a.#bc`.nested,`a.#bc`.nested3'");
+            // Rename row type name with special character
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN \"a.#bc\" TO \"a.#bc111\"");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'renamed_id2,`a.dot111`,`a.#bc111`.nested,`a.#bc111`.nested3'");
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN \"a.#bc111\" TO renamed_row");
+            assertQuery("SELECT value FROM \"" + table.getName() + "$properties\" WHERE key = 'delta.dataSkippingStatsColumns'",
+                    "Values 'renamed_id2,`a.dot111`,renamed_row.nested,renamed_row.nested3'");
+        }
+
+        assertQueryFails("CREATE TABLE t (id int, a int, b int) WITH (data_skipping_stats_columns = 'not_exists')", "Table property 'skipping_stats_columns' contained column names which do not exist: .*");
+        assertQueryFails("CREATE TABLE t (id int, a row(nested int, nested2 int)) WITH (data_skipping_stats_columns = 'a.not_exists')", "Table property 'skipping_stats_columns' contained column names which do not exist: .*");
+        assertQueryFails("CREATE TABLE t (id int, part varchar) WITH (partitioned_by = ARRAY['part'], data_skipping_stats_columns='part')", "Skipping stats columns must not contains partition columns: .*");
+        assertQueryFails("CREATE TABLE t (id int, v1 int) WITH (data_skipping_stats_columns = 'v1,id,v1')", "Duplicate data skipping stats column: v1");
+    }
+
+    @Test
+    public void testDataSkippingStatsColumnsWithStats()
+    {
+        try (TestTable table = newTrinoTable("test_data_skipping_stats_columns_with_stats",
+                "(id int, v1 int, \"a,b\" int, r row(n1 int, n2 int)) WITH (column_mapping_mode = 'name', data_skipping_stats_columns = 'v1,`a,b`')")) {
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 1, 1, row(1, 1))", 1);
+            assertQuery("SHOW STATS FOR (SELECT * FROM " + table.getName() + ")",
+                    "VALUES " +
+                            "('id', null, null, null, null, null, null)," +
+                            "('v1', null, 1.0, 0.0, null, 1, 1)," +
+                            "('a,b', null, 1.0, 0.0, null, 1, 1)," +
+                            "('r', null, null, null, null, null, null)," +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN col int");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 3, 3, row(1, 1), 1)", 1);
+            assertQuery("SHOW STATS FOR (SELECT * FROM " + table.getName() + ")",
+                    "VALUES " +
+                            "('id', null, null, null, null, null, null)," +
+                            "('v1', null, 2.0, 0.0, null, 1, 3)," +
+                            "('a,b', null, 2.0, 0.0, null, 1, 3)," +
+                            "('r', null, null, null, null, null, null)," +
+                            "('col', null, null, null, null, null, null)," +
+                            "(null, null, null, null, 2.0, null, null)");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN v1 TO v1_updated");
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 5, 5, row(1, 1), 1)", 1);
+            assertQuery("SHOW STATS FOR (SELECT * FROM " + table.getName() + ")",
+                    "VALUES " +
+                            "('id', null, null, null, null, null, null)," +
+                            "('v1_updated', null, 3.0, 0.0, null, 1, 5)," +
+                            "('a,b', null, 3.0, 0.0, null, 1, 5)," +
+                            "('r', null, null, null, null, null, null)," +
+                            "('col', null, null, null, null, null, null)," +
+                            "(null, null, null, null, 3.0, null, null)");
+        }
+    }
 }

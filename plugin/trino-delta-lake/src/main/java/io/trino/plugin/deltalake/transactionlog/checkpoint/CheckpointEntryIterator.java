@@ -88,6 +88,8 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.SIDECAR;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.escapeSpecialChars;
+import static io.trino.plugin.deltalake.util.DataSkippingStatsColumnsUtils.getDataSkippingStatsColumns;
 import static io.trino.plugin.deltalake.util.DeltaLakeDomains.partitionMatchesPredicate;
 import static io.trino.plugin.hive.util.HiveTypeTranslator.toHiveType;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -154,7 +156,7 @@ public class CheckpointEntryIterator
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
     private boolean deletionVectorsEnabled;
-    private List<DeltaLakeColumnMetadata> schema;
+    private List<DeltaLakeColumnMetadata> columnsWithStats;
     private List<DeltaLakeColumnMetadata> columnsWithMinMaxStats;
     private SourcePage page;
     private int pagePosition;
@@ -191,10 +193,13 @@ public class CheckpointEntryIterator
             this.protocolEntry = protocolEntry.get();
             deletionVectorsEnabled = isDeletionVectorEnabled(this.metadataEntry, this.protocolEntry);
             checkArgument(addStatsMinMaxColumnFilter.isPresent(), "addStatsMinMaxColumnFilter must be provided when reading ADD entries from Checkpoint files");
-            this.schema = extractSchema(this.metadataEntry, this.protocolEntry, typeManager);
-            this.columnsWithMinMaxStats = columnsWithStats(schema, this.metadataEntry.getOriginalPartitionColumns());
+            List<DeltaLakeColumnMetadata> schema = extractSchema(this.metadataEntry, this.protocolEntry, typeManager);
+            Set<String> dataSkippingStatsColumns = getDataSkippingStatsColumns(this.metadataEntry.getDataSkippingStatsColumnProperty());
+            this.columnsWithStats = schema.stream()
+                    .filter(column -> dataSkippingStatsColumns.isEmpty() || dataSkippingStatsColumns.contains(escapeSpecialChars(column.name())))
+                    .collect(toImmutableList());
             Predicate<String> columnStatsFilterFunction = addStatsMinMaxColumnFilter.orElseThrow();
-            this.columnsWithMinMaxStats = columnsWithMinMaxStats.stream()
+            this.columnsWithMinMaxStats = columnsWithStats(this.metadataEntry, this.protocolEntry, typeManager).stream()
                     .filter(column -> columnStatsFilterFunction.test(column.name()))
                     .collect(toImmutableList());
         }
@@ -586,7 +591,7 @@ public class CheckpointEntryIterator
             minValues = Optional.of(parseMinMax(stats.getRow("minValues"), columnsWithMinMaxStats));
             maxValues = Optional.of(parseMinMax(stats.getRow("maxValues"), columnsWithMinMaxStats));
         }
-        nullCount = Optional.of(parseNullCount(stats.getRow("nullCount"), schema));
+        nullCount = Optional.of(parseNullCount(stats.getRow("nullCount"), columnsWithStats));
 
         return new DeltaLakeParquetFileStatistics(
                 Optional.of(numRecords),
