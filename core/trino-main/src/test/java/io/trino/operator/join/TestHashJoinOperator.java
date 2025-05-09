@@ -44,8 +44,10 @@ import io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import io.trino.operator.join.JoinTestUtils.BuildSideSetup;
 import io.trino.operator.join.JoinTestUtils.DummySpillerFactory;
 import io.trino.operator.join.JoinTestUtils.TestInternalJoinFilterFunction;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.GenericPartitioningSpillerFactory;
@@ -86,6 +88,7 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEquals;
 import static io.trino.operator.OperatorAssertion.dropChannel;
 import static io.trino.operator.OperatorAssertion.without;
 import static io.trino.operator.OperatorFactories.spillingJoin;
+import static io.trino.operator.SpillMetrics.SPILL_COUNT_METRIC_NAME;
 import static io.trino.operator.join.JoinTestUtils.buildLookupSource;
 import static io.trino.operator.join.JoinTestUtils.getHashChannelAsInt;
 import static io.trino.operator.join.JoinTestUtils.innerJoinOperatorFactory;
@@ -484,6 +487,16 @@ public class TestHashJoinOperator
                     .build();
 
             assertThat(getProperColumns(joinOperator, concat(probePages.getTypes(), buildPages.getTypes()), probePages, actualPages).getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+
+            Metrics probeMetrics = joinOperator.getOperatorContext()
+                    .getOperatorStats()
+                    .getMetrics();
+
+            // The lookup-join (probe side) keeps its own SpillMetrics.
+            if (!whenSpill.stream().allMatch(when -> when == WhenSpill.NEVER)) {
+                TDigestHistogram probeSpillCount = (TDigestHistogram) probeMetrics.getMetrics().get("Probe: " + SPILL_COUNT_METRIC_NAME);
+                assertThat(probeSpillCount.getDigest().getMax()).isNotNegative();
+            }
         }
         finally {
             joinOperatorFactory.noMoreOperators();
@@ -580,6 +593,16 @@ public class TestHashJoinOperator
 
         lookupSourceFactory.destroy();
         assertThat(hashBuilderOperator.isFinished()).isTrue();
+
+        // Take the latest metrics the HashBuilderOperator reported
+        Metrics metrics = hashBuilderOperator.getOperatorContext().getOperatorStats().getMetrics();
+
+        TDigestHistogram spillCount = (TDigestHistogram) metrics.getMetrics().get("Index: " + SPILL_COUNT_METRIC_NAME);
+
+        // The test triggers exactly one graceful spill
+        assertThat(spillCount.getDigest().getMax())
+                .describedAs("exact number of spills recorded")
+                .isEqualTo(1);
     }
 
     @Test

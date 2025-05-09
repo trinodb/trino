@@ -55,6 +55,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterators.peekingIterator;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.trino.operator.PositionSearcher.findEndPosition;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
@@ -801,7 +802,7 @@ public class WindowOperator
             Page anyPage = sortedPages.peek();
             verify(anyPage.getPositionCount() != 0, "PagesIndex.getSortedPages returned an empty page");
             currentSpillGroupRowPage = Optional.of(anyPage.getSingleValuePage(/* any */0));
-            spillInProgress = Optional.of(spiller.get().spill(sortedPages));
+            spillInProgress = Optional.of(asVoid(spiller.get().spill(sortedPages)));
 
             return spillInProgress.get();
         }

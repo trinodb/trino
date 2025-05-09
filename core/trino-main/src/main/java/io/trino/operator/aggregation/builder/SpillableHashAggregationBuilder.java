@@ -34,11 +34,17 @@ import io.trino.sql.planner.plan.AggregationNode;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
+import static io.trino.operator.WorkProcessor.ProcessState.Type.RESULT;
 import static io.trino.operator.WorkProcessor.ProcessState.blocked;
 import static io.trino.operator.WorkProcessor.ProcessState.finished;
 import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
@@ -65,7 +71,7 @@ public class SpillableHashAggregationBuilder
     private Optional<Spiller> spiller = Optional.empty();
     private Optional<MergingHashAggregationBuilder> merger = Optional.empty();
     private Optional<MergeHashSort> mergeHashSort = Optional.empty();
-    private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
+    private ListenableFuture<DataSize> spillInProgress = immediateFuture(DataSize.ofBytes(0L));
     private final FlatHashStrategyCompiler hashStrategyCompiler;
     private final AggregationMetrics aggregationMetrics;
 
@@ -241,7 +247,7 @@ public class SpillableHashAggregationBuilder
         if (!spillInProgress.isDone()) {
             // Spill can be triggered first in SpillableHashAggregationBuilder.buildResult and then by Driver (via HashAggregationOperator#startMemoryRevoke).
             // While spill is in progress revocable memory is not released, hence redundant call to spillToDisk might be made.
-            return spillInProgress;
+            return asVoid(spillInProgress);
         }
 
         if (localRevocableMemoryContext.getBytes() == 0 || hasNoGroups()) {
@@ -261,12 +267,14 @@ public class SpillableHashAggregationBuilder
         }
 
         // start spilling process with current content of the hashAggregationBuilder builder...
+        long spillStartNanos = System.nanoTime();
         spillInProgress = spiller.get().spill(hashAggregationBuilder.buildSpillResult().iterator());
+        addSuccessCallback(spillInProgress, dataSize -> aggregationMetrics.recordSpillSince(spillStartNanos, dataSize.toBytes()));
         // ... and immediately create new hashAggregationBuilder so effectively memory ownership
         // over hashAggregationBuilder is transferred from this thread to a spilling thread
         rebuildHashAggregationBuilder();
 
-        return spillInProgress;
+        return asVoid(spillInProgress);
     }
 
     private boolean hasNoGroups()
@@ -282,16 +290,28 @@ public class SpillableHashAggregationBuilder
         mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateUserMemoryContext()));
 
         List<Type> spillTypes = hashAggregationBuilder.buildSpillTypes();
+        long unspillStartNanos = System.nanoTime();
+        AtomicLong unspillBytes = new AtomicLong(0);
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 spillTypes,
                 ImmutableList.<WorkProcessor<Page>>builder()
                         .addAll(spiller.get().getSpills().stream()
                                 .map(WorkProcessor::fromIterator)
+                                .map(processor -> processor.withProcessStateMonitor(state -> {
+                                    if (state.getType() == RESULT) {
+                                        unspillBytes.addAndGet(state.getResult().getSizeInBytes());
+                                    }
+                                }))
                                 .collect(toImmutableList()))
                         .add(hashAggregationBuilder.buildSpillResult())
                         .build(),
                 operatorContext.getDriverContext().getYieldSignal(),
                 spillTypes.size() - 1);
+        mergedSpilledPages = mergedSpilledPages.withProcessStateMonitor(state -> {
+            if (state.getType() == FINISHED) {
+                aggregationMetrics.recordUnspillSince(unspillStartNanos, unspillBytes.get());
+            }
+        });
 
         spiller = Optional.empty();
         return mergeSortedPages(mergedSpilledPages, max(memoryLimitForMerge - memoryLimitForMergeWithMemory, 1L));

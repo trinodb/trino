@@ -15,11 +15,13 @@ package io.trino.operator.join;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.HashGenerator;
 import io.trino.operator.ProcessorContext;
 import io.trino.operator.SpillContext;
+import io.trino.operator.SpillMetrics;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.operator.join.JoinProbe.JoinProbeFactory;
@@ -43,11 +45,11 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
-import static io.trino.operator.Operator.NOT_BLOCKED;
 import static io.trino.operator.WorkProcessor.TransformationState.blocked;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
@@ -76,6 +78,7 @@ public class DefaultPageJoiner
     private final Map<Integer, SavedRow> spilledRows = new HashMap<>();
     private final boolean probeOnOuterSide;
     private final boolean outputSingleMatch;
+    private final SpillMetrics spillMetrics;
 
     @Nullable
     private LookupSourceProvider lookupSourceProvider;
@@ -87,7 +90,7 @@ public class DefaultPageJoiner
     private boolean currentProbePositionProducedRow;
 
     private Optional<PartitioningSpiller> spiller = Optional.empty();
-    private ListenableFuture<Void> spillInProgress = NOT_BLOCKED;
+    private ListenableFuture<DataSize> spillInProgress = immediateFuture(DataSize.ofBytes(0));
 
     public DefaultPageJoiner(
             ProcessorContext processorContext,
@@ -95,6 +98,7 @@ public class DefaultPageJoiner
             List<Type> buildOutputTypes,
             JoinType joinType,
             boolean outputSingleMatch,
+            SpillMetrics spillMetrics,
             HashGenerator hashGenerator,
             JoinProbeFactory joinProbeFactory,
             LookupSourceFactory lookupSourceFactory,
@@ -116,6 +120,7 @@ public class DefaultPageJoiner
         this.partitionGenerator = memoize(() -> new LocalPartitionGenerator(hashGenerator, lookupSourceFactory.partitions()));
         this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
         this.outputSingleMatch = outputSingleMatch;
+        this.spillMetrics = requireNonNull(spillMetrics, "spillMetrics is null");
 
         // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
         probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
@@ -158,7 +163,7 @@ public class DefaultPageJoiner
             }
             else if (!spillInProgress.isDone()) {
                 // block on remaining spill before finishing
-                return blocked(spillInProgress);
+                return blocked(asVoid(spillInProgress));
             }
             else {
                 checkSuccess(spillInProgress, "spilling failed");
@@ -185,7 +190,7 @@ public class DefaultPageJoiner
         if (spillInfoSnapshotIfSpillChanged.isPresent()) {
             if (!spillInProgress.isDone()) {
                 // block on previous spill
-                return blocked(spillInProgress);
+                return blocked(asVoid(spillInProgress));
             }
             checkSuccess(spillInProgress, "spilling failed");
 
@@ -374,7 +379,9 @@ public class DefaultPageJoiner
         }
 
         PartitioningSpiller.PartitioningSpillResult result = spiller.get().partitionAndSpill(page, spillInfoSnapshot.getSpillMask());
+        long spillStartNanos = System.nanoTime();
         spillInProgress = result.getSpillingFuture();
+        addSuccessCallback(spillInProgress, dataSize -> spillMetrics.recordSpillSince(spillStartNanos, dataSize.toBytes()));
         return result.getRetained();
     }
 
