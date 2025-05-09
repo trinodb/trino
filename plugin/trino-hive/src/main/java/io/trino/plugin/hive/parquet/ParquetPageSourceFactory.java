@@ -33,6 +33,7 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.ParquetWriteValidation;
+import io.trino.parquet.crypto.FileDecryptionProperties;
 import io.trino.parquet.metadata.FileMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
@@ -134,6 +135,7 @@ public class ParquetPageSourceFactory
 
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats stats;
+    private final Optional<FileDecryptionProperties> fileDecryptionProperties;
     private final ParquetReaderOptions options;
     private final DateTimeZone timeZone;
     private final int domainCompactionThreshold;
@@ -142,11 +144,13 @@ public class ParquetPageSourceFactory
     public ParquetPageSourceFactory(
             TrinoFileSystemFactory fileSystemFactory,
             FileFormatDataSourceStats stats,
+            Optional<FileDecryptionProperties> fileDecryptionProperties,
             ParquetReaderConfig config,
             HiveConfig hiveConfig)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.fileDecryptionProperties = requireNonNull(fileDecryptionProperties, "fileDecryptionProperties is null");
         options = config.toParquetReaderOptions();
         timeZone = hiveConfig.getParquetDateTimeZone();
         domainCompactionThreshold = hiveConfig.getDomainCompactionThreshold();
@@ -199,6 +203,7 @@ public class ParquetPageSourceFactory
                         .withBloomFilter(useParquetBloomFilter(session))
                         .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
                 Optional.empty(),
+                fileDecryptionProperties,
                 domainCompactionThreshold,
                 OptionalLong.of(estimatedFileSize)));
     }
@@ -217,6 +222,7 @@ public class ParquetPageSourceFactory
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options,
             Optional<ParquetWriteValidation> parquetWriteValidation,
+            Optional<FileDecryptionProperties> fileDecryptionProperties,
             int domainCompactionThreshold,
             OptionalLong estimatedFileSize)
     {
@@ -227,8 +233,7 @@ public class ParquetPageSourceFactory
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
-
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation);
+            ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation, fileDecryptionProperties);
             FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
             fileSchema = fileMetaData.getSchema();
 
@@ -283,7 +288,8 @@ public class ParquetPageSourceFactory
                     // We avoid using disjuncts of parquetPredicate for page pruning in ParquetReader as currently column indexes
                     // are not present in the Parquet files which are read with disjunct predicates.
                     parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.get(0)) : Optional.empty(),
-                    parquetWriteValidation);
+                    parquetWriteValidation,
+                    parquetMetadata.getDecryptionContext());
             return createParquetPageSource(columns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
         }
         catch (Exception e) {

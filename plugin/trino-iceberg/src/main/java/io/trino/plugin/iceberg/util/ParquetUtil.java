@@ -15,7 +15,6 @@
 package io.trino.plugin.iceberg.util;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.metadata.BlockMetadata;
 import io.trino.parquet.metadata.ColumnChunkMetadata;
 import io.trino.parquet.metadata.ParquetMetadata;
@@ -41,6 +40,7 @@ import org.apache.parquet.schema.LogicalTypeAnnotation.DecimalLogicalTypeAnnotat
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
@@ -70,7 +70,7 @@ public final class ParquetUtil
     private ParquetUtil() {}
 
     public static Metrics footerMetrics(ParquetMetadata metadata, Stream<FieldMetrics<?>> fieldMetrics, MetricsConfig metricsConfig)
-            throws ParquetCorruptionException
+            throws IOException
     {
         return footerMetrics(metadata, fieldMetrics, metricsConfig, null);
     }
@@ -80,7 +80,7 @@ public final class ParquetUtil
             Stream<FieldMetrics<?>> fieldMetrics,
             MetricsConfig metricsConfig,
             NameMapping nameMapping)
-            throws ParquetCorruptionException
+            throws IOException
     {
         requireNonNull(fieldMetrics, "fieldMetrics should not be null");
 
@@ -159,7 +159,7 @@ public final class ParquetUtil
     }
 
     public static List<Long> getSplitOffsets(ParquetMetadata metadata)
-            throws ParquetCorruptionException
+            throws IOException
     {
         List<BlockMetadata> blocks = metadata.getBlocks();
         List<Long> splitOffsets = new ArrayList<>(blocks.size());
