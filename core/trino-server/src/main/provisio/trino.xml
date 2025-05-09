@@ -40,6 +40,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/databend">
+        <artifact id="${project.groupId}:trino-databend:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/delta-lake">
         <artifact id="${project.groupId}:trino-delta-lake:zip:${project.version}">
             <unpack />
