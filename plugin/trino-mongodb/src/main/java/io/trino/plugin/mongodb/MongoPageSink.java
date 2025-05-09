@@ -110,6 +110,12 @@ public class MongoPageSink
     public CompletableFuture<?> appendPage(Page page)
     {
         MongoCollection<Document> collection = mongoSession.getCollection(remoteTableName);
+        collection.insertMany(buildBatchDocumentsFromPage(page), new InsertManyOptions().ordered(true));
+        return NOT_BLOCKED;
+    }
+
+    protected List<Document> buildBatchDocumentsFromPage(Page page)
+    {
         List<Document> batch = new ArrayList<>(page.getPositionCount());
 
         for (int position = 0; position < page.getPositionCount(); position++) {
@@ -122,9 +128,7 @@ public class MongoPageSink
             }
             batch.add(doc);
         }
-
-        collection.insertMany(batch, new InsertManyOptions().ordered(true));
-        return NOT_BLOCKED;
+        return batch;
     }
 
     private Object getObjectValue(Type type, Block block, int position)
