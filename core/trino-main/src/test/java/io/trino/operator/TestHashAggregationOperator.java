@@ -30,9 +30,12 @@ import io.trino.operator.aggregation.builder.HashAggregationBuilder;
 import io.trino.operator.aggregation.builder.InMemoryHashAggregationBuilder;
 import io.trino.operator.aggregation.partial.PartialAggregationController;
 import io.trino.plugin.base.metrics.LongCount;
+import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.Spiller;
@@ -76,6 +79,8 @@ import static io.trino.operator.OperatorAssertion.assertPagesEqualIgnoreOrder;
 import static io.trino.operator.OperatorAssertion.dropChannel;
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
+import static io.trino.operator.SpillMetrics.SPILL_COUNT_METRIC_NAME;
+import static io.trino.operator.SpillMetrics.SPILL_DATA_SIZE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -680,6 +685,67 @@ public class TestHashAggregationOperator
     }
 
     @Test
+    public void testSpillMetricsRecorded()
+    {
+        /*
+         * Force the operator to spill by setting ridiculous per-operator memory
+         * limits (8 bytes) and feeding it more rows than can possibly stay in
+         * memory.  After the run we assert that the driver-level metric map
+         * contains the histogram entries produced by SpillMetrics – and that
+         * their counts/values are strictly positive.
+         */
+
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
+        RowPagesBuilder pages = rowPagesBuilder(BIGINT)
+                // ~0.8 MB of data – comfortably larger than the 8 B quota
+                .addSequencePage(50_000, 0);
+
+        HashAggregationOperatorFactory factory = new HashAggregationOperatorFactory(
+                0,
+                new PlanNodeId("spill-metrics"),
+                ImmutableList.of(BIGINT),
+                ImmutableList.of(0),
+                ImmutableList.of(),
+                SINGLE,
+                false,
+                ImmutableList.of(LONG_MIN.createAggregatorFactory(SINGLE, ImmutableList.of(0), OptionalInt.empty())),
+                pages.getHashChannel(),
+                Optional.empty(),
+                10,
+                Optional.of(DataSize.of(16, MEGABYTE)),
+                /* spill enabled */ true,
+                /* memoryLimitForMerge */ DataSize.ofBytes(8),
+                /* memoryLimitForMergeWithMemory */ succinctBytes(Integer.MAX_VALUE),
+                spillerFactory,
+                hashStrategyCompiler,
+                Optional.empty());
+
+        DriverContext context = createDriverContext(8);
+
+        // run the operator; we don’t care about the output pages here
+        toPages(factory, context, pages.build());
+
+        Metrics metrics = context.getDriverStats().getOperatorStats().get(0).getMetrics();
+        Metric<?> spillCountMetric = metrics.getMetrics().get(SPILL_COUNT_METRIC_NAME);
+        Metric<?> spillSizeMetric = metrics.getMetrics().get(SPILL_DATA_SIZE);
+
+        assertThat(spillCountMetric).describedAs("metric present").isNotNull();
+        assertThat(spillSizeMetric).describedAs("metric present").isNotNull();
+
+        TDigestHistogram spillCountHistogram = (TDigestHistogram) spillCountMetric;
+        TDigestHistogram spillSizeHist = (TDigestHistogram) spillSizeMetric;
+
+        assertThat(spillCountHistogram.getDigest().getCount())
+                .describedAs("exact number of spills recorded")
+                .isEqualTo(spillerFactory.getSpillsCount());
+
+        assertThat(spillSizeHist.getDigest().getCount())
+                .describedAs("histogram contains at least one entry")
+                .isGreaterThan(0);
+    }
+
+    @Test
     public void testSpillerFailure()
     {
         TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
@@ -1070,10 +1136,10 @@ public class TestHashAggregationOperator
     private static class SlowSpiller
             implements Spiller
     {
-        private final SettableFuture<Void> future = SettableFuture.create();
+        private final SettableFuture<DataSize> future = SettableFuture.create();
 
         @Override
-        public ListenableFuture<Void> spill(Iterator<Page> i)
+        public ListenableFuture<DataSize> spill(Iterator<Page> i)
         {
             return future;
         }
@@ -1089,7 +1155,7 @@ public class TestHashAggregationOperator
 
         void complete()
         {
-            future.set(null);
+            future.set(DataSize.ofBytes(0));
         }
     }
 
@@ -1151,7 +1217,7 @@ public class TestHashAggregationOperator
             return new Spiller()
             {
                 @Override
-                public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
+                public ListenableFuture<DataSize> spill(Iterator<Page> pageIterator)
                 {
                     return immediateFailedFuture(new IOException("Failed to spill"));
                 }

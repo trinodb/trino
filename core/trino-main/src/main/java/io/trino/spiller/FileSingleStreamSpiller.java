@@ -23,6 +23,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.airlift.units.DataSize;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.execution.buffer.PageDeserializer;
 import io.trino.execution.buffer.PageSerializer;
@@ -48,7 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_PREFIX;
 import static io.trino.spiller.FileSingleStreamSpillerFactory.SPILL_FILE_SUFFIX;
@@ -75,7 +76,7 @@ public class FileSingleStreamSpiller
 
     private final AtomicBoolean writable = new AtomicBoolean(true);
     private final AtomicLong spilledPagesInMemorySize = new AtomicLong();
-    private ListenableFuture<Void> spillInProgress = immediateVoidFuture();
+    private ListenableFuture<DataSize> spillInProgress = immediateFuture(DataSize.ofBytes(0L));
 
     private final Runnable fileSystemErrorHandler;
 
@@ -118,7 +119,7 @@ public class FileSingleStreamSpiller
     }
 
     @Override
-    public ListenableFuture<Void> spill(Iterator<Page> pageIterator)
+    public ListenableFuture<DataSize> spill(Iterator<Page> pageIterator)
     {
         requireNonNull(pageIterator, "pageIterator is null");
         checkNoSpillInProgress();
@@ -145,17 +146,20 @@ public class FileSingleStreamSpiller
         return executor.submit(() -> ImmutableList.copyOf(getSpilledPages()));
     }
 
-    private void writePages(Iterator<Page> pageIterator)
+    private DataSize writePages(Iterator<Page> pageIterator)
     {
         checkState(writable.get(), "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
 
         Optional<SecretKey> encryptionKey = this.encryptionKey;
         checkState(encrypted == encryptionKey.isPresent(), "encryptionKey has been discarded");
         PageSerializer serializer = serdeFactory.createSerializer(encryptionKey);
+        long spilledPagesBytes = 0;
         try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE)) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
-                spilledPagesInMemorySize.addAndGet(page.getSizeInBytes());
+                long pageSizeInBytes = page.getSizeInBytes();
+                spilledPagesBytes += pageSizeInBytes;
+                spilledPagesInMemorySize.addAndGet(pageSizeInBytes);
                 Slice serializedPage = serializer.serialize(page);
                 long pageSize = serializedPage.length();
                 localSpillContext.updateBytes(pageSize);
@@ -167,6 +171,7 @@ public class FileSingleStreamSpiller
             fileSystemErrorHandler.run();
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
         }
+        return DataSize.ofBytes(spilledPagesBytes);
     }
 
     private Iterator<Page> readPages()
