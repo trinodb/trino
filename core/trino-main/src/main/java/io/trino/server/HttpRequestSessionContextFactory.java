@@ -254,12 +254,17 @@ public class HttpRequestSessionContextFactory
         String user = trinoUser != null ? trinoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
         assertRequest(user != null, "User must be set");
         SelectedRole systemRole = parseSystemRoleHeaders(protocolHeaders, headers);
+        ImmutableSet.Builder<String> systemEnabledRoles = ImmutableSet.builder();
+        if (systemRole.getType() == Type.ROLE) {
+            systemEnabledRoles.add(systemRole.getRole().orElseThrow());
+        }
         Identity newIdentity = authenticatedIdentity
                 .map(identity -> Identity.from(identity).withUser(user))
                 .orElseGet(() -> Identity.forUser(user))
                 .withAdditionalConnectorRoles(parseConnectorRoleHeaders(protocolHeaders, headers))
                 .withAdditionalExtraCredentials(parseExtraCredentials(protocolHeaders, headers))
                 .withAdditionalGroups(groupProvider.getGroups(user))
+                .withEnabledRoles(systemEnabledRoles.build())
                 .build();
         return addEnabledRoles(newIdentity, systemRole, metadata);
     }
