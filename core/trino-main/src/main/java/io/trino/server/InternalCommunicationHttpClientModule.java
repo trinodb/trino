@@ -72,6 +72,7 @@ public class InternalCommunicationHttpClientModule
     static void configureClient(HttpClientConfig httpConfig, InternalCommunicationConfig internalCommunicationConfig)
     {
         httpConfig.setHttp2Enabled(internalCommunicationConfig.isHttp2Enabled());
+        httpConfig.setUseVirtualThreads(true);
 
         if (internalCommunicationConfig.isHttpsRequired() && internalCommunicationConfig.getKeyStorePath() == null && internalCommunicationConfig.getTrustStorePath() == null) {
             configureClientForAutomaticHttps(httpConfig, internalCommunicationConfig);
