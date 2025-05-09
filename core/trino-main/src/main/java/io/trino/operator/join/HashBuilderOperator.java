@@ -15,11 +15,13 @@ package io.trino.operator.join;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
+import io.airlift.concurrent.MoreFutures;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DriverContext;
 import io.trino.operator.HashArraySizeSupplier;
@@ -27,7 +29,10 @@ import io.trino.operator.Operator;
 import io.trino.operator.OperatorContext;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.PagesIndex;
+import io.trino.operator.SpillMetrics;
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spiller.SingleStreamSpiller;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
@@ -45,8 +50,10 @@ import java.util.Queue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
+import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -219,11 +226,14 @@ public class HashBuilderOperator
     private final boolean spillEnabled;
     private final SingleStreamSpillerFactory singleStreamSpillerFactory;
 
+    private final SpillMetrics inputSpillMetrics = new SpillMetrics("Build input");
+    private final SpillMetrics indexSpillMetrics = new SpillMetrics("Index");
+
     private State state = State.CONSUMING_INPUT;
     private Optional<ListenableFuture<Void>> lookupSourceNotNeeded = Optional.empty();
     private final SpilledLookupSourceHandle spilledLookupSourceHandle = new SpilledLookupSourceHandle();
     private Optional<SingleStreamSpiller> spiller = Optional.empty();
-    private ListenableFuture<Void> spillInProgress = NOT_BLOCKED;
+    private ListenableFuture<DataSize> spillInProgress = immediateFuture(DataSize.ofBytes(0));
     private Optional<ListenableFuture<List<Page>>> unspillInProgress = Optional.empty();
     @Nullable
     private LookupSourceSupplier lookupSourceSupplier;
@@ -287,18 +297,13 @@ public class HashBuilderOperator
     {
         return switch (state) {
             case CONSUMING_INPUT -> NOT_BLOCKED;
-            case SPILLING_INPUT -> spillInProgress;
+            case SPILLING_INPUT -> asVoid(spillInProgress);
             case LOOKUP_SOURCE_BUILT -> lookupSourceNotNeeded.orElseThrow(() -> new IllegalStateException("Lookup source built, but disposal future not set"));
             case INPUT_SPILLED -> spilledLookupSourceHandle.getUnspillingOrDisposeRequested();
-            case INPUT_UNSPILLING -> unspillInProgress.map(HashBuilderOperator::asVoid).orElseThrow(() -> new IllegalStateException("Unspilling in progress, but unspilling future not set"));
+            case INPUT_UNSPILLING -> unspillInProgress.map(MoreFutures::asVoid).orElseThrow(() -> new IllegalStateException("Unspilling in progress, but unspilling future not set"));
             case INPUT_UNSPILLED_AND_BUILT -> spilledLookupSourceHandle.getDisposeRequested();
             case CLOSED -> NOT_BLOCKED;
         };
-    }
-
-    private static <T> ListenableFuture<Void> asVoid(ListenableFuture<T> future)
-    {
-        return Futures.transform(future, v -> null, directExecutor());
     }
 
     @Override
@@ -349,7 +354,12 @@ public class HashBuilderOperator
     {
         checkState(spillInProgress.isDone(), "Previous spill still in progress");
         checkSuccess(spillInProgress, "spilling failed");
+        long spillStartNanos = System.nanoTime();
         spillInProgress = getSpiller().spill(page);
+        addSuccessCallback(spillInProgress, dataSize -> {
+            inputSpillMetrics.recordSpillSince(spillStartNanos, dataSize.toBytes());
+            updateMetrics();
+        });
     }
 
     @Override
@@ -404,7 +414,13 @@ public class HashBuilderOperator
                 index.getTypes(),
                 operatorContext.getSpillContext().newLocalSpillContext(),
                 operatorContext.newLocalUserMemoryContext(HashBuilderOperator.class.getSimpleName())));
-        return getSpiller().spill(index.getPages());
+        long spillStartNanos = System.nanoTime();
+        ListenableFuture<DataSize> spillFuture = getSpiller().spill(index.getPages());
+        addSuccessCallback(spillFuture, dataSize -> {
+            indexSpillMetrics.recordSpillSince(spillStartNanos, dataSize.toBytes());
+            updateMetrics();
+        });
+        return asVoid(spillFuture);
     }
 
     @Override
@@ -528,8 +544,14 @@ public class HashBuilderOperator
         verify(spiller.isPresent());
         verify(unspillInProgress.isEmpty());
 
-        localUserMemoryContext.setBytes(getSpiller().getSpilledPagesInMemorySize() + index.getEstimatedSize().toBytes());
+        long spilledPagesInMemorySize = getSpiller().getSpilledPagesInMemorySize();
+        localUserMemoryContext.setBytes(spilledPagesInMemorySize + index.getEstimatedSize().toBytes());
+        long unspillStartNanos = System.nanoTime();
         unspillInProgress = Optional.of(getSpiller().getAllSpilledPages());
+        addSuccessCallback(unspillInProgress.get(), ignored -> {
+            indexSpillMetrics.recordUnspillSince(unspillStartNanos, spilledPagesInMemorySize);
+            updateMetrics();
+        });
 
         state = State.INPUT_UNSPILLING;
     }
@@ -597,6 +619,14 @@ public class HashBuilderOperator
         checkState(lookupSourceSupplier == null, "lookupSourceSupplier is already set");
         this.lookupSourceSupplier = partition;
         return partition;
+    }
+
+    private void updateMetrics()
+    {
+        operatorContext.setLatestMetrics(new Metrics(ImmutableMap.<String, Metric<?>>builder()
+                .putAll(inputSpillMetrics.getMetrics().getMetrics())
+                .putAll(indexSpillMetrics.getMetrics().getMetrics())
+                .buildOrThrow()));
     }
 
     @Override
