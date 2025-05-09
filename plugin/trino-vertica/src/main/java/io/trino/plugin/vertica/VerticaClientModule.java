@@ -20,6 +20,7 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.opentelemetry.api.OpenTelemetry;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ConfiguringConnectionFactory;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -30,6 +31,8 @@ import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
+
+import java.sql.Statement;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -62,8 +65,19 @@ public class VerticaClientModule
     @ForBaseJdbc
     public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, OpenTelemetry openTelemetry)
     {
-        return DriverConnectionFactory.builder(new VerticaDriver(), config.getConnectionUrl(), credentialProvider)
+        ConnectionFactory connectionFactory = DriverConnectionFactory.builder(new VerticaDriver(), config.getConnectionUrl(), credentialProvider)
                 .setOpenTelemetry(openTelemetry)
                 .build();
+
+        return new ConfiguringConnectionFactory(connectionFactory, connection -> {
+            // In vertica all the underlying projections data stored according to en_US@collation=binary
+            // So to be safe with pushdowns and guarantee the same results for trino with and without pushdowns
+            // we should set session level collation to en_US@collation=binary,
+            // in this case setting up database level collation (for all incoming sessions) will not break pushdown functionlaity
+            try (Statement stmt = connection.createStatement()) {
+                // This sets the session locale to match Vertica's internal collation
+                stmt.execute("SET LOCALE TO 'en_US@collation=binary'");
+            }
+        });
     }
 }
