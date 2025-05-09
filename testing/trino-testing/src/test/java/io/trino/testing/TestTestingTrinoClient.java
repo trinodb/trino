@@ -18,6 +18,7 @@ import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.client.OkHttpUtil;
 import io.trino.execution.QueryIdGenerator;
+import io.trino.execution.UuidV7QueryIdGenerator;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.testing.TestingTrinoServer;
@@ -48,7 +49,7 @@ public class TestTestingTrinoClient
 {
     private static final String TEST_USER = "test_user";
     private static final String PASSWORD = "password";
-    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+    private static final QueryIdGenerator queryIdGenerator = new UuidV7QueryIdGenerator();
     private static final SessionPropertyManager sessionManager = new SessionPropertyManager();
     private static final Session session = Session.builder(sessionManager)
             .setIdentity(Identity.forUser(TEST_USER).build())

@@ -50,7 +50,7 @@ public class TestDeltaLakeAlluxioCacheFileOperations
         closeAfterClass(() -> deleteRecursively(cacheDirectory, ALLOW_INSECURE));
 
         return DeltaLakeQueryRunner.builder()
-                .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
+                .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false", "query.id-generator", "legacy"))
                 .setDeltaProperties(ImmutableMap.<String, String>builder()
                         .put("fs.cache.enabled", "true")
                         .put("fs.cache.directories", cacheDirectory.toAbsolutePath().toString())
