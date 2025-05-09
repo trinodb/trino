@@ -3769,11 +3769,15 @@ class StatementAnalyzer
                     .map(fieldIndexes::get)
                     .collect(toImmutableList());
 
-            Set<ColumnHandle> nonNullableColumnHandles = metadata.getTableMetadata(session, handle).columns().stream()
-                    .filter(column -> !column.isNullable())
-                    .map(ColumnMetadata::getName)
-                    .map(allColumnHandles::get)
-                    .collect(toImmutableSet());
+            ImmutableSet.Builder<ColumnHandle> nonNullableColumnHandles = ImmutableSet.builder();
+            ImmutableMap.Builder<ColumnHandle, Object> defaultColumnValues = ImmutableMap.builder();
+            for (ColumnMetadata column : metadata.getTableMetadata(session, handle).columns()) {
+                ColumnHandle columnHandle = allColumnHandles.get(column.getName());
+                column.getDefaultValue().ifPresent(defaultValue -> defaultColumnValues.put(columnHandle, defaultValue));
+                if (!column.isNullable()) {
+                    nonNullableColumnHandles.add(columnHandle);
+                }
+            }
 
             // create the RowType that holds all column values
             List<RowType.Field> fields = new ArrayList<>();
@@ -3792,7 +3796,8 @@ class StatementAnalyzer
                     redistributionColumnHandles,
                     mergeCaseColumns,
                     updateCaseColumns,
-                    nonNullableColumnHandles,
+                    defaultColumnValues.buildOrThrow(),
+                    nonNullableColumnHandles.build(),
                     columnHandleFieldNumbers,
                     mergeRowType,
                     insertPartitioningArgumentIndexes,

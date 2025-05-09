@@ -125,6 +125,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEFAULT_COLUMN_VALUE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEREFERENCE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
@@ -2344,6 +2345,20 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testAddDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        try (TestTable table = newTrinoTable("test_default_value", "(x int)")) {
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int DEFAULT 123");
+            assertUpdate("INSERT INTO " + table.getName() + "(x) VALUES 1", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123)");
+        }
+    }
+
+    @Test
     public void testAddNotNullColumnToEmptyTable()
     {
         skipTestUnless(hasBehavior(SUPPORTS_ADD_COLUMN));
@@ -4470,6 +4485,25 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateTableWithDefaultColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_INSERT));
+
+        if (!hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE)) {
+            String tableName = "test_default_value_" + randomNameSuffix();
+            assertQueryFails("CREATE TABLE " + tableName + " (x int DEFAULT 1)", ".* Catalog '.*' does not support default value for column name 'x'");
+            return;
+        }
+
+        try (TestTable table = newTrinoTable("test_default_value", "(x int, y int DEFAULT 123)")) {
+            assertUpdate("INSERT INTO " + table.getName() + "(x) VALUES 1", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES (1, 123)");
+        }
+    }
+
+    @Test
     public void testInsertForDefaultColumn()
     {
         skipTestUnless(hasBehavior(SUPPORTS_INSERT));
@@ -6363,6 +6397,29 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT * FROM " + targetTable, "VALUES ('Dave', 'dates'), ('Carol_Craig', 'candles'), ('Joe', 'jellybeans')");
 
         assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testMergeWithDefaultColumnValue()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
+
+        String targetTable = "merge_non_nullable_target_" + randomNameSuffix();
+
+        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR DEFAULT 'test default')", targetTable, Optional.of("nation_name"));
+
+        assertUpdate("INSERT INTO " + targetTable + " (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", 3);
+
+        assertUpdate("MERGE INTO " + targetTable + " t" +
+                " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)" +
+                " ON (t.nation_name = s.nation_name)" +
+                " WHEN NOT MATCHED THEN INSERT (nation_name) VALUES ('IMAGINARIA')", 1);
+
+        assertThat(query("SELECT * FROM " + targetTable))
+                .skippingTypesCheck()
+                .matches("VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE'), ('IMAGINARIA', 'test default')");
+
         assertUpdate("DROP TABLE " + targetTable);
     }
 
