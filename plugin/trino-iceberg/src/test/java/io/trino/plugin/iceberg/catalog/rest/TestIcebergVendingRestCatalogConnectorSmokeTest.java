@@ -312,6 +312,14 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .hasMessageMatching("Failed to load table: (.*)");
     }
 
+    @Test
+    @Override
+    public void testTableFilesFunction()
+    {
+        assertThatThrownBy(super::testTableFilesFunction)
+                .hasMessageMatching("Failed to open file: (.*)");
+    }
+
     @Override
     protected boolean isFileSorted(Location path, String sortColumnName)
     {

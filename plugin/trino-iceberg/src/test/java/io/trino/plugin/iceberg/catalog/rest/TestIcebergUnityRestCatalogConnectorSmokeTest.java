@@ -535,6 +535,14 @@ final class TestIcebergUnityRestCatalogConnectorSmokeTest
 
     @Test
     @Override
+    public void testTableFilesFunction()
+    {
+        assertThatThrownBy(super::testTableFilesFunction)
+                .hasMessageContaining("Access Denied");
+    }
+
+    @Test
+    @Override
     public void testTruncateTable()
     {
         assertThatThrownBy(super::testTruncateTable)
