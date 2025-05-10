@@ -37,6 +37,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static org.apache.hudi.storage.HoodieInstantWriter.convertByteArrayToWriter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -226,7 +227,7 @@ final class TestTrinoHudiStorage
 
         StoragePath path3 = new StoragePath(getTempDir(), "testCreateAppendAndRead/3.file");
         assertThat(storage.exists(path3)).isFalse();
-        storage.createImmutableFileInPath(path3, Option.of(data));
+        storage.createImmutableFileInPath(path3, Option.of(convertByteArrayToWriter(data)));
         validatePathInfo(storage, path3, data, false);
 
         StoragePath path4 = new StoragePath(getTempDir(), "testCreateAppendAndRead/4");

@@ -167,6 +167,7 @@ public class ResourceHudiTablesInitializer
         HUDI_COW_PT_TBL(multiPartitionRegularColumns(), multiPartitionColumns(), multiPartitions()),
         STOCK_TICKS_COW(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
         STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions()),
+        HUDI_STOCK_TICKS_MOR(metadataStockTicksRegularColumns(), metadataStockTicksPartitionColumns(), metadataStockTicksPartitions()),
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
@@ -175,6 +176,32 @@ public class ResourceHudiTablesInitializer
                 new Column("_hoodie_record_key", HIVE_STRING, Optional.empty(), Map.of()),
                 new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty(), Map.of()),
                 new Column("_hoodie_file_name", HIVE_STRING, Optional.empty(), Map.of()));
+
+        private static List<Column> metadataStockTicksRegularColumns()
+        {
+            return ImmutableList.of(
+                    column("volume", HIVE_LONG),
+                    column("ts", HIVE_STRING),
+                    column("symbol", HIVE_STRING),
+                    column("year", HIVE_INT),
+                    column("month", HIVE_STRING),
+                    column("high", HIVE_DOUBLE),
+                    column("low", HIVE_DOUBLE),
+                    column("key", HIVE_STRING),
+                    column("close", HIVE_DOUBLE),
+                    column("open", HIVE_DOUBLE),
+                    column("day", HIVE_STRING));
+        }
+
+        private static List<Column> metadataStockTicksPartitionColumns()
+        {
+            return ImmutableList.of(column("date", HIVE_STRING));
+        }
+
+        private static Map<String, String> metadataStockTicksPartitions()
+        {
+            return ImmutableMap.of("date=2018-08-31", "2018/08/31");
+        }
 
         private final List<Column> regularColumns;
         private final List<Column> partitionColumns;
