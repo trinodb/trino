@@ -53,10 +53,6 @@ div.highlight {
     height: 48px;
 }
 
-.md-typeset h1 {
-    color: rgba(0, 0, 0, .80);
-}
-
 .sig-name, .sig-paren {
     font-weight: bold;
 }
@@ -81,15 +77,6 @@ pre.literal-block {
     font-size: unset;
 }
 
-@media only screen and (min-width: 88.25em) {
-    .md-grid {
-        max-width: 75rem;
-    }
-
-    .md-sidebar--secondary {
-        margin-left: 75rem;
-    }
-}
 
 .copybtn:hover {
     cursor: copy;
