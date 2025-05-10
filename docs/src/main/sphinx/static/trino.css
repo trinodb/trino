@@ -53,10 +53,6 @@ div.highlight {
     height: 48px;
 }
 
-.md-typeset h1 {
-    color: rgba(0, 0, 0, .80);
-}
-
 .sig-name, .sig-paren {
     font-weight: bold;
 }
