@@ -20,6 +20,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.metadata.AnalyzePropertyManager;
+import io.trino.metadata.BranchPropertyManager;
 import io.trino.metadata.CatalogProcedures;
 import io.trino.metadata.CatalogTableFunctions;
 import io.trino.metadata.CatalogTableProcedures;
@@ -154,6 +155,13 @@ public class CatalogServiceProviderModule
     public static AnalyzePropertyManager createAnalyzePropertyManager(ConnectorServicesProvider connectorServicesProvider)
     {
         return new AnalyzePropertyManager(new ConnectorCatalogServiceProvider<>("analyze properties", connectorServicesProvider, ConnectorServices::getAnalyzeProperties));
+    }
+
+    @Provides
+    @Singleton
+    public static BranchPropertyManager createBranchPropertyManager(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new BranchPropertyManager(new ConnectorCatalogServiceProvider<>("branch properties", connectorServicesProvider, ConnectorServices::getAnalyzeProperties));
     }
 
     @Provides
