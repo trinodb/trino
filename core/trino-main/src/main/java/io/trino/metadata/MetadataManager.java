@@ -104,10 +104,13 @@ import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.Signature;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.FunctionAuthorization;
 import io.trino.spi.security.GrantInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.SchemaAuthorization;
+import io.trino.spi.security.TableAuthorization;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
@@ -2889,5 +2892,57 @@ public final class MetadataManager
     private static boolean cannotExist(QualifiedObjectName name)
     {
         return name.catalogName().isEmpty() || name.schemaName().isEmpty() || name.objectName().isEmpty();
+    }
+
+    @Override
+    public Set<SchemaAuthorization> getSchemasAuthorizationInfo(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+        ImmutableSet.Builder<SchemaAuthorization> schemasAuthorization = ImmutableSet.builder();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+                schemasAuthorization.addAll(systemSecurityMetadata.getSchemasAuthorizationInfo(session, prefix));
+            }
+        }
+        return schemasAuthorization.build();
+    }
+
+    @Override
+    public Set<TableAuthorization> getTablesAuthorizationInfo(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+
+        ImmutableSet.Builder<TableAuthorization> tablesAuthorization = ImmutableSet.builder();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+                tablesAuthorization.addAll(systemSecurityMetadata.getTablesAuthorizationInfo(session, prefix));
+            }
+        }
+        return tablesAuthorization.build();
+    }
+
+    @Override
+    public Set<FunctionAuthorization> getFunctionsAuthorizationInfo(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+        ImmutableSet.Builder<FunctionAuthorization> functionsAuthorization = ImmutableSet.builder();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+                functionsAuthorization.addAll(systemSecurityMetadata.getFunctionsAuthorizationInfo(session, prefix));
+            }
+        }
+        return functionsAuthorization.build();
     }
 }
