@@ -8,7 +8,7 @@ This Docker image is designed to provide the following
 * An image to be used as the basis for the Kubernetes Trino operator
 
 ## requirements
-Docker 20.10.10 or higher.
+Docker 21.0.0 or higher.
 
 ## Quickstart
 
