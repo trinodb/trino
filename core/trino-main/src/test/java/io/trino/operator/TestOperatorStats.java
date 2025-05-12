@@ -40,6 +40,7 @@ public class TestOperatorStats
             1,
             41,
             new PlanNodeId("test"),
+            Optional.of(new PlanNodeId("test2")),
             "test",
 
             1,
@@ -89,6 +90,7 @@ public class TestOperatorStats
             1,
             41,
             new PlanNodeId("test"),
+            Optional.of(new PlanNodeId("test2")),
             "test",
 
             1,
