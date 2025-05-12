@@ -14,7 +14,6 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.spi.SplitWeight;
@@ -22,7 +21,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -54,18 +52,6 @@ public record HudiSplit(
         requireNonNull(predicate, "predicate is null");
         partitionKeys = ImmutableList.copyOf(partitionKeys);
         requireNonNull(splitWeight, "splitWeight is null");
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.<String, String>builder()
-                .put("location", location)
-                .put("start", String.valueOf(start))
-                .put("length", String.valueOf(length))
-                .put("fileSize", String.valueOf(fileSize))
-                .put("fileModifiedTime", String.valueOf(fileModifiedTime))
-                .buildOrThrow();
     }
 
     @Override
