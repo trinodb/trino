@@ -439,4 +439,50 @@ public class TestJsonQueryFunction
                         VALUES cast('[[true,{"c":{"c":null}}],{"c":null},null]'AS varchar)
                         """);
     }
+
+    @Test
+    public void testDescendantMemberWithoutArrayWrapperAccessor()
+    {
+        // Test `json_query` to read the result of a non-descendant member in the JSON.
+        assertThat(assertions.query(
+                """
+                select json_query(
+                                '{"id":{"value":1},"notes":[{"type":1,"comment":"foo"},{"type":2,"comment":null}],"comment":["bar","baz"]}',
+                                'lax $..author'
+                                omit quotes)
+                """))
+                .matches(
+                        """
+                        VALUES cast(NULL as varchar)
+                    """);
+
+        // Test `json_query` to read the result of a single descendant member in the JSON.
+        assertThat(assertions.query(
+                """
+                select json_query(
+                                '{"author":"Diana","id":{"value":1},"notes":[{"type":1,"comment":"foo"},{"type":2,"comment":null}],"comment":["bar","baz"]}',
+                                'lax $..author'
+                                omit quotes)
+                """))
+                .matches(
+                        """
+                        VALUES cast('Diana' as varchar)
+                    """);
+
+        // Test `json_query` to read the result of multiple descendant members in the JSON.
+        // `json_query` must return a single JSON item.
+        // `WITH ARRAY WRAPPER` wraps `Diana` and `John` into a single JSON array, which can then be successfully returned.
+        // `WITHOUT ARRAY WRAPPER` returns `NULL`, which is the default result in case of an error.
+        assertThat(assertions.query(
+                """
+                select json_query(
+                                '{"author":"Diana","id":{"value":1, "author":"John"},"notes":[{"type":1,"comment":"foo"},{"type":2,"comment":null}],"comment":["bar","baz"]}',
+                                'lax $..author'
+                                omit quotes)
+                """))
+                .matches(
+                        """
+                        VALUES cast(NULL as varchar)
+                    """);
+    }
 }
