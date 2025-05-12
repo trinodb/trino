@@ -15,7 +15,6 @@ package io.trino.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.ClientResourceEstimate;
 import io.trino.cli.ClientOptions.ClientSessionProperty;
 import io.trino.cli.ClientOptions.OutputFormat;
@@ -25,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Optional;
@@ -32,7 +32,6 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.cli.Trino.createCommandLine;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -223,7 +222,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--client-request-timeout=7s");
         ClientOptions options = console.clientOptions;
-        assertThat(options.clientRequestTimeout).isEqualTo(new Duration(7, SECONDS));
+        assertThat(options.clientRequestTimeout).isEqualTo(Duration.ofSeconds(7));
     }
 
     @Test
@@ -281,10 +280,10 @@ public class TestClientOptions
         Console console = createConsole("--client-request-timeout=17s");
 
         ClientOptions options = console.clientOptions;
-        assertThat(options.clientRequestTimeout).isEqualTo(Duration.succinctDuration(17, SECONDS));
+        assertThat(options.clientRequestTimeout).isEqualTo(Duration.ofSeconds(17));
 
         ClientSession session = options.toClientSession(options.getTrinoUri());
-        assertThat(session.getClientRequestTimeout()).isEqualTo(Duration.succinctDuration(17, SECONDS));
+        assertThat(session.getClientRequestTimeout()).isEqualTo(Duration.ofSeconds(17));
 
         assertThatThrownBy(() -> createConsole("--client-request-timeout=17s", "trino://localhost:8080?timeout=30s").clientOptions.getTrinoUri())
                 .hasMessageContaining("Connection property timeout is passed both by URL and properties");

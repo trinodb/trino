@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
@@ -26,6 +25,7 @@ import io.trino.client.spooling.encoding.QueryDataDecoders;
 import org.ietf.jgss.GSSCredential;
 
 import java.io.File;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
@@ -751,7 +751,7 @@ final class ConnectionProperties
 
         public ExternalAuthenticationTimeout()
         {
-            super(PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT, NOT_REQUIRED, VALIDATE_EXTERNAL_AUTHENTICATION_ENABLED, converter(Duration::valueOf, Duration::toString));
+            super(PropertyName.EXTERNAL_AUTHENTICATION_TIMEOUT, NOT_REQUIRED, VALIDATE_EXTERNAL_AUTHENTICATION_ENABLED, converter(DurationUtils::parseDuration, DurationUtils::toString));
         }
     }
 
@@ -857,7 +857,7 @@ final class ConnectionProperties
     {
         protected Timeout()
         {
-            super(PropertyName.TIMEOUT, NOT_REQUIRED, ALLOWED, converter(Duration::valueOf, Duration::toString));
+            super(PropertyName.TIMEOUT, NOT_REQUIRED, ALLOWED, converter(DurationUtils::parseDuration, DurationUtils::toString));
         }
     }
 

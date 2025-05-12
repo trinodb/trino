@@ -16,10 +16,10 @@ package io.trino.client;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.units.Duration;
 
 import java.net.URI;
 import java.nio.charset.CharsetEncoder;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
@@ -31,8 +31,8 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class ClientSession
 {
@@ -339,7 +339,7 @@ public class ClientSession
         private Duration clientRequestTimeout;
         private boolean compressionDisabled;
         private Optional<String> encoding = Optional.empty();
-        private Duration heartbeatInterval = new Duration(30, SECONDS);
+        private Duration heartbeatInterval = Duration.of(30, SECONDS);
 
         private Builder() {}
 

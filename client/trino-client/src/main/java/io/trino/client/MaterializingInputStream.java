@@ -13,8 +13,6 @@
  */
 package io.trino.client;
 
-import io.airlift.units.DataSize;
-
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,10 +35,10 @@ class MaterializingInputStream
     private int remaining;
     private int currentOffset;
 
-    protected MaterializingInputStream(InputStream stream, DataSize maxBytes)
+    protected MaterializingInputStream(InputStream stream, long maxBytes)
     {
         super(stream);
-        this.head = new byte[toIntExact(maxBytes.toBytes())]; // caller is responsible for reasonable sizing
+        this.head = new byte[toIntExact(maxBytes)]; // caller is responsible for reasonable sizing
     }
 
     @Override

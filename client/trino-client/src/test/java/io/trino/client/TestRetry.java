@@ -14,7 +14,6 @@
 package io.trino.client;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -26,6 +25,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Optional;
 import java.util.OptionalDouble;
@@ -81,7 +81,7 @@ public class TestRetry
                 .server(URI.create("http://" + server.getHostName() + ":" + server.getPort()))
                 .timeZone(ZoneId.of("UTC"))
                 .source("test")
-                .clientRequestTimeout(Duration.valueOf("2s"))
+                .clientRequestTimeout(Duration.ofSeconds(2))
                 .build();
 
         server.enqueue(statusAndBody(HTTP_OK, newQueryResults("RUNNING"))
@@ -111,7 +111,7 @@ public class TestRetry
                 .server(URI.create("http://" + server.getHostName() + ":" + server.getPort()))
                 .timeZone(ZoneId.of("UTC"))
                 .source("test")
-                .clientRequestTimeout(Duration.valueOf("2s"))
+                .clientRequestTimeout(Duration.ofSeconds(2))
                 .build();
 
         server.enqueue(statusAndBody(HTTP_OK, newQueryResults("RUNNING")));

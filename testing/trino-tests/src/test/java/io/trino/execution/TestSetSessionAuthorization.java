@@ -14,7 +14,6 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.units.Duration;
 import io.trino.client.ClientSession;
 import io.trino.client.StatementClient;
 import io.trino.spi.ErrorCode;
@@ -25,6 +24,7 @@ import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
@@ -36,7 +36,6 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSetSessionAuthorization
@@ -229,7 +228,7 @@ public class TestSetSessionAuthorization
                 .source("source")
                 .timeZone(ZoneId.of("America/Los_Angeles"))
                 .locale(Locale.ENGLISH)
-                .clientRequestTimeout(new Duration(2, MINUTES));
+                .clientRequestTimeout(Duration.ofMinutes(2));
     }
 
     private StatementClient submitQuery(String query, ClientSession clientSession)
