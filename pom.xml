@@ -2574,6 +2574,12 @@
                                     <bannedImport>com.google.api.client.util.Preconditions.*</bannedImport>
                                 </bannedImports>
                             </RestrictImports>
+                            <RestrictImports>
+                                <reason>Use non-shaded Guava classes</reason>
+                                <bannedImports>
+                                    <bannedImport>org.testcontainers.shaded.com.google.common.**</bannedImport>
+                                </bannedImports>
+                            </RestrictImports>
                             <requireProfileIdsExist />
                             <requirePropertyDiverges>
                                 <property>project.description</property>
