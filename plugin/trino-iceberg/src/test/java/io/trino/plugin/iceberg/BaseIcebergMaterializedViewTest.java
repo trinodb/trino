@@ -15,7 +15,6 @@ package io.trino.plugin.iceberg;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
@@ -1148,7 +1147,7 @@ public abstract class BaseIcebergMaterializedViewTest
             }
         }
 
-        // Execute MV refresh after deleting existing records and inserting new records in source table 
+        // Execute MV refresh after deleting existing records and inserting new records in source table
         assertUpdate("DELETE FROM " + sourceTableName + " WHERE a = 1 OR a = 2", 2);
         assertQueryReturnsEmptyResult("SELECT * FROM " + sourceTableName);
         assertUpdate("INSERT INTO " + sourceTableName + " VALUES (7, 'pqr'), (8, 'xyz')", 2);
@@ -1179,7 +1178,7 @@ public abstract class BaseIcebergMaterializedViewTest
         // data files from previous snapshot are absent in latest MV snapshot as those are cleaned up after MV refresh
         assertThat(previousDataFiles.build())
                 .isNotEmpty()
-                .satisfies(dataFilesBeforeMvRefresh -> 
+                .satisfies(dataFilesBeforeMvRefresh ->
                         assertThat(currentDataFiles.build())
                                 .isNotEmpty()
                                 .doesNotContainAnyElementsOf(dataFilesBeforeMvRefresh));
@@ -1187,7 +1186,7 @@ public abstract class BaseIcebergMaterializedViewTest
         // metadata files from previous snapshot are still present in latest MV snapshot as those are not cleaned up after MV refresh
         assertThat(previousMetadataFiles.build())
                 .isNotEmpty()
-                .satisfies(metadataFilesBeforeMvRefresh -> 
+                .satisfies(metadataFilesBeforeMvRefresh ->
                         assertThat(currentMetadataFiles.build())
                                 .isNotEmpty()
                                 .containsAll(metadataFilesBeforeMvRefresh));
@@ -1195,7 +1194,7 @@ public abstract class BaseIcebergMaterializedViewTest
         // manifests files from previous snapshot are absent in latest MV snapshot as those are cleaned up after MV refresh
         assertThat(previousManifestsFiles.build())
                 .isNotEmpty()
-                .satisfies(manifestsBeforeMvRefresh -> 
+                .satisfies(manifestsBeforeMvRefresh ->
                         assertThat(currentManifestsFiles.build())
                                 .isNotEmpty()
                                 .doesNotContainAnyElementsOf(manifestsBeforeMvRefresh));
@@ -1290,12 +1289,6 @@ public abstract class BaseIcebergMaterializedViewTest
             implements ConnectorSplit
     {
         private static final int INSTANCE_SIZE = instanceSize(SequenceConnectorSplit.class);
-
-        @Override
-        public Map<String, String> getSplitInfo()
-        {
-            return ImmutableMap.of();
-        }
 
         @JsonIgnore
         @Override

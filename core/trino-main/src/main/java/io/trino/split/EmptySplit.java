@@ -15,11 +15,8 @@ package io.trino.split;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
-
-import java.util.Map;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
@@ -36,12 +33,6 @@ public class EmptySplit
             @JsonProperty("catalogHandle") CatalogHandle catalogHandle)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of();
     }
 
     @Override
