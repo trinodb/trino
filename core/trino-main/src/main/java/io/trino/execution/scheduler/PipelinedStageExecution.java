@@ -311,10 +311,10 @@ public class PipelinedStageExecution
         tasks.put(partition, task);
 
         ImmutableMultimap.Builder<PlanNodeId, Split> exchangeSplits = ImmutableMultimap.builder();
-        sourceTasks.forEach((fragmentId, sourceTask) -> {
+        sourceTasks.forEach((sourceFragmentId, sourceTask) -> {
             TaskStatus status = sourceTask.getTaskStatus();
             if (status.getState() != TaskState.FINISHED) {
-                PlanNodeId planNodeId = exchangeSources.get(fragmentId).getId();
+                PlanNodeId planNodeId = exchangeSources.get(sourceFragmentId).getId();
                 exchangeSplits.put(planNodeId, createExchangeSplit(sourceTask, task));
             }
         });
