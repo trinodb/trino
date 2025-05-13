@@ -196,10 +196,9 @@ final class S3FileSystem
                         .toList();
 
                 DeleteObjectsRequest request = DeleteObjectsRequest.builder()
-                        .overrideConfiguration(context::applyCredentialProviderOverride)
+                        .overrideConfiguration(builder -> context.applyCredentialProviderOverride(disableStrongIntegrityChecksums(builder)))
                         .requestPayer(requestPayer)
                         .bucket(bucket)
-                        .overrideConfiguration(disableStrongIntegrityChecksums())
                         .delete(builder -> builder.objects(objects).quiet(true))
                         .build();
 
@@ -398,10 +397,8 @@ final class S3FileSystem
     // TODO (https://github.com/trinodb/trino/issues/24955):
     // remove me once all of the S3-compatible storage support strong integrity checks
     @SuppressWarnings("deprecation")
-    static AwsRequestOverrideConfiguration disableStrongIntegrityChecksums()
+    static AwsRequestOverrideConfiguration.Builder disableStrongIntegrityChecksums(AwsRequestOverrideConfiguration.Builder builder)
     {
-        return AwsRequestOverrideConfiguration.builder()
-            .signer(AwsS3V4Signer.create())
-            .build();
+        return builder.signer(AwsS3V4Signer.create());
     }
 }
