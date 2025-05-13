@@ -144,10 +144,6 @@
                     <groupId>com.google.protobuf</groupId>
                     <artifactId>protobuf-java</artifactId>
                 </exclusion>
-                <exclusion>
-                    <groupId>io.airlift</groupId>
-                    <artifactId>aircompressor</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
