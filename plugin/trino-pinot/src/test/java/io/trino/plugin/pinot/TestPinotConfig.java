@@ -49,7 +49,8 @@ public class TestPinotConfig
                         .setAggregationPushdownEnabled(true)
                         .setCountDistinctPushdownEnabled(true)
                         .setProxyEnabled(false)
-                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE)));
+                        .setTargetSegmentPageSize(DataSize.of(1, MEGABYTE))
+                        .setGrpcQueryEnforceMetadataException(false));
     }
 
     @Test
@@ -70,6 +71,7 @@ public class TestPinotConfig
                 .put("pinot.count-distinct-pushdown.enabled", "false")
                 .put("pinot.proxy.enabled", "true")
                 .put("pinot.target-segment-page-size", "2MB")
+                .put("pinot.grpc.query.enforce-metadata-exception", "true")
                 .buildOrThrow();
 
         PinotConfig expected = new PinotConfig()
@@ -86,7 +88,8 @@ public class TestPinotConfig
                 .setAggregationPushdownEnabled(false)
                 .setCountDistinctPushdownEnabled(false)
                 .setProxyEnabled(true)
-                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE));
+                .setTargetSegmentPageSize(DataSize.of(2, MEGABYTE))
+                .setGrpcQueryEnforceMetadataException(true);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
