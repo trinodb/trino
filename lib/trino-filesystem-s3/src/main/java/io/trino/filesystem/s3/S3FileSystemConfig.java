@@ -134,7 +134,7 @@ public class S3FileSystemConfig
     private String sseKmsKeyId;
     private String sseCustomerKey;
     private boolean useWebIdentityTokenCredentialsProvider;
-    private DataSize streamingPartSize = DataSize.of(16, MEGABYTE);
+    private DataSize streamingPartSize = DataSize.of(32, MEGABYTE);
     private boolean requesterPays;
     private Integer maxConnections = 500;
     private Duration connectionTtl;

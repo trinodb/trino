@@ -58,7 +58,7 @@ support:
     `CUSTOMER`. 
 * - `s3.streaming.part-size`
   - Part size for S3 streaming upload. Values between `5MB` and `256MB` are
-    valid. Defaults to `16MB`.
+    valid. Defaults to `32MB`.
 * - `s3.requester-pays`
   - Switch to activate billing transfer cost to the requester. Defaults to
     `false`.
