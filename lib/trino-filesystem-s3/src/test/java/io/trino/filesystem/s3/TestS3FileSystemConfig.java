@@ -59,7 +59,7 @@ public class TestS3FileSystemConfig
                 .setSseKmsKeyId(null)
                 .setUseWebIdentityTokenCredentialsProvider(false)
                 .setSseCustomerKey(null)
-                .setStreamingPartSize(DataSize.of(16, MEGABYTE))
+                .setStreamingPartSize(DataSize.of(32, MEGABYTE))
                 .setRequesterPays(false)
                 .setMaxConnections(500)
                 .setConnectionTtl(null)
