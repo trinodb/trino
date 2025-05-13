@@ -210,7 +210,7 @@ public class TestOpaBatchAccessControlFiltering
                         tableTwo, ImmutableSet.of("table_two_column_1")));
 
         assertRequestMatchesExpectedRequestProperties(new ExpectedRequestProperties(
-                        ImmutableMap.of(7, 1,10,1,12,1),
+                        ImmutableMap.of(7, 1, 10, 1, 12, 1),
                         3,
                         "FilterColumns",
                         requestedColumns
@@ -303,11 +303,11 @@ public class TestOpaBatchAccessControlFiltering
         });
     }
 
-    record ExpectedRequestProperties(Map<Integer,Integer> batchChunkSizes, int numberOfRequests, String operation, Set<JsonNode> expectedRequestItems) {}
+    record ExpectedRequestProperties(Map<Integer, Integer> batchChunkSizes, int numberOfRequests, String operation, Set<JsonNode> expectedRequestItems) {}
 
     private static <T> void assertAccessControlMethodBehaviour(
             FunctionalHelpers.Function3<OpaAccessControl, SystemSecurityContext, Set<T>, Collection<T>> method,
-            List<T> objectsToFilter,  Function<T, JsonNode> valueExtractor,ExpectedRequestProperties expectedRequestProperties, OpaConfig config)
+            List<T> objectsToFilter, Function<T, JsonNode> valueExtractor, ExpectedRequestProperties expectedRequestProperties, OpaConfig config)
     {
         assertFilteringAccessControlMethodDoesNotSendRequests(accessControl -> method.apply(accessControl, TEST_SECURITY_CONTEXT, ImmutableSet.of()));
 
@@ -318,13 +318,14 @@ public class TestOpaBatchAccessControlFiltering
                 objectsToFilter.stream().filter(obj -> objectsToFilter.indexOf(obj) % 2 == 0).collect(toImmutableSet()),
                 objectsToFilter.stream().filter(obj -> objectsToFilter.indexOf(obj) % 2 != 0).collect(toImmutableSet()));
 
-        record TestCase<T>( Set<T> expectedResourcesResult, Set<JsonNode> allowedResources) {
+        record TestCase<T>(Set<T> expectedResourcesResult, Set<JsonNode> allowedResources)
+        {
 
         }
 
         List<TestCase<T>> testCases = allowedObjects
                 .stream()
-                .map( items -> new TestCase<T>(items, items.stream().map(valueExtractor).collect(toImmutableSet())))
+                .map(items -> new TestCase<T>(items, items.stream().map(valueExtractor).collect(toImmutableSet())))
                 .collect(toImmutableList());
 
         for (TestCase testCase : testCases) {
