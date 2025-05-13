@@ -89,3 +89,8 @@ button.copybtn {
     position: relative;
     top: -5.5rem;
 }
+
+.toctree-wrapper ul {
+    list-style-type: none;
+    padding-left: 0;
+}
