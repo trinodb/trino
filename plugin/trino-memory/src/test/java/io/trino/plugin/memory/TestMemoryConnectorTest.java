@@ -42,7 +42,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestMemoryConnectorTest
         extends BaseConnectorTest
@@ -94,7 +93,6 @@ public class TestMemoryConnectorTest
                  SUPPORTS_ADD_FIELD,
                  SUPPORTS_AGGREGATION_PUSHDOWN,
                  SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                 SUPPORTS_DEFAULT_COLUMN_VALUE,
                  SUPPORTS_DELETE,
                  SUPPORTS_DEREFERENCE_PUSHDOWN,
                  SUPPORTS_DROP_COLUMN,
@@ -112,7 +110,15 @@ public class TestMemoryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        return abort("Memory connector does not support column default values");
+        return newTrinoTable(
+                "test_default_columns",
+                """
+                (col_required BIGINT NOT NULL,
+                col_nullable BIGINT,
+                col_default BIGINT DEFAULT 43,
+                col_nonnull_default BIGINT DEFAULT 42 NOT NULL,
+                col_required2 BIGINT NOT NULL)
+                """);
     }
 
     @Test
