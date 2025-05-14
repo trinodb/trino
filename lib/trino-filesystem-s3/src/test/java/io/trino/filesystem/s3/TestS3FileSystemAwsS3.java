@@ -19,6 +19,8 @@ import io.trino.filesystem.FileEntry;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -29,7 +31,6 @@ import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.filesystem.s3.S3FileSystem.disableStrongIntegrityChecksums;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,6 +64,8 @@ public class TestS3FileSystemAwsS3
         return S3Client.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey)))
                 .region(Region.of(region))
+                .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
+                .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
                 .build();
     }
 
@@ -88,7 +91,6 @@ public class TestS3FileSystemAwsS3
                     .bucket(bucket())
                     .key(key)
                     .storageClass(storageClass.toString())
-                    .overrideConfiguration(disableStrongIntegrityChecksums())
                     .build();
             s3Client.putObject(
                     putObjectRequestBuilder,

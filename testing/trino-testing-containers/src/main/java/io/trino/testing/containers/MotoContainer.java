@@ -17,11 +17,15 @@ import org.testcontainers.containers.GenericContainer;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
 import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.LegacyMd5Plugin;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 
 import java.net.URI;
+
+import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_REQUIRED;
 
 public final class MotoContainer
         extends GenericContainer<MotoContainer>
@@ -51,7 +55,10 @@ public final class MotoContainer
                 AwsBasicCredentials.create(MOTO_ACCESS_KEY, MOTO_SECRET_KEY)));
         if (client instanceof S3ClientBuilder s3) {
             s3.forcePathStyle(true);
+            s3.responseChecksumValidation(WHEN_REQUIRED);
+            s3.requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED);
         }
+        client.addPlugin(LegacyMd5Plugin.create());
     }
 
     public void createBucket(String bucketName)
