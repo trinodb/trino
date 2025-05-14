@@ -5,7 +5,7 @@
 ```text
 ALTER TABLE [ IF EXISTS ] name RENAME TO new_name
 ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type
-  [ NOT NULL ] [ COMMENT comment ]
+  [ DEFAULT default ] [ NOT NULL ] [ COMMENT comment ]
   [ WITH ( property_name = expression [, ...] ) ]
   [ FIRST | LAST | AFTER after_column_name ]
 ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
