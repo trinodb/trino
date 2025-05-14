@@ -63,6 +63,7 @@ import io.trino.sql.analyzer.PatternRecognitionAnalysis.Navigation;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.NavigationMode;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.PatternInputAnalysis;
 import io.trino.sql.analyzer.PatternRecognitionAnalysis.ScalarInputDescriptor;
+import io.trino.sql.ir.optimizer.IrExpressionEvaluator;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
@@ -115,6 +116,7 @@ import io.trino.sql.tree.JsonValue;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.LambdaExpression;
 import io.trino.sql.tree.LikePredicate;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LocalTime;
 import io.trino.sql.tree.LocalTimestamp;
 import io.trino.sql.tree.LogicalExpression;
@@ -244,6 +246,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
 import static io.trino.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
+import static io.trino.sql.analyzer.ConstantEvaluator.evaluateConstant;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractWindowExpressions;
@@ -254,6 +257,7 @@ import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.planner.LogicalPlanner.noTruncationCast;
 import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsReference;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
@@ -3885,6 +3889,37 @@ public class ExpressionAnalyzer
                 functionCall -> {
                     throw new IllegalStateException("Cannot access resolved windows");
                 });
+    }
+
+    public static void checkDefaultColumnValue(
+            Session session,
+            PlannerContext plannerContext,
+            AccessControl accessControl,
+            Map<NodeRef<Parameter>, Expression> parameters,
+            WarningCollector warningCollector,
+            Type columnType,
+            Expression defaultLiteral)
+    {
+        if (!(defaultLiteral instanceof Literal literal)) {
+            throw new IllegalArgumentException("Unsupported default expression: " + defaultLiteral);
+        }
+
+        try {
+            ExpressionAnalyzer constantAnalyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, warningCollector);
+            Type literalType = constantAnalyzer.analyze(literal, Scope.create());
+            Object value = evaluateConstant(literal, literalType, plannerContext, session, accessControl);
+
+            IrExpressionEvaluator expressionEvaluator = new IrExpressionEvaluator(plannerContext);
+            if (!literalType.equals(columnType)) {
+                expressionEvaluator.evaluate(
+                        noTruncationCast(plannerContext.getMetadata(), new io.trino.sql.ir.Constant(literalType, value), literalType, columnType),
+                        session,
+                        ImmutableMap.of());
+            }
+        }
+        catch (RuntimeException e) {
+            throw semanticException(INVALID_LITERAL, literal, e, "'%s' is not a valid %s literal", literal, columnType.getDisplayName().toUpperCase(ENGLISH));
+        }
     }
 
     public static boolean isNumericType(Type type)
