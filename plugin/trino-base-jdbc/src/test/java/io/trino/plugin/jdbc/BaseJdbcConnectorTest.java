@@ -72,6 +72,7 @@ import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTI
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.JoinOperator.FULL_JOIN;
 import static io.trino.plugin.jdbc.JoinOperator.JOIN;
+import static io.trino.plugin.jdbc.JoinOperator.LEFT_JOIN;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.RUNNING;
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
@@ -1304,6 +1305,10 @@ public abstract class BaseJdbcConnectorTest
                 // filter join condition (effectively empty)
                 assertThat(query(session, format("SELECT n.name FROM nation n %s orders o ON DATE '2025-03-19' = o.orderdate", joinOperator))).joinIsNotFullyPushedDown();
 
+                // no projection on the probe side, only filter
+                assertJoinConditionallyPushedDown(session, format("SELECT n.name FROM nation n %s orders o ON n.regionkey = 1", joinOperator),
+                        expectJoinPushdownOnEmptyProjection(joinOperator));
+
                 // pushdown when using USING
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r USING(regionkey)", joinOperator))).isFullyPushedDown();
 
@@ -1494,6 +1499,11 @@ public abstract class BaseJdbcConnectorTest
             case EQUAL, NOT_EQUAL, LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL -> true;
             case IDENTICAL -> hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM);
         };
+    }
+
+    protected static boolean expectJoinPushdownOnEmptyProjection(JoinOperator joinOperator)
+    {
+        return joinOperator == LEFT_JOIN || joinOperator == FULL_JOIN;
     }
 
     protected boolean expectJoinPushdownOnInequalityOperator(JoinOperator joinOperator)
