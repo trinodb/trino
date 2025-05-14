@@ -124,6 +124,7 @@ import static io.trino.metadata.MetadataUtil.processRoleCommandCatalog;
 import static io.trino.metadata.PropertyUtil.toSqlProperties;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.StandardErrorCode.INVALID_MATERIALIZED_VIEW_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -640,6 +641,7 @@ public final class ShowQueriesRewrite
                         return new ColumnDefinition(
                                 QualifiedName.of(column.getName()),
                                 toSqlType(column.getType()),
+                                column.getDefaultValue().map(value -> parseDefaultColumnValueExpression(value, objectName, node)),
                                 column.isNullable(),
                                 propertyNodes,
                                 Optional.ofNullable(column.getComment()));
@@ -658,6 +660,16 @@ public final class ShowQueriesRewrite
                     propertyNodes,
                     connectorTableMetadata.getComment());
             return singleValueQuery("Create Table", formatSql(createTable).trim());
+        }
+
+        private Expression parseDefaultColumnValueExpression(String expression, QualifiedObjectName name, Node node)
+        {
+            try {
+                return parser.createExpression(expression);
+            }
+            catch (ParsingException e) {
+                throw semanticException(INVALID_DEFAULT_COLUMN_VALUE, node, e, "Failed parsing default column value '%s': %s", name, e.getMessage());
+            }
         }
 
         private Query showCreateSchema(ShowCreate node)
