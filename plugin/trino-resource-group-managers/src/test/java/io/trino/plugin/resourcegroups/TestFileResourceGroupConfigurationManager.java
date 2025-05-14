@@ -43,6 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestFileResourceGroupConfigurationManager
 {
     private static final ResourceEstimates EMPTY_RESOURCE_ESTIMATES = new ResourceEstimates(Optional.empty(), Optional.empty(), Optional.empty());
+    private static final long MEMORY_POOL_SIZE = 31415926535900L; // arbitrary uneven value for testing
 
     @Test
     public void testInvalid()
@@ -212,6 +213,13 @@ public class TestFileResourceGroupConfigurationManager
         assertThat(sub.getSchedulingPolicy()).isNull();
         assertThat(sub.getSchedulingWeight()).isEqualTo(5);
         assertThat(sub.getJmxExport()).isFalse();
+
+        ResourceGroupId subIdNoSoftMemoryLimit = new ResourceGroupId(globalId, "sub_no_soft_memory_limit");
+        ResourceGroup subNoSoftMemoryLimit = new TestingResourceGroup(subIdNoSoftMemoryLimit);
+        manager.configure(subNoSoftMemoryLimit, new SelectionContext<>(subIdNoSoftMemoryLimit, new ResourceGroupIdTemplate("global.sub_no_soft_memory_limit")));
+        assertThat(subNoSoftMemoryLimit.getSoftMemoryLimitBytes()).isEqualTo(MEMORY_POOL_SIZE);
+        assertThat(subNoSoftMemoryLimit.getHardConcurrencyLimit()).isEqualTo(4);
+        assertThat(subNoSoftMemoryLimit.getSchedulingWeight()).isEqualTo(1);
     }
 
     @Test
@@ -235,9 +243,8 @@ public class TestFileResourceGroupConfigurationManager
     @Test
     public void testDocsExample()
     {
-        long memoryPoolSize = 31415926535900L; // arbitrary uneven value for testing
         FileResourceGroupConfigurationManager manager = new FileResourceGroupConfigurationManager(
-                (listener) -> listener.accept(new MemoryPoolInfo(memoryPoolSize, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
+                (listener) -> listener.accept(new MemoryPoolInfo(MEMORY_POOL_SIZE, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
                 new FileResourceGroupConfig()
                         // TODO: figure out a better way to validate documentation
                         .setConfigFile("../../docs/src/main/sphinx/admin/resource-groups-example.json"));
@@ -257,7 +264,7 @@ public class TestFileResourceGroupConfigurationManager
         manager.configure(resourceGroup, selectionContext);
         assertThat(resourceGroup.getHardConcurrencyLimit()).isEqualTo(3);
         assertThat(resourceGroup.getMaxQueuedQueries()).isEqualTo(10);
-        assertThat(resourceGroup.getSoftMemoryLimitBytes()).isEqualTo(memoryPoolSize / 10);
+        assertThat(resourceGroup.getSoftMemoryLimitBytes()).isEqualTo(MEMORY_POOL_SIZE / 10);
     }
 
     @Test
@@ -295,7 +302,9 @@ public class TestFileResourceGroupConfigurationManager
     {
         FileResourceGroupConfig config = new FileResourceGroupConfig();
         config.setConfigFile(getResource(fileName).getPath());
-        return new FileResourceGroupConfigurationManager(listener -> {}, config);
+        return new FileResourceGroupConfigurationManager(
+                listener -> listener.accept(new MemoryPoolInfo(MEMORY_POOL_SIZE, 0, 0, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of())),
+                config);
     }
 
     private static ManagerSpec parseManagerSpec(String fileName)

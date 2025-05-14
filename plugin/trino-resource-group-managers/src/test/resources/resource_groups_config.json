@@ -16,6 +16,11 @@
           "hardConcurrencyLimit": 3,
           "maxQueued": 4,
           "schedulingWeight": 5
+        },
+        {
+          "name": "sub_no_soft_memory_limit",
+          "hardConcurrencyLimit": 4,
+          "schedulingWeight": 1
         }
       ]
     }

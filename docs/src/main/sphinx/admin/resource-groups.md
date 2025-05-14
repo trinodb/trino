@@ -102,7 +102,7 @@ are reflected automatically for incoming queries.
 
 - `hardConcurrencyLimit` (required): maximum number of running queries.
 
-- `softMemoryLimit` (required): maximum amount of distributed memory this
+- `softMemoryLimit` (optional): maximum amount of distributed memory this
   group may use, before new queries become queued. May be specified as
   an absolute value (i.e. `1GB`) or as a percentage (i.e. `10%`) of the cluster's memory.
 

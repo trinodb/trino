@@ -36,7 +36,7 @@ public interface ResourceGroupsDao
     @SqlUpdate("CREATE TABLE IF NOT EXISTS resource_groups (\n" +
             "  resource_group_id BIGINT NOT NULL AUTO_INCREMENT,\n" +
             "  name VARCHAR(250) NOT NULL,\n" +
-            "  soft_memory_limit VARCHAR(128) NOT NULL,\n" +
+            "  soft_memory_limit VARCHAR(128),\n" +
             "  max_queued INT NOT NULL,\n" +
             "  soft_concurrency_limit INT NULL,\n" +
             "  hard_concurrency_limit INT NOT NULL,\n" +
