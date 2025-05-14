@@ -147,7 +147,7 @@ public class TestQueryAssertions
         // Report query success
         assertThatThrownBy(() -> assertQueryFails("SELECT 1", "Foo bar"))
                 .isInstanceOf(AssertionError.class)
-                .hasMessageMatching("Expected query to fail: SELECT 1 \\[QueryId: \\w+]");
+                .hasMessageMatching("Expected query to fail: SELECT 1 \\[QueryId: [\\w-]+]");
     }
 
     @Test

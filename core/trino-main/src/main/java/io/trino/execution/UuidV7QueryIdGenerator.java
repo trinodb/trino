@@ -13,9 +13,20 @@
  */
 package io.trino.execution;
 
+import com.fasterxml.uuid.Generators;
+import com.fasterxml.uuid.impl.TimeBasedEpochRandomGenerator;
 import io.trino.spi.QueryId;
 
-public interface QueryIdGenerator
+import java.security.SecureRandom;
+
+public class UuidV7QueryIdGenerator
+        implements QueryIdGenerator
 {
-    QueryId createNextQueryId();
+    private final TimeBasedEpochRandomGenerator generator = Generators.timeBasedEpochRandomGenerator(new SecureRandom());
+
+    @Override
+    public QueryId createNextQueryId()
+    {
+        return new QueryId(generator.generate().toString());
+    }
 }

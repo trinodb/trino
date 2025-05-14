@@ -49,6 +49,7 @@ import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.ExplainAnalyzeContext;
 import io.trino.execution.ForQueryExecution;
+import io.trino.execution.LegacyQueryIdGenerator;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecutionMBean;
 import io.trino.execution.QueryExecutorInternal;
@@ -64,6 +65,7 @@ import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskStatus;
+import io.trino.execution.UuidV7QueryIdGenerator;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupInfoProvider;
@@ -199,7 +201,12 @@ public class CoordinatorModule
         jaxrsBinder(binder).bind(QueryResource.class);
         jaxrsBinder(binder).bind(QueryStateInfoResource.class);
         jaxrsBinder(binder).bind(ResourceGroupStateInfoResource.class);
-        binder.bind(QueryIdGenerator.class).in(Scopes.SINGLETON);
+
+        switch (buildConfigObject(QueryManagerConfig.class).getQueryIdGenerator()) {
+            case UUID_V7 -> binder.bind(QueryIdGenerator.class).to(UuidV7QueryIdGenerator.class).in(Scopes.SINGLETON);
+            case LEGACY -> binder.bind(QueryIdGenerator.class).to(LegacyQueryIdGenerator.class).in(Scopes.SINGLETON);
+        }
+
         binder.bind(SqlQueryManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SqlQueryManager.class).withGeneratedName();
         binder.bind(QueryManager.class).to(SqlQueryManager.class);
