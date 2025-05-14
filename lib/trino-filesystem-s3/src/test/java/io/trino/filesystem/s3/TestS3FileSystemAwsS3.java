@@ -28,9 +28,11 @@ import software.amazon.awssdk.services.s3.model.ObjectStorageClass;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.testing.SystemEnvironmentUtils.isEnvSet;
 import static io.trino.testing.SystemEnvironmentUtils.requireEnv;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,6 +43,7 @@ public class TestS3FileSystemAwsS3
     private String secretKey;
     private String region;
     private String bucket;
+    private String endpoint;
 
     @Override
     protected void initEnvironment()
@@ -50,6 +53,13 @@ public class TestS3FileSystemAwsS3
         region = requireEnv("AWS_REGION");
 
         bucket = requireEnv("EMPTY_S3_BUCKET");
+
+        if (isEnvSet("AWS_ENDPOINT")) {
+            endpoint = requireEnv("AWS_ENDPOINT");
+        }
+        else {
+            endpoint = "https://s3." + region + ".amazonaws.com";
+        }
     }
 
     @Override
@@ -66,6 +76,7 @@ public class TestS3FileSystemAwsS3
                 .region(Region.of(region))
                 .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED)
                 .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+                .endpointOverride(URI.create(endpoint))
                 .build();
     }
 
@@ -76,6 +87,7 @@ public class TestS3FileSystemAwsS3
                 .setAwsAccessKey(accessKey)
                 .setAwsSecretKey(secretKey)
                 .setRegion(region)
+                .setEndpoint(endpoint)
                 .setSupportsExclusiveCreate(true)
                 .setStreamingPartSize(DataSize.valueOf("5.5MB")), new S3FileSystemStats());
     }
