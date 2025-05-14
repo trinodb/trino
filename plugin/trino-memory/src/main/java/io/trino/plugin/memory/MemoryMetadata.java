@@ -348,7 +348,7 @@ public class MemoryMetadata
         ImmutableList.Builder<ColumnInfo> columns = ImmutableList.builder();
         for (int i = 0; i < tableMetadata.getColumns().size(); i++) {
             ColumnMetadata column = tableMetadata.getColumns().get(i);
-            columns.add(new ColumnInfo(new MemoryColumnHandle(i, column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())));
+            columns.add(new ColumnInfo(new MemoryColumnHandle(i, column.getType()), column.getName(), column.getType(), column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())));
         }
 
         tableIds.put(tableMetadata.getTable(), tableId);
@@ -448,7 +448,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = ImmutableList.<ColumnInfo>builderWithExpectedSize(table.columns().size() + 1)
                 .addAll(table.columns())
-                .add(new ColumnInfo(new MemoryColumnHandle(table.columns().size(), column.getType()), column.getName(), column.getType(), column.isNullable(), Optional.ofNullable(column.getComment())))
+                .add(new ColumnInfo(new MemoryColumnHandle(table.columns().size(), column.getType()), column.getName(), column.getType(), column.getDefaultValue(), column.isNullable(), Optional.ofNullable(column.getComment())))
                 .build();
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), columns, table.truncated(), table.dataFragments(), table.comment()));
@@ -464,7 +464,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), target, columnInfo.type(), columnInfo.nullable(), columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), target, columnInfo.type(), columnInfo.defaultValue(), columnInfo.nullable(), columnInfo.comment()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -479,7 +479,7 @@ public class MemoryMetadata
 
         List<ColumnInfo> columns = new ArrayList<>(table.columns());
         ColumnInfo columnInfo = columns.get(column.columnIndex());
-        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.name(), columnInfo.type(), true, columnInfo.comment()));
+        columns.set(column.columnIndex(), new ColumnInfo(columnInfo.handle(), columnInfo.name(), columnInfo.type(), columnInfo.defaultValue(), true, columnInfo.comment()));
 
         tables.put(tableId, new TableInfo(tableId, table.schemaName(), table.tableName(), ImmutableList.copyOf(columns), table.truncated(), table.dataFragments(), table.comment()));
     }
@@ -674,7 +674,7 @@ public class MemoryMetadata
                         info.schemaName(),
                         info.tableName(),
                         info.columns().stream()
-                                .map(tableColumn -> Objects.equals(tableColumn.handle(), columnHandle) ? new ColumnInfo(tableColumn.handle(), tableColumn.name(), tableColumn.getMetadata().getType(), tableColumn.nullable(), comment) : tableColumn)
+                                .map(tableColumn -> Objects.equals(tableColumn.handle(), columnHandle) ? new ColumnInfo(tableColumn.handle(), tableColumn.name(), tableColumn.getMetadata().getType(), tableColumn.defaultValue(), tableColumn.nullable(), comment) : tableColumn)
                                 .collect(toImmutableList()),
                         info.truncated(),
                         info.dataFragments(),
