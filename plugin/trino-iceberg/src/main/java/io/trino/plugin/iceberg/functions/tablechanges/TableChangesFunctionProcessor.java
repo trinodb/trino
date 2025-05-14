@@ -31,6 +31,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
+import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.mapping.NameMappingParser;
 
 import java.util.Optional;
@@ -112,6 +113,7 @@ public class TableChangesFunctionProcessor
             }
         }
 
+        Schema schema = SchemaParser.fromJson(functionHandle.tableSchemaJson());
         this.pageSource = icebergPageSourceProvider.createPageSource(
                 session,
                 functionHandle.columns(),
@@ -131,7 +133,7 @@ public class TableChangesFunctionProcessor
                 split.fileFormat(),
                 split.fileIoProperties(),
                 0,
-                functionHandle.nameMappingJson().map(NameMappingParser::fromJson));
+                functionHandle.nameMappingJson().map(NameMappingParser::fromJson).orElseGet(() -> MappingUtil.create(schema)));
         this.delegateColumnMap = delegateColumnMap;
 
         this.changeTypeIndex = changeTypeIndex;
