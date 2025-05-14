@@ -24,6 +24,7 @@ import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.HoodieTableType;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -36,6 +37,7 @@ public class HudiTableHandle
     private final String tableName;
     private final String basePath;
     private final HoodieTableType tableType;
+    private final Optional<String> preCombineField;
     private final List<HiveColumnHandle> partitionColumns;
     // Used only for validation when config property hudi.query-partition-filter-required is enabled
     private final Set<HiveColumnHandle> constraintColumns;
@@ -48,11 +50,12 @@ public class HudiTableHandle
             @JsonProperty("tableName") String tableName,
             @JsonProperty("basePath") String basePath,
             @JsonProperty("tableType") HoodieTableType tableType,
+            @JsonProperty("preCombineField") String preCombineField,
             @JsonProperty("partitionColumns") List<HiveColumnHandle> partitionColumns,
             @JsonProperty("partitionPredicates") TupleDomain<HiveColumnHandle> partitionPredicates,
             @JsonProperty("regularPredicates") TupleDomain<HiveColumnHandle> regularPredicates)
     {
-        this(schemaName, tableName, basePath, tableType, partitionColumns, ImmutableSet.of(), partitionPredicates, regularPredicates);
+        this(schemaName, tableName, basePath, tableType, Optional.ofNullable(preCombineField), partitionColumns, ImmutableSet.of(), partitionPredicates, regularPredicates);
     }
 
     public HudiTableHandle(
@@ -60,6 +63,7 @@ public class HudiTableHandle
             String tableName,
             String basePath,
             HoodieTableType tableType,
+            Optional<String> preCombineField,
             List<HiveColumnHandle> partitionColumns,
             Set<HiveColumnHandle> constraintColumns,
             TupleDomain<HiveColumnHandle> partitionPredicates,
@@ -69,6 +73,7 @@ public class HudiTableHandle
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.basePath = requireNonNull(basePath, "basePath is null");
         this.tableType = requireNonNull(tableType, "tableType is null");
+        this.preCombineField = requireNonNull(preCombineField, "preCombineField is null");
         this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
         this.constraintColumns = requireNonNull(constraintColumns, "constraintColumns is null");
         this.partitionPredicates = requireNonNull(partitionPredicates, "partitionPredicates is null");
@@ -97,6 +102,11 @@ public class HudiTableHandle
     public HoodieTableType getTableType()
     {
         return tableType;
+    }
+
+    @JsonProperty
+    public Optional<String> getPreCombineField() {
+        return preCombineField;
     }
 
     @JsonProperty
@@ -139,6 +149,7 @@ public class HudiTableHandle
                 tableName,
                 basePath,
                 tableType,
+                preCombineField,
                 partitionColumns,
                 constraintColumns,
                 partitionPredicates.intersect(partitionTupleDomain),

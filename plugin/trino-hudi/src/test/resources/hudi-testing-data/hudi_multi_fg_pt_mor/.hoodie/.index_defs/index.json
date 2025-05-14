@@ -1,0 +1,11 @@
+{
+  "indexDefinitions" : {
+    "column_stats" : {
+      "indexName" : "column_stats",
+      "indexType" : "column_stats",
+      "indexFunction" : "column_stats",
+      "sourceFields" : [ "_hoodie_commit_time", "_hoodie_partition_path", "_hoodie_record_key", "id", "name", "price", "ts", "country" ],
+      "indexOptions" : { }
+    }
+  }
+}
