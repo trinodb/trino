@@ -30,7 +30,7 @@ public class ResourceGroupSpecBuilder
 {
     private final long id;
     private final ResourceGroupNameTemplate nameTemplate;
-    private final String softMemoryLimit;
+    private final Optional<String> softMemoryLimit;
     private final int maxQueued;
     private final Optional<Integer> softConcurrencyLimit;
     private final int hardConcurrencyLimit;
@@ -45,7 +45,7 @@ public class ResourceGroupSpecBuilder
     ResourceGroupSpecBuilder(
             long id,
             ResourceGroupNameTemplate nameTemplate,
-            String softMemoryLimit,
+            Optional<String> softMemoryLimit,
             int maxQueued,
             Optional<Integer> softConcurrencyLimit,
             int hardConcurrencyLimit,
@@ -126,7 +126,7 @@ public class ResourceGroupSpecBuilder
         {
             long id = resultSet.getLong("resource_group_id");
             ResourceGroupNameTemplate nameTemplate = new ResourceGroupNameTemplate(resultSet.getString("name"));
-            String softMemoryLimit = resultSet.getString("soft_memory_limit");
+            Optional<String> softMemoryLimit = Optional.ofNullable(resultSet.getString("soft_memory_limit"));
             int maxQueued = resultSet.getInt("max_queued");
             Optional<Integer> softConcurrencyLimit = Optional.of(resultSet.getInt("soft_concurrency_limit"));
             if (resultSet.wasNull()) {
