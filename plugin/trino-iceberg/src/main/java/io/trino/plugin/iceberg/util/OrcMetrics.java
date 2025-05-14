@@ -87,7 +87,7 @@ public final class OrcMetrics
             Footer footer = reader.get().getFooter();
 
             // use name mapping to compute missing Iceberg field IDs
-            Optional<NameMapping> nameMapping = Optional.of(MappingUtil.create(schema));
+            NameMapping nameMapping = MappingUtil.create(schema);
             Map<OrcColumnId, OrcColumn> mappedColumns = fileColumnsByIcebergId(reader.get(), nameMapping)
                     .values().stream()
                     .collect(toImmutableMap(OrcColumn::getColumnId, identity()));
