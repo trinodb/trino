@@ -29,7 +29,7 @@ public class TestStorage
     public void testRoundTrip()
     {
         Storage storage = Storage.builder()
-                .setStorageFormat(StorageFormat.create("abc", "in", "out"))
+                .setStorageFormat(StorageFormat.create("abc", "in", "out", ".ext"))
                 .setLocation("/test")
                 .build();
 

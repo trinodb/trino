@@ -9402,6 +9402,26 @@ public abstract class BaseHiveConnectorTest
         assertQuerySucceeds("CALL system.flush_metadata_cache()");
     }
 
+    @Test
+    public void testWriteFileExtension()
+    {
+        testWithAllStorageFormats(this::testWriteFileExtension);
+    }
+
+    private void testWriteFileExtension(Session session, HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_write_file_extension_" + randomNameSuffix();
+        assertUpdate(session, format("CREATE TABLE %s (id BIGINT) WITH (format = '%s')", tableName, storageFormat));
+        assertUpdate(session, format("INSERT INTO %s VALUES(1)", tableName), 1);
+        assertQuery(session, format("SELECT * FROM %s", tableName), "VALUES(1)");
+
+        assertThat((String) computeActual("SELECT \"$path\" FROM " + tableName).getOnlyValue())
+                // TODO: get HiveCompressionCodec from session
+                .endsWith(HiveWriterFactory.getFileExtension(HiveCompressionCodec.ZSTD, storageFormat.toStorageFormat()));
+
+        assertUpdate(session, format("DROP TABLE %s", tableName));
+    }
+
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
 
     private Session getParallelWriteSession(Session baseSession)

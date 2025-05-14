@@ -675,7 +675,7 @@ public class HiveWriterFactory
     public static String getFileExtension(HiveCompressionCodec compression, StorageFormat format)
     {
         // text format files must have the correct extension when compressed
-        return compression.getHiveCompressionKind()
+        return format.getFileExtension() + compression.getHiveCompressionKind()
                 .filter(_ -> format.getOutputFormat().equals(HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS))
                 .map(CompressionKind::getFileExtension)
                 .orElse("");

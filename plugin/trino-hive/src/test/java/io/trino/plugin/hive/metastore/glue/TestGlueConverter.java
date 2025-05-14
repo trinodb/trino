@@ -75,7 +75,7 @@ class TestGlueConverter
             .setPartitionColumns(ImmutableList.of(new Column("table-partition", HIVE_STRING, Optional.of("table partition column comment"), Map.of())))
             .setViewOriginalText(Optional.of("originalText"))
             .setViewExpandedText(Optional.of("expandedText"))
-            .withStorage(storage -> storage.setStorageFormat(StorageFormat.create("TableSerdeLib", "TableInputFormat", "TableOutputFormat"))
+            .withStorage(storage -> storage.setStorageFormat(StorageFormat.create("TableSerdeLib", "TableInputFormat", "TableOutputFormat", ".ext"))
                     .setLocation("/test-table")
                     .setBucketProperty(Optional.empty())
                     .setSerdeParameters(ImmutableMap.of())).build();
@@ -86,7 +86,7 @@ class TestGlueConverter
             .setValues(ImmutableList.of("val1"))
             .setColumns(ImmutableList.of(new Column("partition-data", HIVE_STRING, Optional.of("partition data column comment"), Map.of())))
             .setParameters(ImmutableMap.of())
-            .withStorage(storage -> storage.setStorageFormat(StorageFormat.create("PartitionSerdeLib", "PartitionInputFormat", "PartitionOutputFormat"))
+            .withStorage(storage -> storage.setStorageFormat(StorageFormat.create("PartitionSerdeLib", "PartitionInputFormat", "PartitionOutputFormat", ".ext"))
                     .setLocation("/test-table/partition")
                     .setBucketProperty(Optional.empty())
                     .setSerdeParameters(ImmutableMap.of())).build();
