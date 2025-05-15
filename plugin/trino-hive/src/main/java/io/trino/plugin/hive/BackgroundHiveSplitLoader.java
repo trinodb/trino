@@ -134,7 +134,7 @@ public class BackgroundHiveSplitLoader
         implements HiveSplitLoader
 {
     // See https://github.com/apache/hive/commit/ffee30e6267e85f00a22767262192abb9681cfb7#diff-5fe26c36b4e029dcd344fc5d484e7347R165
-    private static final Pattern BUCKET_WITH_OPTIONAL_ATTEMPT_ID_PATTERN = Pattern.compile("bucket_(\\d+)(_\\d+)?$");
+    private static final Pattern BUCKET_WITH_OPTIONAL_ATTEMPT_ID_PATTERN = Pattern.compile("bucket_(\\d+)(_\\d+)?(\\.[a-z0-9]+){0,2}");
 
     private static final Iterable<Pattern> BUCKET_PATTERNS = ImmutableList.of(
             // legacy Presto naming pattern (current version matches Hive)
