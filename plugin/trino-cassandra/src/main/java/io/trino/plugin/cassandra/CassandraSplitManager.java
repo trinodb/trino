@@ -131,8 +131,7 @@ public class CassandraSplitManager
         CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                 cassandraTypeManager,
                 session.getTable(tableHandle.getSchemaTableName()).clusteringKeyColumns(),
-                partitionResult.unenforcedConstraint(),
-                session.getCassandraVersion());
+                partitionResult.unenforcedConstraint());
         return clusteringPredicatesExtractor.getClusteringKeyPredicates();
     }
 
