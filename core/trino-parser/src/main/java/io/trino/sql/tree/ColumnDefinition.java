@@ -42,6 +42,11 @@ public final class ColumnDefinition
         this(Optional.of(location), name, type, Optional.empty(), nullable, properties, comment);
     }
 
+    public ColumnDefinition(QualifiedName name, DataType type, Optional<Literal> defaultValue, boolean nullable, List<Property> properties, Optional<String> comment)
+    {
+        this(Optional.empty(), name, type, defaultValue, nullable, properties, comment);
+    }
+
     public ColumnDefinition(NodeLocation location, QualifiedName name, DataType type, Optional<Literal> defaultValue, boolean nullable, List<Property> properties, Optional<String> comment)
     {
         this(Optional.of(location), name, type, defaultValue, nullable, properties, comment);
