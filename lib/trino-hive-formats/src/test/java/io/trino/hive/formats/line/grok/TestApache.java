@@ -32,7 +32,8 @@ public class TestApache
     public void test001_httpd_access()
             throws GrokException, IOException
     {
-        Grok g = Grok.create("%{COMMONAPACHELOG}");
+        Grok g = new Grok();
+        g.compile("%{COMMONAPACHELOG}");
 
         BufferedReader br = Files.newBufferedReader(Path.of(ResourceManager.ACCESS_LOG));
         String line;
@@ -49,7 +50,8 @@ public class TestApache
     public void test002_nasa_httpd_access()
             throws GrokException, IOException
     {
-        Grok g = Grok.create("%{COMMONAPACHELOG}");
+        Grok g = new Grok();
+        g.compile("%{COMMONAPACHELOG}");
         BufferedReader br;
         String line;
         File dir = new File(ResourceManager.NASA);
