@@ -4520,6 +4520,16 @@ public abstract class BaseConnectorTest
         }
     }
 
+    @Test
+    public void testInsertDefaultNullIntoNotNullColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_INSERT) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        try (TestTable testTable = newTrinoTable("test_default_value", "(x int, y int DEFAULT null NOT NULL)")) {
+            assertQueryFails("INSERT INTO " + testTable.getName() + " (x) VALUES (1)", "NULL value not allowed for NOT NULL column: y");
+        }
+    }
+
     protected TestTable createTableWithDefaultColumns()
     {
         throw new UnsupportedOperationException();
@@ -6407,7 +6417,7 @@ public abstract class BaseConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE));
 
-        String targetTable = "merge_non_nullable_target_" + randomNameSuffix();
+        String targetTable = "merge_default_column_value_" + randomNameSuffix();
 
         createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR DEFAULT 'test default')", targetTable, Optional.of("nation_name"));
 
@@ -6421,6 +6431,26 @@ public abstract class BaseConnectorTest
         assertThat(query("SELECT * FROM " + targetTable))
                 .skippingTypesCheck()
                 .matches("VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE'), ('IMAGINARIA', 'test default')");
+
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testMergeDefaultNullIntoNotNullColumn()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_MERGE) && hasBehavior(SUPPORTS_DEFAULT_COLUMN_VALUE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        String targetTable = "merge_default_null_into_not_null_" + randomNameSuffix();
+
+        createTableForWrites("CREATE TABLE %s (nation_name VARCHAR, region_name VARCHAR DEFAULT null NOT NULL)", targetTable, Optional.of("nation_name"));
+
+        assertUpdate("INSERT INTO " + targetTable + " (nation_name, region_name) VALUES ('FRANCE', 'EUROPE'), ('ALGERIA', 'AFRICA'), ('GERMANY', 'EUROPE')", 3);
+
+        assertQueryFails("MERGE INTO " + targetTable + " t" +
+                        " USING (VALUES ('IMAGINARIA', 'AFRICA')) s(nation_name, region_name)" +
+                        " ON (t.nation_name = s.nation_name)" +
+                        " WHEN NOT MATCHED THEN INSERT (nation_name) VALUES ('IMAGINARIA')",
+                "NULL value not allowed for NOT NULL column: region_name");
 
         assertUpdate("DROP TABLE " + targetTable);
     }
