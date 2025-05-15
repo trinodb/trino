@@ -99,7 +99,8 @@ public class GcsStorageFactory
                         return GoogleCredentials.getApplicationDefault();
                     }
                     catch (IOException e) {
-                        throw new UncheckedIOException(e);
+                        // This is consistent with the GCP SDK when no credentials are available in the environment
+                        return null;
                     }
                 });
             }
@@ -108,12 +109,15 @@ public class GcsStorageFactory
                 storageOptionsBuilder.setProjectId(projectId);
             }
 
+            if (credentials != null) {
+                storageOptionsBuilder.setCredentials(credentials);
+            }
+
             endpoint.ifPresent(storageOptionsBuilder::setHost);
 
             // Note: without uniform strategy we cannot retry idempotent operations.
             // The trino-filesystem api does not violate the conditions for idempotency, see https://cloud.google.com/storage/docs/retry-strategy#java for details.
             return storageOptionsBuilder
-                    .setCredentials(credentials)
                     .setStorageRetryStrategy(getUniformStorageRetryStrategy())
                     .setRetrySettings(RetrySettings.newBuilder()
                             .setMaxAttempts(maxRetries + 1)
