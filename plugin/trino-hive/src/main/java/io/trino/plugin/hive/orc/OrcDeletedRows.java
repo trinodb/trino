@@ -399,15 +399,17 @@ public class OrcDeletedRows
     {
         Location directory = Location.of(acidInfo.getPartitionLocation()).appendPath(deleteDeltaDirectory);
 
+        String extension = fileName.indexOf('.') > 0 ? fileName.substring(fileName.indexOf('.')) : "";
+
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
         if (hasAttemptId(fileName)) {
-            return directory.appendPath(fileName.substring(0, fileName.lastIndexOf('_')));
+            return directory.appendPath(fileName.substring(0, fileName.lastIndexOf('_')) + extension);
         }
 
         if (!acidInfo.getOriginalFiles().isEmpty()) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
-            return bucketFileName(directory, acidInfo.getBucketId());
+            return bucketFileName(directory, acidInfo.getBucketId(), extension);
         }
         return directory.appendPath(fileName);
     }
