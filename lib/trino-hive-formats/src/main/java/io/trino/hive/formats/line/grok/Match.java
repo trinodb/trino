@@ -37,7 +37,7 @@ import static io.trino.plugin.base.util.JsonUtils.jsonFactoryBuilder;
 // Copyright 2014 Anthony Corbacho, and contributors.
 public class Match
 {
-    private static final ObjectMapper objectMapper = new ObjectMapper(jsonFactoryBuilder().disable(INTERN_FIELD_NAMES).build());
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper(jsonFactoryBuilder().disable(INTERN_FIELD_NAMES).build());
     private String subject; // text
     private final LinkedHashMap<String, Object> capture; // to maintain the order of fields
     private final Garbage garbage;
@@ -49,7 +49,7 @@ public class Match
     /**
      * For thread safety.
      */
-    private static final ThreadLocal<Match> matchHolder = new ThreadLocal<Match>()
+    private static final ThreadLocal<Match> MATCH_HOLDER = new ThreadLocal<Match>()
     {
         @Override
         protected Match initialValue()
@@ -121,7 +121,7 @@ public class Match
      */
     public static Match getInstance()
     {
-        return matchHolder.get();
+        return MATCH_HOLDER.get();
     }
 
     /**
@@ -231,7 +231,6 @@ public class Match
      * @return Json of the matched element in the text
      */
     public String toJson(Boolean pretty)
-            throws JsonProcessingException
     {
         if (capture == null) {
             return "{}";
@@ -241,10 +240,16 @@ public class Match
         }
 
         this.cleanMap();
-        if (pretty) {
-            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(capture);
+
+        try {
+            if (pretty) {
+                return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(capture);
+            }
+            return OBJECT_MAPPER.writeValueAsString(capture);
         }
-        return objectMapper.writeValueAsString(capture);
+        catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -256,7 +261,6 @@ public class Match
      * @return Json of the matched element in the text
      */
     public String toJson()
-            throws JsonProcessingException
     {
         return toJson(false);
     }

@@ -1300,12 +1300,8 @@ public class HiveMetadata
                 .ifPresentOrElse(
                         inputFormat -> {
                             checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.GROK, GROK_INPUT_FORMAT);
-//                            try {
-//                                Pattern.compile(inputFormat); // this is tricky b/c pattern.compile() is going to fail when input.format = "%{"(?<name_underscore>\\S+)"; b/c java.util.pattern doesn't support underscores in named regex groups
-//                            }
-//                            catch (PatternSyntaxException e) {
-//                                throw new TrinoException(INVALID_TABLE_PROPERTY, "Invalid GROK input format value: " + inputFormat);
-//                            }
+                            // Pattern.compile() isn't a valid check b/c it will fail when input.format = "%{"(?<name_underscore>\\S+)"
+                            // java.util.pattern doesn't support underscores in named regex group
                             tableProperties.put(GROK_INPUT_FORMAT_KEY, inputFormat);
                         },
                         () -> {

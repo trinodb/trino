@@ -26,27 +26,6 @@ package io.trino.hive.formats.line.grok.exception;
 public class GrokException
         extends Exception
 {
-    private static final long serialVersionUID = 1L;
-
-    /**
-     * Creates a new GrokException.
-     */
-    public GrokException()
-    {
-        super();
-    }
-
-    /**
-     * Constructs a new GrokException.
-     *
-     * @param message the reason for the exception
-     * @param cause   the underlying Throwable that caused this exception to be thrown.
-     */
-    public GrokException(String message, Throwable cause)
-    {
-        super(message, cause);
-    }
-
     /**
      * Constructs a new GrokException.
      *
@@ -55,15 +34,5 @@ public class GrokException
     public GrokException(String message)
     {
         super(message);
-    }
-
-    /**
-     * Constructs a new GrokException.
-     *
-     * @param cause the underlying Throwable that caused this exception to be thrown.
-     */
-    public GrokException(Throwable cause)
-    {
-        super(cause);
     }
 }

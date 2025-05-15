@@ -30,7 +30,7 @@ public class TestBasic
     public void test001_compileFailOnInvalidExpression()
             throws GrokException
     {
-        Grok g = Grok.create(null);
+        Grok g = new Grok();
 
         List<String> badRegxp = new ArrayList<String>();
         badRegxp.add("[");
@@ -58,7 +58,7 @@ public class TestBasic
     public void test002_compileSuccessValidExpression()
             throws GrokException
     {
-        Grok g = Grok.create();
+        Grok g = new Grok();
 
         List<String> regxp = new ArrayList<String>();
         regxp.add("[hello]");
@@ -75,7 +75,7 @@ public class TestBasic
     public void test003_samePattern()
             throws GrokException
     {
-        Grok g = Grok.create();
+        Grok g = new Grok();
 
         String pattern = "Hello World";
         g.compile(pattern);
@@ -86,7 +86,7 @@ public class TestBasic
     public void test004_sameExpandedPattern()
             throws GrokException
     {
-        Grok g = Grok.create();
+        Grok g = new Grok();
 
         g.addPattern("test", "hello world");
         g.compile("%{test}");

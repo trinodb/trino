@@ -72,13 +72,8 @@ public class GrokDeserializer
                 .collect(toImmutableList());
         this.grokNullOnParseError = grokNullOnParseError;
 
-        // Create a new grok instance using update create() method
-        try {
-            grokPattern = Grok.create();
-        }
-        catch (GrokException e) {
-            throw new RuntimeException("Grok creation failure", e);
-        }
+        // Create a new grok instance
+        grokPattern = new Grok();
 
         try {
             // Capture named expressions only and do not use auto conversion.
