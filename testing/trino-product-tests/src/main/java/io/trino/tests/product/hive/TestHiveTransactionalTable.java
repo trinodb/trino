@@ -84,9 +84,9 @@ public class TestHiveTransactionalTable
     public static final int TEST_TIMEOUT = 15 * 60 * 1000;
 
     // Hive original file path end looks like /000000_0
-    // New Trino original file path end looks like /000000_132574635756428963553891918669625313402
+    // New Trino original file path end looks like /000000_132574635756428963553891918669625313402.parquet
     // Older Trino path ends look like /20210416_190616_00000_fsymd_af6f0a3d-5449-4478-a53d-9f9f99c07ed9
-    private static final Pattern ORIGINAL_FILE_MATCHER = Pattern.compile(".*/\\d+_\\d+(_[^/]+)?$");
+    private static final Pattern ORIGINAL_FILE_MATCHER = Pattern.compile(".*/\\d+_\\d+(_[^/]+)?\\.[a-z]+$");
 
     @Inject
     private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
