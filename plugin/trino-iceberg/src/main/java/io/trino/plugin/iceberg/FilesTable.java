@@ -17,40 +17,46 @@ import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slice;
+import com.google.common.io.Closer;
 import io.airlift.slice.Slices;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.util.JsonUtils;
-import io.trino.spi.block.Block;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SqlMap;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.RowBlockBuilder;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.InMemoryRecordSet;
-import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SourcePage;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
-import jakarta.annotation.Nullable;
-import org.apache.iceberg.DataTask;
-import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.ManifestContent;
+import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetricsUtil.ReadableColMetricsStruct;
 import org.apache.iceberg.MetricsUtil.ReadableMetricsStruct;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SingleValueParser;
-import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
-import org.apache.iceberg.io.CloseableGroup;
-import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.transforms.Transforms;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
@@ -61,22 +67,20 @@ import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Maps.immutableEntry;
-import static com.google.common.collect.Streams.mapWithIndex;
 import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionColumnType;
 import static io.trino.plugin.iceberg.IcebergUtil.partitionTypes;
-import static io.trino.spi.block.MapValueBuilder.buildMapValue;
-import static io.trino.spi.block.RowValueBuilder.buildRowValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.StandardTypes.JSON;
@@ -85,8 +89,8 @@ import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.MetadataTableType.FILES;
-import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.iceberg.MetricsUtil.readableMetricsStruct;
 
 public class FilesTable
         implements SystemTable
@@ -111,24 +115,27 @@ public class FilesTable
     private static final String EQUALITY_IDS_COLUMN_NAME = "equality_ids";
     private static final String SORT_ORDER_ID_COLUMN_NAME = "sort_order_id";
     private static final String READABLE_METRICS_COLUMN_NAME = "readable_metrics";
+
     private final ConnectorTableMetadata tableMetadata;
-    private final TypeManager typeManager;
     private final Table icebergTable;
     private final Optional<Long> snapshotId;
+    private final Map<Integer, Type> idToTypeMapping;
+    private final List<PartitionField> partitionFields;
     private final Optional<IcebergPartitionColumn> partitionColumnType;
     private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
     private final List<Types.NestedField> primitiveFields;
     private final ExecutorService executor;
+    private final IcebergFileSystemFactory fileSystemFactory;
 
-    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId, ExecutorService executor)
+    public FilesTable(SchemaTableName tableName, TypeManager typeManager, Table icebergTable, Optional<Long> snapshotId, ExecutorService executor, IcebergFileSystemFactory fileSystemFactory)
     {
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
-        List<PartitionField> partitionFields = PartitionsTable.getAllPartitionFields(icebergTable);
-        partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema(), typeManager);
-        idToPrimitiveTypeMapping = IcebergUtil.primitiveFieldTypes(icebergTable.schema());
-        primitiveFields = IcebergUtil.primitiveFields(icebergTable.schema()).stream()
+        this.idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
+        this.partitionFields = PartitionsTable.getAllPartitionFields(icebergTable);
+        this.partitionColumnType = getPartitionColumnType(partitionFields, icebergTable.schema(), typeManager);
+        this.idToPrimitiveTypeMapping = IcebergUtil.primitiveFieldTypes(icebergTable.schema());
+        this.primitiveFields = IcebergUtil.primitiveFields(icebergTable.schema()).stream()
                 .sorted(Comparator.comparing(Types.NestedField::name))
                 .collect(toImmutableList());
 
@@ -152,9 +159,10 @@ public class FilesTable
         columns.add(new ColumnMetadata(SORT_ORDER_ID_COLUMN_NAME, INTEGER));
         columns.add(new ColumnMetadata(READABLE_METRICS_COLUMN_NAME, typeManager.getType(new TypeSignature(JSON))));
 
-        tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), columns.build());
+        this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), columns.build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
         this.executor = requireNonNull(executor, "executor is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
     @Override
@@ -170,271 +178,250 @@ public class FilesTable
     }
 
     @Override
-    public RecordCursor cursor(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split)
     {
-        List<io.trino.spi.type.Type> types = tableMetadata.getColumns().stream()
-                .map(ColumnMetadata::getType)
-                .collect(toImmutableList());
-        if (snapshotId.isEmpty()) {
-            return InMemoryRecordSet.builder(types).build().cursor();
-        }
+        return new FilesTablePageSource(
+                fileSystemFactory.create(session.getIdentity(), Collections.emptyMap()),
+                icebergTable.schema(),
+                icebergTable.specs(),
+                idToTypeMapping,
+                partitionFields,
+                partitionColumnType,
+                idToPrimitiveTypeMapping,
+                primitiveFields,
+                tableMetadata.getColumns().stream().map(ColumnMetadata::getType).toList(),
+                (FilesTableSplit) split);
+    }
 
-        Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
-        TableScan tableScan = createMetadataTableInstance(icebergTable, FILES)
-                .newScan()
-                .useSnapshot(snapshotId.get())
+    @Override
+    public Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
+    {
+        TableScan scan = icebergTable.newScan()
                 .includeColumnStats()
                 .planWith(executor);
 
-        Map<String, Integer> columnNameToPosition = mapWithIndex(tableScan.schema().columns().stream(),
-                (column, position) -> immutableEntry(column.name(), Long.valueOf(position).intValue()))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        snapshotId.ifPresent(scan::useSnapshot);
 
-        PlanFilesIterable planFilesIterable = new PlanFilesIterable(
-                tableScan.planFiles(),
-                primitiveFields,
-                idToTypeMapping,
-                types,
-                columnNameToPosition,
-                typeManager,
-                partitionColumnType,
-                PartitionsTable.getAllPartitionFields(icebergTable),
-                idToPrimitiveTypeMapping);
-        return planFilesIterable.cursor();
+        return Optional.of(new FilesTableSplitSource(scan.snapshot().allManifests(icebergTable.io())));
     }
 
-    private static class PlanFilesIterable
-            extends CloseableGroup
-            implements Iterable<List<Object>>
+    public record FilesTableSplit(String manifestFileEncoded)
+            implements ConnectorSplit
     {
-        private final CloseableIterable<FileScanTask> planFiles;
-        private final List<Types.NestedField> primitiveFields;
+    }
+
+    public static class FilesTablePageSource
+            implements ConnectorPageSource
+    {
+        private final Closer closer;
+        private final Schema schema;
         private final Map<Integer, Type> idToTypeMapping;
-        private final List<io.trino.spi.type.Type> types;
-        private final Map<String, Integer> columnNameToPosition;
-        private boolean closed;
-        private final MapType integerToBigintMapType;
-        private final MapType integerToVarcharMapType;
-        private final Optional<IcebergPartitionColumn> partitionColumnType;
         private final List<PartitionField> partitionFields;
+        private final Optional<IcebergPartitionColumn> partitionColumnType;
         private final Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping;
+        private final List<Types.NestedField> primitiveFields;
+        private final Iterator<? extends ContentFile<?>> contentItr;
+        private final PageBuilder pageBuilder;
 
-        public PlanFilesIterable(
-                CloseableIterable<FileScanTask> planFiles,
-                List<Types.NestedField> primitiveFields,
+        public FilesTablePageSource(
+                TrinoFileSystem trinoFileSystem,
+                Schema schema,
+                Map<Integer, PartitionSpec> partitionSpecs,
                 Map<Integer, Type> idToTypeMapping,
-                List<io.trino.spi.type.Type> types,
-                Map<String, Integer> columnNameToPosition,
-                TypeManager typeManager,
-                Optional<IcebergPartitionColumn> partitionColumnType,
                 List<PartitionField> partitionFields,
-                Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping)
+                Optional<IcebergPartitionColumn> partitionColumnType,
+                Map<Integer, Type.PrimitiveType> idToPrimitiveTypeMapping,
+                List<Types.NestedField> primitiveFields,
+                List<? extends io.trino.spi.type.Type> columnTypes,
+                FilesTableSplit split)
         {
-            this.planFiles = requireNonNull(planFiles, "planFiles is null");
-            this.primitiveFields = ImmutableList.copyOf(requireNonNull(primitiveFields, "primitiveFields is null"));
-            this.idToTypeMapping = ImmutableMap.copyOf(requireNonNull(idToTypeMapping, "idToTypeMapping is null"));
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
-            this.columnNameToPosition = ImmutableMap.copyOf(requireNonNull(columnNameToPosition, "columnNameToPosition is null"));
-            this.integerToBigintMapType = new MapType(INTEGER, BIGINT, typeManager.getTypeOperators());
-            this.integerToVarcharMapType = new MapType(INTEGER, VARCHAR, typeManager.getTypeOperators());
-            this.partitionColumnType = requireNonNull(partitionColumnType, "partitionColumnType is null");
-            this.partitionFields = ImmutableList.copyOf(requireNonNull(partitionFields, "partitionFields is null"));
-            this.idToPrimitiveTypeMapping = ImmutableMap.copyOf(requireNonNull(idToPrimitiveTypeMapping, "idToPrimitiveTypeMapping is null"));
-            addCloseable(planFiles);
-        }
-
-        public RecordCursor cursor()
-        {
-            CloseableIterator<List<Object>> iterator = this.iterator();
-            return new InMemoryRecordSet.InMemoryRecordCursor(types, iterator)
-            {
-                @Override
-                public void close()
-                {
-                    try (iterator) {
-                        super.close();
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException("Failed to close cursor", e);
-                    }
-                }
-            };
+            this.closer = Closer.create();
+            this.schema = schema;
+            this.idToTypeMapping = idToTypeMapping;
+            this.partitionColumnType = partitionColumnType;
+            this.idToPrimitiveTypeMapping = idToPrimitiveTypeMapping;
+            this.partitionFields = partitionFields;
+            this.primitiveFields = primitiveFields;
+            try {
+                ManifestFile manifestFile = ManifestFiles.decode(Base64.getDecoder().decode(split.manifestFileEncoded()));
+                ManifestReader<? extends ContentFile<?>> manifestReader = closer.register(manifestFile.content() == ManifestContent.DATA ?
+                        ManifestFiles.read(manifestFile, new ForwardingFileIo(trinoFileSystem)) :
+                        ManifestFiles.readDeleteManifest(manifestFile, new ForwardingFileIo(trinoFileSystem), partitionSpecs));
+                this.contentItr = manifestReader.iterator();
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            this.pageBuilder = new PageBuilder(columnTypes);
         }
 
         @Override
-        public CloseableIterator<List<Object>> iterator()
+        public long getCompletedBytes()
         {
-            final CloseableIterator<FileScanTask> planFilesIterator = planFiles.iterator();
-            addCloseable(planFilesIterator);
-
-            return new CloseableIterator<>()
-            {
-                private CloseableIterator<StructLike> currentIterator = CloseableIterator.empty();
-
-                @Override
-                public boolean hasNext()
-                {
-                    updateCurrentIterator();
-                    return !closed && currentIterator.hasNext();
-                }
-
-                @Override
-                public List<Object> next()
-                {
-                    updateCurrentIterator();
-                    return getRecord(currentIterator.next());
-                }
-
-                private void updateCurrentIterator()
-                {
-                    try {
-                        while (!closed && !currentIterator.hasNext() && planFilesIterator.hasNext()) {
-                            currentIterator.close();
-                            DataTask dataTask = (DataTask) planFilesIterator.next();
-                            currentIterator = dataTask.rows().iterator();
-                        }
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                }
-
-                @Override
-                public void close()
-                        throws IOException
-                {
-                    currentIterator.close();
-                    FilesTable.PlanFilesIterable.super.close();
-                    closed = true;
-                }
-            };
+            return 0;
         }
 
-        private List<Object> getRecord(StructLike structLike)
+        @Override
+        public long getReadTimeNanos()
         {
-            List<Object> columns = new ArrayList<>();
-            columns.add(structLike.get(columnNameToPosition.get(CONTENT_COLUMN_NAME), Integer.class));
-            columns.add(structLike.get(columnNameToPosition.get(FILE_PATH_COLUMN_NAME), String.class));
-            columns.add(structLike.get(columnNameToPosition.get(FILE_FORMAT_COLUMN_NAME), String.class));
-            columns.add(structLike.get(columnNameToPosition.get(SPEC_ID_COLUMN_NAME), Integer.class));
+            return 0;
+        }
 
-            if (columnNameToPosition.containsKey(PARTITION_COLUMN_NAME)) {
-                List<Type> partitionTypes = partitionTypes(partitionFields, idToPrimitiveTypeMapping);
-                StructLike partitionStruct = structLike.get(columnNameToPosition.get(PARTITION_COLUMN_NAME), org.apache.iceberg.PartitionData.class);
-                List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.orElseThrow().rowType().getFields().stream()
-                        .map(RowType.Field::getType)
-                        .collect(toImmutableList());
-                if (partitionStruct != null) {
-                    columns.add(buildRowValue(
-                            partitionColumnType.get().rowType(),
-                            fields -> {
-                                for (int i = 0; i < partitionColumnTypes.size(); i++) {
-                                    Type type = partitionTypes.get(i);
-                                    io.trino.spi.type.Type trinoType = partitionColumnType.get().rowType().getFields().get(i).getType();
-                                    Object value = null;
-                                    Integer fieldId = partitionColumnType.get().fieldIds().get(i);
-                                    if (fieldId != null) {
-                                        value = convertIcebergValueToTrino(type, partitionStruct.get(i, type.typeId().javaClass()));
-                                    }
-                                    writeNativeValue(trinoType, fields.get(i), value);
+        @Override
+        public boolean isFinished()
+        {
+            return false;
+        }
+
+        @Override
+        public SourcePage getNextSourcePage()
+        {
+            while (contentItr.hasNext() && !pageBuilder.isFull()) {
+                pageBuilder.declarePosition();
+                ContentFile<?> contentFile = contentItr.next();
+                contentFile.columnSizes();
+
+                // content
+                INTEGER.writeLong(pageBuilder.getBlockBuilder(0), contentFile.content().id());
+                // file_path
+                VARCHAR.writeString(pageBuilder.getBlockBuilder(1), contentFile.location());
+                // file_format
+                VARCHAR.writeString(pageBuilder.getBlockBuilder(2), contentFile.format().toString());
+                // spec_id
+                INTEGER.writeLong(pageBuilder.getBlockBuilder(3), contentFile.specId());
+                // partitions
+                if (partitionColumnType.isPresent()) {
+                    List<Type> partitionTypes = partitionTypes(partitionFields, idToPrimitiveTypeMapping);
+                    List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.orElseThrow().rowType().getFields().stream()
+                            .map(RowType.Field::getType)
+                            .collect(toImmutableList());
+
+                    if (pageBuilder.getBlockBuilder(4) instanceof RowBlockBuilder rowBlockBuilder) {
+                        rowBlockBuilder.buildEntry(fields -> {
+                            for (int i = 0; i < partitionColumnTypes.size(); i++) {
+                                Type type = partitionTypes.get(i);
+                                io.trino.spi.type.Type trinoType = partitionColumnType.get().rowType().getFields().get(i).getType();
+                                Object value = null;
+                                Integer fieldId = partitionColumnType.get().fieldIds().get(i);
+                                if (fieldId != null) {
+                                    value = convertIcebergValueToTrino(type, contentFile.partition().get(i, type.typeId().javaClass()));
                                 }
-                            }));
+                                writeNativeValue(trinoType, fields.get(i), value);
+                            }
+                        });
+                    }
+                }
+                // record_count
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(5), contentFile.recordCount());
+                // file_size_in_bytes
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(6), contentFile.fileSizeInBytes());
+                // column_sizes
+                writeIntegerBigint(pageBuilder.getBlockBuilder(7), contentFile.columnSizes());
+                // value_counts
+                writeIntegerBigint(pageBuilder.getBlockBuilder(8), contentFile.valueCounts());
+                // null_value_counts
+                writeIntegerBigint(pageBuilder.getBlockBuilder(9), contentFile.nullValueCounts());
+                // lower_bounds
+                writeIntegerVarchar(pageBuilder.getBlockBuilder(10), contentFile.lowerBounds());
+                // upper_bounds
+                writeIntegerVarchar(pageBuilder.getBlockBuilder(11), contentFile.upperBounds());
+                // key_metadata
+                VARBINARY.writeSlice(pageBuilder.getBlockBuilder(12), Slices.wrappedHeapBuffer(contentFile.keyMetadata()));
+                // split_offset
+                contentFile.splitOffsets().forEach(offset -> BIGINT.writeLong(pageBuilder.getBlockBuilder(13), offset));
+                // equality_ids
+                contentFile.equalityFieldIds().forEach(id -> INTEGER.writeLong(pageBuilder.getBlockBuilder(14), id));
+                // sort_order_id
+                INTEGER.writeLong(pageBuilder.getBlockBuilder(15), contentFile.sortOrderId());
+                // readable_metrics
+                VARCHAR.writeString(
+                        pageBuilder.getBlockBuilder(16),
+                        toJson(readableMetricsStruct(schema, contentFile, schema.findField(READABLE_METRICS_COLUMN_NAME).type().asStructType()), primitiveFields));
+            }
+
+            if (!pageBuilder.isEmpty()) {
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return SourcePage.create(page);
+            }
+
+            return null;
+        }
+
+        @Override
+        public long getMemoryUsage()
+        {
+            return 0;
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            closer.close();
+        }
+
+        private static void writeIntegerBigint(BlockBuilder blockBuilder, Map<Integer, Long> values)
+        {
+            if (blockBuilder instanceof MapBlockBuilder mapBlockBuilder) {
+                mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
+                    INTEGER.writeLong(keyBuilder, key);
+                    BIGINT.writeLong(valueBuilder, value);
+                }));
+            }
+        }
+
+        private void writeIntegerVarchar(BlockBuilder blockBuilder, Map<Integer, ByteBuffer> values)
+        {
+            if (blockBuilder instanceof MapBlockBuilder mapBlockBuilder) {
+                mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                    values.forEach((key, value) -> {
+                        INTEGER.writeLong(keyBuilder, key);
+                        VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(
+                                idToTypeMapping.get(key),
+                                Conversions.fromByteBuffer(idToTypeMapping.get(key), value)));
+                    });
+                });
+            }
+        }
+    }
+
+    public static class FilesTableSplitSource
+            implements ConnectorSplitSource
+    {
+        private final Iterator<ManifestFile> manifestFileItr;
+
+        public FilesTableSplitSource(List<ManifestFile> manifestFiles)
+        {
+            this.manifestFileItr = requireNonNull(manifestFiles, "manifestFiles is null").iterator();
+        }
+
+        @Override
+        public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
+        {
+            List<ConnectorSplit> splits = new ArrayList<>();
+
+            while (manifestFileItr.hasNext() && splits.size() < maxSize) {
+                try {
+                    splits.add(new FilesTableSplit(Base64.getEncoder().encodeToString(ManifestFiles.encode(manifestFileItr.next()))));
+                }
+                catch (IOException e) {
+                    throw new RuntimeException(e);
                 }
             }
-
-            columns.add(structLike.get(columnNameToPosition.get(RECORD_COUNT_COLUMN_NAME), Long.class));
-            columns.add(structLike.get(columnNameToPosition.get(FILE_SIZE_IN_BYTES_COLUMN_NAME), Long.class));
-            columns.add(getIntegerBigintSqlMap(structLike.get(columnNameToPosition.get(COLUMN_SIZES_COLUMN_NAME), Map.class)));
-            columns.add(getIntegerBigintSqlMap(structLike.get(columnNameToPosition.get(VALUE_COUNTS_COLUMN_NAME), Map.class)));
-            columns.add(getIntegerBigintSqlMap(structLike.get(columnNameToPosition.get(NULL_VALUE_COUNTS_COLUMN_NAME), Map.class)));
-            columns.add(getIntegerBigintSqlMap(structLike.get(columnNameToPosition.get(NAN_VALUE_COUNTS_COLUMN_NAME), Map.class)));
-            columns.add(getIntegerVarcharSqlMap(structLike.get(columnNameToPosition.get(LOWER_BOUNDS_COLUMN_NAME), Map.class)));
-            columns.add(getIntegerVarcharSqlMap(structLike.get(columnNameToPosition.get(UPPER_BOUNDS_COLUMN_NAME), Map.class)));
-            columns.add(toVarbinarySlice(structLike.get(columnNameToPosition.get(KEY_METADATA_COLUMN_NAME), ByteBuffer.class)));
-            columns.add(toBigintArrayBlock(structLike.get(columnNameToPosition.get(SPLIT_OFFSETS_COLUMN_NAME), List.class)));
-            columns.add(toIntegerArrayBlock(structLike.get(columnNameToPosition.get(EQUALITY_IDS_COLUMN_NAME), List.class)));
-            columns.add(structLike.get(columnNameToPosition.get(SORT_ORDER_ID_COLUMN_NAME), Integer.class));
-
-            ReadableMetricsStruct readableMetrics = structLike.get(columnNameToPosition.get(READABLE_METRICS_COLUMN_NAME), ReadableMetricsStruct.class);
-            columns.add(toJson(readableMetrics, primitiveFields));
-
-            checkArgument(columns.size() == types.size(), "Expected %s types in row, but got %s values", types.size(), columns.size());
-            return columns;
+            return completedFuture(new ConnectorSplitBatch(splits, !manifestFileItr.hasNext()));
         }
 
-        private SqlMap getIntegerBigintSqlMap(Map<Integer, Long> value)
+        @Override
+        public void close()
         {
-            if (value == null) {
-                return null;
-            }
-            return toIntegerBigintSqlMap(value);
+            // do nothing
         }
 
-        private SqlMap getIntegerVarcharSqlMap(Map<Integer, ByteBuffer> value)
+        @Override
+        public boolean isFinished()
         {
-            if (value == null) {
-                return null;
-            }
-            return toIntegerVarcharSqlMap(
-                    value.entrySet().stream()
-                            .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
-                            .collect(toImmutableMap(
-                                    Map.Entry<Integer, ByteBuffer>::getKey,
-                                    entry -> Transforms.identity().toHumanString(
-                                            idToTypeMapping.get(entry.getKey()), Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
-        }
-
-        private SqlMap toIntegerBigintSqlMap(Map<Integer, Long> values)
-        {
-            return buildMapValue(
-                    integerToBigintMapType,
-                    values.size(),
-                    (keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
-                        INTEGER.writeLong(keyBuilder, key);
-                        BIGINT.writeLong(valueBuilder, value);
-                    }));
-        }
-
-        private SqlMap toIntegerVarcharSqlMap(Map<Integer, String> values)
-        {
-            return buildMapValue(
-                    integerToVarcharMapType,
-                    values.size(),
-                    (keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
-                        INTEGER.writeLong(keyBuilder, key);
-                        VARCHAR.writeString(valueBuilder, value);
-                    }));
-        }
-
-        @Nullable
-        private static Block toIntegerArrayBlock(List<Integer> values)
-        {
-            if (values == null) {
-                return null;
-            }
-            BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(values.size());
-            values.forEach(value -> INTEGER.writeLong(builder, value));
-            return builder.build();
-        }
-
-        @Nullable
-        private static Block toBigintArrayBlock(List<Long> values)
-        {
-            if (values == null) {
-                return null;
-            }
-            BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(values.size());
-            values.forEach(value -> BIGINT.writeLong(builder, value));
-            return builder.build();
-        }
-
-        @Nullable
-        private static Slice toVarbinarySlice(ByteBuffer value)
-        {
-            if (value == null) {
-                return null;
-            }
-            return Slices.wrappedHeapBuffer(value);
+            return manifestFileItr != null && !manifestFileItr.hasNext();
         }
     }
 

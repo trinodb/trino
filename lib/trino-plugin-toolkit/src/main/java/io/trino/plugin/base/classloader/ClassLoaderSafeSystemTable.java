@@ -117,6 +117,14 @@ public class ClassLoaderSafeSystemTable
     }
 
     @Override
+    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorSplit split)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.pageSource(transactionHandle, session, split);
+        }
+    }
+
+    @Override
     public Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
