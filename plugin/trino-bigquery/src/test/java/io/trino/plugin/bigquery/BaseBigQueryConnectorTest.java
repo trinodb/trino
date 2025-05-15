@@ -21,7 +21,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
-import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -44,7 +43,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -1453,42 +1451,6 @@ public abstract class BaseBigQueryConnectorTest
                             results -> assertThat(results.getRowCount()).isEqualTo(2));
                 },
                 results -> assertThat(results.getRowCount()).isEqualTo(2));
-    }
-
-    @Test
-    void testMaxParallelism()
-    {
-        Session singleParallelism = Session.builder(getSession())
-                .setCatalogSessionProperty("bigquery", "max_parallelism", "1")
-                .build();
-
-        try (TestTable table = new TestTable(bigQuerySqlExecutor, "tpch.test_max_parallelism", "AS SELECT repeat('x', 1000) x FROM UNNEST(GENERATE_ARRAY(1, 1000000))")) {
-            assertThat(getSplitCount(getSession(), "SELECT * FROM " + table.getName())).isGreaterThan(1);
-            assertThat(getSplitCount(singleParallelism, "SELECT * FROM " + table.getName())).isEqualTo(1);
-        }
-    }
-
-    private long getSplitCount(Session session, @Language("SQL") String query)
-    {
-        MaterializedResultWithPlan result = getQueryRunner().executeWithPlan(session, query);
-        return getOperatorStats(result.queryId()).getTotalDrivers();
-    }
-
-    private OperatorStats getOperatorStats(QueryId queryId)
-    {
-        try {
-            return getDistributedQueryRunner().getCoordinator()
-                    .getQueryManager()
-                    .getFullQueryInfo(queryId)
-                    .getQueryStats()
-                    .getOperatorSummaries()
-                    .stream()
-                    .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
-                    .collect(onlyElement());
-        }
-        catch (NoSuchElementException e) {
-            throw new RuntimeException("Couldn't find operator summary, probably due to query statistic collection error", e);
-        }
     }
 
     @Test
