@@ -55,7 +55,7 @@ public class TestGrokModes
         String logFormat = "%{INT:intNum} %{DATE_US:dateStr} %{GREEDYDATA:message}";
 
         // strict mode - never do automatic data type conversion
-        Grok strictGrok = Grok.create();
+        Grok strictGrok = new Grok();
         strictGrok.setStrictMode(true);
         strictGrok.compile(logFormat);
         Match strictMatch = strictGrok.match(log);
@@ -66,7 +66,7 @@ public class TestGrokModes
         assertThat(strictMatch.toMap().get("message").getClass()).isEqualTo(String.class);
 
         // default mode - do automatic data type conversion
-        Grok defaultGrok = Grok.create();
+        Grok defaultGrok = new Grok();
         defaultGrok.compile(logFormat);
         Match defaultMatch = defaultGrok.match(log);
         defaultMatch.captures();
@@ -85,7 +85,7 @@ public class TestGrokModes
 
         // strict mode - throw exceptions when data type conversion fails
         boolean[] throwns = {false, false};
-        Grok strictGrok = Grok.create();
+        Grok strictGrok = new Grok();
         strictGrok.setStrictMode(true);
         for (int i = 0; i < 2; i++) {
             strictGrok.compile(logFormats[i]);
@@ -100,7 +100,7 @@ public class TestGrokModes
         }
 
         // default mode - convert to string when data type conversion fails
-        Grok defaultGrok = Grok.create();
+        Grok defaultGrok = new Grok();
         for (int i = 0; i < 2; i++) {
             defaultGrok.compile(logFormats[i]);
             Match defaultMatch = defaultGrok.match(errlogs[i]);

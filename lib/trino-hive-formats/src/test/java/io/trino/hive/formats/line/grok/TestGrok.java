@@ -36,17 +36,8 @@ public class TestGrok
      *
      * @throws Throwable throws a throwable
      */
-    /*
-     * public void testGrok() throws Throwable { Grok g = new Grok();
-     *
-     * g.addPatternFromFile("patterns/base"); g.compile("%{APACHE}"); Match gm =
-     * g.match("127.0.0.1 - frank [10/Oct/2000:13:55:36 -0700] \"GET /apache_pb.gif HTTP/1.0\" 200 2326"
-     * ); //Match gm = g.match("10.192.1.47"); gm.captures(); //See the result gm.toJson()
-     *
-     * }
-     */
 
-    Grok g = Grok.create(null);
+    Grok g = new Grok();
 
     public TestGrok()
             throws GrokException
@@ -58,17 +49,6 @@ public class TestGrok
     {
         Grok g = new Grok();
         boolean thrown = false;
-
-        // expected exception
-        try {
-            g.addPatternFromFile("/good/luck");
-        }
-        catch (GrokException e) {
-            thrown = true;
-        }
-        assertThat(thrown).isTrue();
-
-        thrown = false;
 
         try {
             g.addPattern(null, "");
@@ -131,7 +111,8 @@ public class TestGrok
     public void test001_static_metod_factory()
             throws Throwable
     {
-        Grok staticGrok = Grok.create("%{USERNAME}");
+        Grok staticGrok = new Grok();
+        staticGrok.compile("%{USERNAME}");
         Match gm = staticGrok.match("root");
         gm.captures();
         assertThat(gm.toMap().toString()).isEqualTo("{USERNAME=root}");
@@ -368,7 +349,8 @@ public class TestGrok
     public void test012_day()
             throws Throwable
     {
-        Grok grok = Grok.create("%{DAY}");
+        Grok grok = new Grok();
+        grok.compile("%{DAY}");
 
         List<String> days = new ArrayList<String>();
         days.add("Mon");
@@ -400,7 +382,8 @@ public class TestGrok
     public void test013_IpSet()
             throws Throwable
     {
-        Grok grok = Grok.create("%{IP}");
+        Grok grok = new Grok();
+        grok.compile("%{IP}");
 
         BufferedReader br = Files.newBufferedReader(Path.of(ResourceManager.IP));
         String line;
@@ -417,7 +400,8 @@ public class TestGrok
     public void test014_month()
             throws Throwable
     {
-        Grok grok = Grok.create("%{MONTH}");
+        Grok grok = new Grok();
+        grok.compile("%{MONTH}");
 
         String[] array = {"Jan", "January", "Feb", "February", "Mar", "March", "Apr", "April", "May", "Jun", "June",
                 "Jul", "July", "Aug", "August", "Sep", "September", "Oct", "October", "Nov",
@@ -437,7 +421,8 @@ public class TestGrok
     public void test015_iso8601()
             throws GrokException
     {
-        Grok grok = Grok.create("%{TIMESTAMP_ISO8601}");
+        Grok grok = new Grok();
+        grok.compile("%{TIMESTAMP_ISO8601}");
 
         String[] array = {
                 "2001-01-01T00:00:00",
@@ -471,7 +456,8 @@ public class TestGrok
     public void test016_uri()
             throws GrokException
     {
-        Grok grok = Grok.create("%{URI}");
+        Grok grok = new Grok();
+        grok.compile("%{URI}");
 
         String[] array = {
                 "http://www.google.com",
@@ -518,7 +504,8 @@ public class TestGrok
     public void test017_nonMachingList()
             throws GrokException
     {
-        Grok grok = Grok.create("%{URI}");
+        Grok grok = new Grok();
+        grok.compile("%{URI}");
 
         String[] array = {
                 "http://www.google.com",
