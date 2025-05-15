@@ -13,17 +13,14 @@
  */
 package io.trino.hive.formats.line.grok;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.trino.hive.formats.line.grok.exception.GrokException;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.Serializable;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -91,36 +88,21 @@ public class Grok
      */
     private Map<String, ArrayList<String>> grokDateFormats;
 
-    /** only use in grok discovery. */
-    private String savedPattern;
-
-    /**
-     * used to identify which config file is loading.
-     */
-    private static final String PATTERNCONFIG = "grokPatternDefinition";
-    private static final String DATATYPECONFIG = "grokPatternDefaultDatatype";
-    private static final String DATEFORMATCONFIG = "grokDateFormats";
-
     private static final Map<String, String> DEFAULT_PATTERNS = new TreeMap<>();
     private static final Map<String, String> DEFAULT_DATA_TYPES = new HashMap<>();
     private static final Map<String, ArrayList<String>> DEFAULT_DATE_FORMATS = new HashMap<>();
 
     static {
         try {
-            // Load configurations statically without creating an instance
-            addConfFromReader(getFileFromResouces("grok/patterns"), PATTERNCONFIG);
-            addConfFromReader(getFileFromResouces("grok/datatype"), DATATYPECONFIG);
-            addConfFromReader(getFileFromResouces("grok/dateformat"), DATEFORMATCONFIG);
+            // Load default patterns statically without creating an instance
+            loadDefaultPatternsFromReader(getFileFromResouces("grok/patterns"), DEFAULT_PATTERNS);
+            loadDefaultPatternsFromReader(getFileFromResouces("grok/datatype"), DEFAULT_DATA_TYPES);
+            loadDefaultDatePatternsFromReader(getFileFromResouces("grok/dateformat"));
         }
         catch (Exception e) {
             throw new ExceptionInInitializerError(e);
         }
     }
-
-    /**
-     * Create Empty {@code Grok}.
-     */
-    public static final Grok EMPTY = new Grok();
 
     /**
      * used to decide grok mode:
@@ -137,46 +119,100 @@ public class Grok
         originalGrokPattern = "";
         namedRegex = "";
         compiledNamedRegex = null;
-        grokPatternDefinition = new TreeMap<>();
-        grokPatternDefaultDatatype = new HashMap<>();
+        grokPatternDefinition = DEFAULT_PATTERNS;
+        grokPatternDefaultDatatype = DEFAULT_DATA_TYPES;
         grokPatternPatterns = new HashMap<>();
-        grokDateFormats = new HashMap<>();
+        grokDateFormats = DEFAULT_DATE_FORMATS;
         namedRegexCollection = new TreeMap<>();
-        savedPattern = "";
         strictMode = false;
     }
 
     /**
-     * Create a {@code Grok} instance using the default pattern, datatype and dateformat file.
+     * read config info from the given reader
      *
-     * @return {@code Grok} instance
-     * @throws GrokException runtime expt
+     * @param reader reader that contains config info
+     * @param defaultConfig default value of config
+     * @throws GrokException grok runtime exception
      */
-    public static Grok create()
+    private static void loadDefaultPatternsFromReader(Reader reader, Map<String, String> defaultConfig)
             throws GrokException
     {
-        return create(null);
+        try (BufferedReader br = new BufferedReader(reader)) {
+            String line;
+            Pattern pattern = Pattern.compile("^([A-z0-9_]+)\\s+(.*)$");
+            while ((line = br.readLine()) != null) {
+                // We dont want \n and commented line
+                Matcher m = pattern.matcher(line);
+                if (m.matches()) {
+                    loadDefaultPatterns(m.group(1), m.group(2), defaultConfig);
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new GrokException(e.getMessage());
+        }
+    }
+
+    private static void loadDefaultDatePatternsFromReader(Reader reader)
+            throws GrokException
+    {
+        try (BufferedReader br = new BufferedReader(reader)) {
+            String line;
+            String key = null;
+            while ((line = br.readLine()) != null) {
+                if (line.isEmpty()) {
+                    key = null;
+                }
+                else if (key == null) {
+                    key = line;
+                }
+                else {
+                    loadDefaultDatePatterns(key, line);
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new GrokException(e.getMessage());
+        }
     }
 
     /**
-     * Create a {@code Grok} instance with a {@code Grok} pattern, using the default pattern, datatype and dateformat file.
+     * Load config files that holds default patterns
      *
-     * @param grokExpression - <b>OPTIONAL</b> - Grok pattern to compile ex: %{APACHELOG}
-     * @return {@code Grok} instance
-     * @throws GrokException runtime expt
+     * @param name Pattern Name
+     * @param conf Config value to be added
+     * @param defaultConfig which config file is currently operated
+     * @throws GrokException grok runtime exception
      */
-    public static Grok create(String grokExpression)
+    private static void loadDefaultPatterns(String name, String conf, Map<String, String> defaultConfig)
             throws GrokException
     {
-        Grok g = new Grok();
-        g.grokPatternDefinition = DEFAULT_PATTERNS;
-        g.grokPatternDefaultDatatype = DEFAULT_DATA_TYPES;
-        g.grokDateFormats = DEFAULT_DATE_FORMATS;
-        // compile the log format if not null
-        if (grokExpression != null && !grokExpression.isEmpty()) {
-            g.compile(grokExpression, false);
+        if (name == null || name.isBlank()) {
+            throw new GrokException("Invalid pattern name when loading config file");
         }
-        return g;
+        if (conf == null || conf.isBlank()) {
+            throw new GrokException("Invalid value when loading config file");
+        }
+        defaultConfig.put(name, conf);
+    }
+
+    private static void loadDefaultDatePatterns(String name, String conf)
+            throws GrokException
+    {
+        if (name == null || name.isBlank()) {
+            throw new GrokException("Invalid pattern name when loading config file");
+        }
+        if (conf == null || conf.isBlank()) {
+            throw new GrokException("Invalid value when loading config file");
+        }
+        if (DEFAULT_DATE_FORMATS.containsKey(name)) {
+            DEFAULT_DATE_FORMATS.get(name).add(conf);
+        }
+        else {
+            ArrayList<String> formatContainer = new ArrayList<>();
+            formatContainer.add(conf);
+            DEFAULT_DATE_FORMATS.put(name, formatContainer);
+        }
     }
 
     /**
@@ -196,138 +232,17 @@ public class Grok
         return reader;
     }
 
-    // config file loader
-    /**
-     *
-     * @param name Pattern Name
-     * @param conf Config value to be added
-     * @param destination which config file is currently operated
-     * @throws GrokException grok runtime exception
-     */
-    private static void addConf(String name, String conf, String destination)
-            throws GrokException
-    {
-        if (name == null || name.isBlank()) {
-            throw new GrokException("Invalid pattern name when loading config file");
-        }
-        if (conf == null || conf.isBlank()) {
-            throw new GrokException("Invalid value when loading config file");
-        }
-        if (destination.equals(PATTERNCONFIG)) {
-            DEFAULT_PATTERNS.put(name, conf);
-        }
-        else if (destination.equals(DATATYPECONFIG)) {
-            DEFAULT_DATA_TYPES.put(name, conf);
-        }
-        else {
-            if (DEFAULT_DATE_FORMATS.containsKey(name)) {
-                DEFAULT_DATE_FORMATS.get(name).add(conf);
-            }
-            else {
-                ArrayList<String> formatContainer = new ArrayList<>();
-                formatContainer.add(conf);
-                DEFAULT_DATE_FORMATS.put(name, formatContainer);
-            }
-        }
-    }
-
-    /**
-     * Add custom pattern to grok in the runtime.
-     *
-     * @param name : Pattern Name
-     * @param pattern : Regular expression Or {@code Grok} pattern
-     * @throws GrokException runtime expt
-     **/
-    public void addPattern(String name, String pattern)
-            throws GrokException
-    {
-        addConf(name, pattern, PATTERNCONFIG);
-    }
-
-    /**
-     * read config info from the given file
-     *
-     * @param file config file path
-     * @param destination which config file is currently operated
-     * @throws GrokException grok runtime exception
-     */
-    private void addConfFromFile(String file, String destination)
-            throws GrokException
-    {
-        if (file == null || file.isBlank()) {
-            throw new GrokException("Config file name should not be empty or null");
-        }
-        File f = new File(file);
-        if (!f.exists()) {
-            throw new GrokException("Pattern file not found");
-        }
-        if (!f.canRead()) {
-            throw new GrokException("Pattern file cannot be read");
-        }
-        BufferedReader r = null;
-        try {
-            r = Files.newBufferedReader(f.toPath());
-            addConfFromReader(r, destination);
-        }
-        catch (@SuppressWarnings("hiding") IOException e) {
-            throw new GrokException(e.getMessage());
-        }
-        finally {
-            try {
-                if (r != null) {
-                    r.close();
-                }
-            }
-            catch (IOException io) {
-                throw new GrokException("Fail to close the file.");
-            }
-        }
-    }
-
-    /**
-     * Add patterns to {@code Grok} from the given file.
-     *
-     * @param file : Path of the grok pattern
-     * @throws GrokException runtime expt
-     */
-    public void addPatternFromFile(String file)
-            throws GrokException
-    {
-        addConfFromFile(file, PATTERNCONFIG);
-    }
-
-    /**
-     * read config info from the given reader
-     *
-     * @param reader reader that contains config info
-     * @param destination config name
-     * @throws GrokException grok runtime exception
-     */
-    private static void addConfFromReader(Reader reader, String destination)
+    public void addPatternFromReader(Reader reader)
             throws GrokException
     {
         try (BufferedReader br = new BufferedReader(reader)) {
             String line;
             Pattern pattern = Pattern.compile("^([A-z0-9_]+)\\s+(.*)$");
-            String key = null;
             while ((line = br.readLine()) != null) {
-                if (destination.equals(PATTERNCONFIG) || destination.equals(DATATYPECONFIG)) {
-                    // We dont want \n and commented line
-                    Matcher m = pattern.matcher(line);
-                    if (m.matches()) {
-                        addConf(m.group(1), m.group(2), destination);
-                    }
-                }
-                else {
-                    if (line.isEmpty()) {
-                        key = null;
-                    }
-                    else if (key == null) {
-                        key = line;
-                    }
-                    else {
-                        addConf(key, line, destination);
-                    }
+                // We don't want \n and commented line
+                Matcher m = pattern.matcher(line);
+                if (m.matches()) {
+                    addPattern(m.group(1), m.group(2));
                 }
             }
         }
@@ -336,16 +251,16 @@ public class Grok
         }
     }
 
-    /**
-     * Add patterns to {@code Grok} from a Reader.
-     *
-     * @param r : Reader with {@code Grok} patterns
-     * @throws GrokException runtime expt
-     */
-    public void addPatternFromReader(Reader r)
+    public void addPattern(String name, String conf)
             throws GrokException
     {
-        addConfFromReader(r, PATTERNCONFIG);
+        if (name == null || name.isBlank()) {
+            throw new GrokException("Invalid pattern name when loading config file");
+        }
+        if (conf == null || conf.isBlank()) {
+            throw new GrokException("Invalid value when loading config file");
+        }
+        grokPatternDefinition.put(name, conf);
     }
 
     // match log with regex and capture results
@@ -357,7 +272,7 @@ public class Grok
      * @return json representation og the log
      */
     public String capture(String log)
-            throws GrokException, JsonProcessingException
+            throws GrokException
     {
         Match match = match(log);
         match.captures();
@@ -509,16 +424,6 @@ public class Grok
     }
 
     /**
-     * Get the current map of {@code Grok} pattern.
-     *
-     * @return Patterns (name, regular expression)
-     */
-    public Map<String, String> getPatterns()
-    {
-        return grokPatternDefinition;
-    }
-
-    /**
      * Get the named regex from the {@code Grok} pattern. <br>
      * See {@link #compile(String)} for more detail.
      *
@@ -527,16 +432,6 @@ public class Grok
     public String getNamedRegex()
     {
         return namedRegex;
-    }
-
-    public String getSaved_pattern()
-    {
-        return savedPattern;
-    }
-
-    public void setSaved_pattern(String savedPattern)
-    {
-        this.savedPattern = savedPattern;
     }
 
     public boolean getStrictMode()

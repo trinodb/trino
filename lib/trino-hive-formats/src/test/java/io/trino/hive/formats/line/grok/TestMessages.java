@@ -33,7 +33,7 @@ public class TestMessages
     public void test001_linux_messages()
             throws GrokException, IOException
     {
-        Grok g = Grok.create();
+        Grok g = new Grok();
         g.compile("%{MESSAGESLOG}");
 
         BufferedReader br = Files.newBufferedReader(Path.of(LOG_FILE));
