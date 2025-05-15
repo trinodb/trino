@@ -33,10 +33,12 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SaveMode;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.LiteralInterpreter;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.analyzer.OutputColumn;
 import io.trino.sql.tree.ColumnDefinition;
@@ -44,6 +46,7 @@ import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikeClause;
+import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.TableElement;
@@ -73,11 +76,13 @@ import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
@@ -152,6 +157,7 @@ public class CreateTableTask
 
         String catalogName = tableName.catalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
+        LiteralInterpreter literalInterpreter = new LiteralInterpreter(plannerContext, session);
 
         Map<String, Object> properties = tablePropertyManager.getProperties(
                 catalogName,
@@ -166,6 +172,7 @@ public class CreateTableTask
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
         boolean includingProperties = false;
+        boolean supportsDefaultColumnValue = plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(DEFAULT_COLUMN_VALUE);
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition column) {
                 if (column.getName().getParts().size() != 1) {
@@ -185,6 +192,9 @@ public class CreateTableTask
                 if (columns.containsKey(name.getValue().toLowerCase(ENGLISH))) {
                     throw semanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", name);
                 }
+                if (column.getDefaultValue().isPresent() && !supportsDefaultColumnValue) {
+                    throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support default value for column name '%s'", catalogName, name);
+                }
                 if (!column.isNullable() && !plannerContext.getMetadata().getConnectorCapabilities(session, catalogHandle).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
                     throw semanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", catalogName, name);
                 }
@@ -198,9 +208,11 @@ public class CreateTableTask
                         parameterLookup,
                         true);
 
+                Type supportedType = getSupportedType(session, catalogHandle, properties, type);
                 columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
                         .setName(name.getValue().toLowerCase(ENGLISH))
-                        .setType(getSupportedType(session, catalogHandle, properties, type))
+                        .setType(supportedType)
+                        .setDefaultValue(column.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, supportedType)))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)
@@ -329,6 +341,17 @@ public class CreateTableTask
             }
         }
         return finalProperties;
+    }
+
+    private static NullableValue evaluateLiteral(LiteralInterpreter literalInterpreter, Literal literal, Type type)
+    {
+        try {
+            // NullableValue constructor checks the type compatibility between type and value
+            return new NullableValue(type, literalInterpreter.evaluate(literal, type));
+        }
+        catch (RuntimeException e) {
+            throw semanticException(INVALID_LITERAL, literal, e, "'%s' is not a valid %s literal", literal, type.getDisplayName().toUpperCase(ENGLISH));
+        }
     }
 
     private static SaveMode toConnectorSaveMode(io.trino.sql.tree.SaveMode saveMode)

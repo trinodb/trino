@@ -13,6 +13,7 @@
  */
 package io.trino.spi.connector;
 
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
@@ -31,6 +32,7 @@ public class ColumnMetadata
 {
     private final String name;
     private final Type type;
+    private final Optional<NullableValue> defaultValue;
     private final boolean nullable;
     private final String comment;
     private final String extraInfo;
@@ -39,17 +41,30 @@ public class ColumnMetadata
 
     public ColumnMetadata(String name, Type type)
     {
-        this(name, type, true, null, null, false, emptyMap());
+        this(name, type, Optional.empty(), true, null, null, false, emptyMap());
     }
 
-    private ColumnMetadata(String name, Type type, boolean nullable, String comment, String extraInfo, boolean hidden, Map<String, Object> properties)
+    private ColumnMetadata(
+            String name,
+            Type type,
+            Optional<NullableValue> defaultValue,
+            boolean nullable,
+            String comment,
+            String extraInfo,
+            boolean hidden,
+            Map<String, Object> properties)
     {
         checkNotEmpty(name, "name");
         requireNonNull(type, "type is null");
+        requireNonNull(defaultValue, "defaultValue is null");
         requireNonNull(properties, "properties is null");
+        if (defaultValue.isPresent() && !type.equals(defaultValue.get().getType())) {
+            throw new IllegalArgumentException("Default value type '%s' does not match column type '%s'".formatted(defaultValue.get().getType(), type));
+        }
 
         this.name = name.toLowerCase(ENGLISH);
         this.type = type;
+        this.defaultValue = defaultValue;
         this.comment = comment;
         this.extraInfo = extraInfo;
         this.hidden = hidden;
@@ -65,6 +80,11 @@ public class ColumnMetadata
     public Type getType()
     {
         return type;
+    }
+
+    public Optional<NullableValue> getDefaultValue()
+    {
+        return defaultValue;
     }
 
     public boolean isNullable()
@@ -161,6 +181,7 @@ public class ColumnMetadata
     {
         private String name;
         private Type type;
+        private Optional<NullableValue> defaultValue = Optional.empty();
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
         private Optional<String> extraInfo = Optional.empty();
@@ -189,6 +210,12 @@ public class ColumnMetadata
         public Builder setType(Type type)
         {
             this.type = requireNonNull(type, "type is null");
+            return this;
+        }
+
+        public Builder setDefaultValue(Optional<NullableValue> defaultValue)
+        {
+            this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
             return this;
         }
 
@@ -227,6 +254,7 @@ public class ColumnMetadata
             return new ColumnMetadata(
                     name,
                     type,
+                    defaultValue,
                     nullable,
                     comment.orElse(null),
                     extraInfo.orElse(null),
