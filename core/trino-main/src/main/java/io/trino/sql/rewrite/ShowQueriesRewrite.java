@@ -98,7 +98,6 @@ import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Node;
-import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
@@ -662,7 +661,6 @@ public final class ShowQueriesRewrite
 
             Collection<PropertyMetadata<?>> allColumnProperties = columnPropertyManager.getAllProperties(tableHandle.catalogHandle());
 
-            NodeLocation location = node.getLocation().orElse(null);
             List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .map(column -> {
@@ -672,10 +670,9 @@ public final class ShowQueriesRewrite
                                 column.getProperties(),
                                 allColumnProperties);
                         return new ColumnDefinition(
-                                location,
                                 QualifiedName.of(column.getName()),
                                 toSqlType(column.getType()),
-                                column.getDefaultValue().map(value -> toLiteral(location, column.getType(), value)),
+                                column.getDefaultValue().map(value -> toLiteral(column.getType(), value)),
                                 column.isNullable(),
                                 propertyNodes,
                                 Optional.ofNullable(column.getComment()));
@@ -696,43 +693,43 @@ public final class ShowQueriesRewrite
             return singleValueQuery("Create Table", formatSql(createTable).trim());
         }
 
-        private static Literal toLiteral(NodeLocation location, Type type, NullableValue nullableValue)
+        private static Literal toLiteral(Type type, NullableValue nullableValue)
                 throws TrinoException
         {
             checkArgument(type.equals(nullableValue.getType()), "Type '%s' must equal '%s'", type, nullableValue.getType());
 
             if (nullableValue.isNull()) {
-                return new NullLiteral(location);
+                return new NullLiteral();
             }
 
             Object value = nullableValue.getValue();
             // TODO: Support all literals
             return switch (type) {
-                case BooleanType _ -> new BooleanLiteral(location, value.toString());
-                case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> new LongLiteral(location, value.toString());
+                case BooleanType _ -> new BooleanLiteral(value.toString());
+                case TinyintType _, SmallintType _, IntegerType _, BigintType _ -> new LongLiteral(value.toString());
                 case RealType _ -> {
                     float real = intBitsToFloat(toIntExact((long) value));
-                    yield new GenericLiteral(location, "REAL", Float.toString(real));
+                    yield new GenericLiteral("REAL", Float.toString(real));
                 }
-                case DoubleType _ -> new DoubleLiteral(location, Double.toString((double) value));
+                case DoubleType _ -> new DoubleLiteral(Double.toString((double) value));
                 case DecimalType decimalType -> {
                     if (decimalType.isShort()) {
-                        yield new DecimalLiteral(location, Decimals.toString((long) value, decimalType.getScale()));
+                        yield new DecimalLiteral(Decimals.toString((long) value, decimalType.getScale()));
                     }
-                    yield new DecimalLiteral(location, Decimals.toString(((Int128) value).toBigInteger(), decimalType.getScale()));
+                    yield new DecimalLiteral(Decimals.toString(((Int128) value).toBigInteger(), decimalType.getScale()));
                 }
-                case CharType _, VarcharType _ -> new StringLiteral(location, ((Slice) value).toStringUtf8());
+                case CharType _, VarcharType _ -> new StringLiteral(((Slice) value).toStringUtf8());
                 case VarbinaryType _ -> {
                     Slice slice = (Slice) value;
                     StringBuilder varbinaryBuilder = new StringBuilder();
                     for (int i = 0; i < slice.length(); i++) {
                         varbinaryBuilder.append(slice.getByte(i));
                     }
-                    yield new BinaryLiteral(location, varbinaryBuilder.toString());
+                    yield new BinaryLiteral(null, varbinaryBuilder.toString());
                 }
                 // TODO: Support INTERVAL YEAR TO MONTH and INTERVAL DAY TO SECOND types
-                case TimeType timeType -> new GenericLiteral(location, "TIME", SqlTime.newInstance(timeType.getPrecision(), (long) value).toString());
-                case DateType _ -> new GenericLiteral(location, "DATE", printDate(toIntExact((long) value)));
+                case TimeType timeType -> new GenericLiteral("TIME", SqlTime.newInstance(timeType.getPrecision(), (long) value).toString());
+                case DateType _ -> new GenericLiteral("DATE", printDate(toIntExact((long) value)));
                 case TimestampType timestampType -> {
                     long epochMicros;
                     int fraction;
@@ -746,7 +743,7 @@ public final class ShowQueriesRewrite
                         epochMicros = timestamp.getEpochMicros();
                         fraction = timestamp.getPicosOfMicro();
                     }
-                    yield new GenericLiteral(location, "TIMESTAMP", formatTimestamp(timestampType.getPrecision(), epochMicros, fraction, UTC));
+                    yield new GenericLiteral("TIMESTAMP", formatTimestamp(timestampType.getPrecision(), epochMicros, fraction, UTC));
                 }
                 default -> throw new IllegalArgumentException("Unsupported type: " + type);
             };

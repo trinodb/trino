@@ -89,7 +89,7 @@ public class TestShowQueries
                                 .add(columnMetadata("col_unbounded_varchar", VARCHAR, utf8Slice("unbounded varchar")))
                                 .add(columnMetadata("col_varbinary", VARBINARY, wrappedBuffer(new byte[] {12, 34, 56})))
                                 .add(columnMetadata("col_time", createTimeType(0), 0L))
-                                .add(columnMetadata("col_time", createTimeType(12), 0L))
+                                .add(columnMetadata("col_long_time", createTimeType(12), 0L))
                                 .add(columnMetadata("col_date", DATE, 0L))
                                 .add(columnMetadata("col_short_timestamp", createTimestampType(0), 0L))
                                 .add(columnMetadata("col_long_timestamp", createTimestampType(12), new LongTimestamp(0, 999999)))
@@ -294,7 +294,7 @@ public class TestShowQueries
                                    col_unbounded_varchar varchar DEFAULT 'unbounded varchar',
                                    col_varbinary varbinary DEFAULT X'123456',
                                    col_time time(0) DEFAULT TIME '00:00:00',
-                                   col_time time(12) DEFAULT TIME '00:00:00.000000000000',
+                                   col_long_time time(12) DEFAULT TIME '00:00:00.000000000000',
                                    col_date date DEFAULT DATE '1970-01-01',
                                    col_short_timestamp timestamp(0) DEFAULT TIMESTAMP '1970-01-01 00:00:00',
                                    col_long_timestamp timestamp(12) DEFAULT TIMESTAMP '1970-01-01 00:00:00.000000999999'
