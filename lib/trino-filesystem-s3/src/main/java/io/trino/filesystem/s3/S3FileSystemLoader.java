@@ -55,6 +55,7 @@ import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static software.amazon.awssdk.core.checksums.ResponseChecksumValidation.WHEN_REQUIRED;
+import static software.amazon.awssdk.core.client.config.SdkAdvancedClientOption.SIGNER;
 
 final class S3FileSystemLoader
         implements Function<Location, TrinoFileSystemFactory>
@@ -277,7 +278,7 @@ final class S3FileSystemLoader
 
     private static ClientOverrideConfiguration createOverrideConfiguration(OpenTelemetry openTelemetry, S3FileSystemConfig config, MetricPublisher metricPublisher)
     {
-        return ClientOverrideConfiguration.builder()
+        ClientOverrideConfiguration.Builder builder = ClientOverrideConfiguration.builder()
                 .addExecutionInterceptor(AwsSdkTelemetry.builder(openTelemetry)
                         .setCaptureExperimentalSpanAttributes(true)
                         .setRecordIndividualHttpError(true)
@@ -286,8 +287,9 @@ final class S3FileSystemLoader
                         .maxAttempts(config.getMaxErrorRetries())
                         .build())
                 .appId(config.getApplicationId())
-                .addMetricPublisher(metricPublisher)
-                .build();
+                .addMetricPublisher(metricPublisher);
+        config.getSignerType().ifPresent(signer -> builder.putAdvancedOption(SIGNER, signer.create()));
+        return builder.build();
     }
 
     private static SdkHttpClient createHttpClient(S3FileSystemConfig config)
