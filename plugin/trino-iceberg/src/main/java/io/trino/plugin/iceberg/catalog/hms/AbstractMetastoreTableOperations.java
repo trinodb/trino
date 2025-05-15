@@ -46,6 +46,8 @@ import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
+import static org.apache.iceberg.TableProperties.CURRENT_SNAPSHOT_ID;
+import static org.apache.iceberg.TableProperties.CURRENT_SNAPSHOT_TIMESTAMP;
 
 @NotThreadSafe
 public abstract class AbstractMetastoreTableOperations
@@ -133,12 +135,18 @@ public abstract class AbstractMetastoreTableOperations
 
     protected Table.Builder updateMetastoreTable(Table.Builder builder, TableMetadata metadata, String metadataLocation, Optional<String> previousMetadataLocation)
     {
-        return builder
+        builder
                 .setDataColumns(toHiveColumns(metadata.schema().columns()))
                 .withStorage(storage -> storage.setLocation(metadata.location()))
                 .setParameter(METADATA_LOCATION_PROP, metadataLocation)
                 .setParameter(PREVIOUS_METADATA_LOCATION_PROP, previousMetadataLocation)
                 .setParameter(TABLE_COMMENT, Optional.ofNullable(metadata.properties().get(TABLE_COMMENT)));
+        if (metadata.currentSnapshot() != null) {
+            builder
+                    .setParameter(CURRENT_SNAPSHOT_ID, String.valueOf(metadata.currentSnapshot().snapshotId()))
+                    .setParameter(CURRENT_SNAPSHOT_TIMESTAMP, String.valueOf(metadata.currentSnapshot().timestampMillis()));
+        }
+        return builder;
     }
 
     protected Table getTable()
