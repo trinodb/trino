@@ -63,10 +63,10 @@ public final class MergeFileWriter
         implements FileWriter
 {
     // The bucketPath looks like this: /root/dir/delta_nnnnnnn_mmmmmmm_ssss/bucket_bbbbb(_aaaa)?.orc
-    private static final Pattern BUCKET_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>delta_\\d+_\\d+)_(?<statementId>\\d+)/(?<filenameBase>bucket_(?<bucketNumber>\\d+))(?<attemptId>_\\d+)?(\\.[a-z0-9]+){0,2}$");
+    private static final Pattern BUCKET_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>delta_\\d+_\\d+)_(?<statementId>\\d+)/(?<filenameBase>bucket_(?<bucketNumber>\\d+))(?<attemptId>_\\d+)?(?<extension>\\.[a-z0-9]+){0,2}$");
 
     // After compaction, the bucketPath looks like this: /root/dir/base_nnnnnnn(_vmmmmmmm)?/bucket_bbbbb(_aaaa)?.orc
-    private static final Pattern BASE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>base_-?\\d+(_v\\d+)?)/(?<filenameBase>bucket_(?<bucketNumber>\\d+))(?<attemptId>_\\d+)?(\\.[a-z0-9]+){0,2}$");
+    private static final Pattern BASE_PATH_MATCHER = Pattern.compile("(?s)(?<rootDir>.*)/(?<dirStart>base_-?\\d+(_v\\d+)?)/(?<filenameBase>bucket_(?<bucketNumber>\\d+))(?<attemptId>_\\d+)?(?<extension>\\.[a-z0-9]+){0,2}$");
 
     private static final Block DELETE_OPERATION_BLOCK = nativeValueToBlock(INTEGER, (long) DELETE.getOperationNumber());
     private static final Block INSERT_OPERATION_BLOCK = nativeValueToBlock(INTEGER, (long) INSERT.getOperationNumber());
@@ -118,7 +118,7 @@ public final class MergeFileWriter
             matcher = BUCKET_PATH_MATCHER.matcher(bucketPath);
             checkArgument(matcher.matches(), "bucketPath doesn't have the required format: %s", bucketPath);
         }
-        this.bucketFilename = matcher.group("filenameBase");
+        this.bucketFilename = matcher.group("filenameBase") + matcher.group("extension");
         long writeId = transaction.getWriteId();
         this.deltaDirectory = Location.of(matcher.group("rootDir")).appendPath(deltaSubdir(writeId, statementId));
         this.deleteDeltaDirectory = Location.of(matcher.group("rootDir")).appendPath(deleteDeltaSubdir(writeId, statementId));
