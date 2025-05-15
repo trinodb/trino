@@ -94,18 +94,15 @@ public class GcsStorageFactory
                 }
             }
             else {
-                credentials = jsonGoogleCredential.orElseGet(() -> {
-                    try {
-                        return GoogleCredentials.getApplicationDefault();
-                    }
-                    catch (IOException e) {
-                        throw new UncheckedIOException(e);
-                    }
-                });
+                credentials = jsonGoogleCredential.orElse(null);
             }
             StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
             if (projectId != null) {
                 storageOptionsBuilder.setProjectId(projectId);
+            }
+
+            if (credentials != null) {
+                storageOptionsBuilder.setCredentials(credentials);
             }
 
             endpoint.ifPresent(storageOptionsBuilder::setHost);
@@ -113,7 +110,6 @@ public class GcsStorageFactory
             // Note: without uniform strategy we cannot retry idempotent operations.
             // The trino-filesystem api does not violate the conditions for idempotency, see https://cloud.google.com/storage/docs/retry-strategy#java for details.
             return storageOptionsBuilder
-                    .setCredentials(credentials)
                     .setStorageRetryStrategy(getUniformStorageRetryStrategy())
                     .setRetrySettings(RetrySettings.newBuilder()
                             .setMaxAttempts(maxRetries + 1)
