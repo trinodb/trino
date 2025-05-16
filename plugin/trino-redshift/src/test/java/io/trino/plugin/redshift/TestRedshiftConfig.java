@@ -30,7 +30,9 @@ public class TestRedshiftConfig
         assertRecordedDefaults(recordDefaults(RedshiftConfig.class)
                 .setFetchSize(null)
                 .setUnloadLocation(null)
-                .setUnloadIamRole(null));
+                .setUnloadIamRole(null)
+                .setBatchedInsertsCopyLocation(null)
+                .setBatchedInsertsCopyIamRole(null));
     }
 
     @Test
@@ -38,14 +40,18 @@ public class TestRedshiftConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("redshift.fetch-size", "2000")
-                .put("redshift.unload-location", "s3://bucket")
+                .put("redshift.unload-location", "s3://bucket/unload")
                 .put("redshift.unload-iam-role", "arn:aws:iam::123456789000:role/redshift_iam_role")
+                .put("redshift.batched-inserts-copy-location", "s3://bucket/sink")
+                .put("redshift.batched-inserts-copy-iam-role", "arn:aws:iam::123456789000:role/redshift_iam_role")
                 .buildOrThrow();
 
         RedshiftConfig expected = new RedshiftConfig()
                 .setFetchSize(2000)
-                .setUnloadLocation("s3://bucket")
-                .setUnloadIamRole("arn:aws:iam::123456789000:role/redshift_iam_role");
+                .setUnloadLocation("s3://bucket/unload")
+                .setUnloadIamRole("arn:aws:iam::123456789000:role/redshift_iam_role")
+                .setBatchedInsertsCopyLocation("s3://bucket/sink")
+                .setBatchedInsertsCopyIamRole("arn:aws:iam::123456789000:role/redshift_iam_role");
 
         assertFullMapping(properties, expected);
     }
