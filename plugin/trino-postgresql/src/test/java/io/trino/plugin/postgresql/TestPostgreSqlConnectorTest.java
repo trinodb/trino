@@ -1102,7 +1102,7 @@ public class TestPostgreSqlConnectorTest
                                                 .equals(new PreparedQuery(
                                                         "SELECT \"id\", REVERSE(\"_pfgnrtd_3\") AS \"_pfgnrtd_4\" FROM (SELECT \"id\", REVERSE(\"_pfgnrtd_2\") AS \"_pfgnrtd_3\" FROM " +
                                                                 "(SELECT \"id\", REVERSE(\"_pfgnrtd_1\") AS \"_pfgnrtd_2\" FROM (SELECT \"id\", REVERSE(\"_pfgnrtd_0\") AS \"_pfgnrtd_1\" FROM " +
-                                                                "(SELECT \"id\", REVERSE(\"varchar_col\") AS \"_pfgnrtd_0\" FROM \"tpch\".\"%s\") o) o) o) o"
+                                                                "(SELECT \"id\", REVERSE(\"varchar_col\") AS \"_pfgnrtd_0\" FROM \"tpch\".\"tpch\".\"%s\") o) o) o) o"
                                                                         .formatted(table.getName()),
                                                         ImmutableList.of()));
                                     },
@@ -1166,7 +1166,7 @@ public class TestPostgreSqlConnectorTest
                                                         assertThat(jdbcTableHandle.isSynthetic()).isTrue();
                                                         return ((JdbcQueryRelationHandle) jdbcTableHandle.getRelationHandle()).getPreparedQuery()
                                                                 .equals(new PreparedQuery(
-                                                                        "SELECT \"id\", REVERSE(\"cola\") AS \"_pfgnrtd_0\", REVERSE(\"colb\") AS \"_pfgnrtd_1\" FROM \"tpch\".\"%s\"".formatted(table.getName()),
+                                                                        "SELECT \"id\", REVERSE(\"cola\") AS \"_pfgnrtd_0\", REVERSE(\"colb\") AS \"_pfgnrtd_1\" FROM \"tpch\".\"tpch\".\"%s\"".formatted(table.getName()),
                                                                         ImmutableList.of()));
                                                     },
                                                     TupleDomain.all(),
