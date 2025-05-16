@@ -220,6 +220,9 @@
         Since 1.1.0, the default behaviour for such conflicts changed from overwriting the artifact to failing the build.
         -->
         <provisio.fallbackTargetFileNameMode>GA</provisio.fallbackTargetFileNameMode>
+
+        <!-- for testing Netty SNAPSHOT -->
+        <air.check.skip-enforcer>true</air.check.skip-enforcer>
     </properties>
 
     <dependencyManagement>
@@ -267,7 +270,7 @@
             <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
-                <version>4.2.1.Final</version>
+                <version>4.2.2.Final-SNAPSHOT</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -2412,6 +2415,13 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>netty-snapshots</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
