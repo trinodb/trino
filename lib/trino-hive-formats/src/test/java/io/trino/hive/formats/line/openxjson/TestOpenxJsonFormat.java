@@ -885,7 +885,11 @@ public class TestOpenxJsonFormat
         assertDate("\"1969-12-31\"", -1);
 
         // Hive ignores everything after the first space
-        assertDate("\"1986-01-01 anything is allowed here\"", LocalDate.of(1986, 1, 1).toEpochDay());
+        long day = LocalDate.of(1986, 1, 1).toEpochDay();
+        SqlDate sqlDate = new SqlDate((int) day);
+        assertDate("\"1986-01-01 anything is allowed here\"", day);
+        assertValueTrinoOnly(DATE, "\"1986-01-01T00:00:00.000Z\"", sqlDate);
+        assertValueTrinoOnly(DATE, "\"1986-01-01AA00:00:00.000Z\"", sqlDate);
 
         assertDate("\"1986-01-01\"", LocalDate.of(1986, 1, 1).toEpochDay());
         assertDate("\"1986-01-33\"", LocalDate.of(1986, 2, 2).toEpochDay());

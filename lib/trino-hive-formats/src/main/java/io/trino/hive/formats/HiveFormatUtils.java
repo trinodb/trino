@@ -71,7 +71,7 @@ public final class HiveFormatUtils
     private static final char TIMESTAMP_FORMATS_SEPARATOR = ',';
     private static final char TIMESTAMP_FORMATS_ESCAPE = '\\';
 
-    private static final DateTimeFormatter DATE_PARSER = new DateTimeFormatterBuilder()
+    public static final DateTimeFormatter DATE_PARSER = new DateTimeFormatterBuilder()
             .parseLenient()
             .appendValue(YEAR, 1, 10, SignStyle.NORMAL)
             .appendLiteral('-')

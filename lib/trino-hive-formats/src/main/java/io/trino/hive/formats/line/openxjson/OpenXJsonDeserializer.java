@@ -43,6 +43,7 @@ import io.trino.spi.type.VarcharType;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -62,7 +63,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.hive.formats.HiveFormatUtils.parseHiveDate;
+import static io.trino.hive.formats.HiveFormatUtils.DATE_PARSER;
 import static io.trino.hive.formats.HiveFormatUtils.parseHiveTimestamp;
 import static io.trino.hive.formats.HiveFormatUtils.scaleDecimal;
 import static io.trino.hive.formats.line.openxjson.JsonWriter.canonicalizeJsonString;
@@ -897,6 +898,32 @@ public final class OpenXJsonDeserializer
             return Long.parseLong(stringValue.substring(1), 8);
         }
         return Long.parseLong(stringValue);
+    }
+
+    /*
+    * The parseHiveDate method in HiveFormatUtils.java that the native OpenX reader was using only supported
+    * a space delimiter to remove any characters after 'yyyy-mm-dd'. As a result, while '2025-01-04 00:00:00.000Z'
+    * was correctly parsed as '2025-01-04', strings like '2025-01-04T00:00:00.000Z' or '2025-01-04AA00:00:00.000Z'
+    * were throwing exceptions and being parsed as null.
+    * This new parseHiveDate method removes any characters after 'yyyy-mm-dd', regardless of the delimiter.
+    */
+    private static LocalDate parseHiveDate(String value)
+    {
+        value = value.trim();
+        int length = value.length();
+        int endIndex = length;
+
+        // Find the first character that isn't a digit or hyphen
+        for (int i = 0; i < length; i++) {
+            char c = value.charAt(i);
+            if (c != '-' && (c < '0' || c > '9')) {
+                endIndex = i;
+                break;
+            }
+        }
+
+        String datePortion = value.substring(0, endIndex);
+        return LocalDate.parse(datePortion, DATE_PARSER);
     }
 
     private static boolean isHex(String s)
