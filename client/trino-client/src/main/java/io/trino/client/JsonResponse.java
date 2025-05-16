@@ -14,7 +14,6 @@
 package io.trino.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.airlift.units.DataSize;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
 import okhttp3.Headers;
@@ -28,13 +27,12 @@ import java.io.UncheckedIOException;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class JsonResponse<T>
 {
-    private static final DataSize MATERIALIZED_BUFFER_SIZE = DataSize.of(8, KILOBYTE);
+    private static final long MATERIALIZED_BUFFER_SIZE = 8 * 1024; // 8K
 
     private final int statusCode;
     private final Headers headers;

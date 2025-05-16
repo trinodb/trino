@@ -13,14 +13,15 @@
  */
 package io.trino.client.auth.kerberos;
 
-import io.airlift.units.Duration;
 import org.ietf.jgss.GSSContext;
 import org.ietf.jgss.GSSCredential;
 import org.ietf.jgss.GSSException;
 import org.ietf.jgss.GSSManager;
 import org.ietf.jgss.Oid;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
+import java.time.Duration;
+
+import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.ietf.jgss.GSSContext.INDEFINITE_LIFETIME;
 import static org.ietf.jgss.GSSName.NT_HOSTBASED_SERVICE;
 
@@ -30,7 +31,7 @@ public abstract class BaseGSSContextProvider
     protected static final GSSManager GSS_MANAGER = GSSManager.getInstance();
     protected static final Oid SPNEGO_OID = createOid("1.3.6.1.5.5.2");
     protected static final Oid KERBEROS_OID = createOid("1.2.840.113554.1.2.2");
-    protected static final Duration MIN_CREDENTIAL_LIFETIME = new Duration(60, SECONDS);
+    protected static final Duration MIN_CREDENTIAL_LIFETIME = Duration.of(60, SECONDS);
 
     protected GSSContext createContext(String servicePrincipal, GSSCredential gssCredential)
             throws GSSException

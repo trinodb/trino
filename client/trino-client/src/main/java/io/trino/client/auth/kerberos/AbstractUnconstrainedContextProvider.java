@@ -25,7 +25,6 @@ import java.security.PrivilegedExceptionAction;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.ietf.jgss.GSSCredential.DEFAULT_LIFETIME;
 import static org.ietf.jgss.GSSCredential.INITIATE_ONLY;
 import static org.ietf.jgss.GSSName.NT_USER_NAME;
@@ -39,7 +38,7 @@ public abstract class AbstractUnconstrainedContextProvider
     public GSSContext getContext(String servicePrincipal)
             throws GSSException
     {
-        if ((clientCredential == null) || clientCredential.getRemainingLifetime() < MIN_CREDENTIAL_LIFETIME.getValue(SECONDS)) {
+        if ((clientCredential == null) || clientCredential.getRemainingLifetime() < MIN_CREDENTIAL_LIFETIME.toSeconds()) {
             clientCredential = createGssCredential();
         }
 

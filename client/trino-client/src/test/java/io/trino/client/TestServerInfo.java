@@ -14,14 +14,13 @@
 package io.trino.client;
 
 import io.airlift.json.JsonCodec;
-import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.client.NodeVersion.UNKNOWN;
-import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestServerInfo
@@ -31,7 +30,7 @@ public class TestServerInfo
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.of(new Duration(2, MINUTES))));
+        assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.ofMinutes(2))));
         assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.empty()));
     }
 

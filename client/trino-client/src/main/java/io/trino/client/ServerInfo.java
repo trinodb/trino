@@ -15,9 +15,11 @@ package io.trino.client;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.Immutable;
-import io.airlift.units.Duration;
+import io.trino.client.uri.DurationUtils;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -35,13 +37,12 @@ public class ServerInfo
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
 
-    @JsonCreator
     public ServerInfo(
-            @JsonProperty("nodeVersion") NodeVersion nodeVersion,
-            @JsonProperty("environment") String environment,
-            @JsonProperty("coordinator") boolean coordinator,
-            @JsonProperty("starting") boolean starting,
-            @JsonProperty("uptime") Optional<Duration> uptime)
+            NodeVersion nodeVersion,
+            String environment,
+            boolean coordinator,
+            boolean starting,
+            Optional<Duration> uptime)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
@@ -75,9 +76,25 @@ public class ServerInfo
     }
 
     @JsonProperty
-    public Optional<Duration> getUptime()
+    public Optional<String> getUptime()
     {
-        return uptime;
+        return uptime.map(DurationUtils::toString);
+    }
+
+    @JsonCreator
+    @DoNotCall
+    public static ServerInfo deserialize(@JsonProperty("nodeVersion") NodeVersion nodeVersion,
+                                          @JsonProperty("environment") String environment,
+                                          @JsonProperty("coordinator") boolean coordinator,
+                                          @JsonProperty("starting") boolean starting,
+                                          @JsonProperty("uptime") Optional<String> uptime)
+    {
+        return new ServerInfo(
+                nodeVersion,
+                environment,
+                coordinator,
+                starting,
+                uptime.map(DurationUtils::parseDuration));
     }
 
     @Override

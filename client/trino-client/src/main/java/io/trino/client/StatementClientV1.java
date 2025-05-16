@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.io.Closeables;
 import com.google.errorprone.annotations.ThreadSafe;
-import io.airlift.units.Duration;
 import jakarta.annotation.Nullable;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -42,6 +41,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
@@ -475,7 +475,7 @@ class StatementClientV1
             }
 
             if (attempts > 0) {
-                Duration sinceStart = Duration.nanosSince(start);
+                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
                     close();
                     state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
