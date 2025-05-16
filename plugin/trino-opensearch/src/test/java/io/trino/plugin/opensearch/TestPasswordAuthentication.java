@@ -20,8 +20,9 @@ import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
-import org.apache.http.HttpHost;
-import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
+import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.ssl.ClientTlsStrategyBuilder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.plugin.opensearch.OpenSearchServer.OPENSEARCH_IMAGE;
+import static io.trino.plugin.opensearch.client.OpenSearchClient.createHost;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,7 +73,7 @@ public class TestPasswordAuthentication
                 .buildOrThrow());
 
         HostAndPort address = opensearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
+        client = new RestHighLevelClient(RestClient.builder(createHost("%s:%d".formatted(address.getHost(), address.getPort()), true))
                 .setHttpClientConfigCallback(this::setupSslContext));
 
         QueryRunner runner = OpenSearchQueryRunner.builder(opensearch.getAddress())
@@ -92,15 +94,20 @@ public class TestPasswordAuthentication
     private HttpAsyncClientBuilder setupSslContext(HttpAsyncClientBuilder clientBuilder)
     {
         try {
-            return clientBuilder.setSSLContext(createSSLContext(
+            PoolingAsyncClientConnectionManagerBuilder connectionManager = PoolingAsyncClientConnectionManagerBuilder.create();
+            ClientTlsStrategyBuilder strategy = ClientTlsStrategyBuilder.create();
+            strategy.setSslContext(createSSLContext(
                     Optional.empty(),
                     Optional.empty(),
                     Optional.of(new File(Resources.getResource("truststore.jks").toURI())),
                     Optional.of("123456")));
+            connectionManager.setTlsStrategy(strategy.build());
+            clientBuilder.setConnectionManager(connectionManager.build());
         }
         catch (GeneralSecurityException | IOException | URISyntaxException e) {
             throw new RuntimeException(e);
         }
+        return clientBuilder;
     }
 
     @AfterAll
