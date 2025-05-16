@@ -29,6 +29,7 @@ public class RedshiftSessionProperties
         implements SessionPropertiesProvider
 {
     private static final String UNLOAD_ENABLED = "unload_enabled";
+    private static final String BATCHED_INSERTS_COPY_ENABLED = "batched_inserts_copy_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -46,6 +47,16 @@ public class RedshiftSessionProperties
                             }
                         },
                         false))
+                .add(booleanProperty(
+                        BATCHED_INSERTS_COPY_ENABLED,
+                        "Use COPY statements for batched inserts",
+                        config.getBatchedInsertsCopyLocation().isPresent(),
+                        value -> {
+                            if (value && config.getBatchedInsertsCopyLocation().isEmpty()) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, "Cannot use COPY for batch inserts when location is not configured");
+                            }
+                        },
+                        false))
                 .build();
     }
 
@@ -58,5 +69,10 @@ public class RedshiftSessionProperties
     public static boolean isUnloadEnabled(ConnectorSession session)
     {
         return session.getProperty(UNLOAD_ENABLED, Boolean.class);
+    }
+
+    public static boolean isBatchedInsertsCopyEnabled(ConnectorSession session)
+    {
+        return session.getProperty(BATCHED_INSERTS_COPY_ENABLED, Boolean.class);
     }
 }

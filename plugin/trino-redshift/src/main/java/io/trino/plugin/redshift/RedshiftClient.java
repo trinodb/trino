@@ -19,7 +19,12 @@ import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.s3.FileSystemS3;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -34,6 +39,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
@@ -86,6 +92,7 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
@@ -108,6 +115,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -138,6 +146,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_INVALID_TYPE;
+import static io.trino.plugin.redshift.RedshiftSessionProperties.isBatchedInsertsCopyEnabled;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -180,6 +189,8 @@ import static java.util.stream.Collectors.joining;
 public class RedshiftClient
         extends BaseJdbcClient
 {
+    private static final Logger log = Logger.get(RedshiftClient.class);
+
     /**
      * Redshift does not handle values larger than 64 bits for
      * {@code DECIMAL(19, s)}. It supports the full range of values for all
@@ -231,11 +242,14 @@ public class RedshiftClient
     private final RedshiftTableStatisticsReader statisticsReader;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final Optional<Integer> fetchSize;
+    private final RedshiftConfig redshiftConfig;
+    private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
     public RedshiftClient(
             BaseJdbcConfig config,
             RedshiftConfig redshiftConfig,
+            @FileSystemS3 TrinoFileSystemFactory fileSystemFactory,
             ConnectionFactory connectionFactory,
             JdbcStatisticsConfig statisticsConfig,
             QueryBuilder queryBuilder,
@@ -278,8 +292,10 @@ public class RedshiftClient
                         .build());
 
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.statisticsReader = new RedshiftTableStatisticsReader(connectionFactory);
         this.fetchSize = redshiftConfig.getFetchSize();
+        this.redshiftConfig = redshiftConfig;
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
@@ -843,6 +859,49 @@ public class RedshiftClient
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
     }
 
+    @Override
+    public void finishInsertTable(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        if (isBatchedInsertsCopyEnabled(session)) {
+            Location copyLocationWithPrefix = sinkPrefix(session, redshiftConfig.getBatchedInsertsCopyLocation());
+            String copyFromSql = getCopyFromSql(handle, copyLocationWithPrefix);
+            copyFromSql = queryModifier.apply(session, copyFromSql);
+            execute(session, copyFromSql);
+
+            // Clean up parquet files and temporary tables
+            TrinoFileSystem fs = fileSystemFactory.create(session);
+
+            try {
+                fs.deleteDirectory(copyLocationWithPrefix);
+            }
+            catch (IOException e) {
+                log.warn("Unable to cleanup location %s: %s", copyLocationWithPrefix, e.getMessage());
+            }
+
+            RemoteTableName temporaryTable = new RemoteTableName(
+                    handle.getRemoteTableName().getCatalogName(),
+                    handle.getRemoteTableName().getSchemaName(),
+                    handle.getTemporaryTableName().orElseThrow());
+
+            dropTable(session, temporaryTable, true);
+        }
+        else {
+            super.finishInsertTable(session, handle, pageSinkIds);
+        }
+    }
+
+    private String getCopyFromSql(JdbcOutputTableHandle handle, Location copyLocation)
+    {
+        return format(
+                "COPY %s FROM '%s' IAM_ROLE %s FORMAT AS PARQUET",
+                quoted(
+                        null,  // Catalog will always be null because this is running directly on Redshift
+                        handle.getRemoteTableName().getSchemaName().orElse(null),
+                        handle.getRemoteTableName().getTableName()),
+                copyLocation.toString(),
+                redshiftConfig.getBatchedInsertsCopyIamRole().map("'%s'"::formatted).orElse("DEFAULT"));
+    }
+
     private static String redshiftVarcharLiteral(String value)
     {
         requireNonNull(value, "value is null");
@@ -1007,5 +1066,16 @@ public class RedshiftClient
     private static SliceWriteFunction varbinaryWriteFunction()
     {
         return (statement, index, value) -> statement.unwrap(RedshiftPreparedStatement.class).setVarbyte(index, value.getBytes());
+    }
+
+    protected static Location sinkPrefix(ConnectorSession session, Optional<String> copyLocation)
+    {
+        // If an S3 buket is provided without a prefix, Location.of will fail if it does not end in a slash
+        // A bucket or bucket+prefix can safely end with a slash, so we will just append a slash if it is missing
+        String base = copyLocation.orElseThrow();
+        if (!base.endsWith("/")) {
+            base += "/";
+        }
+        return Location.of(base).appendPath(session.getQueryId());
     }
 }
