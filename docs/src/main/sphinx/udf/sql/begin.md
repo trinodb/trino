@@ -38,10 +38,10 @@ The following example computes the value `42`:
 
 ```sql
 FUNCTION meaning_of_life()
-  RETURNS tinyint
+  RETURNS integer
   BEGIN
-    DECLARE a tinyint DEFAULT 6;
-    DECLARE b tinyint DEFAULT 7;
+    DECLARE a integer DEFAULT 6;
+    DECLARE b integer DEFAULT 7;
     RETURN a * b;
   END
 ```
