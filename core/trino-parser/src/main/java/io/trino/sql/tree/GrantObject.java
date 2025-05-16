@@ -27,12 +27,14 @@ public class GrantObject
 {
     private final Optional<String> entityKind;
     private final QualifiedName name;
+    private final Optional<Identifier> branch;
 
-    public GrantObject(NodeLocation location, Optional<String> entityKind, QualifiedName name)
+    public GrantObject(NodeLocation location, Optional<String> entityKind, QualifiedName name, Optional<Identifier> branch)
     {
         super(location);
         this.entityKind = requireNonNull(entityKind, "entityKind is null");
         this.name = requireNonNull(name, "name is null");
+        this.branch = requireNonNull(branch, "branch is null");
     }
 
     public Optional<String> getEntityKind()
@@ -43,6 +45,11 @@ public class GrantObject
     public QualifiedName getName()
     {
         return name;
+    }
+
+    public Optional<Identifier> getBranch()
+    {
+        return branch;
     }
 
     @Override
@@ -61,7 +68,9 @@ public class GrantObject
             return false;
         }
         GrantObject that = (GrantObject) o;
-        return Objects.equals(entityKind, that.entityKind) && Objects.equals(name, that.name);
+        return Objects.equals(entityKind, that.entityKind) &&
+                Objects.equals(name, that.name) &&
+                Objects.equals(branch, that.branch);
     }
 
     @Override
@@ -70,12 +79,13 @@ public class GrantObject
         return toStringHelper(this)
                 .add("entityKind", entityKind)
                 .add("qualifiedName", name)
+                .add("branch", branch)
                 .toString();
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(entityKind, name);
+        return Objects.hash(entityKind, name, branch);
     }
 }
