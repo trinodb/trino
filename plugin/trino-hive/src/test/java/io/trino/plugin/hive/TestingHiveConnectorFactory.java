@@ -40,11 +40,11 @@ public class TestingHiveConnectorFactory
 
     public TestingHiveConnectorFactory(Path localFileSystemRootPath)
     {
-        this(localFileSystemRootPath, Optional.empty());
+        this(localFileSystemRootPath, Optional.empty(), Optional.empty());
     }
 
     @Deprecated
-    public TestingHiveConnectorFactory(Path localFileSystemRootPath, Optional<HiveMetastore> metastore)
+    public TestingHiveConnectorFactory(Path localFileSystemRootPath, Optional<HiveMetastore> metastore, Optional<Module> module)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
 
@@ -53,6 +53,7 @@ public class TestingHiveConnectorFactory
             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
                     .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, config -> config.setCatalogDirectory("local:///"));
+            module.ifPresent(binder::install);
         };
     }
 
