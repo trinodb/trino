@@ -302,6 +302,9 @@ Hive connector documentation.
 * - `hive.max-partition-drops-per-query`
   - Maximum number of partitions to drop in a single query.
   - 100,000
+* - `hive.metastore.partition-batch-size.max`
+  - Maximum number of partitions processed in a single batch.
+  - 100
 * - `hive.single-statement-writes`
   - Enables auto-commit for all writes. This can be used to disallow
     multi-statement write transactions.
