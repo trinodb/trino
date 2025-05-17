@@ -47,6 +47,7 @@ public class TestSheetsConfig
                 .setCredentialsFilePath(null)
                 .setCredentialsKey(null)
                 .setMetadataSheetId(null)
+                .setDelegatedUserEmail(null)
                 .setSheetsDataMaxCacheSize(1000)
                 .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES))
                 .setConnectionTimeout(new Duration(20, TimeUnit.SECONDS))
@@ -63,6 +64,7 @@ public class TestSheetsConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("gsheets.credentials-path", credentialsFile.toString())
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
+                .put("gsheets.delegated-user-email", "fooBar@gmail.com")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
                 .put("gsheets.connection-timeout", "1m")
@@ -76,6 +78,7 @@ public class TestSheetsConfig
         assertThat(config.getCredentialsKey()).isEqualTo(Optional.empty());
         assertThat(config.getCredentialsFilePath()).isEqualTo(Optional.of(credentialsFile.toString()));
         assertThat(config.getMetadataSheetId()).isEqualTo(Optional.of("foo_bar_sheet_id#Sheet1"));
+        assertThat(config.getDelegatedUserEmail()).isEqualTo(Optional.of("fooBar@gmail.com"));
         assertThat(config.getSheetsDataMaxCacheSize()).isEqualTo(2000);
         assertThat(config.getSheetsDataExpireAfterWrite()).isEqualTo(Duration.valueOf("10m"));
         assertThat(config.getConnectionTimeout()).isEqualTo(Duration.valueOf("1m"));
@@ -89,6 +92,7 @@ public class TestSheetsConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("gsheets.credentials-key", BASE_64_ENCODED_TEST_KEY)
                 .put("gsheets.metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
+                .put("gsheets.delegated-user-email", "fooBar@gmail.com")
                 .put("gsheets.max-data-cache-size", "2000")
                 .put("gsheets.data-cache-ttl", "10m")
                 .put("gsheets.read-timeout", "1m")
@@ -100,6 +104,7 @@ public class TestSheetsConfig
         assertThat(config.getCredentialsKey()).isEqualTo(Optional.of(BASE_64_ENCODED_TEST_KEY));
         assertThat(config.getCredentialsFilePath()).isEqualTo(Optional.empty());
         assertThat(config.getMetadataSheetId()).isEqualTo(Optional.of("foo_bar_sheet_id#Sheet1"));
+        assertThat(config.getDelegatedUserEmail()).isEqualTo(Optional.of("fooBar@gmail.com"));
         assertThat(config.getSheetsDataMaxCacheSize()).isEqualTo(2000);
         assertThat(config.getSheetsDataExpireAfterWrite()).isEqualTo(Duration.valueOf("10m"));
         assertThat(config.getReadTimeout()).isEqualTo(Duration.valueOf("1m"));
