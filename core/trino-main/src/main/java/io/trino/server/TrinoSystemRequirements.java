@@ -100,7 +100,7 @@ final class TrinoSystemRequirements
 
     private static void verifyJavaVersion()
     {
-        Version required = Version.parse("23");
+        Version required = Version.parse("24.0.1");
         if (Runtime.version().compareTo(required) < 0) {
             failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
         }

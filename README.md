@@ -61,7 +61,7 @@ Trino supports [reproducible builds](https://reproducible-builds.org) as of vers
   * Note that some npm packages used to build the web UI are only available
     for x86 architectures, so if you're building on Apple Silicon, you need 
     to have Rosetta 2 installed
-* Java 23.0.0+, 64-bit
+* Java 24.0.1+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
     off, to allow containers to mount parts of the Trino source tree
@@ -97,8 +97,8 @@ After opening the project in IntelliJ, double check that the Java SDK is
 properly configured for the project:
 
 * Open the File menu and select Project Structure
-* In the SDKs section, ensure that JDK 23 is selected (create one if none exist)
-* In the Project section, ensure the Project language level is set to 23
+* In the SDKs section, ensure that JDK 24 is selected (create one if none exist)
+* In the Project section, ensure the Project language level is set to 24
 
 ### Running a testing server
 

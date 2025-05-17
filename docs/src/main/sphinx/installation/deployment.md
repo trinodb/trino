@@ -30,10 +30,10 @@
 (requirements-java)=
 ### Java runtime environment
 
-Trino requires a 64-bit version of Java 23, with a minimum required version of
-23.0.0 and a recommendation to use the latest patch version. Earlier versions
-such as Java 8, Java 11, Java 17, Java 21 or Java 22 do not work. 
-Newer versions such as Java 24 are not supported -- they may work, but are not tested.
+Trino requires a 64-bit version of Java 24, with a minimum required version of
+24.0.1 and a recommendation to use the latest patch version. Earlier versions
+such as Java 8, Java 11, Java 17, Java 21 or Java 23 do not work.
+Newer versions such as Java 25 are not supported -- they may work, but are not tested.
 
 We recommend using the Eclipse Temurin OpenJDK distribution from
 [Adoptium](https://adoptium.net/) as the JDK for Trino, as Trino is tested
