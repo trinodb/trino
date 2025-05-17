@@ -784,7 +784,7 @@ The {ref}`sql-schema-table-management` functionality includes support for:
 
 #### Schema evolution
 
-Iceberg supports schema evolution, with safe column add, drop, reorder, and
+Iceberg supports schema evolution, with safe column add, drop, and
 rename operations, including in nested structures.
 
 Iceberg supports updating column types only for widening operations:
