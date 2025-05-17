@@ -79,12 +79,10 @@ public class SystemPageSourceProvider
     {
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
-        SystemSplit systemSplit = (SystemSplit) split;
         SchemaTableName tableName = ((SystemTableHandle) table).schemaTableName();
         SystemTable systemTable = tables.getSystemTable(session, tableName)
                 // table might disappear in the meantime
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", tableName)));
-
         List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
 
         Map<String, Integer> columnsByName = new HashMap<>();
@@ -109,6 +107,12 @@ public class SystemPageSourceProvider
             requiredColumns.add(index);
         }
 
+        // if the split is not a SystemSplit, we immediately delegate to the SystemTable
+        // to build a PageSource
+        if (!(split instanceof SystemSplit systemSplit)) {
+            return systemTable.pageSource(systemTransaction, session, split);
+        }
+
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
         if (constraint.isNone()) {
             return new EmptyPageSource();
@@ -116,7 +120,7 @@ public class SystemPageSourceProvider
         TupleDomain<Integer> newConstraint = systemSplit.getConstraint().transformKeys(columnHandle ->
                 columnsByName.get(((SystemColumnHandle) columnHandle).columnName()));
 
-        ConnectorAccessControl accessControl1 = new InjectedConnectorAccessControl(
+        ConnectorAccessControl connectorAccessControl = new InjectedConnectorAccessControl(
                 accessControl,
                 new SecurityContext(
                         systemTransaction.getTransactionId(),
@@ -139,7 +143,7 @@ public class SystemPageSourceProvider
                             systemTransaction.getConnectorTransactionHandle(),
                             session,
                             newConstraint,
-                            accessControl1),
+                            connectorAccessControl),
                     userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
@@ -151,7 +155,7 @@ public class SystemPageSourceProvider
                             newConstraint,
                             requiredColumns.build(),
                             systemSplit,
-                            accessControl1),
+                            connectorAccessControl),
                     userToSystemFieldIndex.build()));
         }
     }

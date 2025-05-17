@@ -38,6 +38,8 @@ import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProviderFactory;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProvider;
+import io.trino.plugin.iceberg.functions.tablefiles.TableFilesFunctionProcessorProviderFactory;
+import io.trino.plugin.iceberg.functions.tablefiles.TableFilesFunctionProvider;
 import io.trino.plugin.iceberg.procedure.AddFilesTableFromTableProcedure;
 import io.trino.plugin.iceberg.procedure.AddFilesTableProcedure;
 import io.trino.plugin.iceberg.procedure.DropExtendedStatsTableProcedure;
@@ -128,8 +130,11 @@ public class IcebergModule
         tableProcedures.addBinding().toProvider(AddFilesTableFromTableProcedure.class).in(Scopes.SINGLETON);
 
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableChangesFunctionProvider.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableFilesFunctionProvider.class).in(Scopes.SINGLETON);
+
         binder.bind(FunctionProvider.class).to(IcebergFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(TableChangesFunctionProcessorProviderFactory.class).in(Scopes.SINGLETON);
+        binder.bind(TableFilesFunctionProcessorProviderFactory.class).in(Scopes.SINGLETON);
 
         newSetBinder(binder, SystemTable.class)
                 .addBinding()
