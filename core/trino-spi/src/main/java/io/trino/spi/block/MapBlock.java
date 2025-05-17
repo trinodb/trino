@@ -19,21 +19,17 @@ import jakarta.annotation.Nullable;
 
 import java.util.Arrays;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
 import static io.trino.spi.block.BlockUtil.checkReadablePosition;
-import static io.trino.spi.block.BlockUtil.checkValidPositions;
 import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static io.trino.spi.block.BlockUtil.compactArray;
 import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static io.trino.spi.block.BlockUtil.copyIsNullAndAppendNull;
 import static io.trino.spi.block.BlockUtil.copyOffsetsAndAppendNull;
-import static io.trino.spi.block.BlockUtil.countAndMarkSelectedPositionsFromOffsets;
-import static io.trino.spi.block.BlockUtil.countSelectedPositionsFromOffsets;
 import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static io.trino.spi.block.MapHashTables.HashBuildMode.DUPLICATE_NOT_CHECKED;
 import static java.lang.String.format;
@@ -417,66 +413,6 @@ public final class MapBlock
                 valueBlock.getRegionSizeInBytes(entriesStart, entryCount) +
                 (Integer.BYTES + Byte.BYTES) * (long) length +
                 Integer.BYTES * HASH_MULTIPLIER * (long) entryCount;
-    }
-
-    @Override
-    public OptionalInt fixedSizeInBytesPerPosition()
-    {
-        return OptionalInt.empty(); // size per row is variable on the number of entries in each row
-    }
-
-    private OptionalInt keyAndValueFixedSizeInBytesPerRow()
-    {
-        OptionalInt keyFixedSizePerRow = keyBlock.fixedSizeInBytesPerPosition();
-        if (keyFixedSizePerRow.isEmpty()) {
-            return OptionalInt.empty();
-        }
-        OptionalInt valueFixedSizePerRow = valueBlock.fixedSizeInBytesPerPosition();
-        if (valueFixedSizePerRow.isEmpty()) {
-            return OptionalInt.empty();
-        }
-
-        return OptionalInt.of(keyFixedSizePerRow.getAsInt() + valueFixedSizePerRow.getAsInt());
-    }
-
-    @Override
-    public long getPositionsSizeInBytes(boolean[] positions, int selectedMapPositions)
-    {
-        int positionCount = getPositionCount();
-        checkValidPositions(positions, positionCount);
-        if (selectedMapPositions == 0) {
-            return 0;
-        }
-        if (selectedMapPositions == positionCount) {
-            return getSizeInBytes();
-        }
-
-        int[] offsets = this.offsets;
-        int offsetBase = startOffset;
-        OptionalInt fixedKeyAndValueSizePerRow = keyAndValueFixedSizeInBytesPerRow();
-
-        int selectedEntryCount;
-        long keyAndValuesSizeInBytes;
-        if (fixedKeyAndValueSizePerRow.isPresent()) {
-            // no new positions array need be created, we can just count the number of elements
-            selectedEntryCount = countSelectedPositionsFromOffsets(positions, offsets, offsetBase);
-            keyAndValuesSizeInBytes = fixedKeyAndValueSizePerRow.getAsInt() * (long) selectedEntryCount;
-        }
-        else {
-            // We can use either the getRegionSizeInBytes or getPositionsSizeInBytes
-            // from the underlying raw blocks to implement this function. We chose
-            // getPositionsSizeInBytes with the assumption that constructing a
-            // positions array is cheaper than calling getRegionSizeInBytes for each
-            // used position.
-            boolean[] entryPositions = new boolean[keyBlock.getPositionCount()];
-            selectedEntryCount = countAndMarkSelectedPositionsFromOffsets(positions, offsets, offsetBase, entryPositions);
-            keyAndValuesSizeInBytes = keyBlock.getPositionsSizeInBytes(entryPositions, selectedEntryCount) +
-                    valueBlock.getPositionsSizeInBytes(entryPositions, selectedEntryCount);
-        }
-
-        return keyAndValuesSizeInBytes +
-                (Integer.BYTES + Byte.BYTES) * (long) selectedMapPositions +
-                Integer.BYTES * HASH_MULTIPLIER * (long) selectedEntryCount;
     }
 
     @Override
