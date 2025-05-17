@@ -23,6 +23,7 @@ import io.trino.metastore.HiveColumnStatistics;
 import io.trino.metastore.IntegerStatistics;
 import io.trino.metastore.PartitionStatistics;
 import io.trino.plugin.hive.HiveColumnStatisticType;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -140,22 +141,23 @@ public final class Statistics
     public static Map<List<String>, ComputedStatistics> createComputedStatisticsToPartitionMap(
             Collection<ComputedStatistics> computedStatistics,
             List<String> partitionColumns,
-            Map<String, Type> columnTypes)
+            Map<String, Type> columnTypes,
+            Optional<PartitionProjection> partitionProjection)
     {
         List<Type> partitionColumnTypes = partitionColumns.stream()
                 .map(columnTypes::get)
                 .collect(toImmutableList());
 
         return computedStatistics.stream()
-                .collect(toImmutableMap(statistics -> getPartitionValues(statistics, partitionColumns, partitionColumnTypes), Function.identity()));
+                .collect(toImmutableMap(statistics -> getPartitionValues(statistics, partitionColumns, partitionColumnTypes, partitionProjection), Function.identity()));
     }
 
-    private static List<String> getPartitionValues(ComputedStatistics statistics, List<String> partitionColumns, List<Type> partitionColumnTypes)
+    private static List<String> getPartitionValues(ComputedStatistics statistics, List<String> partitionColumns, List<Type> partitionColumnTypes, Optional<PartitionProjection> partitionProjection)
     {
         checkArgument(statistics.getGroupingColumns().equals(partitionColumns),
                 "Unexpected grouping. Partition columns: %s. Grouping columns: %s", partitionColumns, statistics.getGroupingColumns());
         Page partitionColumnsPage = new Page(1, statistics.getGroupingValues().toArray(new Block[] {}));
-        return createPartitionValues(partitionColumnTypes, partitionColumnsPage, 0);
+        return createPartitionValues(partitionColumns, partitionColumnTypes, partitionColumnsPage, 0, partitionProjection);
     }
 
     public static Map<String, HiveColumnStatistics> fromComputedStatistics(

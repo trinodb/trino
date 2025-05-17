@@ -33,6 +33,7 @@ import io.trino.orc.OrcWriterOptions;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HiveTimestampPrecision;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -234,9 +235,16 @@ public final class HiveUtil
                 type instanceof CharType;
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, Type type)
+    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, String partitionColumnName, Optional<PartitionProjection> partitionProjection)
     {
         verifyPartitionTypeSupported(partitionName, type);
+
+        if (partitionProjection.isPresent()) {
+            Optional<NullableValue> nullableValue = partitionProjection.flatMap(projection -> projection.parsePartitionValue(partitionColumnName, value));
+            if (nullableValue.isPresent()) {
+                return nullableValue.get();
+            }
+        }
 
         boolean isNull = HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value);
 
@@ -596,7 +604,8 @@ public final class HiveUtil
             OptionalInt bucketNumber,
             long fileSize,
             long fileModifiedTime,
-            String partitionName)
+            String partitionName,
+            Optional<PartitionProjection> partitionProjection)
     {
         String columnValue;
         if (partitionKey != null) {
@@ -619,6 +628,13 @@ public final class HiveUtil
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "unsupported hidden column: " + columnHandle);
+        }
+
+        if (partitionProjection.isPresent()) {
+            Optional<NullableValue> nullableValue = partitionProjection.get().parsePartitionValue(columnHandle.getName(), columnValue);
+            if (nullableValue.isPresent()) {
+                return nullableValue.get();
+            }
         }
 
         byte[] bytes = columnValue.getBytes(UTF_8);

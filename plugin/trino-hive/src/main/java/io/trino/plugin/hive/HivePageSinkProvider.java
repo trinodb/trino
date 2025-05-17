@@ -163,7 +163,8 @@ public class HivePageSinkProvider
                 session,
                 hiveWriterStats,
                 temporaryStagingDirectoryEnabled,
-                temporaryStagingDirectoryPath);
+                temporaryStagingDirectoryPath,
+                handle.getPartitionProjection());
 
         return new HivePageSink(
                 writerFactory,
