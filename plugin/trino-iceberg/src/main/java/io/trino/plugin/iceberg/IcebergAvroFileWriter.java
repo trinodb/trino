@@ -27,16 +27,21 @@ import org.apache.iceberg.io.OutputFile;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.toIcebergRecords;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
+import static io.trino.plugin.iceberg.IcebergTableProperties.validateCompression;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
+import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION_LEVEL;
 
 public final class IcebergAvroFileWriter
         implements IcebergFileWriter
@@ -56,18 +61,25 @@ public final class IcebergAvroFileWriter
             Closeable rollbackAction,
             Schema icebergSchema,
             List<Type> types,
-            HiveCompressionCodec hiveCompressionCodec)
+            HiveCompressionCodec hiveCompressionCodec,
+            OptionalInt compressionLevel)
     {
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction null");
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+
+        validateCompression(IcebergFileFormat.AVRO, Optional.of(hiveCompressionCodec), compressionLevel);
+
+        Map<String, String> compressionProperties = new HashMap<>();
+        compressionProperties.put(AVRO_COMPRESSION, toIcebergAvroCompressionName(hiveCompressionCodec));
+        compressionLevel.ifPresent(level -> compressionProperties.put(AVRO_COMPRESSION_LEVEL, Integer.toString(level)));
 
         try {
             avroWriter = Avro.write(file)
                     .schema(icebergSchema)
                     .createWriterFunc(DataWriter::create)
                     .named(AVRO_TABLE_NAME)
-                    .set(AVRO_COMPRESSION, toIcebergAvroCompressionName(hiveCompressionCodec))
+                    .setAll(compressionProperties)
                     .build();
         }
         catch (IOException e) {

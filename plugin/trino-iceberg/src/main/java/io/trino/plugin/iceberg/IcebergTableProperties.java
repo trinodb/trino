@@ -16,6 +16,9 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionCodecs;
+import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
@@ -26,6 +29,7 @@ import io.trino.spi.type.TypeManager;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -33,7 +37,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MAX;
 import static io.trino.plugin.iceberg.IcebergConfig.FORMAT_VERSION_SUPPORT_MIN;
+import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
@@ -56,6 +63,16 @@ public class IcebergTableProperties
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String LOCATION_PROPERTY = "location";
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
+
+    public static final String WRITE_COMPRESSION = "write_compression";
+    public static final String COMPRESSION_LEVEL = "compression_level";
+
+    public static final int ZSTD_MIN_COMPRESSION_LEVEL = 1;
+    public static final int ZSTD_MAX_COMPRESSION_LEVEL = 22;
+
+    public static final int GZIP_MIN_COMPRESSION_LEVEL = 1;
+    public static final int GZIP_MAX_COMPRESSION_LEVEL = 9;
+
     public static final String MAX_COMMIT_RETRY = "max_commit_retry";
     public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
     public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
@@ -63,9 +80,13 @@ public class IcebergTableProperties
     public static final String OBJECT_STORE_LAYOUT_ENABLED_PROPERTY = "object_store_layout_enabled";
     public static final String DATA_LOCATION_PROPERTY = "data_location";
     public static final String EXTRA_PROPERTIES_PROPERTY = "extra_properties";
+    public static final Set<IcebergFileFormat> VALID_ICEBERG_FILE_FORMATS_FOR_COMPRESSION_LEVEL_PROPERTY = ImmutableSet.of(IcebergFileFormat.AVRO);
+    public static final Set<HiveCompressionCodec> VALID_ICEBERG_COMPRESSION_CODECS_FOR_COMPRESSION_LEVEL_PROPERTY = ImmutableSet.of(HiveCompressionCodec.GZIP, HiveCompressionCodec.ZSTD);
 
     public static final Set<String> SUPPORTED_PROPERTIES = ImmutableSet.<String>builder()
             .add(FILE_FORMAT_PROPERTY)
+            .add(WRITE_COMPRESSION)
+            .add(COMPRESSION_LEVEL)
             .add(PARTITIONING_PROPERTY)
             .add(SORTED_BY_PROPERTY)
             .add(LOCATION_PROPERTY)
@@ -102,6 +123,17 @@ public class IcebergTableProperties
                         "File format for the table",
                         IcebergFileFormat.class,
                         icebergConfig.getFileFormat(),
+                        false))
+                .add(enumProperty(
+                        WRITE_COMPRESSION,
+                        "Write compression codec for the table",
+                        HiveCompressionOption.class,
+                        null,
+                        false))
+                .add(integerProperty(
+                        COMPRESSION_LEVEL,
+                        "Write compression level for the table",
+                       null,
                         false))
                 .add(new PropertyMetadata<>(
                         PARTITIONING_PROPERTY,
@@ -220,6 +252,19 @@ public class IcebergTableProperties
         return (IcebergFileFormat) tableProperties.get(FILE_FORMAT_PROPERTY);
     }
 
+    public static Optional<HiveCompressionCodec> getHiveCompressionCodec(Map<String, Object> inputProperties)
+    {
+        return Optional.ofNullable((HiveCompressionOption) inputProperties.get(WRITE_COMPRESSION))
+                .map(HiveCompressionCodecs::toCompressionCodec);
+    }
+
+    public static OptionalInt getCompressionLevel(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Integer) tableProperties.get(COMPRESSION_LEVEL))
+                .map(OptionalInt::of)
+                .orElse(OptionalInt.empty());
+    }
+
     @SuppressWarnings("unchecked")
     public static List<String> getPartitioning(Map<String, Object> tableProperties)
     {
@@ -249,6 +294,60 @@ public class IcebergTableProperties
         if (version < FORMAT_VERSION_SUPPORT_MIN || version > FORMAT_VERSION_SUPPORT_MAX) {
             throw new TrinoException(INVALID_TABLE_PROPERTY,
                     format("format_version must be between %d and %d", FORMAT_VERSION_SUPPORT_MIN, FORMAT_VERSION_SUPPORT_MAX));
+        }
+    }
+
+    public static void validateCompression(IcebergFileFormat fileFormat, Optional<HiveCompressionCodec> compressionCodec, OptionalInt compressionLevel)
+    {
+        if (compressionCodec.isPresent()) {
+            if (!isCompressionCodecSupportedForFormat(fileFormat, compressionCodec.get())) {
+                throw new TrinoException(NOT_SUPPORTED, format("Compression codec %s not supported for %s", compressionCodec.get(), fileFormat.humanName()));
+            }
+        }
+        if (compressionLevel.isPresent()) {
+            if (compressionCodec.isEmpty()) {
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "write_compression must be set when compression_level is set");
+            }
+            else {
+                if (!(VALID_ICEBERG_FILE_FORMATS_FOR_COMPRESSION_LEVEL_PROPERTY.contains(fileFormat)
+                        && VALID_ICEBERG_COMPRESSION_CODECS_FOR_COMPRESSION_LEVEL_PROPERTY.contains(compressionCodec.get()))) {
+                    throw new TrinoException(NOT_SUPPORTED,
+                            format("File format %s with compression codec %s and compression level %d not supported", fileFormat, compressionCodec.get(), compressionLevel.getAsInt()));
+                }
+
+                switch (compressionCodec.get()) {
+                    case GZIP:
+                        if (compressionLevel.getAsInt() < GZIP_MIN_COMPRESSION_LEVEL ||
+                                compressionLevel.getAsInt() > GZIP_MAX_COMPRESSION_LEVEL) {
+                            throw new TrinoException(NOT_SUPPORTED,
+                                    format("File format %s with compression codec %s and compression level %d not supported",
+                                            fileFormat, compressionCodec, compressionLevel.getAsInt()));
+                        }
+                        break;
+
+                    case ZSTD:
+                        if (compressionLevel.getAsInt() < ZSTD_MIN_COMPRESSION_LEVEL ||
+                                compressionLevel.getAsInt() > ZSTD_MAX_COMPRESSION_LEVEL) {
+                            throw new TrinoException(NOT_SUPPORTED,
+                                    format("File format %s with compression codec %s and compression level %d not supported",
+                                            fileFormat, compressionCodec, compressionLevel.getAsInt()));
+                        }
+                        break;
+
+                    default:
+                        throw new IllegalStateException("Unsupported compression codec: " + compressionCodec);
+                }
+            }
+        }
+    }
+
+    public static boolean isCompressionCodecSupportedForFormat(IcebergFileFormat fileFormat, HiveCompressionCodec codec)
+    {
+        switch (codec) {
+            case LZ4:
+                return !(fileFormat == AVRO || fileFormat == PARQUET);
+            default:
+                return true;
         }
     }
 
