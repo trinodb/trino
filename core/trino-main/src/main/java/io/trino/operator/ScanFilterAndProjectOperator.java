@@ -35,7 +35,6 @@ import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
@@ -45,6 +44,7 @@ import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
 import io.trino.split.PageSourceProviderFactory;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
@@ -97,7 +97,7 @@ public class ScanFilterAndProjectOperator
             PageProcessor pageProcessor,
             TableHandle table,
             Iterable<ColumnHandle> columns,
-            DynamicFilter dynamicFilter,
+            InternalDynamicFilter dynamicFilter,
             Iterable<Type> types,
             DataSize minOutputPageSize,
             int minOutputPageRowCount)
@@ -202,7 +202,7 @@ public class ScanFilterAndProjectOperator
         final PageProcessor pageProcessor;
         final TableHandle table;
         final List<ColumnHandle> columns;
-        final DynamicFilter dynamicFilter;
+        final InternalDynamicFilter dynamicFilter;
         final List<Type> types;
         final LocalMemoryContext memoryContext;
         final AggregatedMemoryContext localAggregatedMemoryContext;
@@ -219,7 +219,7 @@ public class ScanFilterAndProjectOperator
                 PageProcessor pageProcessor,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
-                DynamicFilter dynamicFilter,
+                InternalDynamicFilter dynamicFilter,
                 Iterable<Type> types,
                 AggregatedMemoryContext aggregatedMemoryContext,
                 DataSize minOutputPageSize,
@@ -252,7 +252,7 @@ public class ScanFilterAndProjectOperator
 
             checkState(cursor == null && pageSource == null, "Table scan split already set");
 
-            if (!dynamicFilter.getCurrentPredicate().isAll()) {
+            if (!dynamicFilter.getCurrentDynamicFilterTupleDomain().isAll()) {
                 dynamicFilterSplitsProcessed++;
             }
 
@@ -446,12 +446,12 @@ public class ScanFilterAndProjectOperator
         private final int operatorId;
         private final PlanNodeId planNodeId;
         private final Supplier<CursorProcessor> cursorProcessor;
-        private final Function<DynamicFilter, PageProcessor> pageProcessor;
+        private final Function<InternalDynamicFilter, PageProcessor> pageProcessor;
         private final PlanNodeId sourceId;
         private final PageSourceProvider pageSourceProvider;
         private final TableHandle table;
         private final List<ColumnHandle> columns;
-        private final DynamicFilter dynamicFilter;
+        private final InternalDynamicFilter dynamicFilter;
         private final List<Type> types;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
@@ -463,10 +463,10 @@ public class ScanFilterAndProjectOperator
                 PlanNodeId sourceId,
                 PageSourceProviderFactory pageSourceProvider,
                 Supplier<CursorProcessor> cursorProcessor,
-                Function<DynamicFilter, PageProcessor> pageProcessor,
+                Function<InternalDynamicFilter, PageProcessor> pageProcessor,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
-                DynamicFilter dynamicFilter,
+                InternalDynamicFilter dynamicFilter,
                 List<Type> types,
                 DataSize minOutputPageSize,
                 int minOutputPageRowCount)

@@ -22,12 +22,13 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
-import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.ir.Expression;
 import io.trino.sql.ir.optimizer.IrExpressionOptimizer;
 import io.trino.sql.planner.DomainTranslator;
+import io.trino.sql.planner.DynamicFilterTupleDomain;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.relational.RowExpression;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -41,6 +42,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.sql.gen.columnar.BloomColumnarFilter.createBloomFilterEvaluator;
 import static io.trino.sql.gen.columnar.FilterEvaluator.createColumnarFilterEvaluator;
 import static io.trino.sql.ir.optimizer.IrExpressionOptimizer.newOptimizer;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
@@ -89,7 +91,7 @@ public final class DynamicPageFilter
     // Compiled dynamic filter is fixed per-split and generated duration page source creation.
     // Page source implementations may subsequently implement blocking on completion of dynamic filters, but since
     // that occurs after page source creation, we cannot be guaranteed a completed dynamic filter here for initial splits
-    public synchronized Supplier<FilterEvaluator> createDynamicPageFilterEvaluator(ColumnarFilterCompiler compiler, DynamicFilter dynamicFilter)
+    public synchronized Supplier<FilterEvaluator> createDynamicPageFilterEvaluator(ColumnarFilterCompiler compiler, InternalDynamicFilter dynamicFilter)
     {
         requireNonNull(dynamicFilter, "dynamicFilter is null");
         // Sub-query cache may provide different instance of DynamicFilter per-split.
@@ -106,7 +108,7 @@ public final class DynamicPageFilter
         if (compiledDynamicFilter == null || isBlocked.isDone()) {
             isBlocked = dynamicFilter.isBlocked();
             boolean isAwaitable = dynamicFilter.isAwaitable();
-            compiledDynamicFilter = createDynamicFilterEvaluator(compiler, dynamicFilter.getCurrentPredicate());
+            compiledDynamicFilter = createDynamicFilterEvaluator(compiler, dynamicFilter.getCurrentDynamicFilterTupleDomain());
             if (!isAwaitable) {
                 isBlocked = null; // Dynamic filter will not narrow down anymore
             }
@@ -114,7 +116,7 @@ public final class DynamicPageFilter
         return compiledDynamicFilter;
     }
 
-    private Supplier<FilterEvaluator> createDynamicFilterEvaluator(ColumnarFilterCompiler compiler, TupleDomain<ColumnHandle> currentPredicate)
+    private Supplier<FilterEvaluator> createDynamicFilterEvaluator(ColumnarFilterCompiler compiler, DynamicFilterTupleDomain<ColumnHandle> currentPredicate)
     {
         if (currentPredicate.isNone()) {
             return SelectNoneEvaluator::new;
@@ -125,7 +127,10 @@ public final class DynamicPageFilter
                 .entrySet().stream()
                 .map(entry -> {
                     Symbol symbol = columnHandles.get(entry.getKey());
-                    Expression expression = domainTranslator.toPredicate(entry.getValue(), symbol.toSymbolReference());
+                    if (entry.getValue().getBloomfilterWithRange().isPresent()) {
+                        return Optional.of(createBloomFilterEvaluator(entry.getValue().getBloomfilterWithRange().orElseThrow(), sourceLayout.get(symbol)));
+                    }
+                    Expression expression = domainTranslator.toPredicate(entry.getValue().getDomain().orElseThrow(), symbol.toSymbolReference());
                     // Run the expression derived from TupleDomain through IR optimizer to simplify predicates. E.g. SimplifyContinuousInValues
                     expression = irExpressionOptimizer.process(expression, session, ImmutableMap.of()).orElse(expression);
                     RowExpression rowExpression = translate(expression, sourceLayout, metadata, typeManager);
