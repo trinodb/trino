@@ -189,7 +189,7 @@ jobs:
         timeout-minutes: 10
         with:
           cache: restore
-          java-version: '23'
+          java-version: '24'
       - name: Maven Install
         run: |
           # build everything to make sure dependencies of impacted modules are present
