@@ -32,7 +32,8 @@ import { routers } from './router.tsx'
 import { useConfigStore, Theme as ThemeStore } from './store'
 import { darkTheme, lightTheme } from './theme'
 import trinoLogo from './assets/trino.svg'
-import { WorkerStatus } from './components/WorkerStatus.tsx'
+import { QueryDetails } from './components/QueryDetails'
+import { WorkerStatus } from './components/WorkerStatus'
 
 const App = () => {
     const config = useConfigStore()
@@ -76,6 +77,7 @@ const Screen = () => {
                     return [<Route {...router.routeProps} key={router.itemKey} />]
                 })}
                 <Route path="/workers/:nodeId" element={<WorkerStatus />} />
+                <Route path="/queries/:queryId" element={<QueryDetails />} />
                 <Route path="/" element={<Navigate to="/dashboard" />} />
                 <Route path="*" element={<NotFound />} key={'*'} />
             </Routes>
