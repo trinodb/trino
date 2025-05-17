@@ -700,6 +700,7 @@ public class QueryStateMachine
         long outputDataSize = 0;
         long failedOutputDataSize = 0;
         long outputPositions = 0;
+        long updatedPositions = 0;
         long failedOutputPositions = 0;
 
         long outputBlockedTime = 0;
@@ -716,6 +717,7 @@ public class QueryStateMachine
         ImmutableList.Builder<OperatorStats> operatorStatsSummary = ImmutableList.builder();
         for (StageInfo stageInfo : allStages) {
             StageStats stageStats = stageInfo.getStageStats();
+            updatedPositions += stageStats.getUpdatedPositions();
             totalTasks += stageStats.getTotalTasks();
             runningTasks += stageStats.getRunningTasks();
             completedTasks += stageStats.getCompletedTasks();
@@ -922,6 +924,7 @@ public class QueryStateMachine
                 succinctBytes(outputDataSize),
                 succinctBytes(failedOutputDataSize),
                 outputPositions,
+                updatedPositions,
                 failedOutputPositions,
 
                 new Duration(outputBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
@@ -1532,6 +1535,7 @@ public class QueryStateMachine
                 queryStats.getOutputDataSize(),
                 queryStats.getFailedOutputDataSize(),
                 queryStats.getOutputPositions(),
+                queryStats.getUpdatedPositions(),
                 queryStats.getFailedOutputPositions(),
                 queryStats.getOutputBlockedTime(),
                 queryStats.getFailedOutputBlockedTime(),
