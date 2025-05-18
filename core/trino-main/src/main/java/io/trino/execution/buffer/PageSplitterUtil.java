@@ -14,6 +14,7 @@
 package io.trino.execution.buffer;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 
 import java.util.List;
@@ -22,7 +23,19 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 public final class PageSplitterUtil
 {
+    private static final int PAGE_SPLIT_THRESHOLD_IN_BYTES = 2 * 1024 * 1024;
+
     private PageSplitterUtil() {}
+
+    public static List<Slice> splitAndSerializePage(Page page, PageSerializer serializer)
+    {
+        List<Page> inputPages = splitPage(page, PAGE_SPLIT_THRESHOLD_IN_BYTES);
+        ImmutableList.Builder<Slice> serializedPages = ImmutableList.builderWithExpectedSize(inputPages.size());
+        for (Page inputPage : inputPages) {
+            serializedPages.add(serializer.serialize(inputPage));
+        }
+        return serializedPages.build();
+    }
 
     public static List<Page> splitPage(Page page, long maxPageSizeInBytes)
     {
