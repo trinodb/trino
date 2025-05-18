@@ -160,7 +160,9 @@ html_theme_options = {
         'toc.follow',
     ],
     'icon': {
-        'repo': 'fontawesome/brands/github-alt'
+        'repo': 'fontawesome/brands/github-alt',
+        'edit': 'material/file-edit-outline',
+        'view': 'material/file-eye-outline'
     },
     'palette': [
         {
@@ -190,6 +192,7 @@ html_theme_options = {
     ],
     'repo_url': 'https://github.com/trinodb/trino',
     'repo_name': 'Trino',
+    'edit_uri': 'blob/master/docs/src/main/sphinx',
     'version_dropdown': True,
     'version_json': '../versions.json'
 }
