@@ -192,9 +192,7 @@ html_theme_options = {
     ],
     'repo_url': 'https://github.com/trinodb/trino',
     'repo_name': 'Trino',
-    'edit_uri': 'blob/master/docs/src/main/sphinx',
-    'version_dropdown': True,
-    'version_json': '../versions.json'
+    'edit_uri': 'blob/master/docs/src/main/sphinx'
 }
 
 html_css_files = [
