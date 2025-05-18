@@ -140,18 +140,27 @@ public final class HiveWriteUtils
             return padSpaces(charType.getSlice(block, position), charType).toStringUtf8();
         }
         if (DATE.equals(type)) {
-            return LocalDate.ofEpochDay(DATE.getInt(block, position)).format(HIVE_DATE_FORMATTER);
+            return toDatePartitionValue(DATE.getInt(block, position));
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
-            long epochMicros = type.getLong(block, position);
-            long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
-            int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
-            return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(HIVE_TIMESTAMP_FORMATTER);
+            return toTimestampPartitionValue(TIMESTAMP_MILLIS.getLong(block, position));
         }
         if (type instanceof DecimalType decimalType) {
             return readBigDecimal(decimalType, block, position).stripTrailingZeros().toPlainString();
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported type for partition: " + type);
+    }
+
+    public static String toDatePartitionValue(long epochDays)
+    {
+        return LocalDate.ofEpochDay(epochDays).format(HIVE_DATE_FORMATTER);
+    }
+
+    public static String toTimestampPartitionValue(long epochMicros)
+    {
+        long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+        int nanosOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+        return LocalDateTime.ofEpochSecond(epochSeconds, nanosOfSecond, ZoneOffset.UTC).format(HIVE_TIMESTAMP_FORMATTER);
     }
 
     public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)

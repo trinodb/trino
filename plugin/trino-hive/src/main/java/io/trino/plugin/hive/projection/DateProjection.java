@@ -47,6 +47,8 @@ import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLU
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_RANGE;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getProjectionPropertyValue;
+import static io.trino.plugin.hive.util.HiveWriteUtils.toDatePartitionValue;
+import static io.trino.plugin.hive.util.HiveWriteUtils.toTimestampPartitionValue;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
@@ -72,6 +74,7 @@ final class DateProjection
     private static final Pattern DATE_RANGE_BOUND_EXPRESSION_PATTERN = Pattern.compile("^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$");
 
     private final String columnName;
+    private final Type columnType;
     private final DateTimeFormatter dateFormat;
     private final Instant leftBound;
     private final Instant rightBound;
@@ -87,6 +90,7 @@ final class DateProjection
         }
 
         this.columnName = requireNonNull(columnName, "columnName is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
 
         String dateFormatPattern = getProjectionPropertyRequiredValue(
                 columnName,
@@ -138,7 +142,7 @@ final class DateProjection
 
         Instant currentValue = leftBound;
         while (!currentValue.isAfter(rightBound)) {
-            String currentValueFormatted = formatValue(currentValue);
+            String currentValueFormatted = formatValueToHiveCompatibleFormat(currentValue);
             if (isValueInDomain(partitionValueFilter, currentValue, currentValueFormatted)) {
                 builder.add(currentValueFormatted);
             }
@@ -152,7 +156,8 @@ final class DateProjection
 
     private Instant adjustBoundToDateFormat(Instant value)
     {
-        String formatted = formatValue(value.with(ChronoField.MILLI_OF_SECOND, 0));
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(value.with(ChronoField.MILLI_OF_SECOND, 0), UTC_TIME_ZONE_ID);
+        String formatted = localDateTime.format(dateFormat);
         try {
             return parse(formatted, dateFormat);
         }
@@ -161,10 +166,25 @@ final class DateProjection
         }
     }
 
-    private String formatValue(Instant current)
+    // TODO: Remove this method when we support write to Hive partition value with respect the
+    //       the user defined format. Currently, we are using the default Hive format. Only reading
+    //       and generating partition values is done with respect to the user defined format.
+    private String formatValueToHiveCompatibleFormat(Instant current)
     {
-        LocalDateTime localDateTime = LocalDateTime.ofInstant(current, UTC_TIME_ZONE_ID);
-        return localDateTime.format(dateFormat);
+        if (columnType instanceof VarcharType) {
+            LocalDateTime localDateTime = LocalDateTime.ofInstant(current, UTC_TIME_ZONE_ID);
+            return localDateTime.format(dateFormat);
+        }
+
+        if (columnType instanceof DateType) {
+            return toDatePartitionValue(MILLISECONDS.toDays(current.toEpochMilli()));
+        }
+
+        if (columnType instanceof TimestampType timestampType && timestampType.isShort()) {
+            return toTimestampPartitionValue(MILLISECONDS.toMicros(current.toEpochMilli()));
+        }
+
+        throw new InvalidProjectionException(columnName, columnType);
     }
 
     private boolean isValueInDomain(Optional<Domain> valueDomain, Instant value, String formattedValue)
