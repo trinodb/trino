@@ -163,6 +163,7 @@ public class HiveConfig
     private Optional<String> icebergCatalogName = Optional.empty();
     private Optional<String> deltaLakeCatalogName = Optional.empty();
     private Optional<String> hudiCatalogName = Optional.empty();
+    private Optional<String> paimonCatalogName = Optional.empty();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
     private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
@@ -1241,6 +1242,19 @@ public class HiveConfig
     public HiveConfig setHudiCatalogName(String hudiCatalogName)
     {
         this.hudiCatalogName = Optional.ofNullable(hudiCatalogName);
+        return this;
+    }
+
+    public Optional<String> getPaimonCatalogName()
+    {
+        return paimonCatalogName;
+    }
+
+    @Config("hive.paimon-catalog-name")
+    @ConfigDescription("Catalog to redirect to when a Paimon table is referenced")
+    public HiveConfig setPaimonCatalogName(String paimonCatalogName)
+    {
+        this.paimonCatalogName = Optional.ofNullable(paimonCatalogName);
         return this;
     }
 

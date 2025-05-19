@@ -75,6 +75,9 @@ import static io.trino.hive.formats.HiveClassNames.HUDI_INPUT_FORMAT;
 import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
 import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_REALTIME_INPUT_FORMAT;
 import static io.trino.hive.formats.HiveClassNames.HUDI_REALTIME_INPUT_FORMAT;
+import static io.trino.hive.formats.HiveClassNames.PAIMON_INPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.PAIMON_OUTPUT_FORMAT_CLASS;
+import static io.trino.hive.formats.HiveClassNames.PAIMON_STORAGE_HANDLER_CLASS;
 import static io.trino.hive.thrift.metastore.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static io.trino.metastore.HiveType.toHiveTypes;
 import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
@@ -810,6 +813,18 @@ public final class HiveUtil
                 HUDI_PARQUET_REALTIME_INPUT_FORMAT.equals(inputFormat) ||
                 HUDI_INPUT_FORMAT.equals(inputFormat) ||
                 HUDI_REALTIME_INPUT_FORMAT.equals(inputFormat);
+    }
+
+    public static boolean isPaimonTable(Table table)
+    {
+        return isPaimonTable(table.getStorage().getStorageFormat().getInputFormatNullable());
+    }
+
+    public static boolean isPaimonTable(String inputFormat)
+    {
+        return PAIMON_INPUT_FORMAT_CLASS.equals(inputFormat) ||
+                PAIMON_OUTPUT_FORMAT_CLASS.equals(inputFormat) ||
+                PAIMON_STORAGE_HANDLER_CLASS.equals(inputFormat);
     }
 
     public static boolean isSparkBucketedTable(Table table)
