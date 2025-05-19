@@ -83,7 +83,7 @@ public class TestOpaBatchAccessControlFiltering
                 inputIdentities,
                 identityToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(11, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(11, 1)),
                         1,
                         "FilterViewQueryOwnedBy",
                         expectedIdentities),
@@ -94,7 +94,7 @@ public class TestOpaBatchAccessControlFiltering
                 inputIdentities,
                 identityToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(2, 5, 1, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(2, 5), new BatchSizeAndNumberOfRequests(1, 1)),
                         6,
                         "FilterViewQueryOwnedBy",
                         expectedIdentities),
@@ -105,7 +105,7 @@ public class TestOpaBatchAccessControlFiltering
                 inputIdentities,
                 identityToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(3, 3, 2, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(3, 3), new BatchSizeAndNumberOfRequests(2, 1)),
                         4,
                         "FilterViewQueryOwnedBy",
                         expectedIdentities),
@@ -116,7 +116,7 @@ public class TestOpaBatchAccessControlFiltering
                 inputIdentities,
                 identityToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(11, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(11, 1)),
                         1,
                         "FilterViewQueryOwnedBy",
                         expectedIdentities),
@@ -145,7 +145,7 @@ public class TestOpaBatchAccessControlFiltering
                 catalogs,
                 catalogToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(11, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(11, 1)),
                         1,
                         "FilterCatalogs",
                         expectedRequestItems),
@@ -156,7 +156,7 @@ public class TestOpaBatchAccessControlFiltering
                 catalogs,
                 catalogToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(2, 5, 1, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(2, 5), new BatchSizeAndNumberOfRequests(1, 1)),
                         6,
                         "FilterCatalogs",
                         expectedRequestItems),
@@ -167,7 +167,7 @@ public class TestOpaBatchAccessControlFiltering
                 catalogs,
                 catalogToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(3, 3, 2, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(3, 3), new BatchSizeAndNumberOfRequests(2, 1)),
                         4,
                         "FilterCatalogs",
                         expectedRequestItems),
@@ -178,7 +178,7 @@ public class TestOpaBatchAccessControlFiltering
                 catalogs,
                 catalogToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(11, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(11, 1)),
                         1,
                         "FilterCatalogs",
                         expectedRequestItems),
@@ -209,7 +209,7 @@ public class TestOpaBatchAccessControlFiltering
                 schemas,
                 schemaToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(11, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(11, 1)),
                         1,
                         "FilterSchemas",
                         expectedRequestItems),
@@ -220,7 +220,7 @@ public class TestOpaBatchAccessControlFiltering
                 schemas,
                 schemaToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(2, 5, 1, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(2, 5), new BatchSizeAndNumberOfRequests(1, 1)),
                         6,
                         "FilterSchemas",
                         expectedRequestItems),
@@ -231,7 +231,7 @@ public class TestOpaBatchAccessControlFiltering
                 schemas,
                 schemaToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(3, 3, 2, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(3, 3), new BatchSizeAndNumberOfRequests(2, 1)),
                         4,
                         "FilterSchemas",
                         expectedRequestItems),
@@ -242,7 +242,7 @@ public class TestOpaBatchAccessControlFiltering
                 schemas,
                 schemaToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(11, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(11, 1)),
                         1,
                         "FilterSchemas",
                         expectedRequestItems),
@@ -283,7 +283,7 @@ public class TestOpaBatchAccessControlFiltering
                 tables,
                 tableToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(12, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(12, 1)),
                         1,
                         "FilterTables",
                         expectedRequestItems),
@@ -294,7 +294,7 @@ public class TestOpaBatchAccessControlFiltering
                 tables,
                 tableToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(2, 6),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(2, 6)),
                         6,
                         "FilterTables",
                         expectedRequestItems),
@@ -305,7 +305,7 @@ public class TestOpaBatchAccessControlFiltering
                 tables,
                 tableToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(3, 4),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(3, 4)),
                         4,
                         "FilterTables",
                         expectedRequestItems),
@@ -316,7 +316,7 @@ public class TestOpaBatchAccessControlFiltering
                 tables,
                 tableToJsonNode,
                 new ExpectedRequestProperties(
-                        ImmutableMap.of(12, 1),
+                        ImmutableSet.of(new BatchSizeAndNumberOfRequests(12, 1)),
                         1,
                         "FilterTables",
                         expectedRequestItems),
@@ -349,14 +349,21 @@ public class TestOpaBatchAccessControlFiltering
         Map<SchemaTableName, ImmutableSet<String>> expectedResult = ImmutableMap.of(tableOne, ImmutableSet.of("table_one_column_1", "table_one_column_2", "table_one_column_3"),
                 tableTwo, ImmutableSet.of("table_two_column_1"));
 
-        testFilterColummns(catalog, requestedColumns, allowedResources, expectedResult, OPA_CONFIG_NO_BATCH_SIZE, ImmutableMap.of(12, 1, 10, 1, 7, 1), 3);
-        testFilterColummns(catalog, requestedColumns, allowedResources, expectedResult, OPA_CONFIG_BATCH_SIZE_2, ImmutableMap.of(2, 6 + 5 + 3, 1, 1), 6 + 5 + 4);
-        testFilterColummns(catalog, requestedColumns, allowedResources, expectedResult, OPA_CONFIG_BATCH_SIZE_3, ImmutableMap.of(3, 4 + 3 + 2, 1, 2), 4 + 4 + 3);
-        testFilterColummns(catalog, requestedColumns, allowedResources, expectedResult, OPA_CONFIG_BATCH_SIZE_100, ImmutableMap.of(12, 1, 10, 1, 7, 1), 3);
+        testFilterColummns(catalog, requestedColumns, allowedResources, expectedResult, OPA_CONFIG_NO_BATCH_SIZE,
+                ImmutableSet.of(new BatchSizeAndNumberOfRequests(12, 1), new BatchSizeAndNumberOfRequests(10, 1), new BatchSizeAndNumberOfRequests(7, 1)),
+                3);
+        testFilterColummns(catalog, requestedColumns, allowedResources, expectedResult, OPA_CONFIG_BATCH_SIZE_2,
+                ImmutableSet.of(new BatchSizeAndNumberOfRequests(2, 6 + 5 + 3), new BatchSizeAndNumberOfRequests(1, 1)),
+                6 + 5 + 4);
+        testFilterColummns(catalog, requestedColumns, allowedResources, expectedResult, OPA_CONFIG_BATCH_SIZE_3,
+                ImmutableSet.of(new BatchSizeAndNumberOfRequests(3, 4 + 3 + 2), new BatchSizeAndNumberOfRequests(1, 2)), 4 + 4 + 3);
+        testFilterColummns(catalog, requestedColumns, allowedResources, expectedResult, OPA_CONFIG_BATCH_SIZE_100,
+                ImmutableSet.of(new BatchSizeAndNumberOfRequests(12, 1), new BatchSizeAndNumberOfRequests(10, 1), new BatchSizeAndNumberOfRequests(7, 1)),
+                3);
     }
 
     private void testFilterColummns(String catalog, Map<SchemaTableName, Set<String>> requestedColumns, Set<JsonNode> allowedResources,
-            Map<SchemaTableName, ImmutableSet<String>> expectedResult, OpaConfig opaConfig, ImmutableMap<Integer, Integer> batchSizeToBatchNumber, int numberOfRequest)
+            Map<SchemaTableName, ImmutableSet<String>> expectedResult, OpaConfig opaConfig, ImmutableSet<BatchSizeAndNumberOfRequests> batchSizeToBatchNumber, int numberOfRequest)
     {
 
         String pathToResources = PATH_TO_FILTER_RESOURCES + "/0/table/columns";
@@ -440,7 +447,7 @@ public class TestOpaBatchAccessControlFiltering
                 (authorizer, systemSecurityContext, items) -> authorizer.filterFunctions(systemSecurityContext, catalog, items),
                 functions,
                 schemaFunctionNameToJsonNode,
-                new ExpectedRequestProperties(ImmutableMap.of(14, 1),
+                new ExpectedRequestProperties(ImmutableSet.of(new BatchSizeAndNumberOfRequests(14, 1)),
                         1,
                         "FilterFunctions",
                         expectedRequestItems),
@@ -450,7 +457,7 @@ public class TestOpaBatchAccessControlFiltering
                 (authorizer, systemSecurityContext, items) -> authorizer.filterFunctions(systemSecurityContext, catalog, items),
                 functions,
                 schemaFunctionNameToJsonNode,
-                new ExpectedRequestProperties(ImmutableMap.of(2, 7),
+                new ExpectedRequestProperties(ImmutableSet.of(new BatchSizeAndNumberOfRequests(2, 7)),
                         7,
                         "FilterFunctions",
                         expectedRequestItems),
@@ -460,7 +467,7 @@ public class TestOpaBatchAccessControlFiltering
                 (authorizer, systemSecurityContext, items) -> authorizer.filterFunctions(systemSecurityContext, catalog, items),
                 functions,
                 schemaFunctionNameToJsonNode,
-                new ExpectedRequestProperties(ImmutableMap.of(3, 4, 2, 1),
+                new ExpectedRequestProperties(ImmutableSet.of(new BatchSizeAndNumberOfRequests(3, 4), new BatchSizeAndNumberOfRequests(2, 1)),
                         5,
                         "FilterFunctions",
                         expectedRequestItems),
@@ -470,7 +477,7 @@ public class TestOpaBatchAccessControlFiltering
                 (authorizer, systemSecurityContext, items) -> authorizer.filterFunctions(systemSecurityContext, catalog, items),
                 functions,
                 schemaFunctionNameToJsonNode,
-                new ExpectedRequestProperties(ImmutableMap.of(14, 1),
+                new ExpectedRequestProperties(ImmutableSet.of(new BatchSizeAndNumberOfRequests(14, 1)),
                         1,
                         "FilterFunctions",
                         expectedRequestItems),
@@ -495,14 +502,19 @@ public class TestOpaBatchAccessControlFiltering
         });
     }
 
-    record ExpectedRequestProperties(Map<Integer, Integer> batchChunkSizes, int numberOfRequests, String operation, Set<JsonNode> expectedRequestItems)
+    record ExpectedRequestProperties(Set<BatchSizeAndNumberOfRequests> batchSizeAndNumberOfRequests, int numberOfRequests, String operation, Set<JsonNode> expectedRequestItems)
     {
         ExpectedRequestProperties
         {
-            batchChunkSizes = ImmutableMap.copyOf(requireNonNull(batchChunkSizes, "batchChunkSizes is null"));
+            batchSizeAndNumberOfRequests = ImmutableSet.copyOf(requireNonNull(batchSizeAndNumberOfRequests, "batchSizeAndNumberOfRequests is null"));
             expectedRequestItems = ImmutableSet.copyOf(requireNonNull(expectedRequestItems, "expectedRequestItems is null"));
             requireNonNull(operation, "operation is null");
         }
+    }
+
+    record BatchSizeAndNumberOfRequests(int batchSize, int numberOfRequests)
+    {
+
     }
 
     private static <T> void assertAccessControlMethodBehaviour(
@@ -559,14 +571,15 @@ public class TestOpaBatchAccessControlFiltering
                 .isTrue();
     }
 
-    private static void assertBatchSizesMatch(ImmutableList<JsonNode> requests, Map<Integer, Integer> expectedBatchSizes, String pathToResources)
+    private static void assertBatchSizesMatch(ImmutableList<JsonNode> requests, Set<BatchSizeAndNumberOfRequests> expectedBatchSizes, String pathToResources)
     {
         Map<Integer, Integer> actualBatchSizes = new HashMap<>();
         requests.forEach(request -> {
             int batchSize = request.at(pathToResources).size();
             actualBatchSizes.put(batchSize, actualBatchSizes.getOrDefault(batchSize, 0) + 1);
         });
-        assertThat(actualBatchSizes).isEqualTo(expectedBatchSizes);
+        assertThat(actualBatchSizes.entrySet().stream().map(e -> new BatchSizeAndNumberOfRequests(e.getKey(), e.getValue())).collect(toImmutableSet()))
+                .isEqualTo(expectedBatchSizes);
     }
 
     private static void assertRequestedItemsMatch(ImmutableList<JsonNode> requests, ImmutableSet<JsonNode> expectedItems, String pathToResources)
@@ -579,7 +592,7 @@ public class TestOpaBatchAccessControlFiltering
     {
         assertThat(requests.size()).isEqualTo(expectedRequestProperties.numberOfRequests);
         assertRequestOperationMatches(requests, expectedRequestProperties.operation);
-        assertBatchSizesMatch(requests, expectedRequestProperties.batchChunkSizes, pathToResources);
+        assertBatchSizesMatch(requests, expectedRequestProperties.batchSizeAndNumberOfRequests, pathToResources);
         assertRequestedItemsMatch(requests, ImmutableSet.copyOf(expectedRequestProperties.expectedRequestItems), pathToResources);
     }
 
