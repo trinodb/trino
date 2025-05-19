@@ -194,7 +194,6 @@
         <dep.frontend-node.version>v22.14.0</dep.frontend-node.version>
         <dep.frontend-npm.version>11.2.0</dep.frontend-npm.version>
         <dep.gib.version>4.5.4</dep.gib.version>
-        <dep.google.http.client.version>1.47.0</dep.google.http.client.version>
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
         <dep.iceberg.version>1.9.0</dep.iceberg.version>
         <dep.jackson.version>2.19.0</dep.jackson.version>
@@ -497,18 +496,6 @@
                 <groupId>com.google.guava</groupId>
                 <artifactId>failureaccess</artifactId>
                 <version>1.0.3</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.http-client</groupId>
-                <artifactId>google-http-client</artifactId>
-                <version>${dep.google.http.client.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.google.http-client</groupId>
-                <artifactId>google-http-client-gson</artifactId>
-                <version>${dep.google.http.client.version}</version>
             </dependency>
 
             <dependency>
