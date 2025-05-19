@@ -48,6 +48,7 @@ import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsFor
 import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForResponse;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOpaBatchAccessControlFiltering
@@ -352,9 +353,24 @@ public class TestOpaBatchAccessControlFiltering
         });
     }
 
-    record TestCase(OpaConfig opaConfig, Map<Integer, Integer> batchSizeToBatchNumber, Integer numberOfRequest) {}
+    record TestCase(OpaConfig opaConfig, Map<Integer, Integer> batchSizeToBatchNumber, int numberOfRequest)
+    {
+        TestCase
+        {
+            requireNonNull(opaConfig, "opaConfig is null");
+            batchSizeToBatchNumber = ImmutableMap.copyOf(requireNonNull(batchSizeToBatchNumber, "batchSizeToBatchNumber is null"));
+        }
+    }
 
-    record ExpectedRequestProperties(Map<Integer, Integer> batchChunkSizes, int numberOfRequests, String operation, Set<JsonNode> expectedRequestItems) {}
+    record ExpectedRequestProperties(Map<Integer, Integer> batchChunkSizes, int numberOfRequests, String operation, Set<JsonNode> expectedRequestItems)
+    {
+        ExpectedRequestProperties
+        {
+            batchChunkSizes = ImmutableMap.copyOf(requireNonNull(batchChunkSizes, "batchChunkSizes is null"));
+            expectedRequestItems = ImmutableSet.copyOf(requireNonNull(expectedRequestItems, "expectedRequestItems is null"));
+            requireNonNull(operation, "operation is null");
+        }
+    }
 
     private static <T> void assertAccessControlMethodBehaviour(
             FunctionalHelpers.Function3<OpaAccessControl, SystemSecurityContext, Set<T>, Collection<T>> method,
@@ -371,7 +387,11 @@ public class TestOpaBatchAccessControlFiltering
 
         record SubTestCase<T>(Set<T> expectedResourcesResult, Set<JsonNode> allowedResources)
         {
-
+            SubTestCase
+            {
+                expectedResourcesResult = ImmutableSet.copyOf(requireNonNull(expectedResourcesResult, "expectedResourcesResult is null"));
+                allowedResources = ImmutableSet.copyOf(requireNonNull(allowedResources, "allowedResources is null"));
+            }
         }
 
         List<SubTestCase<T>> testCases = allowedObjects
@@ -379,7 +399,7 @@ public class TestOpaBatchAccessControlFiltering
                 .map(items -> new SubTestCase<T>(items, items.stream().map(valueExtractor).collect(toImmutableSet())))
                 .collect(toImmutableList());
 
-        for (SubTestCase testCase : testCases) {
+        for (SubTestCase<T> testCase : testCases) {
             InstrumentedHttpClient httpClient = createMockHttpClient(OPA_SERVER_BATCH_URI, buildHandler(PATH_TO_FILTER_RESOURCES, testCase.allowedResources));
             OpaAccessControl accessControl = createOpaAuthorizer(config, httpClient);
             var result = method.apply(accessControl, TEST_SECURITY_CONTEXT, objectsToFilter.stream().collect(toImmutableSet()));
