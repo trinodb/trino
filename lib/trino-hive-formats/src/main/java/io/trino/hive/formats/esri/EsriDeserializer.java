@@ -222,7 +222,7 @@ public final class EsriDeserializer
         System.arraycopy(shape, 0, shapeHeader, 5, shape.length);
 
         // write the shape to the page
-        VARBINARY.writeSlice(getBlockBuilderForWrite(pageBuilder, geometryColumn), Slices.wrappedBuffer(shape));
+        VARBINARY.writeSlice(getBlockBuilderForWrite(pageBuilder, geometryColumn), Slices.wrappedBuffer(shapeHeader));
     }
 
     private void parseAttributes(JsonParser parser, PageBuilder pageBuilder)

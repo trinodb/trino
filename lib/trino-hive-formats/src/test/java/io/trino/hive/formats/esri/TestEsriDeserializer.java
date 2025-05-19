@@ -14,8 +14,8 @@
 package io.trino.hive.formats.esri;
 
 import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.Point;
-import com.esri.core.geometry.ogc.OGCGeometry;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -24,6 +24,7 @@ import io.trino.hive.formats.line.Column;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import org.junit.jupiter.api.Test;
 
@@ -37,9 +38,13 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.Float.floatToRawIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -55,7 +60,11 @@ class TestEsriDeserializer
             new Column("timestamp", TIMESTAMP_MILLIS, 5),
             new Column("geometry", VARBINARY, 6),
             new Column("count", INTEGER, 7),
-            new Column("price", DecimalType.createDecimalType(10, 2), 8));
+            new Column("price", DecimalType.createDecimalType(10, 2), 8),
+            new Column("small_num", SMALLINT, 9),
+            new Column("tiny_num", TINYINT, 10),
+            new Column("real_num", REAL, 11),
+            new Column("fixed_text", CharType.createCharType(10), 12));
 
     @Test
     void testDeserializeSimpleFeature()
@@ -127,6 +136,72 @@ class TestEsriDeserializer
                     .as("Column at index " + i + " should be null")
                     .isTrue();
         }
+    }
+
+    @Test
+    void testSupportedAttributeTypes()
+            throws IOException
+    {
+        String json = """
+            {
+                "attributes": {
+                    "id": 9223372036854775807,
+                    "name": "string value",
+                    "active": true,
+                    "value": 123.456789,
+                    "date": "2025-03-03",
+                    "timestamp": "2025-03-03 12:34:56.789",
+                    "count": 2147483647,
+                    "price": "99999999.99",
+                    "small_num": 32767,
+                    "tiny_num": 127,
+                    "real_num": 3.14159,
+                    "fixed_text": "FIXED      "
+                }
+            }
+            """;
+
+        Page page = parse(json);
+
+        // Test BIGINT
+        assertThat(BIGINT.getLong(page.getBlock(0), 0)).isEqualTo(9223372036854775807L);
+
+        // Test VARCHAR
+        assertThat(VARCHAR.getSlice(page.getBlock(1), 0).toStringUtf8()).isEqualTo("string value");
+
+        // Test BOOLEAN
+        assertThat(BOOLEAN.getBoolean(page.getBlock(2), 0)).isTrue();
+
+        // Test DOUBLE
+        assertThat(DOUBLE.getDouble(page.getBlock(3), 0)).isEqualTo(123.456789);
+
+        // Test DATE
+        assertThat(DATE.getLong(page.getBlock(4), 0)).isEqualTo(20150);
+
+        // Test TIMESTAMP
+        assertThat(TIMESTAMP_MILLIS.getLong(page.getBlock(5), 0)).isEqualTo(1741005296789000L);
+
+        // Test INTEGER
+        assertThat(INTEGER.getLong(page.getBlock(7), 0)).isEqualTo(2147483647);
+
+        // Test DECIMAL
+        DecimalType decimalType = DecimalType.createDecimalType(10, 2);
+        Block decimalBlock = page.getBlock(8);
+        assertThat(decimalType.getLong(decimalBlock, 0)).isEqualTo(9999999999L);
+
+        // Test SMALLINT
+        assertThat(SMALLINT.getLong(page.getBlock(9), 0)).isEqualTo(32767);
+
+        // Test TINYINT
+        assertThat(TINYINT.getLong(page.getBlock(10), 0)).isEqualTo(127);
+
+        // Test REAL
+        float expectedFloat = 3.14159f;
+        assertThat(REAL.getLong(page.getBlock(11), 0)).isEqualTo(floatToRawIntBits(expectedFloat));
+
+        // Test CHAR
+        CharType charType = CharType.createCharType(10);
+        assertThat(charType.getSlice(page.getBlock(12), 0).toStringUtf8()).isEqualTo("FIXED");
     }
 
     @Test
@@ -501,7 +576,23 @@ class TestEsriDeserializer
         }
 
         assertThat(page.getBlock(6).isNull(0)).isFalse();
-        assertThat(OGCGeometry.fromEsriShape(VARBINARY.getSlice(page.getBlock(6), 0).toByteBuffer()).getEsriGeometry())
-                .isEqualTo(expected);
+
+        byte[] actual = VARBINARY.getSlice(page.getBlock(6), 0).getBytes();
+
+        byte[] expectedShape = GeometryEngine.geometryToEsriShape(expected);
+        byte[] expectedBytes = new byte[4 + 1 + expectedShape.length];
+
+        OGCType ogcType = switch (expected.getType()) {
+            case Point -> OGCType.ST_POINT;
+            case Line -> OGCType.ST_LINESTRING;
+            case Polygon -> OGCType.ST_POLYGON;
+            case MultiPoint -> OGCType.ST_MULTIPOINT;
+            case Polyline -> OGCType.ST_MULTILINESTRING;
+            default -> OGCType.UNKNOWN;
+        };
+        expectedBytes[4] = (byte) ogcType.getIndex();
+        System.arraycopy(expectedShape, 0, expectedBytes, 5, expectedShape.length);
+
+        assertThat(actual).isEqualTo(expectedBytes);
     }
 }
