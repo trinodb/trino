@@ -276,8 +276,8 @@ public class TestOpaBatchAccessControlFiltering
         SchemaTableName tableOne = SchemaTableName.schemaTableName("my_schema", "table_one");
         SchemaTableName tableTwo = SchemaTableName.schemaTableName("my_schema", "table_two");
         Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.of(
-                tableOne, ImmutableSet.of()
-                , tableTwo, ImmutableSet.of());
+                tableOne, ImmutableSet.of(),
+                tableTwo, ImmutableSet.of());
 
         assertFilteringAccessControlMethodDoesNotSendRequests(
                 accessControl -> accessControl.filterColumns(TEST_SECURITY_CONTEXT, catalog, requestedColumns).entrySet());
@@ -290,8 +290,7 @@ public class TestOpaBatchAccessControlFiltering
                 accessControl -> accessControl.filterColumns(
                         TEST_SECURITY_CONTEXT,
                         "my_catalog",
-                        ImmutableMap.of(new SchemaTableName("some_schema", "some_table"),
-                                ImmutableSet.of("column_one", "column_two"))),
+                        ImmutableMap.of(new SchemaTableName("some_schema", "some_table"), ImmutableSet.of("column_one", "column_two"))),
                 batchFilteringOpaConfig(),
                 OPA_SERVER_BATCH_URI);
     }
