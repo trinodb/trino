@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.execution.QueryIdGenerator;
+import io.trino.execution.UuidV7QueryIdGenerator;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
@@ -38,7 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class TestingConnectorSession
         implements ConnectorSession
 {
-    private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
+    private static final QueryIdGenerator queryIdGenerator = new UuidV7QueryIdGenerator();
 
     public static final ConnectorSession SESSION = builder().build();
 
