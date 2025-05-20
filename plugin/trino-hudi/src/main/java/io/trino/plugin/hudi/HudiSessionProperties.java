@@ -16,6 +16,7 @@ package io.trino.plugin.hudi;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
@@ -28,6 +29,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.validateMaxDataSize;
 import static io.trino.plugin.hive.parquet.ParquetReaderConfig.PARQUET_READER_MAX_SMALL_FILE_THRESHOLD;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -54,6 +56,7 @@ public class HudiSessionProperties
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
     static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
+    static final String DYNAMIC_FILTERING_WAIT_TIMEOUT = "dynamic_filtering_wait_timeout";
 
     // Internal configuration for debugging and testing
     static final String RECORD_LEVEL_INDEX_ENABLED = "record_level_index_enabled";
@@ -163,7 +166,12 @@ public class HudiSessionProperties
                         PARTITION_STATS_INDEX_ENABLED,
                         "Enable partition stats index for file skipping",
                         hudiConfig.isPartitionStatsIndexEnabled(),
-                        true));
+                        true),
+                durationProperty(
+                        DYNAMIC_FILTERING_WAIT_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters during split generation",
+                        hudiConfig.getDynamicFilteringWaitTimeout(),
+                        false));
     }
 
     @Override
@@ -261,5 +269,10 @@ public class HudiSessionProperties
     public static boolean isNoOpIndexEnabled(ConnectorSession session)
     {
         return !isRecordLevelIndexEnabled(session) && !isSecondaryIndexEnabled(session) && !isColumnStatsIndexEnabled(session);
+    }
+
+    public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
     }
 }

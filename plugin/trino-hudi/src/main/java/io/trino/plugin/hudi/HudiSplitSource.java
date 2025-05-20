@@ -13,14 +13,19 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.util.AsyncQueue;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.hive.util.ThrottledAsyncQueue;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
 import io.trino.plugin.hudi.query.HudiSnapshotDirectoryLister;
@@ -31,11 +36,17 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -43,6 +54,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
@@ -52,14 +64,21 @@ import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightS
 import static io.trino.plugin.hudi.HudiSessionProperties.isHudiMetadataTableEnabled;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
 public class HudiSplitSource
         implements ConnectorSplitSource
 {
+    private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
     private final AsyncQueue<ConnectorSplit> queue;
     private final ScheduledFuture splitLoaderFuture;
     private final AtomicReference<TrinoException> trinoException = new AtomicReference<>();
+    private final DynamicFilter dynamicFilter;
+    private final long dynamicFilteringWaitTimeoutMillis;
+    private final Stopwatch dynamicFilterWaitStopwatch;
 
     public HudiSplitSource(
             ConnectorSession session,
@@ -72,7 +91,9 @@ public class HudiSplitSource
             ScheduledExecutorService splitLoaderExecutorService,
             int maxSplitsPerSecond,
             int maxOutstandingSplits,
-            List<String> partitions)
+            List<String> partitions,
+            DynamicFilter dynamicFilter,
+            Duration dynamicFilteringWaitTimeoutMillis)
     {
         boolean enableMetadataTable = isHudiMetadataTableEnabled(session);
         HoodieTableMetaClient metaClient = buildTableMetaClient(fileSystemFactory.create(session), tableHandle.getBasePath());
@@ -113,11 +134,32 @@ public class HudiSplitSource
                     queue.finish();
                 });
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeoutMillis.toMillis();
+        this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
     }
 
     @Override
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
+        // If dynamic filtering is enabled and we haven't timed out, wait for the build side to provide the dynamic filter.
+        long timeLeft = dynamicFilteringWaitTimeoutMillis - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
+        if (dynamicFilter.isAwaitable() && timeLeft > 0) {
+            // If the filter is not ready, return an empty batch. The query engine will call getNextBatch() again.
+            // As long as isFinished() is false, effectively polling until the filter is ready or timeout occurs.
+            return dynamicFilter.isBlocked()
+                    .thenApply(_ -> EMPTY_BATCH)
+                    .completeOnTimeout(EMPTY_BATCH, timeLeft, MILLISECONDS);
+        }
+
+        TupleDomain<HiveColumnHandle> dynamicFilterPredicate =
+                dynamicFilter.getCurrentPredicate().transformKeys(HiveColumnHandle.class::cast);
+
+        if (dynamicFilterPredicate.isNone()) {
+            close();
+            return completedFuture(new ConnectorSplitBatch(ImmutableList.of(), true));
+        }
+
         boolean noMoreSplits = isFinished();
         Throwable throwable = trinoException.get();
         if (throwable != null) {
@@ -126,7 +168,13 @@ public class HudiSplitSource
 
         return toCompletableFuture(Futures.transform(
                 queue.getBatchAsync(maxSize),
-                splits -> new ConnectorSplitBatch(splits, noMoreSplits),
+                splits ->
+                {
+                    List<ConnectorSplit> filteredSplits = splits.stream()
+                            .filter(split -> partitionMatchesPredicate((HudiSplit) split, dynamicFilterPredicate))
+                            .collect(toImmutableList());
+                    return new ConnectorSplitBatch(filteredSplits, noMoreSplits);
+                },
                 directExecutor()));
     }
 
@@ -150,5 +198,49 @@ public class HudiSplitSource
             return new SizeBasedSplitWeightProvider(minimumAssignedSplitWeight, standardSplitWeightSize);
         }
         return HudiSplitWeightProvider.uniformStandardWeightProvider();
+    }
+
+    static boolean partitionMatchesPredicate(
+            HudiSplit split,
+            TupleDomain<HiveColumnHandle> dynamicFilterPredicate)
+    {
+        if (dynamicFilterPredicate.isNone()) {
+            return false;
+        }
+
+        // Pre-process the filter predicate to get a map of relevant partition domains keyed by partition column name
+        Map<String, Map.Entry<HiveColumnHandle, Domain>> filterPartitionDomains = new HashMap<>();
+        if (dynamicFilterPredicate.getDomains().isPresent()) {
+            for (Map.Entry<HiveColumnHandle, Domain> entry : dynamicFilterPredicate.getDomains().get().entrySet()) {
+                HiveColumnHandle column = entry.getKey();
+                if (column.isPartitionKey()) {
+                    filterPartitionDomains.put(column.getName(), entry);
+                }
+            }
+        }
+
+        // Match each partition key from the split against the pre-processed filter domains
+        for (HivePartitionKey splitPartitionKey : split.getPartitionKeys()) {
+            Map.Entry<HiveColumnHandle, Domain> filterInfo = filterPartitionDomains.get(splitPartitionKey.name());
+
+            if (filterInfo == null) {
+                // filterInfo is null, the partition key is not constrained by the filter
+                continue;
+            }
+
+            HiveColumnHandle filterColumnHandle = filterInfo.getKey();
+            Domain filterDomain = filterInfo.getValue();
+
+            NullableValue value = HiveUtil.getPrefilledColumnValue(
+                    filterColumnHandle,
+                    splitPartitionKey,
+                    null, OptionalInt.empty(), 0, 0, "");
+
+            // Split does not match this filter condition
+            if (!filterDomain.includesNullableValue(value.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 }

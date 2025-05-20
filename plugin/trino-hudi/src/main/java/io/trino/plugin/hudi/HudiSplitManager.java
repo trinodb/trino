@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
+import static io.trino.plugin.hudi.HudiSessionProperties.getDynamicFilteringWaitTimeout;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxSplitsPerSecond;
 import static io.trino.plugin.hudi.partition.HiveHudiPartitionInfo.NON_PARTITION;
@@ -102,7 +103,9 @@ public class HudiSplitManager
                 splitLoaderExecutorService,
                 getMaxSplitsPerSecond(session),
                 getMaxOutstandingSplits(session),
-                allPartitions);
+                allPartitions,
+                dynamicFilter,
+                getDynamicFilteringWaitTimeout(session));
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
     }
 
