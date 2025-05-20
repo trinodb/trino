@@ -55,7 +55,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_UNSUPPORTED_FILE_FORMAT;
-import static org.apache.hudi.avro.HoodieAvroUtils.METADATA_FIELD_SCHEMA;
 import static org.apache.hudi.common.model.HoodieRecord.HOODIE_META_COLUMNS;
 
 public final class HudiUtil
@@ -152,27 +151,42 @@ public final class HudiUtil
                 .build();
     }
 
-    public static Schema constructSchema(List<String> columnNames, List<HiveType> columnTypes, boolean withMetaColumns)
+    public static Schema constructSchema(List<String> columnNames, List<HiveType> columnTypes)
     {
         // create instance of this class to keep nested record naming consistent for any given inputs
         AvroHiveFileUtils recordIncrementingUtil = new AvroHiveFileUtils();
         SchemaBuilder.RecordBuilder<Schema> schemaBuilder = SchemaBuilder.record("baseRecord");
         SchemaBuilder.FieldAssembler<Schema> fieldBuilder = schemaBuilder.fields();
 
-        if (withMetaColumns) {
-            for (String metaFieldName : HOODIE_META_COLUMNS) {
-                fieldBuilder = fieldBuilder
-                        .name(metaFieldName)
-                        .type(METADATA_FIELD_SCHEMA)
-                        .withDefault(null);
-            }
-        }
-
         for (int i = 0; i < columnNames.size(); ++i) {
             Schema fieldSchema = recordIncrementingUtil.avroSchemaForHiveType(columnTypes.get(i));
             fieldBuilder = fieldBuilder
                     .name(columnNames.get(i))
                     .type(fieldSchema)
+                    .withDefault(null);
+        }
+        return fieldBuilder.endRecord();
+    }
+
+    public static Schema constructSchema(Schema dataSchema, List<String> columnNames)
+    {
+        SchemaBuilder.RecordBuilder<Schema> schemaBuilder = SchemaBuilder.record("baseRecord");
+        SchemaBuilder.FieldAssembler<Schema> fieldBuilder = schemaBuilder.fields();
+        for (String columnName : columnNames) {
+            Schema originalFieldSchema = dataSchema.getField(columnName).schema();
+            Schema typeForNewField;
+
+            // Check if the original field schema is already nullable (i.e., a UNION containing NULL)
+            if (originalFieldSchema.isNullable()) {
+                typeForNewField = originalFieldSchema;
+            }
+            else {
+                typeForNewField = Schema.createUnion(Schema.create(Schema.Type.NULL), originalFieldSchema);
+            }
+
+            fieldBuilder = fieldBuilder
+                    .name(columnName)
+                    .type(typeForNewField)
                     .withDefault(null);
         }
         return fieldBuilder.endRecord();

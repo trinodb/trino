@@ -107,9 +107,7 @@ public class HudiTrinoReaderContext
                     currentPosition = 0;
 
                     // If no more pages are available
-                    if (currentPage == null) {
-                        return false;
-                    }
+                    return currentPage != null;
                 }
 
                 return true;

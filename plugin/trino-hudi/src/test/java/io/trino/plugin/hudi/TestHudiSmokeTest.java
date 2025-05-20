@@ -41,19 +41,25 @@ import io.trino.testing.TestingConnectorSession;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hudi.HudiPageSourceProvider.createPageSource;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COMPREHENSIVE_TYPES_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
@@ -653,6 +659,196 @@ public class TestHudiSmokeTest
         assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG'), (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG')");
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testComprehensiveTypes(boolean isRtTable)
+    {
+        Session session = SessionBuilder.from(getSession())
+                .withMdtEnabled(true)
+                .build();
+        // Not using #assertQuery() as it uses H2QueryRunner, which restricts the types which can be defined, particularly MAP types
+        // Use #getQueryRunner(), which uses TrinoQueryRunner instead
+
+        // Define the columns that are being tested:
+        ImmutableList<String> columnsToTest = ImmutableList.of(
+                "uuid", "precombine_field", "col_boolean", "col_tinyint", "col_smallint", "col_int", "col_bigint", "col_float", "col_double", "col_decimal", "col_string",
+                "col_varchar", "col_char", "col_binary", "col_date", "col_timestamp", "col_array_int", "col_array_string", "col_map_string_int", "col_struct", "col_array_struct",
+                "col_map_string_struct", "col_array_struct_with_map", "col_map_struct_with_array", "col_struct_nested_struct", "col_array_array_int", "col_map_string_array_double",
+                "col_map_string_map_string_date", "col_struct_array_struct", "col_struct_map", "part_col");
+
+        // Define expected output
+        ImmutableList<ImmutableList<String>> expectedRowValues = ImmutableList.of(
+                // uuid STRING
+                ImmutableList.of("'uuid1'", "'uuid2'", "'uuid3'"),
+                // precombine_field LONG -> BIGINT
+                ImmutableList.of(
+                        // Updates were performed (RT table holds the updated value)
+                        isRtTable ? "BIGINT '1001'" : "BIGINT '1000'",
+                        isRtTable ? "BIGINT '1006'" : "BIGINT '1005'",
+                        isRtTable ? "BIGINT '1101'" : "BIGINT '1100'"),
+                // col_boolean BOOLEAN
+                ImmutableList.of("true", "false", "CAST(NULL AS BOOLEAN)"),
+                // col_tinyint TINYINT
+                ImmutableList.of("TINYINT '1'", "TINYINT '2'", "CAST(NULL AS TINYINT)"),
+                // col_smallint SMALLINT
+                ImmutableList.of("SMALLINT '100'", "SMALLINT '200'", "CAST(NULL AS SMALLINT)"),
+                // col_int
+                ImmutableList.of("INTEGER '1000'", "INTEGER '2000'", "CAST(NULL AS INTEGER)"),
+                // col_bigint BIGINT
+                ImmutableList.of("BIGINT '100000'", "BIGINT '200000'", "CAST(NULL AS BIGINT)"),
+                // col_float
+                ImmutableList.of("REAL '1.1'", "REAL '2.2'", "CAST(NULL AS REAL)"),
+                // col_double
+                ImmutableList.of(
+                        // Updates were performed on partition A values (RT table holds the updated value)
+                        isRtTable ? "DOUBLE '110.123'" : "DOUBLE '10.123'",
+                        isRtTable ? "DOUBLE '120.456'" : "DOUBLE '20.456'",
+                        "CAST(NULL AS DOUBLE)"),
+                // col_decimal
+                ImmutableList.of("DECIMAL '123.45'", "DECIMAL '234.56'", "CAST(NULL AS DECIMAL(10,2))"),
+                // col_string
+                ImmutableList.of(
+                        "'string val 1'",
+                        "'string val 2'",
+                        // Updates were performed on partition B values (RT table holds the updated value)
+                        isRtTable ? "'updated string'" : "NULL"),
+                // col_varchar
+                ImmutableList.of("CAST('varchar val 1' AS VARCHAR(50))", "CAST('varchar val 2' AS VARCHAR(50))", "CAST(NULL AS VARCHAR(50))"),
+                // col_char
+                ImmutableList.of("CAST('charval1' AS CHAR(10))", "CAST('charval2' AS CHAR(10))", "CAST(NULL AS CHAR(10))"),
+                // col_binary BINARY -> VARBINARY: UTF-8 bytes of "binary1", "binary2", null
+                ImmutableList.of("X'62696e61727931'", "X'62696e61727932'", "CAST(NULL AS VARBINARY)"),
+                // col_date
+                ImmutableList.of("DATE '2025-01-15'", "DATE '2025-02-20'", "CAST(NULL AS DATE)"),
+                // col_timestamp TIMESTAMP
+                ImmutableList.of("TIMESTAMP '2025-01-15 11:30:00.000'", "TIMESTAMP '2025-02-20 12:45:00.000'", "CAST(NULL AS TIMESTAMP)"),
+                // col_array_int ARRAY<INT>
+                ImmutableList.of("ARRAY[1, 2, 3]", "ARRAY[4, 5]", "CAST(NULL AS ARRAY<INTEGER>)"),
+                // col_array_string ARRAY<STRING>
+                ImmutableList.of("ARRAY['a', 'b', 'c']", "ARRAY['d', 'e', 'f']", "CAST(NULL AS ARRAY<VARCHAR>)"),
+                // col_map_string_int MAP<STRING, INT>
+                ImmutableList.of("MAP(ARRAY['key1', 'key2'], ARRAY[10, 20])", "MAP(ARRAY['key3'], ARRAY[30])", "CAST(NULL AS MAP(VARCHAR, INTEGER))"),
+                // col_struct
+                ImmutableList.of(
+                        "CAST(ROW('struct_str1', 55, false) AS ROW(f1 VARCHAR, f2 INTEGER, f3 BOOLEAN))",
+                        "CAST(ROW('struct_str2', 66, true) AS ROW(f1 VARCHAR, f2 INTEGER, f3 BOOLEAN))",
+                        "CAST(NULL AS ROW(f1 VARCHAR, f2 INTEGER, f3 BOOLEAN))"),
+                // col_array_struct
+                ImmutableList.of(
+                        "ARRAY[CAST(ROW(1.1E0, ARRAY['n1','n2']) AS ROW(nested_f1 DOUBLE, nested_f2 ARRAY<VARCHAR>)), CAST(ROW(2.2E0, ARRAY['n3']) AS ROW(nested_f1 DOUBLE, nested_f2 ARRAY<VARCHAR>))]",
+                        "CAST(NULL AS ARRAY<ROW(nested_f1 DOUBLE, nested_f2 ARRAY<VARCHAR>)>)",
+                        "ARRAY[CAST(ROW(3.3E0, ARRAY['n4']) AS ROW(nested_f1 DOUBLE, nested_f2 ARRAY<VARCHAR>))]"),
+                // col_map_string_struct
+                ImmutableList.of(
+                        "MAP(ARRAY['mapkey1'], ARRAY[CAST(ROW(DATE '2024-11-01', DECIMAL '9.80') AS ROW(nested_f3 DATE, nested_f4 DECIMAL(5,2)))])",
+                        "MAP(ARRAY['mapkey2'], ARRAY[CAST(ROW(DATE '2024-12-10', DECIMAL '7.60') AS ROW(nested_f3 DATE, nested_f4 DECIMAL(5,2)))])",
+                        "CAST(NULL AS MAP<VARCHAR, ROW(nested_f3 DATE, nested_f4 DECIMAL(5,2))>)"),
+                // col_array_struct_with_map
+                ImmutableList.of(
+                        "ARRAY[CAST(ROW('arr_struct1', MAP(ARRAY['map_in_struct_k1'], ARRAY[1])) AS ROW(f_arr_struct_str VARCHAR, f_arr_struct_map MAP<VARCHAR, INTEGER>)), CAST(ROW('arr_struct2', MAP(ARRAY['map_in_struct_k2', 'map_in_struct_k3'], ARRAY[2, 3])) AS ROW(f_arr_struct_str VARCHAR, f_arr_struct_map MAP<VARCHAR, INTEGER>))]",
+                        // inner map is null
+                        "ARRAY[CAST(ROW('arr_struct3', MAP(ARRAY['map_in_struct_k4'], ARRAY[4])) AS ROW(f_arr_struct_str VARCHAR, f_arr_struct_map MAP<VARCHAR, INTEGER>)), CAST(ROW('arr_struct4', CAST(NULL AS MAP<VARCHAR, INTEGER>)) AS ROW(f_arr_struct_str VARCHAR, f_arr_struct_map MAP<VARCHAR, INTEGER>))]",
+                        "CAST(NULL AS ARRAY<ROW(f_arr_struct_str VARCHAR, f_arr_struct_map MAP<VARCHAR, INTEGER>)>)"),
+                // col_map_struct_with_array
+                ImmutableList.of(
+                        "MAP(ARRAY['map_struct1', 'map_struct2'], ARRAY[CAST(ROW(ARRAY[true, false], TIMESTAMP '2025-01-01 01:01:01.000') AS ROW(f_map_struct_arr ARRAY<BOOLEAN>, f_map_struct_ts TIMESTAMP(3))), CAST(ROW(ARRAY[false], TIMESTAMP '2025-02-02 02:02:02.000') AS ROW(f_map_struct_arr ARRAY<BOOLEAN>, f_map_struct_ts TIMESTAMP(3)))])",
+                        // inner map is null
+                        "MAP(ARRAY['map_struct3', 'map_struct4'], ARRAY[CAST(ROW(CAST(NULL AS ARRAY<BOOLEAN>), TIMESTAMP '2025-03-03 03:03:03.000') AS ROW(f_map_struct_arr ARRAY<BOOLEAN>, f_map_struct_ts TIMESTAMP(3))), CAST(ROW(ARRAY[true], CAST(NULL AS TIMESTAMP(3))) AS ROW(f_map_struct_arr ARRAY<BOOLEAN>, f_map_struct_ts TIMESTAMP(3)))])",
+                        "CAST(NULL AS MAP<VARCHAR, ROW(f_map_struct_arr ARRAY<BOOLEAN>, f_map_struct_ts TIMESTAMP(3))>)"),
+                // col_struct_nested_struct
+                ImmutableList.of(
+                        "CAST(ROW(101, CAST(ROW('inner_str_1', true) AS ROW(inner_f1 VARCHAR, inner_f2 BOOLEAN))) AS ROW(outer_f1 INTEGER, nested_struct ROW(inner_f1 VARCHAR, inner_f2 BOOLEAN)))",
+                        // inner struct is null
+                        "CAST(ROW(102, CAST(NULL AS ROW(inner_f1 VARCHAR, inner_f2 BOOLEAN))) AS ROW(outer_f1 INTEGER, nested_struct ROW(inner_f1 VARCHAR, inner_f2 BOOLEAN)))",
+                        "CAST(NULL AS ROW(outer_f1 INTEGER, nested_struct ROW(inner_f1 VARCHAR, inner_f2 BOOLEAN)))"),
+                // col_array_array_int
+                ImmutableList.of("ARRAY[ARRAY[1, 2], ARRAY[3, 4, 5]]", "ARRAY[ARRAY[6], ARRAY[7, 8]]", "CAST(NULL AS ARRAY<ARRAY<INTEGER>>)"),
+                // col_map_string_array_double
+                ImmutableList.of(
+                        "MAP(ARRAY['arr_key1', 'arr_key2'], ARRAY[ARRAY[1.1E0, 2.2E0], ARRAY[3.3E0]])",
+                        // inner array is null
+                        "MAP(ARRAY['arr_key3'], ARRAY[CAST(NULL AS ARRAY<DOUBLE>)])",
+                        "CAST(NULL AS MAP<VARCHAR, ARRAY<DOUBLE>>)"),
+                // col_map_string_map_string_date
+                ImmutableList.of(
+                        "MAP(ARRAY['map_key1'], ARRAY[MAP(ARRAY['mapkey10', 'mapkey20'], ARRAY[DATE '2024-01-01', DATE '2024-02-02'])])",
+                        // inner map value/map is null, assuming int key 30 coerced to '30'
+                        "MAP(ARRAY['map_key2', 'map_key3'], ARRAY[MAP(ARRAY[CAST('30' AS VARCHAR)], ARRAY[CAST(NULL AS DATE)]), CAST(NULL AS MAP<VARCHAR, DATE>)])",
+                        "CAST(NULL AS MAP<VARCHAR, MAP<VARCHAR, DATE>>)"),
+                // col_struct_array_struct
+                ImmutableList.of(
+                        "CAST(ROW('outer_str_1', ARRAY[CAST(ROW(TIMESTAMP '2023-11-11 11:11:11.000', 'inner_str_1') AS ROW(inner_f3 TIMESTAMP(3), inner_f4 VARCHAR))]) AS ROW(outer_f2 VARCHAR, struct_array ARRAY<ROW(inner_f3 TIMESTAMP(3), inner_f4 VARCHAR)>))",
+                        "CAST(ROW('outer_str_2', ARRAY[CAST(ROW(TIMESTAMP '2023-12-12 12:12:12.000', 'inner_str_2') AS ROW(inner_f3 TIMESTAMP(3), inner_f4 VARCHAR))]) AS ROW(outer_f2 VARCHAR, struct_array ARRAY<ROW(inner_f3 TIMESTAMP(3), inner_f4 VARCHAR)>))",
+                        "CAST(NULL AS ROW(outer_f2 VARCHAR, struct_array ARRAY<ROW(inner_f3 TIMESTAMP(3), inner_f4 VARCHAR)>))"),
+                // col_struct_map (BIGINT literals don't need L)
+                ImmutableList.of(
+                        "CAST(ROW(true, MAP(ARRAY['struct_map_k1', 'struct_map_k2'], ARRAY[1000, 2000])) AS ROW(outer_f3 BOOLEAN, struct_map MAP<VARCHAR, BIGINT>))",
+                        // inner map is null
+                        "CAST(ROW(false, CAST(NULL AS MAP<VARCHAR, BIGINT>)) AS ROW(outer_f3 BOOLEAN, struct_map MAP<VARCHAR, BIGINT>))",
+                        "CAST(NULL AS ROW(outer_f3 BOOLEAN, struct_map MAP<VARCHAR, BIGINT>))"),
+                // part_col
+                ImmutableList.of("'A'", "'A'", "'B'"));
+
+        // "Zip" results up for convenient lookup
+        Map<String, ImmutableList<String>> mapping = listsToMap(columnsToTest, expectedRowValues);
+
+        // Determine which table to use base on test parameters
+        final String sourceTable = isRtTable ? HUDI_COMPREHENSIVE_TYPES_MOR.getRtTableName() : HUDI_COMPREHENSIVE_TYPES_MOR.getTableName();
+
+        // Test each column individually so that errors thrown are more specific/useful
+        for (String column : mapping.keySet()) {
+            // Use UNION ALL so that de-dupes will not happen
+            @Language("SQL") String expectedQuery = mapping.get(column).stream().map(l -> "SELECT " + l).collect(Collectors.joining(" UNION ALL "));
+            @Language("SQL") String actualQuery = "SELECT " + column + " FROM " + sourceTable;
+
+            MaterializedResult actualResults = getQueryRunner().execute(session, actualQuery);
+            MaterializedResult expectedResults = getQueryRunner().execute(session, expectedQuery);
+            assertThat(actualResults.getMaterializedRows())
+                    .hasSameSizeAs(expectedResults.getMaterializedRows())
+                    .containsAll(expectedResults.getMaterializedRows());
+        }
+
+        // Perform same test on all columns together
+        int numRows = expectedRowValues.getFirst().size();
+        @Language("SQL") String expectedQuery = IntStream.range(0, numRows)
+                .mapToObj(rowIndex -> {
+                    // For each row, collect the corresponding values for all columns in the defined order
+                    String rowValuesString = columnsToTest.stream()
+                            .map(columnName -> {
+                                List<String> columnData = mapping.get(columnName);
+                                return columnData.get(rowIndex);
+                            })
+                            .collect(Collectors.joining(", ")); // Joins column values: "val1, val2, val3"
+                    return "SELECT " + rowValuesString; // Forms: "SELECT val1, val2, val3"
+                })
+                .collect(Collectors.joining(" UNION ALL "));
+        @Language("SQL") String actualQuery = "SELECT " + String.join(", ", columnsToTest) + " FROM " + sourceTable;
+        MaterializedResult actualResults = getQueryRunner().execute(session, actualQuery);
+        MaterializedResult expectedResults = getQueryRunner().execute(session, expectedQuery);
+        assertThat(actualResults.getMaterializedRows())
+                .hasSameSizeAs(expectedResults.getMaterializedRows())
+                .containsAll(expectedResults.getMaterializedRows());
+
+        // Perform test on selecting nested field
+        String columnToTest = "col_map_string_struct";
+        // 1. Extract all values from the map into an array. Since each map has one entry, this array will have one ROW (or be NULL if the map is NULL).
+        // 2. Access the first (and only) ROW object from this array. (Using 1-based indexing for arrays, which Trino and Presto uses)
+        // 3. Access the 'nested_f4' field from that ROW object.
+        @Language("SQL") String nestedFieldQuery = "SELECT (map_values(" + columnToTest + "))[1].nested_f4 AS extracted_nested_f4 FROM " + sourceTable;
+        @Language("SQL") String expectedNestedFieldQuery = "WITH " + sourceTable + " AS ( "
+                + mapping.get(columnToTest).stream()
+                .map(l -> "SELECT " + l + " AS " + columnToTest)
+                .collect(Collectors.joining(" UNION ALL "))
+                + ") " +
+                nestedFieldQuery;
+        @Language("SQL") String actualNestedFieldQuery = nestedFieldQuery;
+        MaterializedResult expectedNestedResult = getQueryRunner().execute(session, expectedNestedFieldQuery);
+        MaterializedResult actualNestedResult = getQueryRunner().execute(session, actualNestedFieldQuery);
+        assertThat(actualNestedResult.getMaterializedRows())
+                .hasSameSizeAs(expectedNestedResult.getMaterializedRows())
+                .containsAll(expectedNestedResult.getMaterializedRows());
+    }
+
     @Test
     public void testPartitionFilterRequiredFilterIncluded()
     {
@@ -745,5 +941,23 @@ public class TestHudiSmokeTest
                 .getInstance(TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"))
                 .newInputFile(Location.of(path));
+    }
+
+    public static <K, V> Map<K, V> listsToMap(List<K> keys, List<V> values)
+    {
+        if (keys == null || values == null) {
+            throw new IllegalArgumentException("Key and Value lists cannot be null.");
+        }
+
+        // Determine the number of entries based on the shorter list
+        int limit = Math.min(keys.size(), values.size());
+
+        return IntStream.range(0, limit)
+                .boxed()
+                .collect(Collectors.toMap(
+                        keys::get,
+                        values::get,
+                        // Merge function for duplicate keys, last one wins
+                        (_, newValue) -> newValue));
     }
 }

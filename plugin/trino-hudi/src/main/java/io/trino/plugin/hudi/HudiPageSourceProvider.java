@@ -186,8 +186,7 @@ public class HudiPageSourceProvider
                 .collect(Collectors.toList());
         List<HiveColumnHandle> columnHandles = prependHudiMetaColumns(regularColumns);
 
-        Schema requestedSchema = constructSchema(columnHandles.stream().map(HiveColumnHandle::getName).toList(),
-                columnHandles.stream().map(HiveColumnHandle::getHiveType).toList(), false);
+        Schema requestedSchema = constructSchema(dataSchema, columnHandles.stream().map(HiveColumnHandle::getName).toList());
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         // Only enable predicate pushdown for COW tables
