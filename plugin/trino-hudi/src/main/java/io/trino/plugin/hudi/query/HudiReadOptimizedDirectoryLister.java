@@ -40,6 +40,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static org.apache.hudi.common.table.view.HoodieTableFileSystemView.fileListingBasedFileSystemView;
 
 public class HudiReadOptimizedDirectoryLister
         implements HudiDirectoryLister
@@ -60,7 +61,7 @@ public class HudiReadOptimizedDirectoryLister
             List<String> hivePartitionNames,
             boolean ignoreAbsentPartitions)
     {
-        this.fileSystemView = HoodieTableFileSystemView.fileListingBasedFileSystemView(
+        this.fileSystemView = fileListingBasedFileSystemView(
                 new HoodieLocalEngineContext(metaClient.getStorageConf()),
                 metaClient,
                 metaClient.getActiveTimeline().getCommitsTimeline().filterCompletedInstants());
