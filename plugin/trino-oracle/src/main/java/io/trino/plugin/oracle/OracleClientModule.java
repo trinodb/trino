@@ -14,6 +14,7 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.base.Throwables;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -25,6 +26,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.ForJdbcClient;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.RetryStrategy;
@@ -38,6 +40,7 @@ import oracle.jdbc.OracleDriver;
 import java.sql.SQLException;
 import java.sql.SQLRecoverableException;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -58,6 +61,9 @@ public class OracleClientModule
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(ORACLE_MAX_LIST_EXPRESSIONS);
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
         newSetBinder(binder, RetryStrategy.class).addBinding().to(OracleRetryStrategy.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(ExecutorService.class, ForJdbcClient.class))
+                .setBinding()
+                .toInstance(MoreExecutors.newDirectExecutorService());
     }
 
     @Provides
