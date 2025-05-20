@@ -31,7 +31,6 @@ import io.trino.operator.project.TestPageProcessor.SelectAllFilter;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SourcePage;
@@ -40,6 +39,7 @@ import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.gen.columnar.PageFilterEvaluator;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.testing.MaterializedResult;
@@ -139,7 +139,7 @@ public class TestScanFilterAndProjectOperator
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                DynamicFilter.EMPTY,
+                InternalDynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
                 0);
@@ -181,7 +181,7 @@ public class TestScanFilterAndProjectOperator
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                DynamicFilter.EMPTY,
+                InternalDynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.of(64, KILOBYTE),
                 2);
@@ -224,7 +224,7 @@ public class TestScanFilterAndProjectOperator
                 (_) -> pageProcessor,
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                DynamicFilter.EMPTY,
+                InternalDynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);
@@ -258,7 +258,7 @@ public class TestScanFilterAndProjectOperator
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                DynamicFilter.EMPTY,
+                InternalDynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
                 0);
@@ -313,7 +313,7 @@ public class TestScanFilterAndProjectOperator
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                DynamicFilter.EMPTY,
+                InternalDynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);
@@ -381,7 +381,7 @@ public class TestScanFilterAndProjectOperator
                 (_) -> pageProcessor.get(),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                DynamicFilter.EMPTY,
+                InternalDynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
                 0);

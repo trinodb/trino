@@ -21,8 +21,8 @@ import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SourcePage;
+import io.trino.sql.planner.InternalDynamicFilter;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.RowExpression;
@@ -98,7 +98,7 @@ public class BenchmarkAndColumnarFilterTpchData
                         projections,
                         Optional.empty(),
                         OptionalInt.empty())
-                .apply(DynamicFilter.EMPTY);
+                .apply(InternalDynamicFilter.EMPTY);
     }
 
     @Benchmark
