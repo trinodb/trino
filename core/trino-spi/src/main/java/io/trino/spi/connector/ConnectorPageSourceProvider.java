@@ -28,4 +28,15 @@ public interface ConnectorPageSourceProvider
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter);
+
+    default ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSystemSplit split,
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
