@@ -35,6 +35,7 @@ import static java.lang.String.format;
 public final class ColorFunctions
 {
     private static final String ANSI_RESET = "\u001b[0m";
+    private static final long MAX_WIDTH = 10_000;
 
     private static final Slice RENDERED_TRUE = render(utf8Slice("\u2713"), color(utf8Slice("green")));
     private static final Slice RENDERED_FALSE = render(utf8Slice("\u2717"), color(utf8Slice("red")));
@@ -209,6 +210,7 @@ public final class ColorFunctions
         long count = (int) (percent * width);
         count = Math.min(width, count);
         count = Math.max(0, count);
+        checkCondition(count <= MAX_WIDTH, INVALID_FUNCTION_ARGUMENT, "width argument of bar function must be less than or equal to 10000");
 
         StringBuilder builder = new StringBuilder();
 
