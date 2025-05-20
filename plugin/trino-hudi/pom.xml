@@ -15,7 +15,7 @@
 
     <properties>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
-        <dep.hudi.version>1.0.1</dep.hudi.version>
+        <dep.hudi.version>1.0.2</dep.hudi.version>
     </properties>
 
     <dependencies>
