@@ -25,6 +25,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.util.Objects.requireNonNull;
@@ -50,7 +51,7 @@ public class FutureStateChange<T>
                     // since all futures are cleared from the listeners set before being notified
                     if (listener.isCancelled()) {
                         synchronized (listeners) {
-                            listeners.remove(new FutureRef<>(listener));
+                            checkState(listeners.remove(new FutureRef<>(listener)), "Listener not found");
                         }
                     }
                 },
