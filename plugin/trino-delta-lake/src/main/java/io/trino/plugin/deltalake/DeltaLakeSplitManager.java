@@ -27,6 +27,8 @@ import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ColumnHandle;
@@ -88,6 +90,7 @@ public class DeltaLakeSplitManager
     private final TrinoFileSystemFactory fileSystemFactory;
     private final DeltaLakeTransactionManager deltaLakeTransactionManager;
     private final CachingHostAddressProvider cachingHostAddressProvider;
+    private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     @Inject
     public DeltaLakeSplitManager(
@@ -97,7 +100,8 @@ public class DeltaLakeSplitManager
             DeltaLakeConfig config,
             TrinoFileSystemFactory fileSystemFactory,
             DeltaLakeTransactionManager deltaLakeTransactionManager,
-            CachingHostAddressProvider cachingHostAddressProvider)
+            CachingHostAddressProvider cachingHostAddressProvider,
+            TransactionLogReaderFactory transactionLogReaderFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
@@ -108,6 +112,7 @@ public class DeltaLakeSplitManager
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.deltaLakeTransactionManager = requireNonNull(deltaLakeTransactionManager, "deltaLakeTransactionManager is null");
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cacheHostAddressProvider is null");
+        this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
     }
 
     @Override
@@ -156,10 +161,12 @@ public class DeltaLakeSplitManager
             Set<ColumnHandle> columnsCoveredByDynamicFilter,
             Constraint constraint)
     {
+        TransactionLogReader transactionLogReader = transactionLogReaderFactory.createReader(tableHandle);
         TableSnapshot tableSnapshot = deltaLakeTransactionManager.get(transaction, session.getIdentity())
-                .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.of(tableHandle.getReadVersion()));
+                .getSnapshot(session, transactionLogReader, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.of(tableHandle.getReadVersion()));
         Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
                 session,
+                transactionLogReader,
                 tableSnapshot,
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),

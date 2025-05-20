@@ -20,6 +20,7 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -86,7 +87,8 @@ public class DeltaLakePartitionsTable
             SchemaTableName tableName,
             String tableLocation,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            TransactionLogReader transactionLogReader)
     {
         requireNonNull(tableName, "tableName is null");
         requireNonNull(tableLocation, "tableLocation is null");
@@ -94,7 +96,7 @@ public class DeltaLakePartitionsTable
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
 
         try {
-            this.tableSnapshot = transactionLogAccess.loadSnapshot(session, tableName, tableLocation, Optional.empty());
+            this.tableSnapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, tableName, tableLocation, Optional.empty());
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting snapshot from location: " + tableLocation, e);

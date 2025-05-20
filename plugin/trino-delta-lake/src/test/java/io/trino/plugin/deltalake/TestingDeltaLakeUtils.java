@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.deltalake;
 
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.PlanTester;
@@ -50,7 +53,7 @@ public final class TestingDeltaLakeUtils
         return ((DeltaLakeConnector) queryRunner.getCoordinator().getConnector(DELTA_CATALOG)).getInjector().getInstance(clazz);
     }
 
-    public static List<AddFileEntry> getTableActiveFiles(TransactionLogAccess transactionLogAccess, String tableLocation)
+    public static List<AddFileEntry> getTableActiveFiles(TransactionLogAccess transactionLogAccess, TrinoFileSystemFactory fileSystemFactory, String tableLocation)
             throws IOException
     {
         SchemaTableName dummyTable = new SchemaTableName("dummy_schema_placeholder", "dummy_table_placeholder");
@@ -58,10 +61,11 @@ public final class TestingDeltaLakeUtils
         // force entries to have JSON serializable statistics
         transactionLogAccess.flushCache();
 
-        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, dummyTable, tableLocation, Optional.empty());
+        TransactionLogReader transactionLogReader = new FileSystemTransactionLogReader(tableLocation, fileSystemFactory);
+        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, transactionLogReader, dummyTable, tableLocation, Optional.empty());
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, snapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
-        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, snapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(SESSION, transactionLogReader, snapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue())) {
             return addFileEntries.collect(toImmutableList());
         }
     }

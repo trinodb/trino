@@ -20,6 +20,7 @@ import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
@@ -49,7 +50,8 @@ public class DeltaLakeHistoryTable
             String tableLocation,
             TrinoFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            TransactionLogReader transactionLogReader)
     {
         super(
                 tableName,
@@ -72,7 +74,8 @@ public class DeltaLakeHistoryTable
                                 .add(new ColumnMetadata("is_blind_append", BOOLEAN))
                                 .add(new ColumnMetadata("operation_metrics", typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
                                 //TODO add support for userMetadata, engineInfo
-                                .build()));
+                                .build()),
+                transactionLogReader);
     }
 
     @Override
