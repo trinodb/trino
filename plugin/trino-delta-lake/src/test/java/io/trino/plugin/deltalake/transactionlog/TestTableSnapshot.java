@@ -26,6 +26,7 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
+import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -94,9 +95,10 @@ public class TestTableSnapshot
                 () -> {
                     Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
                     tableSnapshot.set(load(
+                            SESSION,
+                            new FileSystemTransactionLogReader(tableLocation, tracingFileSystemFactory),
                             new SchemaTableName("schema", "person"),
                             lastCheckpoint,
-                            trackingFileSystem,
                             tableLocation,
                             parquetReaderOptions,
                             true,
@@ -130,9 +132,10 @@ public class TestTableSnapshot
         ExecutorService executorService = newDirectExecutorService();
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
         TableSnapshot tableSnapshot = load(
+                SESSION,
+                new FileSystemTransactionLogReader(tableLocation, tracingFileSystemFactory),
                 new SchemaTableName("schema", "person"),
                 lastCheckpoint,
-                trackingFileSystem,
                 tableLocation,
                 parquetReaderOptions,
                 true,
@@ -262,9 +265,10 @@ public class TestTableSnapshot
     {
         Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(trackingFileSystem, tableLocation);
         TableSnapshot tableSnapshot = load(
+                SESSION,
+                new FileSystemTransactionLogReader(tableLocation, tracingFileSystemFactory),
                 new SchemaTableName("schema", "person"),
                 lastCheckpoint,
-                trackingFileSystem,
                 tableLocation,
                 parquetReaderOptions,
                 true,

@@ -42,7 +42,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterat
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
-import io.trino.plugin.deltalake.transactionlog.checkpoint.TransactionLogTail;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -171,12 +171,12 @@ public class TransactionLogAccess
         return new CacheStatsMBean(tableSnapshots);
     }
 
-    public TableSnapshot loadSnapshot(ConnectorSession session, SchemaTableName table, String tableLocation, Optional<Long> endVersion)
+    public TableSnapshot loadSnapshot(ConnectorSession session, TransactionLogReader transactionLogReader, SchemaTableName table, String tableLocation, Optional<Long> endVersion)
             throws IOException
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         if (endVersion.isPresent()) {
-            return loadSnapshotForTimeTravel(fileSystem, table, tableLocation, endVersion.get());
+            return loadSnapshotForTimeTravel(session, transactionLogReader, fileSystem, table, tableLocation, endVersion.get());
         }
 
         TableLocation cacheKey = new TableLocation(table, tableLocation);
@@ -187,9 +187,10 @@ public class TransactionLogAccess
                 Optional<LastCheckpoint> lastCheckpoint = readLastCheckpoint(fileSystem, tableLocation);
                 snapshot = tableSnapshots.get(cacheKey, () ->
                         TableSnapshot.load(
+                                session,
+                                transactionLogReader,
                                 table,
                                 lastCheckpoint,
-                                fileSystem,
                                 tableLocation,
                                 parquetReaderOptions,
                                 checkpointRowStatisticsWritingEnabled,
@@ -203,7 +204,7 @@ public class TransactionLogAccess
             }
         }
         else {
-            Optional<TableSnapshot> updatedSnapshot = cachedSnapshot.getUpdatedSnapshot(fileSystem, Optional.empty());
+            Optional<TableSnapshot> updatedSnapshot = cachedSnapshot.getUpdatedSnapshot(session, transactionLogReader, fileSystem, Optional.empty());
             if (updatedSnapshot.isPresent()) {
                 snapshot = updatedSnapshot.get();
                 tableSnapshots.asMap().replace(cacheKey, cachedSnapshot, snapshot);
@@ -215,13 +216,14 @@ public class TransactionLogAccess
         return snapshot;
     }
 
-    private TableSnapshot loadSnapshotForTimeTravel(TrinoFileSystem fileSystem, SchemaTableName table, String tableLocation, long endVersion)
+    private TableSnapshot loadSnapshotForTimeTravel(ConnectorSession session, TransactionLogReader transactionLogReader, TrinoFileSystem fileSystem, SchemaTableName table, String tableLocation, long endVersion)
             throws IOException
     {
         return TableSnapshot.load(
+                session,
+                transactionLogReader,
                 table,
                 findCheckpoint(fileSystem, tableLocation, endVersion),
-                fileSystem,
                 tableLocation,
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
@@ -340,6 +342,7 @@ public class TransactionLogAccess
 
     public Stream<AddFileEntry> getActiveFiles(
             ConnectorSession session,
+            TransactionLogReader transactionLogReader,
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
@@ -350,11 +353,12 @@ public class TransactionLogAccess
                 .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
                 .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableSet());
-        return getActiveFiles(session, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, baseColumnNames::contains);
+        return getActiveFiles(session, transactionLogReader, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, baseColumnNames::contains);
     }
 
     public Stream<AddFileEntry> getActiveFiles(
             ConnectorSession session,
+            TransactionLogReader transactionLogReader,
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
@@ -381,6 +385,8 @@ public class TransactionLogAccess
                 if (oldCached != null) {
                     try {
                         List<DeltaLakeTransactionLogEntry> newEntries = getJsonEntries(
+                                session,
+                                transactionLogReader,
                                 oldCached.getVersion(),
                                 tableSnapshot.getVersion(),
                                 tableSnapshot,
@@ -653,17 +659,17 @@ public class TransactionLogAccess
         return result.build();
     }
 
-    private List<DeltaLakeTransactionLogEntry> getJsonEntries(long startVersion, long endVersion, TableSnapshot tableSnapshot, TrinoFileSystem fileSystem)
+    private List<DeltaLakeTransactionLogEntry> getJsonEntries(ConnectorSession session, TransactionLogReader transactionLogReader, long startVersion, long endVersion, TableSnapshot tableSnapshot, TrinoFileSystem fileSystem)
             throws IOException
     {
         Optional<Long> lastCheckpointVersion = tableSnapshot.getLastCheckpointVersion();
         if (lastCheckpointVersion.isPresent() && startVersion < lastCheckpointVersion.get()) {
             return ImmutableList.<DeltaLakeTransactionLogEntry>builder()
-                    .addAll(TransactionLogTail.loadNewTail(fileSystem, tableSnapshot.getTableLocation(), Optional.of(startVersion), lastCheckpointVersion, transactionLogMaxCachedFileSize).getFileEntries(fileSystem))
+                    .addAll(transactionLogReader.loadNewTail(session, Optional.of(startVersion), lastCheckpointVersion, transactionLogMaxCachedFileSize).getFileEntries(fileSystem))
                     .addAll(tableSnapshot.getJsonTransactionLogEntries(fileSystem))
                     .build();
         }
-        return TransactionLogTail.loadNewTail(fileSystem, tableSnapshot.getTableLocation(), Optional.of(startVersion), Optional.of(endVersion), transactionLogMaxCachedFileSize).getFileEntries(fileSystem);
+        return transactionLogReader.loadNewTail(session, Optional.of(startVersion), Optional.of(endVersion), transactionLogMaxCachedFileSize).getFileEntries(fileSystem);
     }
 
     public static String canonicalizeColumnName(String columnName)

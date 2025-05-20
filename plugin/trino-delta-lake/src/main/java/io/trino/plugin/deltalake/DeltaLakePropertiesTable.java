@@ -19,6 +19,7 @@ import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -55,13 +56,15 @@ public class DeltaLakePropertiesTable
     private final String tableLocation;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
+    private final TransactionLogReader transactionLogReader;
 
-    public DeltaLakePropertiesTable(SchemaTableName tableName, String tableLocation, TransactionLogAccess transactionLogAccess)
+    public DeltaLakePropertiesTable(SchemaTableName tableName, String tableLocation, TransactionLogAccess transactionLogAccess, TransactionLogReader transactionLogReader)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"), COLUMNS);
+        this.transactionLogReader = requireNonNull(transactionLogReader, "transactionLogReader is null");
     }
 
     @Override
@@ -84,7 +87,7 @@ public class DeltaLakePropertiesTable
 
         try {
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, baseTableName, tableLocation, Optional.empty());
             metadataEntry = transactionLogAccess.getMetadataEntry(session, tableSnapshot);
             protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
         }

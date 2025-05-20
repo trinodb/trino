@@ -20,6 +20,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
@@ -46,7 +47,8 @@ public class DeltaLakeTransactionsTable
             String tableLocation,
             TrinoFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            TransactionLogReader transactionLogReader)
     {
         super(
                 tableName,
@@ -59,7 +61,8 @@ public class DeltaLakeTransactionsTable
                         ImmutableList.<ColumnMetadata>builder()
                                 .add(new ColumnMetadata("version", BIGINT))
                                 .add(new ColumnMetadata("transaction", typeManager.getType(new TypeSignature(JSON))))
-                                .build()));
+                                .build()),
+                transactionLogReader);
     }
 
     @Override

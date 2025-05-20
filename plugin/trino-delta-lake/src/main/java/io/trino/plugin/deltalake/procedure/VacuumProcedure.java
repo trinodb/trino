@@ -36,6 +36,8 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.classloader.ThreadContextClassLoader;
@@ -100,18 +102,21 @@ public class VacuumProcedure
     private final TrinoFileSystemFactory fileSystemFactory;
     private final DeltaLakeMetadataFactory metadataFactory;
     private final TransactionLogAccess transactionLogAccess;
+    private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     @Inject
     public VacuumProcedure(
             CatalogName catalogName,
             TrinoFileSystemFactory fileSystemFactory,
             DeltaLakeMetadataFactory metadataFactory,
-            TransactionLogAccess transactionLogAccess)
+            TransactionLogAccess transactionLogAccess,
+            TransactionLogReaderFactory transactionLogReaderFactory)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
+        this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
     }
 
     @Override
@@ -205,7 +210,8 @@ public class VacuumProcedure
                 throw new TrinoException(NOT_SUPPORTED, "Cannot execute vacuum procedure with %s writer features".formatted(DELETION_VECTORS_FEATURE_NAME));
             }
 
-            TableSnapshot tableSnapshot = metadata.getSnapshot(session, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
+            TransactionLogReader transactionLogReader = transactionLogReaderFactory.createReader(handle);
+            TableSnapshot tableSnapshot = metadata.getSnapshot(session, transactionLogReader, tableName, handle.getLocation(), Optional.of(handle.getReadVersion()));
             String tableLocation = tableSnapshot.getTableLocation();
             String transactionLogDir = getTransactionLogDir(tableLocation);
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
@@ -218,6 +224,7 @@ public class VacuumProcedure
             Set<String> retainedPaths;
             try (Stream<AddFileEntry> activeAddEntries = transactionLogAccess.getActiveFiles(
                     session,
+                    transactionLogReader,
                     tableSnapshot,
                     handle.getMetadataEntry(),
                     handle.getProtocolEntry(),

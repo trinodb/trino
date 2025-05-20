@@ -21,6 +21,7 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogEntries;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -57,6 +58,7 @@ public abstract class BaseTransactionsTable
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
+    private final TransactionLogReader transactionLogReader;
 
     public BaseTransactionsTable(
             SchemaTableName tableName,
@@ -64,7 +66,8 @@ public abstract class BaseTransactionsTable
             TrinoFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
-            ConnectorTableMetadata tableMetadata)
+            ConnectorTableMetadata tableMetadata,
+            TransactionLogReader transactionLogReader)
     {
         requireNonNull(typeManager, "typeManager is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -72,6 +75,7 @@ public abstract class BaseTransactionsTable
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
+        this.transactionLogReader = requireNonNull(transactionLogReader, "transactionLogReader is null");
     }
 
     @Override
@@ -93,7 +97,7 @@ public abstract class BaseTransactionsTable
         try {
             // Verify the transaction log is readable
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, baseTableName, tableLocation, Optional.empty());
             snapshotVersion = tableSnapshot.getVersion();
             transactionLogAccess.getMetadataEntry(session, tableSnapshot);
         }
