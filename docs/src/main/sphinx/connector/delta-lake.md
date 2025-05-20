@@ -1274,7 +1274,7 @@ keep a backup of the original values if you change them.
     assigned to a worker after `max-initial-splits` have been processed. You can
     also use the corresponding catalog session property
     `<catalog-name>.max_split_size`.
-  - `64MB`
+  - `128MB`
 * - `delta.minimum-assigned-split-weight`
   - A decimal value in the range (0, 1] used as a minimum for weights assigned
     to each split. A low value might improve performance on tables with small

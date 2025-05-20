@@ -68,7 +68,7 @@ public class DeltaLakeConfig
     private int domainCompactionThreshold = 1000;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
-    private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
+    private DataSize maxSplitSize = DataSize.of(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
     private boolean unsafeWritesEnabled;
