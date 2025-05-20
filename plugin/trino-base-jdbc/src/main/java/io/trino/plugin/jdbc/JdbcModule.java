@@ -13,13 +13,16 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Provider;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.multibindings.ProvidesIntoOptional;
+import dev.failsafe.RetryPolicy;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.mapping.IdentifierMappingModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
@@ -30,6 +33,7 @@ import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
@@ -38,12 +42,10 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.google.inject.multibindings.ProvidesIntoOptional.Type.DEFAULT;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static java.lang.String.format;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
@@ -107,10 +109,15 @@ public class JdbcModule
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 
+        newOptionalBinder(binder, Key.get(ExecutorService.class, ForRecordCursor.class))
+                .setDefault()
+                .toProvider(MoreExecutors::newDirectExecutorService)
+                .in(Scopes.SINGLETON);
+
         newSetBinder(binder, JdbcQueryEventListener.class);
 
         closingBinder(binder)
-                .registerExecutor(Key.get(ExecutorService.class, ForJdbcClient.class));
+                .registerExecutor(Key.get(ExecutorService.class, ForRecordCursor.class));
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)
@@ -143,11 +150,11 @@ public class JdbcModule
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
     }
 
-    @Provides
+    @ProvidesIntoOptional(DEFAULT)
+    @Inject
     @Singleton
-    @ForJdbcClient
-    public ExecutorService provideJdbcClientExecutor(CatalogName catalogName)
+    ConnectorRecordSetProvider recordSetProvider(JdbcClient jdbcClient, @ForRecordCursor ExecutorService executor, RetryPolicy<Object> policy)
     {
-        return newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName)));
+        return new JdbcRecordSetProvider(jdbcClient, executor, policy);
     }
 }

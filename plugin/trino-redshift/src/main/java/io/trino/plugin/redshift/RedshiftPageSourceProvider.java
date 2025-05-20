@@ -32,11 +32,13 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.RecordPageSource;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.MessageType;
@@ -60,13 +62,13 @@ import static java.util.Objects.requireNonNull;
 public class RedshiftPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final ConnectorPageSourceProvider jdbcPageSourceProvider;
+    private final ConnectorRecordSetProvider recordSetProvider;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
 
-    public RedshiftPageSourceProvider(ConnectorPageSourceProvider jdbcPageSourceProvider, TrinoFileSystemFactory fileSystemFactory, FileFormatDataSourceStats fileFormatDataSourceStats)
+    public RedshiftPageSourceProvider(ConnectorRecordSetProvider recordSetProvider, TrinoFileSystemFactory fileSystemFactory, FileFormatDataSourceStats fileFormatDataSourceStats)
     {
-        this.jdbcPageSourceProvider = requireNonNull(jdbcPageSourceProvider, "jdbcPageSourceProvider is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
     }
@@ -81,7 +83,7 @@ public class RedshiftPageSourceProvider
             DynamicFilter dynamicFilter)
     {
         if (split instanceof JdbcSplit) {
-            return jdbcPageSourceProvider.createPageSource(transaction, session, split, table, columns, dynamicFilter);
+            return new RecordPageSource(recordSetProvider.getRecordSet(transaction, session, split, table, columns));
         }
 
         RedshiftUnloadSplit redshiftUnloadSplit = ((RedshiftUnloadSplit) split);

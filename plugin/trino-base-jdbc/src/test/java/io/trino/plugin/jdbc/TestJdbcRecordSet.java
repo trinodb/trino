@@ -15,8 +15,10 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import dev.failsafe.RetryPolicy;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SourcePage;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -30,8 +32,11 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.testing.Closeables.closeAll;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -39,7 +44,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
-public class TestJdbcPageSource
+public class TestJdbcRecordSet
 {
     private TestingDatabase database;
     private JdbcClient jdbcClient;
@@ -72,31 +77,49 @@ public class TestJdbcPageSource
     }
 
     @Test
+    public void testGetColumnTypes()
+    {
+        RecordSet recordSet = createRecordSet(ImmutableList.of(
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("text_short", JDBC_VARCHAR, createVarcharType(32)),
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT)));
+        assertThat(recordSet.getColumnTypes()).containsExactly(VARCHAR, createVarcharType(32), BIGINT);
+
+        recordSet = createRecordSet(ImmutableList.of(
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
+        assertThat(recordSet.getColumnTypes()).containsExactly(BIGINT, VARCHAR);
+
+        recordSet = createRecordSet(ImmutableList.of(
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("value", JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("text", JDBC_VARCHAR, VARCHAR)));
+        assertThat(recordSet.getColumnTypes()).containsExactly(BIGINT, BIGINT, VARCHAR);
+
+        recordSet = createRecordSet(ImmutableList.of());
+        assertThat(recordSet.getColumnTypes()).isEmpty();
+    }
+
+    @Test
     public void testCursorSimple()
     {
-        try (JdbcPageSource pageSource = createPageSource(ImmutableList.of(
+        RecordSet recordSet = createRecordSet(ImmutableList.of(
                 columnHandles.get("text"),
                 columnHandles.get("text_short"),
-                columnHandles.get("value")))) {
-            Map<String, Long> data = new LinkedHashMap<>();
-            for (SourcePage page = pageSource.getNextSourcePage(); ; page = pageSource.getNextSourcePage()) {
-                if (page == null) {
-                    continue;
-                }
-                for (int position = 0; position < page.getPositionCount(); position++) {
-                    assertThat(page.getBlock(0).isNull(position)).isFalse();
-                    assertThat(page.getBlock(1).isNull(position)).isFalse();
-                    assertThat(page.getBlock(2).isNull(position)).isFalse();
-                    assertThat(VARCHAR.getSlice(page.getBlock(0), position))
-                            .isEqualTo(VARCHAR.getSlice(page.getBlock(1), position));
-                    data.put(
-                            VARCHAR.getSlice(page.getBlock(0), position).toStringUtf8(),
-                            BIGINT.getLong(page.getBlock(2), position));
-                }
+                columnHandles.get("value")));
 
-                if (pageSource.isFinished()) {
-                    break;
-                }
+        try (RecordCursor cursor = recordSet.cursor()) {
+            assertThat(cursor.getType(0)).isEqualTo(VARCHAR);
+            assertThat(cursor.getType(1)).isEqualTo(createVarcharType(32));
+            assertThat(cursor.getType(2)).isEqualTo(BIGINT);
+
+            Map<String, Long> data = new LinkedHashMap<>();
+            while (cursor.advanceNextPosition()) {
+                data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(2));
+                assertThat(cursor.getSlice(0)).isEqualTo(cursor.getSlice(1));
+                assertThat(cursor.isNull(0)).isFalse();
+                assertThat(cursor.isNull(1)).isFalse();
+                assertThat(cursor.isNull(2)).isFalse();
             }
 
             assertThat(data).isEqualTo(ImmutableMap.<String, Long>builder()
@@ -108,33 +131,27 @@ public class TestJdbcPageSource
                     .put("twelve", 12L)
                     .buildOrThrow());
 
-            assertThat(pageSource.getReadTimeNanos()).isPositive();
+            assertThat(cursor.getReadTimeNanos()).isPositive();
         }
     }
 
     @Test
     public void testCursorMixedOrder()
     {
-        try (JdbcPageSource pageSource = createPageSource(ImmutableList.of(
+        RecordSet recordSet = createRecordSet(ImmutableList.of(
                 columnHandles.get("value"),
                 columnHandles.get("value"),
-                columnHandles.get("text")))) {
-            Map<String, Long> data = new LinkedHashMap<>();
-            for (SourcePage page = pageSource.getNextSourcePage(); ; page = pageSource.getNextSourcePage()) {
-                if (page == null) {
-                    continue;
-                }
-                for (int position = 0; position < page.getPositionCount(); position++) {
-                    assertThat(BIGINT.getLong(page.getBlock(0), position))
-                            .isEqualTo(BIGINT.getLong(page.getBlock(1), position));
-                    data.put(
-                            VARCHAR.getSlice(page.getBlock(2), position).toStringUtf8(),
-                            BIGINT.getLong(page.getBlock(0), position));
-                }
+                columnHandles.get("text")));
 
-                if (pageSource.isFinished()) {
-                    break;
-                }
+        try (RecordCursor cursor = recordSet.cursor()) {
+            assertThat(cursor.getType(0)).isEqualTo(BIGINT);
+            assertThat(cursor.getType(1)).isEqualTo(BIGINT);
+            assertThat(cursor.getType(2)).isEqualTo(VARCHAR);
+
+            Map<String, Long> data = new LinkedHashMap<>();
+            while (cursor.advanceNextPosition()) {
+                assertThat(cursor.getLong(0)).isEqualTo(cursor.getLong(1));
+                data.put(cursor.getSlice(2).toStringUtf8(), cursor.getLong(0));
             }
 
             assertThat(data).isEqualTo(ImmutableMap.<String, Long>builder()
@@ -146,24 +163,25 @@ public class TestJdbcPageSource
                     .put("twelve", 12L)
                     .buildOrThrow());
 
-            assertThat(pageSource.getReadTimeNanos()).isPositive();
+            assertThat(cursor.getReadTimeNanos()).isPositive();
         }
     }
 
     @Test
     public void testIdempotentClose()
     {
-        JdbcPageSource pageSource = createPageSource(ImmutableList.of(
+        RecordSet recordSet = createRecordSet(ImmutableList.of(
                 columnHandles.get("value"),
                 columnHandles.get("value"),
                 columnHandles.get("text")));
 
-        pageSource.close();
-        pageSource.close();
+        RecordCursor cursor = recordSet.cursor();
+        cursor.close();
+        cursor.close();
     }
 
-    private JdbcPageSource createPageSource(List<JdbcColumnHandle> columnHandles)
+    private JdbcRecordSet createRecordSet(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcPageSource(jdbcClient, executor, SESSION, split, table, columnHandles);
+        return new JdbcRecordSet(jdbcClient, executor, SESSION, RetryPolicy.ofDefaults(), split, table, columnHandles);
     }
 }

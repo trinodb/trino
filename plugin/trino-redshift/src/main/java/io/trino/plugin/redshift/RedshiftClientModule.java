@@ -36,6 +36,7 @@ import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
+import io.trino.plugin.jdbc.RemoteQueryCancellationModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.connector.Connector;
@@ -66,6 +67,7 @@ public class RedshiftClientModule
 
         install(new DecimalModule());
         install(new JdbcJoinPushdownSupportModule());
+        install(new RemoteQueryCancellationModule());
 
         install(conditionalModule(
                 RedshiftConfig.class,

@@ -17,7 +17,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.s3.FileSystemS3;
-import io.trino.plugin.jdbc.ForJdbcClient;
+import io.trino.plugin.jdbc.ForRecordCursor;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcProcedureHandle;
@@ -68,7 +68,7 @@ public class RedshiftSplitManager
             JdbcSplitManager jdbcSplitManager,
             RedshiftConfig redshiftConfig,
             @FileSystemS3 TrinoFileSystemFactory fileSystemFactory,
-            @ForJdbcClient ExecutorService executor)
+            @ForRecordCursor ExecutorService executor)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.queryBuilder = requireNonNull(queryBuilder, "queryBuilder is null");
