@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.oracle;
 
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.instrumentation.jdbc.datasource.OpenTelemetryDataSource;
@@ -34,6 +35,8 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class OraclePoolConnectionFactory
         implements ConnectionFactory
 {
+    private static final Logger log = Logger.get(OraclePoolConnectionFactory.class);
+
     private final OpenTelemetryDataSource dataSource;
 
     public OraclePoolConnectionFactory(
@@ -50,6 +53,12 @@ public class OraclePoolConnectionFactory
 
         //Setting connection properties of the data source
         dataSource.setConnectionFactoryClassName(OracleDataSource.class.getName());
+        dataSource.registerConnectionCreationConsumer(info -> {
+            log.info("Connection created " + info);
+        });
+        dataSource.registerConnectionInitializationCallback(info -> {
+            log.info("Connection initialized " + info);
+        });
         dataSource.setURL(connectionUrl);
 
         //Setting pool properties
