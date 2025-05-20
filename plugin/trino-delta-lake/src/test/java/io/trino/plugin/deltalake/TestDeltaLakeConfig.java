@@ -48,7 +48,7 @@ public class TestDeltaLakeConfig
                 .setDomainCompactionThreshold(1000)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
                 .setMaxOutstandingSplits(1_000)
-                .setMaxSplitSize(DataSize.of(64, DataSize.Unit.MEGABYTE))
+                .setMaxSplitSize(DataSize.of(128, DataSize.Unit.MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
                 .setMaxPartitionsPerWriter(100)
                 .setUnsafeWritesEnabled(false)
