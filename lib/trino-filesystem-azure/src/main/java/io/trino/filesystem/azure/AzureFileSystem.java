@@ -593,7 +593,7 @@ public class AzureFileSystem
     {
         try {
             BlockBlobClient blockBlobClient = createBlobContainerClient(location, Optional.empty())
-                    .getBlobClient(location.directoryPath())
+                    .getBlobClient("/")
                     .getBlockBlobClient();
             return blockBlobClient.exists();
         }
