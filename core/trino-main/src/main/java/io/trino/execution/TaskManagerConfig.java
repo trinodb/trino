@@ -50,7 +50,7 @@ public class TaskManagerConfig
 {
     public static final int MAX_WRITER_COUNT = 64;
 
-    private boolean threadPerDriverSchedulerEnabled = true;
+    private boolean threadPerDriverSchedulerEnabled;
     private boolean perOperatorCpuTimerEnabled = true;
     private boolean taskCpuTimerEnabled = true;
     private boolean statisticsCpuTimerEnabled = true;

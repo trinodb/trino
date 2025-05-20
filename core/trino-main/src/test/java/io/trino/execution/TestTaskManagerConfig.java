@@ -39,7 +39,7 @@ public class TestTaskManagerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
-                .setThreadPerDriverSchedulerEnabled(true)
+                .setThreadPerDriverSchedulerEnabled(false)
                 .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 2)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(100, TimeUnit.MILLISECONDS))
                 .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
@@ -85,7 +85,7 @@ public class TestTaskManagerConfig
         int processorCount = DEFAULT_PROCESSOR_COUNT == 32 ? 16 : 32;
         int maxWriterCount = DEFAULT_MAX_WRITER_COUNT == 32 ? 16 : 32;
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("experimental.thread-per-driver-scheduler-enabled", "false")
+                .put("experimental.thread-per-driver-scheduler-enabled", "true")
                 .put("task.initial-splits-per-node", "1")
                 .put("task.split-concurrency-adjustment-interval", "3s")
                 .put("task.status-refresh-max-wait", "2s")
@@ -126,7 +126,7 @@ public class TestTaskManagerConfig
                 .buildOrThrow();
 
         TaskManagerConfig expected = new TaskManagerConfig()
-                .setThreadPerDriverSchedulerEnabled(false)
+                .setThreadPerDriverSchedulerEnabled(true)
                 .setInitialSplitsPerNode(1)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(3, TimeUnit.SECONDS))
                 .setStatusRefreshMaxWait(new Duration(2, TimeUnit.SECONDS))
