@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>260</version>
+        <version>261</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -196,7 +196,6 @@
         <dep.gib.version>4.5.4</dep.gib.version>
         <dep.httpcore5.version>5.3.4</dep.httpcore5.version>
         <dep.iceberg.version>1.9.0</dep.iceberg.version>
-        <dep.jackson.version>2.19.0</dep.jackson.version>
         <dep.jna.version>5.17.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.6</dep.jsonwebtoken.version>
         <dep.jts.version>1.20.0</dep.jts.version>
