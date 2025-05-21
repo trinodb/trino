@@ -68,6 +68,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -243,8 +244,8 @@ class TestCreateTableTask
     void testCreateWithDefaultColumnTypeCoercion()
     {
         List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
-                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
-                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcd ")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcd ")), true, emptyList(), Optional.empty()))
                 .build();
         CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
 
@@ -254,11 +255,42 @@ class TestCreateTableTask
             List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
             assertThat(columns).hasSize(2);
 
-            assertThat(columns.get(0).getName()).isEqualTo("a");
-            assertThat(columns.get(0).getDefaultValue()).isEmpty();
+            assertThat(columns.get(0).getName()).isEqualTo("char_col");
+            assertThat(columns.get(0).getDefaultValue()).contains(NullableValue.of(createCharType(4), utf8Slice("abcd")));
 
-            assertThat(columns.get(1).getName()).isEqualTo("b");
-            assertThat(columns.get(1).getDefaultValue()).contains(NullableValue.of(VARCHAR, utf8Slice("abcde")));
+            assertThat(columns.get(1).getName()).isEqualTo("varchar_col");
+            assertThat(columns.get(1).getDefaultValue()).contains(NullableValue.of(createVarcharType(4), utf8Slice("abcd")));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateWithInvalidDefaultColumnTypeCoercion()
+    {
+        List<TableElement> charColumn = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), " abcd")), true, emptyList(), Optional.empty()))
+                .build();
+        List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), " abcd")), true, emptyList(), Optional.empty()))
+                .build();
+
+        CreateTable createTableWithCharColumn = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), charColumn, IGNORE, ImmutableList.of(), Optional.empty());
+        CreateTable createTableWithVarcharColumn = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(createTableWithCharColumn, transactionSession, emptyList(), _ -> {})))
+                    .hasErrorCode(INVALID_LITERAL)
+                    .hasMessage("line 1:1: '' abcd'' is not a valid CHAR(4) literal")
+                    .hasStackTraceContaining("Cannot truncate non-space characters when casting value ' abcd' to char(4)");
+            return null;
+        });
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(createTableWithVarcharColumn, transactionSession, emptyList(), _ -> {})))
+                    .hasErrorCode(INVALID_LITERAL)
+                    .hasMessage("line 1:1: '' abcd'' is not a valid VARCHAR(4) literal")
+                    .hasStackTraceContaining("Cannot truncate non-space characters when casting value ' abcd' to varchar(4)");
             return null;
         });
     }

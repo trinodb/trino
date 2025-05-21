@@ -27,7 +27,6 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -39,7 +38,6 @@ import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.Literal;
 
 import java.util.List;
 import java.util.Map;
@@ -55,7 +53,6 @@ import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
@@ -64,6 +61,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONST
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.ColumnDefaultOptions.evaluateLiteral;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -162,7 +160,7 @@ public class AddColumnTask
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
                     .setType(supportedType)
-                    .setDefaultValue(element.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, supportedType)))
+                    .setDefaultValue(element.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, type)))
                     .setNullable(element.isNullable())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)
@@ -258,17 +256,6 @@ public class AddColumnTask
         return plannerContext.getMetadata()
                 .getSupportedType(session, catalogHandle, tableProperties, type)
                 .orElse(type);
-    }
-
-    private static NullableValue evaluateLiteral(LiteralInterpreter literalInterpreter, Literal literal, Type type)
-    {
-        try {
-            // NullableValue constructor checks the type compatibility between type and value
-            return new NullableValue(type, literalInterpreter.evaluate(literal, type));
-        }
-        catch (RuntimeException e) {
-            throw semanticException(INVALID_LITERAL, literal, e, "'%s' is not a valid %s literal", literal, type.getDisplayName().toUpperCase(ENGLISH));
-        }
     }
 
     private static io.trino.spi.connector.ColumnPosition toConnectorColumnPosition(ColumnPosition columnPosition)

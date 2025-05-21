@@ -58,7 +58,7 @@ public class ColumnMetadata
         requireNonNull(type, "type is null");
         requireNonNull(defaultValue, "defaultValue is null");
         requireNonNull(properties, "properties is null");
-        if (defaultValue.isPresent() && !type.equals(defaultValue.get().getType())) {
+        if (defaultValue.isPresent() && !type.getBaseName().equals(defaultValue.get().getType().getBaseName())) {
             throw new IllegalArgumentException("Default value type '%s' does not match column type '%s'".formatted(defaultValue.get().getType(), type));
         }
 

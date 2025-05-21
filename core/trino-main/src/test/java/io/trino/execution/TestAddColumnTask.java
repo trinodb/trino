@@ -65,6 +65,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -189,24 +190,74 @@ public class TestAddColumnTask
         assertThat(metadata.getTableMetadata(testSession, table).columns())
                 .containsExactly(new ColumnMetadata("test", BIGINT));
 
-        ColumnDefinition column = new ColumnDefinition(
+        ColumnDefinition charColumn = new ColumnDefinition(
                 new NodeLocation(1, 1),
-                QualifiedName.of("new_col"),
+                QualifiedName.of("new_char_col"),
+                toSqlType(createCharType(4)),
+                Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcd ")),
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+        ColumnDefinition varcharColumn = new ColumnDefinition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("new_varchar_col"),
                 toSqlType(createVarcharType(4)),
-                Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcde")),
+                Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcd ")),
                 true,
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(executeAddColumn(asQualifiedName(tableName), column, new ColumnPosition.Last(), false, false));
+        getFutureValue(executeAddColumn(asQualifiedName(tableName), charColumn, new ColumnPosition.Last(), false, false));
+        getFutureValue(executeAddColumn(asQualifiedName(tableName), varcharColumn, new ColumnPosition.Last(), false, false));
 
         List<ColumnMetadata> columns = metadata.getTableMetadata(testSession, table).columns();
-        assertThat(columns).hasSize(2);
+        assertThat(columns).hasSize(3);
 
         assertThat(columns.get(0).getName()).isEqualTo("test");
 
-        assertThat(columns.get(1).getName()).isEqualTo("new_col");
-        assertThat(columns.get(1).getDefaultValue()).contains(NullableValue.of(VARCHAR, utf8Slice("abcde")));
+        assertThat(columns.get(1).getName()).isEqualTo("new_char_col");
+        assertThat(columns.get(1).getDefaultValue()).contains(NullableValue.of(createCharType(4), utf8Slice("abcd")));
+
+        assertThat(columns.get(2).getName()).isEqualTo("new_varchar_col");
+        assertThat(columns.get(2).getDefaultValue()).contains(NullableValue.of(createVarcharType(4), utf8Slice("abcd")));
+    }
+
+    @Test
+    void testInvalidAddDefaultColumnTypeCoercion()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
+                .containsExactly(new ColumnMetadata("test", BIGINT));
+
+        ColumnDefinition charColumn = new ColumnDefinition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("new_char_col"),
+                toSqlType(createCharType(4)),
+                Optional.of(new StringLiteral(new NodeLocation(1, 1), " abcd")),
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+        ColumnDefinition varcharColumn = new ColumnDefinition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("new_varchar_col"),
+                toSqlType(createVarcharType(4)),
+                Optional.of(new StringLiteral(new NodeLocation(1, 1), " abcd")),
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+
+        assertTrinoExceptionThrownBy(() ->
+                getFutureValue(executeAddColumn(asQualifiedName(tableName), charColumn, new ColumnPosition.Last(), false, false)))
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:1: '' abcd'' is not a valid CHAR(4) literal")
+                .hasStackTraceContaining("Cannot truncate non-space characters when casting value ' abcd' to char(4)");
+        assertTrinoExceptionThrownBy(() ->
+                getFutureValue(executeAddColumn(asQualifiedName(tableName), varcharColumn, new ColumnPosition.Last(), false, false)))
+                .hasErrorCode(INVALID_LITERAL)
+                .hasMessage("line 1:1: '' abcd'' is not a valid VARCHAR(4) literal")
+                .hasStackTraceContaining("Cannot truncate non-space characters when casting value ' abcd' to varchar(4)");
     }
 
     @Test

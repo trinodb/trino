@@ -33,7 +33,6 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SaveMode;
-import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
@@ -46,7 +45,6 @@ import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikeClause;
-import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.TableElement;
@@ -76,7 +74,6 @@ import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -91,6 +88,7 @@ import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.ColumnDefaultOptions.evaluateLiteral;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -212,7 +210,7 @@ public class CreateTableTask
                 columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
                         .setName(name.getValue().toLowerCase(ENGLISH))
                         .setType(supportedType)
-                        .setDefaultValue(column.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, supportedType)))
+                        .setDefaultValue(column.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, type)))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)
@@ -341,17 +339,6 @@ public class CreateTableTask
             }
         }
         return finalProperties;
-    }
-
-    private static NullableValue evaluateLiteral(LiteralInterpreter literalInterpreter, Literal literal, Type type)
-    {
-        try {
-            // NullableValue constructor checks the type compatibility between type and value
-            return new NullableValue(type, literalInterpreter.evaluate(literal, type));
-        }
-        catch (RuntimeException e) {
-            throw semanticException(INVALID_LITERAL, literal, e, "'%s' is not a valid %s literal", literal, type.getDisplayName().toUpperCase(ENGLISH));
-        }
     }
 
     private static SaveMode toConnectorSaveMode(io.trino.sql.tree.SaveMode saveMode)
