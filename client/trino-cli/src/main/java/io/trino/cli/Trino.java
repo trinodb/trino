@@ -16,10 +16,10 @@ package io.trino.cli;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.ClientExtraCredential;
 import io.trino.cli.ClientOptions.ClientResourceEstimate;
 import io.trino.cli.ClientOptions.ClientSessionProperty;
+import io.trino.client.uri.DurationUtils;
 import org.jline.utils.AttributedStringBuilder;
 import org.jline.utils.AttributedStyle;
 import picocli.CommandLine;
@@ -29,6 +29,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Enumeration;
 import java.util.Map;
 import java.util.Optional;
@@ -63,7 +64,7 @@ public final class Trino
                 .registerConverter(ClientSessionProperty.class, ClientSessionProperty::new)
                 .registerConverter(ClientExtraCredential.class, ClientExtraCredential::new)
                 .registerConverter(HostAndPort.class, HostAndPort::fromString)
-                .registerConverter(Duration.class, Duration::valueOf)
+                .registerConverter(Duration.class, DurationUtils::parseDuration)
                 .setResourceBundle(new TrinoResourceBundle())
                 .setExecutionExceptionHandler((e, cmd, parseResult) -> {
                     System.err.println(formatCliErrorMessage(e, parseResult.hasMatchedOption(DEBUG_OPTION_NAME)));

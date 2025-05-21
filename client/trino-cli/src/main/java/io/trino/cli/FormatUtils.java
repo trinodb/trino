@@ -16,13 +16,14 @@ package io.trino.cli;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.trino.client.Row;
+import io.trino.client.uri.DurationUtils;
 
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 
@@ -35,7 +36,6 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 
 public final class FormatUtils
@@ -77,7 +77,7 @@ public final class FormatUtils
 
     public static String formatCountRate(double count, Duration duration, boolean longForm)
     {
-        double rate = count / duration.getValue(SECONDS);
+        double rate = count / DurationUtils.convertValue(duration, ChronoUnit.SECONDS);
         if (Double.isNaN(rate) || Double.isInfinite(rate)) {
             rate = 0;
         }
@@ -92,10 +92,10 @@ public final class FormatUtils
         return rateString;
     }
 
-    public static String formatDataSize(DataSize size, boolean longForm, boolean decimalDataSize)
+    public static String formatDataSize(long sizeBytes, boolean longForm, boolean decimalDataSize)
     {
         int divisor = decimalDataSize ? 1000 : 1024;
-        double fractional = size.toBytes();
+        double fractional = sizeBytes;
         String unit = null;
         if (fractional >= divisor) {
             fractional /= divisor;
@@ -133,14 +133,14 @@ public final class FormatUtils
         return format("%s%s", getFormat(fractional).format(fractional), unit);
     }
 
-    public static String formatDataRate(DataSize dataSize, Duration duration, boolean longForm, boolean decimalDataSize)
+    public static String formatDataRate(long dataSizeBytes, Duration duration, boolean longForm, boolean decimalDataSize)
     {
-        long rate = Math.round(dataSize.toBytes() / duration.getValue(SECONDS));
+        long rate = Math.round(dataSizeBytes / DurationUtils.convertValue(duration, ChronoUnit.SECONDS));
         if (rate == Long.MAX_VALUE) {
             rate = 0;
         }
 
-        String rateString = formatDataSize(DataSize.ofBytes(rate), false, decimalDataSize);
+        String rateString = formatDataSize(rate, false, decimalDataSize);
         if (longForm) {
             if (!rateString.endsWith("B")) {
                 rateString += "B";
@@ -181,7 +181,7 @@ public final class FormatUtils
 
     public static String formatTime(Duration duration)
     {
-        int totalSeconds = Ints.saturatedCast(duration.roundTo(SECONDS));
+        int totalSeconds = Ints.saturatedCast(duration.getSeconds());
         int minutes = totalSeconds / 60;
         int seconds = totalSeconds % 60;
 

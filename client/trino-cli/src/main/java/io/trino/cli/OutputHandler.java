@@ -13,11 +13,11 @@
  */
 package io.trino.cli;
 
-import io.airlift.units.Duration;
 import io.trino.client.StatementClient;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -28,18 +28,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.airlift.units.Duration.nanosSince;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class OutputHandler
         implements Closeable
 {
     private static final int MAX_QUEUED_ROWS = 50_000;
     private static final int MAX_BUFFERED_ROWS = 10_000;
-    private static final Duration MAX_BUFFER_TIME = new Duration(3, SECONDS);
+    private static final Duration MAX_BUFFER_TIME = Duration.ofSeconds(3);
     private static final List<?> END_TOKEN = new ArrayList<>(0);
 
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -82,7 +80,7 @@ public final class OutputHandler
                 }
 
                 // Flush if needed
-                if (rowBuffer.size() >= MAX_BUFFERED_ROWS || nanosSince(bufferStart).compareTo(MAX_BUFFER_TIME) >= 0) {
+                if (rowBuffer.size() >= MAX_BUFFERED_ROWS || Duration.ofNanos(System.nanoTime() - bufferStart).compareTo(MAX_BUFFER_TIME) >= 0) {
                     printer.printRows(unmodifiableList(rowBuffer), false);
                     rowBuffer.clear();
                     bufferStart = System.nanoTime();

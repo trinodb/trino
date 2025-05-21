@@ -13,25 +13,22 @@
  */
 package io.trino.cli;
 
-import com.google.common.primitives.Ints;
-import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StageStats;
 import io.trino.client.StatementClient;
 import io.trino.client.StatementStats;
+import io.trino.client.uri.DurationUtils;
 import org.jline.terminal.Attributes;
 import org.jline.terminal.Terminal;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.time.Duration;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
-import static io.airlift.units.Duration.nanosSince;
-import static io.airlift.units.Duration.succinctDuration;
 import static io.trino.cli.FormatUtils.formatCount;
 import static io.trino.cli.FormatUtils.formatCountRate;
 import static io.trino.cli.FormatUtils.formatDataRate;
@@ -46,10 +43,9 @@ import static java.lang.Character.toUpperCase;
 import static java.lang.Math.ceil;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class StatusPrinter
 {
@@ -109,10 +105,10 @@ Spilled: 20GB
                     }
 
                     // check if time to update screen
-                    boolean update = nanosSince(lastPrint).getValue(SECONDS) >= 0.5;
+                    boolean update = (System.nanoTime() - lastPrint) >= 500_000;
 
                     // start checking for input after 300ms to avoid delaying short queries
-                    if (checkInput && nanosSince(start).getValue(SECONDS) >= 0.3) {
+                    if (checkInput && (System.nanoTime() - start) >= 300_000) {
                         // check for keyboard input
                         int key = readKey(terminal);
                         if (key == CTRL_P) {
@@ -166,7 +162,7 @@ Spilled: 20GB
         QueryStatusInfo results = client.finalStatusInfo();
         StatementStats stats = results.getStats();
 
-        Duration wallTime = succinctDuration(stats.getElapsedTimeMillis(), MILLISECONDS);
+        Duration wallTime = Duration.ofMillis(stats.getElapsedTimeMillis());
 
         int nodes = stats.getNodes();
         if ((nodes == 0) || (stats.getTotalSplits() == 0)) {
@@ -197,32 +193,32 @@ Spilled: 20GB
 
         if (debug) {
             // CPU Time: 565.2s total,   26K rows/s, 3.85MB/s
-            Duration cpuTime = millis(stats.getCpuTimeMillis());
-            String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
-                    cpuTime.getValue(SECONDS),
+            Duration cpuTime = Duration.ofMillis(stats.getCpuTimeMillis());
+            String cpuTimeSummary = format("CPU Time: %s total, %5s rows/s, %8s, %d%% active",
+                    DurationUtils.toString(cpuTime),
                     formatCountRate(stats.getProcessedRows(), cpuTime, false),
-                    formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true, decimalDataSize),
+                    formatDataRate(stats.getProcessedBytes(), cpuTime, true, decimalDataSize),
                     (int) percentage(stats.getCpuTimeMillis(), stats.getWallTimeMillis()));
             out.println(cpuTimeSummary);
 
-            double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
+            double parallelism = 1.0d * cpuTime.toMillis() / wallTime.toMillis();
 
             // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
             String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                     parallelism / nodes,
                     formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
-                    formatDataRate(bytes(stats.getProcessedBytes() / nodes), wallTime, true, decimalDataSize));
+                    formatDataRate(stats.getProcessedBytes() / nodes, wallTime, true, decimalDataSize));
             reprintLine(perNodeSummary);
 
             // Parallelism: 5.3
             out.printf("Parallelism: %.1f%n", parallelism);
 
             // Peak Memory: 1.97GB
-            reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true, decimalDataSize));
+            reprintLine("Peak Memory: " + formatDataSize(stats.getPeakMemoryBytes(), true, decimalDataSize));
 
             // Spilled Data: 20GB
             if (stats.getSpilledBytes() > 0) {
-                reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true, decimalDataSize));
+                reprintLine("Spilled: " + formatDataSize(stats.getSpilledBytes(), true, decimalDataSize));
             }
         }
 
@@ -230,9 +226,9 @@ Spilled: 20GB
         String statsLine = format("%s [%s rows, %s] [%s rows/s, %s]",
                 formatFinalTime(wallTime),
                 formatCount(stats.getProcessedRows()),
-                formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize),
+                formatDataSize(stats.getProcessedBytes(), true, decimalDataSize),
                 formatCountRate(stats.getProcessedRows(), wallTime, false),
-                formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize));
+                formatDataRate(stats.getProcessedBytes(), wallTime, true, decimalDataSize));
 
         out.println(statsLine);
 
@@ -243,7 +239,7 @@ Spilled: 20GB
     private void printQueryInfo(QueryStatusInfo results, WarningsPrinter warningsPrinter)
     {
         StatementStats stats = results.getStats();
-        Duration wallTime = nanosSince(start);
+        Duration wallTime = Duration.ofNanos(System.nanoTime() - start);
 
         // cap progress at 99%, otherwise it looks weird when the query is still running and it says 100%
         int progressPercentage = (int) min(99, stats.getProgressPercentage().orElse(0.0));
@@ -293,32 +289,32 @@ Spilled: 20GB
                 reprintLine(splitsSummary);
 
                 // CPU Time: 56.5s total, 36.4K rows/s, 4.44MB/s, 60% active
-                Duration cpuTime = millis(stats.getCpuTimeMillis());
-                String cpuTimeSummary = format("CPU Time: %.1fs total, %5s rows/s, %8s, %d%% active",
-                        cpuTime.getValue(SECONDS),
+                Duration cpuTime = Duration.ofMillis(stats.getCpuTimeMillis());
+                String cpuTimeSummary = format("CPU Time: %s total, %5s rows/s, %8s, %d%% active",
+                        DurationUtils.toString(cpuTime),
                         formatCountRate(stats.getProcessedRows(), cpuTime, false),
-                        formatDataRate(bytes(stats.getProcessedBytes()), cpuTime, true, decimalDataSize),
+                        formatDataRate(stats.getProcessedBytes(), cpuTime, true, decimalDataSize),
                         (int) percentage(stats.getCpuTimeMillis(), stats.getWallTimeMillis()));
                 reprintLine(cpuTimeSummary);
 
-                double parallelism = cpuTime.getValue(MILLISECONDS) / wallTime.getValue(MILLISECONDS);
+                double parallelism = 1.0d * cpuTime.toMillis() / wallTime.toMillis();
 
                 // Per Node: 3.5 parallelism, 83.3K rows/s, 0.7 MB/s
                 String perNodeSummary = format("Per Node: %.1f parallelism, %5s rows/s, %8s",
                         parallelism / nodes,
                         formatCountRate((double) stats.getProcessedRows() / nodes, wallTime, false),
-                        formatDataRate(bytes(stats.getProcessedBytes() / nodes), wallTime, true, decimalDataSize));
+                        formatDataRate(stats.getProcessedBytes() / nodes, wallTime, true, decimalDataSize));
                 reprintLine(perNodeSummary);
 
                 // Parallelism: 5.3
                 reprintLine(format("Parallelism: %.1f", parallelism));
 
                 // Peak Memory: 1.97GB
-                reprintLine("Peak Memory: " + formatDataSize(bytes(stats.getPeakMemoryBytes()), true, decimalDataSize));
+                reprintLine("Peak Memory: " + formatDataSize(stats.getPeakMemoryBytes(), true, decimalDataSize));
 
                 // Spilled Data: 20GB
                 if (stats.getSpilledBytes() > 0) {
-                    reprintLine("Spilled: " + formatDataSize(bytes(stats.getSpilledBytes()), true, decimalDataSize));
+                    reprintLine("Spilled: " + formatDataSize(stats.getSpilledBytes(), true, decimalDataSize));
                 }
             }
 
@@ -335,24 +331,24 @@ Spilled: 20GB
                 String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s] %d%%",
                         formatTime(wallTime),
                         formatCount(stats.getProcessedRows()),
-                        formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize),
+                        formatDataSize(stats.getProcessedBytes(), true, decimalDataSize),
                         formatCountRate(stats.getProcessedRows(), wallTime, false),
-                        formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize),
+                        formatDataRate(stats.getProcessedBytes(), wallTime, true, decimalDataSize),
                         progressBar,
                         progressPercentage);
 
                 reprintLine(progressLine);
             }
             else {
-                String progressBar = formatProgressBar(progressWidth, Ints.saturatedCast(nanosSince(start).roundTo(SECONDS)));
+                String progressBar = formatProgressBar(progressWidth, toIntExact(Duration.ofNanos(System.nanoTime() - start).toSeconds()));
 
                 // 0:17 [ 103MB,  802K rows] [5.74MB/s, 44.9K rows/s] [    <=>                                  ]
                 String progressLine = format("%s [%5s rows, %6s] [%5s rows/s, %8s] [%s]",
                         formatTime(wallTime),
                         formatCount(stats.getProcessedRows()),
-                        formatDataSize(bytes(stats.getProcessedBytes()), true, decimalDataSize),
+                        formatDataSize(stats.getProcessedBytes(), true, decimalDataSize),
                         formatCountRate(stats.getProcessedRows(), wallTime, false),
-                        formatDataRate(bytes(stats.getProcessedBytes()), wallTime, true, decimalDataSize),
+                        formatDataRate(stats.getProcessedBytes(), wallTime, true, decimalDataSize),
                         progressBar);
 
                 reprintLine(progressLine);
@@ -383,12 +379,12 @@ Spilled: 20GB
                     stats.getState(),
 
                     formatCount(stats.getProcessedRows()),
-                    formatDataSize(bytes(stats.getProcessedBytes()), false, decimalDataSize),
-                    formatDataRate(bytes(stats.getProcessedBytes()), wallTime, false, decimalDataSize),
+                    formatDataSize(stats.getProcessedBytes(), false, decimalDataSize),
+                    formatDataRate(stats.getProcessedBytes(), wallTime, false, decimalDataSize),
 
                     formatCount(stats.getProcessedRows()),
-                    formatDataSize(bytes(stats.getProcessedBytes()), false, decimalDataSize),
-                    formatDataRate(bytes(stats.getProcessedBytes()), wallTime, false, decimalDataSize),
+                    formatDataSize(stats.getProcessedBytes(), false, decimalDataSize),
+                    formatDataRate(stats.getProcessedBytes(), wallTime, false, decimalDataSize),
 
                     stats.getQueuedSplits(),
                     stats.getRunningSplits(),
@@ -400,7 +396,7 @@ Spilled: 20GB
 
     private void printStageTree(StageStats stage, String indent, AtomicInteger stageNumberCounter)
     {
-        Duration elapsedTime = nanosSince(start);
+        Duration elapsedTime = Duration.ofNanos(System.nanoTime() - start);
 
         // STAGE  S    ROWS  ROWS/s  BYTES  BYTES/s  QUEUED    RUN   DONE
         // 0......Q     26M   9077M  9993G    9077M   9077M  9077M  9077M
@@ -416,11 +412,11 @@ Spilled: 20GB
         String bytesPerSecond;
         String rowsPerSecond;
         if (stage.isDone()) {
-            bytesPerSecond = formatDataRate(DataSize.ofBytes(0), new Duration(0, SECONDS), false, decimalDataSize);
-            rowsPerSecond = formatCountRate(0, new Duration(0, SECONDS), false);
+            bytesPerSecond = formatDataRate(0, Duration.ofSeconds(0), false, decimalDataSize);
+            rowsPerSecond = formatCountRate(0, Duration.ofSeconds(0), false);
         }
         else {
-            bytesPerSecond = formatDataRate(bytes(stage.getProcessedBytes()), elapsedTime, false, decimalDataSize);
+            bytesPerSecond = formatDataRate(stage.getProcessedBytes(), elapsedTime, false, decimalDataSize);
             rowsPerSecond = formatCountRate(stage.getProcessedRows(), elapsedTime, false);
         }
 
@@ -431,7 +427,7 @@ Spilled: 20GB
                 formatCount(stage.getProcessedRows()),
                 rowsPerSecond,
 
-                formatDataSize(bytes(stage.getProcessedBytes()), false, decimalDataSize),
+                formatDataSize(stage.getProcessedBytes(), false, decimalDataSize),
                 bytesPerSecond,
 
                 stage.getQueuedSplits(),
@@ -469,16 +465,6 @@ Spilled: 20GB
     private static char stageStateCharacter(String state)
     {
         return "FAILED".equals(state) ? 'X' : state.charAt(0);
-    }
-
-    private static Duration millis(long millis)
-    {
-        return new Duration(millis, MILLISECONDS);
-    }
-
-    private static DataSize bytes(long bytes)
-    {
-        return DataSize.ofBytes(bytes);
     }
 
     private static double percentage(double count, double total)
