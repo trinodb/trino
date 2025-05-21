@@ -66,7 +66,7 @@ public class TestingDruidServer
     private static final int DRUID_HISTORICAL_PORT = 8083;
     private static final int DRUID_MIDDLE_MANAGER_PORT = 8091;
 
-    private static final String DRUID_DOCKER_IMAGE = "apache/druid:0.18.0";
+    private static final String DRUID_DOCKER_IMAGE = "apache/druid:0.19.0";
 
     public TestingDruidServer()
     {
