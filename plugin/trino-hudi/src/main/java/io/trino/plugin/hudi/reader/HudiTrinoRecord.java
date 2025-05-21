@@ -27,6 +27,7 @@ import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.Pair;
 import org.apache.hudi.keygen.BaseKeyGenerator;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
@@ -57,7 +58,7 @@ public class HudiTrinoRecord
     }
 
     @Override
-    public Comparable<?> getOrderingValue(Schema schema, Properties properties)
+    public Comparable<?> doGetOrderingValue(Schema schema, Properties properties)
     {
         return null;
     }
@@ -168,6 +169,13 @@ public class HudiTrinoRecord
 
     @Override
     public Option<HoodieAvroIndexedRecord> toIndexedRecord(Schema schema, Properties properties)
+            throws IOException
+    {
+        return null;
+    }
+
+    @Override
+    public ByteArrayOutputStream getAvroBytes(Schema schema, Properties properties)
             throws IOException
     {
         return null;

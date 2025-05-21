@@ -31,6 +31,7 @@ import org.apache.hudi.common.model.HoodieEmptyRecord;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.model.HoodieRecordMerger;
+import org.apache.hudi.common.table.read.BufferedRecord;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.common.util.collection.ClosableIterator;
 import org.apache.hudi.storage.HoodieStorage;
@@ -177,6 +178,12 @@ public class HudiTrinoReaderContext
     }
 
     @Override
+    public IndexedRecord toBinaryRow(Schema schema, IndexedRecord record)
+    {
+        return record;
+    }
+
+    @Override
     public ClosableIterator<IndexedRecord> mergeBootstrapReaders(
             ClosableIterator closableIterator, Schema schema,
             ClosableIterator closableIterator1, Schema schema1)
@@ -207,15 +214,14 @@ public class HudiTrinoReaderContext
 
     @Override
     public HoodieRecord<IndexedRecord> constructHoodieRecord(
-            Option<IndexedRecord> recordOpt,
-            Map<String, Object> metadataMap)
+            BufferedRecord<IndexedRecord> bufferedRecord)
     {
-        if (!recordOpt.isPresent()) {
+        if (bufferedRecord.isDelete()) {
             return new HoodieEmptyRecord<>(
-                    new HoodieKey((String) metadataMap.get(INTERNAL_META_RECORD_KEY),
-                            (String) metadataMap.get(INTERNAL_META_PARTITION_PATH)),
+                    new HoodieKey(bufferedRecord.getRecordKey(), null),
                     HoodieRecord.HoodieRecordType.AVRO);
         }
-        return new HoodieAvroIndexedRecord(recordOpt.get());
+
+        return new HoodieAvroIndexedRecord(bufferedRecord.getRecord());
     }
 }

@@ -85,7 +85,7 @@ public class HudiRecordLevelIndexSupport
 
         // Perform index lookup in metadataTable
         // TODO: document here what this map is keyed by
-        Map<String, List<HoodieRecordGlobalLocation>> recordIndex = metadataTable.readRecordIndex(recordKeys);
+        Map<String, HoodieRecordGlobalLocation> recordIndex = metadataTable.readRecordIndex(recordKeys);
         if (recordIndex.isEmpty()) {
             log.debug("Record level index lookup returned no locations for the given keys.");
             // Return all original fileSlices
@@ -94,7 +94,6 @@ public class HudiRecordLevelIndexSupport
 
         // Collect fileIds for pruning
         Set<String> relevantFileIds = recordIndex.values().stream()
-                .flatMap(List::stream)
                 .map(HoodieRecordGlobalLocation::getFileId)
                 .collect(Collectors.toSet());
         log.debug(String.format("Record level index lookup identified %d relevant file IDs.", relevantFileIds.size()));

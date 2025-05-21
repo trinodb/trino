@@ -75,7 +75,7 @@ public class HudiSecondaryIndexSupport
 
         // Perform index lookup in metadataTable
         // TODO: document here what this map is keyed by
-        Map<String, List<HoodieRecordGlobalLocation>> recordKeyLocationsMap = metadataTable.readSecondaryIndex(secondaryKeys, indexName);
+        Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = metadataTable.readSecondaryIndex(secondaryKeys, indexName);
         if (recordKeyLocationsMap.isEmpty()) {
             log.debug("Secondary index lookup returned no locations for the given keys.");
             // Return all original fileSlices
@@ -84,7 +84,6 @@ public class HudiSecondaryIndexSupport
 
         // Collect fileIds for pruning
         Set<String> relevantFileIds = recordKeyLocationsMap.values().stream()
-                .flatMap(List::stream)
                 .map(HoodieRecordGlobalLocation::getFileId)
                 .collect(Collectors.toSet());
         log.debug(String.format("Secondary index lookup identified %d relevant file IDs.", relevantFileIds.size()));
