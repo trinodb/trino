@@ -29,7 +29,7 @@ public class ShowBranches
     public ShowBranches(NodeLocation location, QualifiedName tableName)
     {
         super(location);
-        this.tableName = requireNonNull(tableName, "table is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
     }
 
     public QualifiedName getTableName()

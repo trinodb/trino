@@ -31,9 +31,9 @@ public class DropBranch
     public DropBranch(NodeLocation location, QualifiedName tableName, boolean exists, Identifier branchName)
     {
         super(location);
-        this.tableName = requireNonNull(tableName, "name is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.exists = exists;
-        this.branchName = requireNonNull(branchName, "branch is null");
+        this.branchName = requireNonNull(branchName, "branchName is null");
     }
 
     public QualifiedName getTableName()
