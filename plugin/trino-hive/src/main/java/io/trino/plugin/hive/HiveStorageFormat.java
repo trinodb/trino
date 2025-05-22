@@ -33,6 +33,7 @@ import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_INPUT_FORMAT_C
 import static io.trino.hive.formats.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.AVRO_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.COLUMNAR_SERDE_CLASS;
+import static io.trino.hive.formats.HiveClassNames.GROK_SERDE_CLASS;
 import static io.trino.hive.formats.HiveClassNames.HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.HIVE_SEQUENCEFILE_OUTPUT_FORMAT_CLASS;
 import static io.trino.hive.formats.HiveClassNames.JSON_SERDE_CLASS;
@@ -101,6 +102,10 @@ public enum HiveStorageFormat
     REGEX(
             REGEX_SERDE_CLASS,
             TEXT_INPUT_FORMAT_CLASS,
+            HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS),
+    GROK(
+            GROK_SERDE_CLASS,
+            TEXT_INPUT_FORMAT_CLASS,
             HIVE_IGNORE_KEY_OUTPUT_FORMAT_CLASS);
 
     private final String serde;
@@ -134,7 +139,7 @@ public enum HiveStorageFormat
         // Only uncompressed text input format is splittable
         return switch (this) {
             case ORC, PARQUET, AVRO, RCBINARY, RCTEXT, SEQUENCEFILE -> true;
-            case JSON, OPENX_JSON, TEXTFILE, CSV, REGEX -> CompressionKind.forFile(path).isEmpty();
+            case JSON, OPENX_JSON, TEXTFILE, CSV, REGEX, GROK -> CompressionKind.forFile(path).isEmpty();
         };
     }
 
