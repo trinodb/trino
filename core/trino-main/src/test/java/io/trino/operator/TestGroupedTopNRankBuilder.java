@@ -261,7 +261,7 @@ public class TestGroupedTopNRankBuilder
                 GroupByHash.shouldCacheHashValue(false, ImmutableList.of(partitionType)),
                 1,
                 false,
-                new FlatHashStrategyCompiler(typeOperators),
+                new FlatHashStrategyCompiler(typeOperators, new NullSafeHashCompiler(typeOperators)),
                 updateMemory);
     }
 

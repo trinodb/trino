@@ -51,6 +51,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class TestInterpretedHashGenerator
 {
@@ -89,6 +90,12 @@ class TestInterpretedHashGenerator
     @Test
     void testBatchedRawHashesMatchSinglePositionHashes()
     {
+        testBatchedRawHashesMatchSinglePositionHashes(true);
+        testBatchedRawHashesMatchSinglePositionHashes(false);
+    }
+
+    private void testBatchedRawHashesMatchSinglePositionHashes(boolean hashBlocksBatched)
+    {
         List<Type> types = createTestingTypes(typeOperators);
         InterpretedHashGenerator hashGenerator = createPagePrefixHashGenerator(types, compiler);
 
@@ -96,7 +103,12 @@ class TestInterpretedHashGenerator
         Block[] blocks = createRandomData(types, positionCount, 0.25f);
 
         long[] hashes = new long[positionCount];
-        hashGenerator.hash(new Page(blocks), 0, positionCount, hashes);
+        if (hashBlocksBatched) {
+            hashGenerator.hashBlocksBatched(blocks, hashes, 0, positionCount);
+        }
+        else {
+            hashGenerator.hash(new Page(blocks), 0, positionCount, hashes);
+        }
         assertHashesEqual(types, blocks, hashes, hashGenerator);
 
         // Convert all blocks to RunLengthEncoded and re-check result matches
@@ -104,7 +116,12 @@ class TestInterpretedHashGenerator
         for (int i = 0; i < blocks.length; i++) {
             rleBlocks[i] = RunLengthEncodedBlock.create(blocks[i].getSingleValueBlock(0), positionCount);
         }
-        hashGenerator.hash(new Page(rleBlocks), 0, positionCount, hashes);
+        if (hashBlocksBatched) {
+            hashGenerator.hashBlocksBatched(rleBlocks, hashes, 0, positionCount);
+        }
+        else {
+            hashGenerator.hash(new Page(rleBlocks), 0, positionCount, hashes);
+        }
         assertHashesEqual(types, rleBlocks, hashes, hashGenerator);
 
         // Convert all blocks to Dictionary and check result matches
@@ -115,7 +132,12 @@ class TestInterpretedHashGenerator
             // Add an ids offset to the dictionary blocks for better test coverage
             dictionaryBlocks[i] = dictionaryBlocks[i].getRegion(1, positionCount);
         }
-        hashGenerator.hash(new Page(dictionaryBlocks), 0, positionCount, hashes);
+        if (hashBlocksBatched) {
+            hashGenerator.hashBlocksBatched(dictionaryBlocks, hashes, 0, positionCount);
+        }
+        else {
+            hashGenerator.hash(new Page(dictionaryBlocks), 0, positionCount, hashes);
+        }
         assertHashesEqual(types, dictionaryBlocks, hashes, hashGenerator);
 
         for (int i = 0; i < blocks.length; i++) {
@@ -124,8 +146,25 @@ class TestInterpretedHashGenerator
             // Add an ids offset to the dictionary blocks for better test coverage
             dictionaryBlocks[i] = dictionaryBlocks[i].getRegion(1, positionCount);
         }
-        hashGenerator.hash(new Page(dictionaryBlocks), 0, positionCount, hashes);
+        if (hashBlocksBatched) {
+            hashGenerator.hashBlocksBatched(dictionaryBlocks, hashes, 0, positionCount);
+        }
+        else {
+            hashGenerator.hash(new Page(dictionaryBlocks), 0, positionCount, hashes);
+        }
         assertHashesEqual(types, dictionaryBlocks, hashes, hashGenerator);
+    }
+
+    @Test
+    void testBatchedRawHashesZeroLength()
+    {
+        List<Type> types = createTestingTypes(typeOperators);
+        InterpretedHashGenerator hashGenerator = createPagePrefixHashGenerator(types, compiler);
+
+        int positionCount = 10;
+        // Attempting to touch any of the blocks would result in a NullPointerException
+        assertThatCode(() -> hashGenerator.hashBlocksBatched(new Block[types.size()], new long[positionCount], 0, 0))
+                .doesNotThrowAnyException();
     }
 
     private void assertHashesEqual(List<Type> types, Block[] blocks, long[] batchedHashes, InterpretedHashGenerator hashGenerator)

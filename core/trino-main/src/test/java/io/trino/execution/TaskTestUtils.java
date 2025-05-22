@@ -177,7 +177,7 @@ public final class TaskTestUtils
                 },
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(PLANNER_CONTEXT.getTypeOperators()),
-                new FlatHashStrategyCompiler(PLANNER_CONTEXT.getTypeOperators()),
+                new FlatHashStrategyCompiler(PLANNER_CONTEXT.getTypeOperators(), hashCompiler),
                 new OrderingCompiler(PLANNER_CONTEXT.getTypeOperators()),
                 new DynamicFilterConfig(),
                 blockTypeOperators,
