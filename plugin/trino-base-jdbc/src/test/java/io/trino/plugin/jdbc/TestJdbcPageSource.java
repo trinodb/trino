@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import org.junit.jupiter.api.AfterAll;
@@ -34,6 +35,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -78,6 +80,7 @@ public class TestJdbcPageSource
                 columnHandles.get("text"),
                 columnHandles.get("text_short"),
                 columnHandles.get("value")))) {
+            assertThat(pageSource.isBlocked().isDone()).isTrue();
             Map<String, Long> data = new LinkedHashMap<>();
             for (SourcePage page = pageSource.getNextSourcePage(); ; page = pageSource.getNextSourcePage()) {
                 if (page == null) {
@@ -160,6 +163,36 @@ public class TestJdbcPageSource
 
         pageSource.close();
         pageSource.close();
+    }
+
+    @Test
+    public void testGetNextPageAfterClose()
+    {
+        JdbcPageSource pageSource = createPageSource(ImmutableList.of(
+                columnHandles.get("value"),
+                columnHandles.get("value"),
+                columnHandles.get("text")));
+
+        pageSource.close();
+        assertThatThrownBy(pageSource::getNextSourcePage)
+                .isInstanceOf(TrinoException.class)
+                .hasMessageContaining("page source is closed");
+        assertThat(pageSource.isBlocked().isDone()).isTrue();
+    }
+
+    @Test
+    public void testGetNextPageAfterFinish()
+    {
+        JdbcPageSource pageSource = createPageSource(ImmutableList.of(
+                columnHandles.get("value"),
+                columnHandles.get("value"),
+                columnHandles.get("text")));
+
+        while (!pageSource.isFinished()) {
+            pageSource.getNextSourcePage();
+        }
+        assertThat(pageSource.getNextSourcePage()).isNull();
+        assertThat(pageSource.isBlocked().isDone()).isTrue();
     }
 
     private JdbcPageSource createPageSource(List<JdbcColumnHandle> columnHandles)
