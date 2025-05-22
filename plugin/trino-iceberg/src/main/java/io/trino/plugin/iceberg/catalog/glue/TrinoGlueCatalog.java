@@ -290,9 +290,6 @@ public class TrinoGlueCatalog
             if (database.locationUri() != null) {
                 metadata.put(LOCATION_PROPERTY, database.locationUri());
             }
-            if (database.parameters() != null) {
-                metadata.putAll(database.parameters());
-            }
             return metadata.buildOrThrow();
         }
         catch (EntityNotFoundException e) {
