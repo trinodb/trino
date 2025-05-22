@@ -81,6 +81,23 @@ public class InterpretedHashGenerator
         }
     }
 
+    public void hashBlocksBatched(Block[] blocks, long[] hashes, int offset, int length)
+    {
+        if (length == 0) {
+            return;
+        }
+        // Note: this code must logically match hashPosition(position, Page page) for all positions
+        for (int index = 0; index < blocks.length; index++) {
+            Block rawBlock = blocks[index];
+            if (index == 0) {
+                hashFirstBlock(rawBlock, offset, length, hashCodeOperators[index], hashes);
+            }
+            else {
+                hashBlockWithCombine(rawBlock, offset, length, hashCodeOperators[index], hashes);
+            }
+        }
+    }
+
     @Override
     public long hashPosition(int position, Page page)
     {
