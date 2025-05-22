@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.BRANCH_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_BRANCH_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -117,7 +117,7 @@ final class TestCreateBranchTask
         assertBranches(tableName, "main");
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(tableName), SaveMode.FAIL, "main", List.of())))
-                .hasErrorCode(NOT_SUPPORTED)
+                .hasErrorCode(BRANCH_ALREADY_EXISTS)
                 .hasMessage("line 1:1: Branch 'main' already exists");
         assertBranches(tableName, "main");
     }
@@ -139,7 +139,7 @@ final class TestCreateBranchTask
         metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(asQualifiedName(viewName), SaveMode.FAIL, "main", List.of())))
-                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Creating branch from view is not supported");
     }
 
@@ -150,7 +150,7 @@ final class TestCreateBranchTask
         metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeCreateBranch(viewName, SaveMode.FAIL, "main", List.of())))
-                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Creating branch from materialized view is not supported");
     }
 

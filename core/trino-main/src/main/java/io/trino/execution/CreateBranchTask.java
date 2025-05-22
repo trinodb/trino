@@ -38,7 +38,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.execution.ParameterExtractor.bindParameters;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.BRANCH_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
@@ -78,10 +78,10 @@ public class CreateBranchTask
         String branch = statement.getBranchName().getValue();
 
         if (metadata.isMaterializedView(session, table)) {
-            throw semanticException(GENERIC_USER_ERROR, statement, "Creating branch from materialized view is not supported");
+            throw semanticException(NOT_SUPPORTED, statement, "Creating branch from materialized view is not supported");
         }
         if (metadata.isView(session, table)) {
-            throw semanticException(GENERIC_USER_ERROR, statement, "Creating branch from view is not supported");
+            throw semanticException(NOT_SUPPORTED, statement, "Creating branch from view is not supported");
         }
         Optional<TableHandle> tableHandle = metadata.getRedirectionAwareTableHandle(session, table).tableHandle();
         if (tableHandle.isEmpty()) {
@@ -90,7 +90,7 @@ public class CreateBranchTask
 
         if (metadata.branchExists(session, table, branch) && statement.getSaveMode() != REPLACE) {
             if (statement.getSaveMode() == FAIL) {
-                throw semanticException(NOT_SUPPORTED, statement, "Branch '%s' already exists", branch);
+                throw semanticException(BRANCH_ALREADY_EXISTS, statement, "Branch '%s' already exists", branch);
             }
             return immediateVoidFuture();
         }

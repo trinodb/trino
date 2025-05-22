@@ -29,7 +29,7 @@ import java.util.Map;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -91,7 +91,7 @@ final class TestDropBranchTask
         metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropBranch(asQualifiedName(viewName), false, "main")))
-                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Dropping branch from view is not supported");
     }
 
@@ -102,7 +102,7 @@ final class TestDropBranchTask
         metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeDropBranch(viewName, false, "main")))
-                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Dropping branch from materialized view is not supported");
     }
 

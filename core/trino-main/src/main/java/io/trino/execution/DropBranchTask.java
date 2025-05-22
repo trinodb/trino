@@ -30,7 +30,7 @@ import java.util.Optional;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
@@ -61,10 +61,10 @@ public class DropBranchTask
         String branch = statement.getBranchName().getValue();
 
         if (metadata.isMaterializedView(session, table)) {
-            throw semanticException(GENERIC_USER_ERROR, statement, "Dropping branch from materialized view is not supported");
+            throw semanticException(NOT_SUPPORTED, statement, "Dropping branch from materialized view is not supported");
         }
         if (metadata.isView(session, table)) {
-            throw semanticException(GENERIC_USER_ERROR, statement, "Dropping branch from view is not supported");
+            throw semanticException(NOT_SUPPORTED, statement, "Dropping branch from view is not supported");
         }
         Optional<TableHandle> tableHandle = metadata.getRedirectionAwareTableHandle(session, table).tableHandle();
         if (tableHandle.isEmpty()) {

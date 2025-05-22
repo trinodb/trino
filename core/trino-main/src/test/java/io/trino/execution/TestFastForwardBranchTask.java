@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.BRANCH_NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -60,7 +60,7 @@ final class TestFastForwardBranchTask
         assertBranches(tableName, "main");
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeFastForwardBranch(asQualifiedName(tableName), "main", "main")))
-                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Fast forwarding branch between same branches is not supported");
         assertBranches(tableName, "main");
     }
@@ -82,7 +82,7 @@ final class TestFastForwardBranchTask
         metadata.createView(testSession, viewName, someView(), ImmutableMap.of(), false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeFastForwardBranch(asQualifiedName(viewName), "main", "main")))
-                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Fast forwarding branch on view is not supported");
     }
 
@@ -93,7 +93,7 @@ final class TestFastForwardBranchTask
         metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeFastForwardBranch(viewName, "main", "main")))
-                .hasErrorCode(GENERIC_USER_ERROR)
+                .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:1: Fast forwarding branch on materialized view is not supported");
     }
 
