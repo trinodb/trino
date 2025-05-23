@@ -30,8 +30,10 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.Identifier;
@@ -58,18 +60,22 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_NANOS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
@@ -114,7 +120,7 @@ class TestCreateTableTask
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withMetadataWrapper(_ -> metadata)
                 .withTableProperties(() -> ImmutableList.of(stringProperty("baz", "test property", null, false)))
-                .withCapabilities(() -> ImmutableSet.of(ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT))
+                .withCapabilities(() -> ImmutableSet.of(ConnectorCapabilities.DEFAULT_COLUMN_VALUE, ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT))
                 .build()));
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withMetadataWrapper(_ -> metadata)
@@ -206,6 +212,127 @@ class TestCreateTableTask
                     .hasErrorCode(INVALID_TABLE_PROPERTY)
                     .hasMessage("Catalog 'test_catalog' table property 'foo' does not exist");
             assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateWithDefaultColumn()
+    {
+        List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
+                .build();
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}));
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
+            List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
+            assertThat(columns).hasSize(2);
+
+            assertThat(columns.get(0).getName()).isEqualTo("a");
+            assertThat(columns.get(0).getDefaultValue()).isEmpty();
+
+            assertThat(columns.get(1).getName()).isEqualTo("b");
+            assertThat(columns.get(1).getDefaultValue()).contains(NullableValue.of(VARCHAR, utf8Slice("test default")));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateWithDefaultColumnTypeCoercion()
+    {
+        List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcd ")), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), "abcd ")), true, emptyList(), Optional.empty()))
+                .build();
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), output -> {}));
+            assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
+            List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().getFirst().getColumns();
+            assertThat(columns).hasSize(2);
+
+            assertThat(columns.get(0).getName()).isEqualTo("char_col");
+            assertThat(columns.get(0).getDefaultValue()).contains(NullableValue.of(createCharType(4), utf8Slice("abcd")));
+
+            assertThat(columns.get(1).getName()).isEqualTo("varchar_col");
+            assertThat(columns.get(1).getDefaultValue()).contains(NullableValue.of(createVarcharType(4), utf8Slice("abcd")));
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateWithInvalidDefaultColumnTypeCoercion()
+    {
+        List<TableElement> charColumn = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("char_col"), toSqlType(createCharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), " abcd")), true, emptyList(), Optional.empty()))
+                .build();
+        List<TableElement> varcharColumn = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("varchar_col"), toSqlType(createVarcharType(4)), Optional.of(new StringLiteral(new NodeLocation(1, 1), " abcd")), true, emptyList(), Optional.empty()))
+                .build();
+
+        CreateTable createTableWithCharColumn = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), charColumn, IGNORE, ImmutableList.of(), Optional.empty());
+        CreateTable createTableWithVarcharColumn = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), varcharColumn, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(createTableWithCharColumn, transactionSession, emptyList(), _ -> {})))
+                    .hasErrorCode(INVALID_LITERAL)
+                    .hasMessage("line 1:1: '' abcd'' is not a valid CHAR(4) literal")
+                    .hasStackTraceContaining("Cannot truncate non-space characters when casting value ' abcd' to char(4)");
+            return null;
+        });
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(createTableWithVarcharColumn, transactionSession, emptyList(), _ -> {})))
+                    .hasErrorCode(INVALID_LITERAL)
+                    .hasMessage("line 1:1: '' abcd'' is not a valid VARCHAR(4) literal")
+                    .hasStackTraceContaining("Cannot truncate non-space characters when casting value ' abcd' to varchar(4)");
+            return null;
+        });
+    }
+
+    @Test
+    void testInvalidDefaultLiteral()
+    {
+        List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(BIGINT), Optional.of(new StringLiteral(new NodeLocation(1, 1), "invalid")), true, emptyList(), Optional.empty()))
+                .build();
+        CreateTable statement = new CreateTable(new NodeLocation(1, 1), QualifiedName.of("test_table_default_columns"), inputColumns, IGNORE, ImmutableList.of(), Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {})))
+                    .hasErrorCode(INVALID_LITERAL)
+                    .hasMessage("line 1:1: ''invalid'' is not a valid BIGINT literal");
+            return null;
+        });
+    }
+
+    @Test
+    void testCreateWithUnsupportedDefaultColumn()
+    {
+        List<TableElement> inputColumns = ImmutableList.<TableElement>builder()
+                .add(new ColumnDefinition(QualifiedName.of("a"), toSqlType(DATE), true, emptyList(), Optional.empty()))
+                .add(new ColumnDefinition(new NodeLocation(1, 1), QualifiedName.of("b"), toSqlType(VARCHAR), Optional.of(new StringLiteral(new NodeLocation(1, 1), "test default")), true, emptyList(), Optional.empty()))
+                .build();
+        CreateTable statement = new CreateTable(
+                new NodeLocation(1, 1),
+                QualifiedName.of(OTHER_CATALOG_NAME, "other_schema", "test_table_unsupported_connector"),
+                inputColumns,
+                IGNORE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        queryRunner.inTransaction(transactionSession -> {
+            assertTrinoExceptionThrownBy(() ->
+                    getFutureValue(createTableTask.internalExecute(statement, transactionSession, emptyList(), _ -> {})))
+                    .hasErrorCode(NOT_SUPPORTED)
+                    .hasMessage("line 1:1: Catalog 'other_catalog' does not support default value for column name 'b'");
             return null;
         });
     }
@@ -465,6 +592,9 @@ class TestCreateTableTask
         @Override
         public Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
         {
+            if (type instanceof VarcharType) {
+                return Optional.of(VARCHAR);
+            }
             if (type instanceof TimestampType) {
                 return Optional.of(TIMESTAMP_MILLIS);
             }
