@@ -36,12 +36,11 @@ import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.concurrent.Threads.virtualThreadsNamed;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
-import static java.lang.String.format;
-import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.Executors.newThreadPerTaskExecutor;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class JdbcModule
@@ -109,7 +108,7 @@ public class JdbcModule
 
         newOptionalBinder(binder, Key.get(ExecutorService.class, ForJdbcClient.class))
                 .setDefault()
-                .toInstance(newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName))));
+                .toInstance(newThreadPerTaskExecutor(virtualThreadsNamed(catalogName + "-jdbc-client-#%s")));
 
         closingBinder(binder)
                 .registerExecutor(Key.get(ExecutorService.class, ForJdbcClient.class));
