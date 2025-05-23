@@ -31,8 +31,7 @@ import static java.util.Locale.ENGLISH;
 
 @DefunctConfig({
         "hudi.min-partition-batch-size",
-        "hudi.max-partition-batch-size",
-        "hudi.metadata-enabled",
+        "hudi.max-partition-batch-size"
 })
 public class HudiConfig
 {
@@ -47,7 +46,7 @@ public class HudiConfig
     private int splitGeneratorParallelism = 4;
     private long perTransactionMetastoreCacheMaximumSize = 2000;
     private boolean queryPartitionFilterRequired;
-    private boolean ignoreAbsentPartitions;
+    private boolean metadataEnabled;
 
     public List<String> getColumnsToHide()
     {
@@ -205,15 +204,16 @@ public class HudiConfig
         return queryPartitionFilterRequired;
     }
 
-    @Config("hudi.ignore-absent-partitions")
-    public HudiConfig setIgnoreAbsentPartitions(boolean ignoreAbsentPartitions)
+    @Config("hudi.metadata-enabled")
+    @ConfigDescription("Fetch the list of file names and sizes from Hudi metadata table rather than storage")
+    public HudiConfig setMetadataEnabled(boolean metadataEnabled)
     {
-        this.ignoreAbsentPartitions = ignoreAbsentPartitions;
+        this.metadataEnabled = metadataEnabled;
         return this;
     }
 
-    public boolean isIgnoreAbsentPartitions()
+    public boolean isMetadataEnabled()
     {
-        return ignoreAbsentPartitions;
+        return this.metadataEnabled;
     }
 }
