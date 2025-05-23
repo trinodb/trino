@@ -104,7 +104,7 @@ public class RedshiftPageSourceProvider
     {
         ParquetReaderOptions options = new ParquetReaderOptions();
         TrinoParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats);
-        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), Optional.empty());
         MessageType fileSchema = parquetMetadata.getFileMetaData().getSchema();
         MessageColumnIO messageColumn = getColumnIO(fileSchema, fileSchema);
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
@@ -126,6 +126,7 @@ public class RedshiftPageSourceProvider
                 newSimpleAggregatedMemoryContext(),
                 options,
                 RedshiftParquetPageSource::handleException,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }
