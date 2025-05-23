@@ -84,6 +84,14 @@ public interface SystemTable
         return pageSource(transactionHandle, session, constraint);
     }
 
+    default ConnectorPageSource pageSource(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorSplit split)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     default Optional<ConnectorSplitSource> splitSource(ConnectorSession connectorSession, TupleDomain<ColumnHandle> constraint)
     {
         return Optional.empty();

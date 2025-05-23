@@ -16,6 +16,7 @@ package io.trino.connector.system;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.FullConnectorSession;
+import io.trino.connector.ConnectorServices;
 import io.trino.plugin.base.MappedPageSource;
 import io.trino.plugin.base.MappedRecordSet;
 import io.trino.security.AccessControl;
@@ -30,6 +31,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSystemSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -60,12 +62,27 @@ public class SystemPageSourceProvider
     private final SystemTablesProvider tables;
     private final AccessControl accessControl;
     private final String catalogName;
+    private final ConnectorServices connectorServices;
 
-    public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName)
+    public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName, ConnectorServices connectorServices)
     {
         this.tables = requireNonNull(tables, "tables is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.connectorServices = requireNonNull(connectorServices, "connectorServices is null");
+    }
+
+    @Override
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSystemSplit split,
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
+    {
+        return connectorServices.getPageSourceProviderFactory().orElseThrow()
+                .createPageSourceProvider().createPageSource(transaction, session, split, table, columns, dynamicFilter);
     }
 
     @Override
@@ -79,12 +96,10 @@ public class SystemPageSourceProvider
     {
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
-        SystemSplit systemSplit = (SystemSplit) split;
         SchemaTableName tableName = ((SystemTableHandle) table).schemaTableName();
         SystemTable systemTable = tables.getSystemTable(session, tableName)
                 // table might disappear in the meantime
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", tableName)));
-
         List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
 
         Map<String, Integer> columnsByName = new HashMap<>();
@@ -109,6 +124,14 @@ public class SystemPageSourceProvider
             requiredColumns.add(index);
         }
 
+        // if the split is not a SystemSplit, we immediately delegate to the SystemTable
+        // to build a PageSource
+        if (!(split instanceof SystemSplit systemSplit)) {
+            return new MappedPageSource(
+                    createPageSource(systemTransaction.getConnectorTransactionHandle(), session, (ConnectorSystemSplit) split, table, columns, dynamicFilter),
+                    userToSystemFieldIndex.build());
+        }
+
         TupleDomain<ColumnHandle> constraint = systemSplit.getConstraint();
         if (constraint.isNone()) {
             return new EmptyPageSource();
@@ -116,7 +139,7 @@ public class SystemPageSourceProvider
         TupleDomain<Integer> newConstraint = systemSplit.getConstraint().transformKeys(columnHandle ->
                 columnsByName.get(((SystemColumnHandle) columnHandle).columnName()));
 
-        ConnectorAccessControl accessControl1 = new InjectedConnectorAccessControl(
+        ConnectorAccessControl connectorAccessControl = new InjectedConnectorAccessControl(
                 accessControl,
                 new SecurityContext(
                         systemTransaction.getTransactionId(),
@@ -139,7 +162,7 @@ public class SystemPageSourceProvider
                             systemTransaction.getConnectorTransactionHandle(),
                             session,
                             newConstraint,
-                            accessControl1),
+                            connectorAccessControl),
                     userToSystemFieldIndex.build());
         }
         catch (UnsupportedOperationException e) {
@@ -151,7 +174,7 @@ public class SystemPageSourceProvider
                             newConstraint,
                             requiredColumns.build(),
                             systemSplit,
-                            accessControl1),
+                            connectorAccessControl),
                     userToSystemFieldIndex.build()));
         }
     }

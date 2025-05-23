@@ -156,6 +156,7 @@ public class DefaultCatalogFactory
                         accessControl,
                         maxPrefetchedInformationSchemaPrefixes));
 
+        // TODO this could probably be simplified/unified since we always
         SystemTablesProvider systemTablesProvider;
         if (nodeManager.getCurrentNode().isCoordinator()) {
             systemTablesProvider = new CoordinatorSystemTablesProvider(
@@ -176,7 +177,7 @@ public class DefaultCatalogFactory
                         systemTablesProvider,
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, catalogHandle),
                         accessControl,
-                        catalogHandle.getCatalogName().toString()));
+                        catalogHandle.getCatalogName().toString(), catalogConnector));
 
         return new CatalogConnector(
                 catalogHandle,

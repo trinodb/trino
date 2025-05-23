@@ -23,6 +23,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorPageSourceProviderFactory;
+import io.trino.spi.connector.ConnectorSystemSplit;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.TupleDomain;
@@ -76,6 +77,17 @@ public class PageSourceManager
             if (!isAllowPushdownIntoConnectors(session)) {
                 dynamicFilter = DynamicFilter.EMPTY;
             }
+
+            if (split.getConnectorSplit() instanceof ConnectorSystemSplit systemTableSplit) {
+                return pageSourceProvider.createPageSource(
+                        table.transaction(),
+                        session.toConnectorSession(table.catalogHandle()),
+                        systemTableSplit,
+                        table.connectorHandle(),
+                        columns,
+                        dynamicFilter);
+            }
+
             return pageSourceProvider.createPageSource(
                     table.transaction(),
                     session.toConnectorSession(table.catalogHandle()),

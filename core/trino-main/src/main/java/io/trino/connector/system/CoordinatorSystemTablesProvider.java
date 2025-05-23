@@ -74,9 +74,9 @@ public class CoordinatorSystemTablesProvider
                 new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
 
         // dynamic tables require access to the transaction and thus can only run on the current coordinator
-        if (systemTable.isPresent() && systemTable.get().getDistribution() != SINGLE_COORDINATOR) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Distribution for dynamic system table must be " + SINGLE_COORDINATOR);
-        }
+//        if (systemTable.isPresent() && systemTable.get().getDistribution() != SINGLE_COORDINATOR) {
+//            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Distribution for dynamic system table must be " + SINGLE_COORDINATOR);
+//        }
 
         return systemTable;
     }
