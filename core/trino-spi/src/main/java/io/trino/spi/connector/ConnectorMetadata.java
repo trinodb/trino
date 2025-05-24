@@ -111,6 +111,26 @@ public interface ConnectorMetadata
             ConnectorSession session,
             SchemaTableName tableName,
             Optional<ConnectorTableVersion> startVersion,
+            Optional<ConnectorTableVersion> endVersion,
+            Optional<String> branch)
+    {
+        return getTableHandle(session, tableName, startVersion, endVersion);
+    }
+
+    /**
+     * Returns a table handle for the specified table name and version, or {@code null} if {@code tableName} relation does not exist
+     * or is not a table (e.g. is a view, or a materialized view).
+     *
+     * @throws TrinoException implementation can throw this exception when {@code tableName} refers to a table that
+     * cannot be queried.
+     * @see #getView(ConnectorSession, SchemaTableName)
+     * @see #getMaterializedView(ConnectorSession, SchemaTableName)
+     */
+    @Nullable
+    default ConnectorTableHandle getTableHandle(
+            ConnectorSession session,
+            SchemaTableName tableName,
+            Optional<ConnectorTableVersion> startVersion,
             Optional<ConnectorTableVersion> endVersion)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is not implemented");
@@ -397,7 +417,7 @@ public interface ConnectorMetadata
                         return RelationCommentMetadata.forRedirectedTable(tableName);
                     }
                     try {
-                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty());
+                        ConnectorTableHandle tableHandle = getTableHandle(session, tableName, Optional.empty(), Optional.empty(), Optional.empty());
                         if (tableHandle == null) {
                             // disappeared during listing
                             return null;
@@ -1130,6 +1150,46 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Creates the specified branch.
+     */
+    default void createBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch, Map<String, Object> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating branches");
+    }
+
+    /**
+     * Drops the specified branch.
+     */
+    default void dropBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String branch)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping branches");
+    }
+
+    /**
+     * Fast-forwards the specified branch.
+     */
+    default void fastForwardBranch(ConnectorSession session, ConnectorTableHandle tableHandle, String sourceBranch, String targetBranch)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support fast-forwarding branches");
+    }
+
+    /**
+     * Get all branches.
+     */
+    default Collection<String> listBranches(ConnectorSession session, SchemaTableName tableName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Does the specified branch exist.
+     */
+    default boolean branchExists(ConnectorSession session, SchemaTableName tableName, String branch)
+    {
+        return listBranches(session, tableName).contains(branch);
+    }
+
+    /**
      * Does the specified role exist.
      */
     default boolean roleExists(ConnectorSession session, String role)
@@ -1261,6 +1321,30 @@ public interface ConnectorMetadata
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyList();
+    }
+
+    /**
+     * Grants the specified privilege to the specified user on the specified branch
+     */
+    default void grantTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on branches in tables");
+    }
+
+    /**
+     * Denys the specified privilege to the specified user on the specified branch
+     */
+    default void denyTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support denys on branches in tables");
+    }
+
+    /**
+     * Revokes the specified privilege on the specified branch from the specified user
+     */
+    default void revokeTableBranchPrivileges(ConnectorSession session, SchemaTableName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on branches in tables");
     }
 
     default ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
