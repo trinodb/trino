@@ -13,25 +13,30 @@
  */
 package io.trino.plugin.hive.projection;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
-import java.util.Date;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -41,6 +46,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.metastore.Partitions.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_FORMAT;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_INTERVAL;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLUMN_PROJECTION_INTERVAL_UNIT;
@@ -48,18 +54,21 @@ import static io.trino.plugin.hive.projection.PartitionProjectionProperties.COLU
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getProjectionPropertyValue;
 import static io.trino.spi.predicate.Domain.singleValue;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.HOURS;
 import static java.time.temporal.ChronoUnit.MINUTES;
 import static java.time.temporal.ChronoUnit.MONTHS;
 import static java.time.temporal.ChronoUnit.SECONDS;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.nonNull;
 import static java.util.Objects.requireNonNull;
-import static java.util.TimeZone.getTimeZone;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-final class DateProjection
+public final class DateProjection
         implements Projection
 {
     private static final ZoneId UTC_TIME_ZONE_ID = ZoneId.of("UTC");
@@ -71,11 +80,34 @@ final class DateProjection
     private static final Pattern DATE_RANGE_BOUND_EXPRESSION_PATTERN = Pattern.compile("^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$");
 
     private final String columnName;
-    private final DateFormat dateFormat;
+    private final Type columnType;
+    private final String dateFormatPattern;
+    private final DateTimeFormatter dateFormat;
     private final Supplier<Instant> leftBound;
     private final Supplier<Instant> rightBound;
     private final int interval;
     private final ChronoUnit intervalUnit;
+
+    @JsonCreator
+    public DateProjection(
+            @JsonProperty("columnName") String columnName,
+            @JsonProperty("columnType") Type columnType,
+            @JsonProperty("dateFormatPattern") String dateFormatPattern,
+            @JsonProperty("leftBound") Instant leftBound,
+            @JsonProperty("rightBound") Instant rightBound,
+            @JsonProperty("interval") int interval,
+            @JsonProperty("intervalUnit") ChronoUnit intervalUnit)
+    {
+        this.columnName = requireNonNull(columnName, "columnName is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
+
+        this.dateFormatPattern = requireNonNull(dateFormatPattern, "dateFormat is null");
+        this.dateFormat = DateTimeFormatter.ofPattern(dateFormatPattern);
+        this.leftBound = () -> leftBound;
+        this.rightBound = () -> rightBound;
+        this.interval = interval;
+        this.intervalUnit = requireNonNull(intervalUnit, "intervalUnit is null");
+    }
 
     public DateProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
@@ -86,12 +118,14 @@ final class DateProjection
         }
 
         this.columnName = requireNonNull(columnName, "columnName is null");
+        this.columnType = requireNonNull(columnType, "columnType is null");
 
         String dateFormatPattern = getProjectionPropertyRequiredValue(
                 columnName,
                 columnProperties,
                 COLUMN_PROJECTION_FORMAT,
                 String::valueOf);
+        this.dateFormatPattern = requireNonNull(dateFormatPattern, "dateFormatPattern is null");
 
         List<String> range = getProjectionPropertyRequiredValue(
                 columnName,
@@ -104,13 +138,10 @@ final class DateProjection
             throw invalidRangeProperty(columnName, dateFormatPattern, Optional.empty());
         }
 
-        SimpleDateFormat dateFormat = new SimpleDateFormat(dateFormatPattern);
-        dateFormat.setLenient(false);
-        dateFormat.setTimeZone(getTimeZone(UTC_TIME_ZONE_ID));
-        this.dateFormat = requireNonNull(dateFormat, "dateFormatPattern is null");
+        this.dateFormat = DateTimeFormatter.ofPattern(dateFormatPattern, ENGLISH);
 
-        leftBound = parseDateRangerBound(columnName, range.get(0), dateFormat);
-        rightBound = parseDateRangerBound(columnName, range.get(1), dateFormat);
+        leftBound = parseDateRangerBound(columnName, range.get(0), dateFormatPattern, dateFormat);
+        rightBound = parseDateRangerBound(columnName, range.get(1), dateFormatPattern, dateFormat);
         if (!leftBound.get().isBefore(rightBound.get())) {
             throw invalidRangeProperty(columnName, dateFormatPattern, Optional.empty());
         }
@@ -128,6 +159,70 @@ final class DateProjection
                             intervalUnit,
                             DATE_PROJECTION_INTERVAL_UNITS));
         }
+    }
+
+    @Override
+    public Optional<NullableValue> parsePartitionValue(String value)
+    {
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        // leave the char/varchar type empty, so it will parse as usual, i.e, using `HiveUtils#parsePartitionValue`
+        if (columnType instanceof CharType || columnType instanceof VarcharType) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(parseValue(value));
+        }
+        catch (DateTimeParseException e) {
+            throw new InvalidProjectionException(value, e.getMessage());
+        }
+    }
+
+    private NullableValue parseValue(String value)
+            throws DateTimeParseException
+    {
+        if (HIVE_DEFAULT_DYNAMIC_PARTITION.equals(value)) {
+            return NullableValue.asNull(columnType);
+        }
+
+        if (DATE.equals(columnType)) {
+            long epochMilli = LocalDate.parse(value, dateFormat).atStartOfDay(UTC_TIME_ZONE_ID).toInstant().toEpochMilli();
+            return NullableValue.of(DATE, MILLISECONDS.toDays(epochMilli));
+        }
+
+        if (TIMESTAMP_MILLIS.equals(columnType)) {
+            long epochMilli = LocalDateTime.parse(value, dateFormat).toInstant(UTC).toEpochMilli();
+            return NullableValue.of(TIMESTAMP_MILLIS, MILLISECONDS.toMicros(epochMilli));
+        }
+
+        throw new InvalidProjectionException(columnName, columnType);
+    }
+
+    @Override
+    public Optional<String> toPartitionValue(Object value)
+    {
+        if (value == null) {
+            return Optional.empty();
+        }
+
+        // leave the char/varchar type empty, so it will convert value as usual, i.e, using `HiveWriteUtils#totoPartitionValue`
+        if (columnType instanceof CharType || columnType instanceof VarcharType) {
+            return Optional.empty();
+        }
+
+        if (DATE.equals(columnType)) {
+            return Optional.of(LocalDate.ofEpochDay((int) value).format(dateFormat));
+        }
+
+        if (TIMESTAMP_MILLIS.equals(columnType)) {
+            LocalDateTime localDateTime = (LocalDateTime) value;
+            return Optional.of(formatValue(localDateTime.toInstant(UTC)));
+        }
+
+        throw new InvalidProjectionException(columnName, columnType);
     }
 
     @Override
@@ -156,16 +251,17 @@ final class DateProjection
     {
         String formatted = formatValue(value.with(ChronoField.MILLI_OF_SECOND, 0));
         try {
-            return dateFormat.parse(formatted).toInstant();
+            return parse(formatted, dateFormat);
         }
-        catch (ParseException e) {
+        catch (DateTimeParseException e) {
             throw new InvalidProjectionException(formatted, e.getMessage());
         }
     }
 
     private String formatValue(Instant current)
     {
-        return dateFormat.format(new Date(current.toEpochMilli()));
+        LocalDateTime localDateTime = LocalDateTime.ofInstant(current, UTC_TIME_ZONE_ID);
+        return localDateTime.format(dateFormat);
     }
 
     private boolean isValueInDomain(Optional<Domain> valueDomain, Instant value, String formattedValue)
@@ -206,7 +302,7 @@ final class DateProjection
         return MONTHS;
     }
 
-    private static Supplier<Instant> parseDateRangerBound(String columnName, String value, SimpleDateFormat dateFormat)
+    private static Supplier<Instant> parseDateRangerBound(String columnName, String value, String dateFormatPattern, DateTimeFormatter dateFormat)
     {
         Matcher matcher = DATE_RANGE_BOUND_EXPRESSION_PATTERN.matcher(value);
         if (matcher.matches()) {
@@ -214,7 +310,7 @@ final class DateProjection
             String multiplierString = matcher.group(3);
             String unitString = matcher.group(4);
             if (nonNull(operator) && nonNull(multiplierString) && nonNull(unitString)) {
-                unitString = unitString.toUpperCase(Locale.ENGLISH);
+                unitString = unitString.toUpperCase(ENGLISH);
                 return new DateExpressionBound(
                         Integer.parseInt(multiplierString),
                         ChronoUnit.valueOf(unitString + "S"),
@@ -224,17 +320,27 @@ final class DateProjection
                 Instant now = Instant.now();
                 return () -> now;
             }
-            throw invalidRangeProperty(columnName, dateFormat.toPattern(), Optional.of("Invalid expression"));
+            throw invalidRangeProperty(columnName, dateFormatPattern, Optional.of("Invalid expression"));
         }
 
-        Instant dateBound;
-        try {
-            dateBound = dateFormat.parse(value).toInstant();
+        return () -> {
+            try {
+                return parse(value, dateFormat);
+            }
+            catch (DateTimeParseException e) {
+                throw invalidRangeProperty(columnName, dateFormatPattern, Optional.of(e.getMessage()));
+            }
+        };
+    }
+
+    private static Instant parse(String value, DateTimeFormatter dateFormat)
+            throws DateTimeParseException
+    {
+        TemporalAccessor parsed = dateFormat.parse(value);
+        if (parsed.query(TemporalQueries.localDate()) != null && parsed.query(TemporalQueries.localTime()) == null) {
+            return LocalDate.from(parsed).atStartOfDay().toInstant(UTC);
         }
-        catch (ParseException e) {
-            throw invalidRangeProperty(columnName, dateFormat.toPattern(), Optional.of(e.getMessage()));
-        }
-        return () -> dateBound;
+        return LocalDateTime.from(parsed).toInstant(UTC);
     }
 
     private static TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
@@ -249,7 +355,7 @@ final class DateProjection
                         errorDetail.map(error -> ": " + error).orElse("")));
     }
 
-    private record DateExpressionBound(int multiplier, ChronoUnit unit, boolean increment)
+    public record DateExpressionBound(int multiplier, ChronoUnit unit, boolean increment)
             implements Supplier<Instant>
     {
         @Override
@@ -257,5 +363,47 @@ final class DateProjection
         {
             return Instant.now().plus(increment ? multiplier : -multiplier, unit);
         }
+    }
+
+    @JsonProperty
+    public String getColumnName()
+    {
+        return columnName;
+    }
+
+    @JsonProperty
+    public Type getColumnType()
+    {
+        return columnType;
+    }
+
+    @JsonProperty
+    public String getDateFormatPattern()
+    {
+        return dateFormatPattern;
+    }
+
+    @JsonProperty
+    public Instant getLeftBound()
+    {
+        return leftBound.get();
+    }
+
+    @JsonProperty
+    public Instant getRightBound()
+    {
+        return rightBound.get();
+    }
+
+    @JsonProperty
+    public int getInterval()
+    {
+        return interval;
+    }
+
+    @JsonProperty
+    public ChronoUnit getIntervalUnit()
+    {
+        return intervalUnit;
     }
 }
