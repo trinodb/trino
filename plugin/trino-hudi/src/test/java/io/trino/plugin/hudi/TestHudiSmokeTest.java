@@ -804,6 +804,7 @@ public class TestHudiSmokeTest
             MaterializedResult actualResults = getQueryRunner().execute(session, actualQuery);
             MaterializedResult expectedResults = getQueryRunner().execute(session, expectedQuery);
             assertThat(actualResults.getMaterializedRows())
+                    .describedAs("failedQuery: " + actualQuery)
                     .hasSameSizeAs(expectedResults.getMaterializedRows())
                     .containsAll(expectedResults.getMaterializedRows());
         }

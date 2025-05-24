@@ -18,8 +18,12 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hudi.HudiSplit;
 import io.trino.plugin.hudi.file.HudiFile;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
@@ -129,6 +133,16 @@ public class SynthesizedColumnHandler
     }
 
     /**
+     * Retrieves the count of synthesized column strategies currently present.
+     *
+     * @return The number of synthesized column strategies.
+     */
+    public int getSynthesizedColumnCount()
+    {
+        return strategies.size();
+    }
+
+    /**
      * Converts partition key-value pairs into a partition name string.
      *
      * @param partitionKeyVals Map of partition key-value pairs.
@@ -137,6 +151,39 @@ public class SynthesizedColumnHandler
     private static String toPartitionName(Map<String, String> partitionKeyVals)
     {
         return makePartName(List.copyOf(partitionKeyVals.keySet()), List.copyOf(partitionKeyVals.values()));
+    }
+
+    /**
+     * Creates a {@link Block} for the given synthesized column, typically a {@link RunLengthEncodedBlock} as the synthesized value is constant for all positions within a split.
+     *
+     * @param columnHandle The handle of the synthesized column to create a block for.
+     * @param positionCount The number of positions (rows) the resulting block should represent.
+     * @return A {@link Block} containing the synthesized values.
+     */
+    public Block createRleSynthesizedBlock(HiveColumnHandle columnHandle, int positionCount)
+    {
+        Type columnType = columnHandle.getType();
+
+        if (positionCount == 0) {
+            return columnType.createBlockBuilder(null, 0).build();
+        }
+
+        SynthesizedColumnStrategy strategy = getColumnStrategy(columnHandle);
+
+        // Because this builder will only hold the single constant value
+        int expectedEntriesForValueBlock = 1;
+        BlockBuilder valueBuilder = columnType.createBlockBuilder(null, expectedEntriesForValueBlock);
+
+        if (strategy == null) {
+            valueBuilder.appendNull();
+        }
+        else {
+            // Apply the strategy to write the single value into the builder
+            strategy.appendToBlock(valueBuilder, columnType);
+        }
+        Block valueBlock = valueBuilder.build();
+
+        return RunLengthEncodedBlock.create(valueBlock, positionCount);
     }
 
     /**

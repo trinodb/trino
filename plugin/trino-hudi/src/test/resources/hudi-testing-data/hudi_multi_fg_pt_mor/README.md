@@ -53,4 +53,4 @@ test("Create table multi filegroup partitioned mor") {
 - For test cases that require column stats index
 - For test cases that require partition stats index
 - For test cases that require record level index
-- FOr test cases that require secondary index
+- For test cases that require secondary index
