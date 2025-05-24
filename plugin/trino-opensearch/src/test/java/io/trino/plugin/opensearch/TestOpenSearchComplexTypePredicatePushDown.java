@@ -20,7 +20,7 @@ import com.google.common.net.HostAndPort;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.apache.http.HttpHost;
+import org.apache.hc.core5.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.opensearch.client.Request;

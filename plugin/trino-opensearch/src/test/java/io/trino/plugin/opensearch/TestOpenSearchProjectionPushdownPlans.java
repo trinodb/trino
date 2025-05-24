@@ -40,7 +40,7 @@ import io.trino.sql.ir.Reference;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.testing.PlanTester;
-import org.apache.http.HttpHost;
+import org.apache.hc.core5.http.HttpHost;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -151,7 +151,7 @@ final class TestOpenSearchProjectionPushdownPlans
                 .build();
         @Language("JSON")
         String properties =
-                """      
+                """
                 {
                   "properties": {
                       "col0": {
