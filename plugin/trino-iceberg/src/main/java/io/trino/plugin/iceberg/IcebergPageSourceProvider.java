@@ -20,7 +20,9 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closer;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
@@ -54,12 +56,19 @@ import io.trino.plugin.iceberg.IcebergParquetColumnIOConverter.FieldContext;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.delete.DeleteManager;
 import io.trino.plugin.iceberg.delete.RowPredicate;
+import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.LongArrayBlockBuilder;
+import io.trino.spi.block.MapBlockBuilder;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.connector.ColumnHandle;
@@ -67,6 +76,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSystemSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -83,6 +93,12 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.generic.GenericDatumReader;
+import org.apache.iceberg.ContentFile;
+import org.apache.iceberg.ManifestContent;
+import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.ManifestReader;
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -94,6 +110,8 @@ import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
+import org.apache.iceberg.transforms.Transforms;
+import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.StructLikeWrapper;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -104,8 +122,13 @@ import org.apache.parquet.schema.PrimitiveType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -116,6 +139,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -141,6 +165,7 @@ import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
+import static io.trino.plugin.iceberg.FilesTable.toJson;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
@@ -164,18 +189,25 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFrom
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredicate;
+import static io.trino.plugin.iceberg.IcebergTypes.convertIcebergValueToTrino;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
+import static io.trino.plugin.iceberg.IcebergUtil.partitionTypes;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -190,6 +222,7 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.iceberg.FileContent.EQUALITY_DELETES;
 import static org.apache.iceberg.FileContent.POSITION_DELETES;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
+import static org.apache.iceberg.MetricsUtil.readableMetricsStruct;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergPageSourceProvider
@@ -236,6 +269,10 @@ public class IcebergPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        if (connectorSplit instanceof ConnectorSystemSplit connectorSystemSplit) {
+            return createPageSource(session, connectorSystemSplit);
+        }
+
         IcebergSplit split = (IcebergSplit) connectorSplit;
         List<IcebergColumnHandle> icebergColumns = columns.stream()
                 .map(IcebergColumnHandle.class::cast)
@@ -267,6 +304,240 @@ public class IcebergPageSourceProvider
                 split.getFileIoProperties(),
                 split.getDataSequenceNumber(),
                 tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+    }
+
+    private ConnectorPageSource createPageSource(ConnectorSession session, ConnectorSystemSplit split)
+    {
+        if (split instanceof FilesTable.FilesTableSplit filesTableSplit) {
+            return new FilesTablePageSource(
+                    typeManager,
+                    fileSystemFactory.create(session.getIdentity(), Collections.emptyMap()),
+                    filesTableSplit);
+        }
+
+        throw new UnsupportedOperationException(format("Unsupported split type: %s", split.getClass()));
+    }
+
+    public static class FilesTablePageSource
+            implements ConnectorPageSource
+    {
+        private final Closer closer;
+        private final Schema schema;
+        private final Map<Integer, org.apache.iceberg.types.Type> idToTypeMapping;
+        private final List<PartitionField> partitionFields;
+        private final Optional<IcebergPartitionColumn> partitionColumnType;
+        private final Map<Integer, org.apache.iceberg.types.Type.PrimitiveType> idToPrimitiveTypeMapping;
+        private final List<Types.NestedField> primitiveFields;
+        private final Iterator<? extends ContentFile<?>> contentItr;
+        private final PageBuilder pageBuilder;
+
+        public FilesTablePageSource(
+                TypeManager typeManager,
+                TrinoFileSystem trinoFileSystem,
+                FilesTable.FilesTableSplit split)
+        {
+            this.closer = Closer.create();
+            this.schema = SchemaParser.fromJson(requireNonNull(split.schemaJson(), "schema is null"));
+            this.idToTypeMapping = FilesTable.getIcebergIdToTypeMapping(schema);
+            Map<Integer, PartitionSpec> specs = split.partitionSpecsByIdJson().entrySet().stream().collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    kv -> PartitionSpecParser.fromJson(SchemaParser.fromJson(split.schemaJson()), kv.getValue())));
+            this.partitionFields = PartitionsTable.getAllPartitionFields(schema, specs);
+            this.partitionColumnType = IcebergUtil.getPartitionColumnType(partitionFields, schema, typeManager);
+            this.idToPrimitiveTypeMapping = IcebergUtil.primitiveFieldTypes(schema);
+            this.primitiveFields = IcebergUtil.primitiveFields(schema).stream()
+                    .sorted(Comparator.comparing(Types.NestedField::name))
+                    .collect(toImmutableList());
+            try {
+                ManifestFile manifestFile = ManifestFiles.decode(Base64.getDecoder().decode(split.manifestFileEncoded()));
+                ManifestReader<? extends ContentFile<?>> manifestReader = closer.register(manifestFile.content() == ManifestContent.DATA ?
+                        ManifestFiles.read(manifestFile, new ForwardingFileIo(trinoFileSystem)) :
+                        ManifestFiles.readDeleteManifest(manifestFile, new ForwardingFileIo(trinoFileSystem), specs));
+                this.contentItr = manifestReader.iterator();
+            }
+            catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+            this.pageBuilder = new PageBuilder(split.columnTypes());
+        }
+
+        @Override
+        public long getCompletedBytes()
+        {
+            return 0;
+        }
+
+        @Override
+        public long getReadTimeNanos()
+        {
+            return 0;
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return !contentItr.hasNext();
+        }
+
+        @Override
+        public SourcePage getNextSourcePage()
+        {
+            while (contentItr.hasNext() && !pageBuilder.isFull()) {
+                pageBuilder.declarePosition();
+                ContentFile<?> contentFile = contentItr.next();
+                contentFile.columnSizes();
+
+                // content
+                INTEGER.writeLong(pageBuilder.getBlockBuilder(0), contentFile.content().id());
+                // file_path
+                VARCHAR.writeString(pageBuilder.getBlockBuilder(1), contentFile.location());
+                // file_format
+                VARCHAR.writeString(pageBuilder.getBlockBuilder(2), contentFile.format().toString());
+                // spec_id
+                INTEGER.writeLong(pageBuilder.getBlockBuilder(3), contentFile.specId());
+                // partitions
+                if (partitionColumnType.isPresent()) {
+                    List<org.apache.iceberg.types.Type> partitionTypes = partitionTypes(partitionFields, idToPrimitiveTypeMapping);
+                    List<io.trino.spi.type.Type> partitionColumnTypes = partitionColumnType.orElseThrow().rowType().getFields().stream()
+                            .map(RowType.Field::getType)
+                            .collect(toImmutableList());
+
+                    if (pageBuilder.getBlockBuilder(4) instanceof RowBlockBuilder rowBlockBuilder) {
+                        rowBlockBuilder.buildEntry(fields -> {
+                            for (int i = 0; i < partitionColumnTypes.size(); i++) {
+                                org.apache.iceberg.types.Type type = partitionTypes.get(i);
+                                io.trino.spi.type.Type trinoType = partitionColumnType.get().rowType().getFields().get(i).getType();
+                                Object value = null;
+                                Integer fieldId = partitionColumnType.get().fieldIds().get(i);
+                                if (fieldId != null) {
+                                    value = convertIcebergValueToTrino(type, contentFile.partition().get(i, type.typeId().javaClass()));
+                                }
+                                writeNativeValue(trinoType, fields.get(i), value);
+                            }
+                        });
+                    }
+                }
+                // record_count
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(5), contentFile.recordCount());
+                // file_size_in_bytes
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(6), contentFile.fileSizeInBytes());
+                // column_sizes
+                writeIntegerBigint(pageBuilder.getBlockBuilder(7), contentFile.columnSizes());
+                // value_counts
+                writeIntegerBigint(pageBuilder.getBlockBuilder(8), contentFile.valueCounts());
+                // null_value_counts
+                writeIntegerBigint(pageBuilder.getBlockBuilder(9), contentFile.nullValueCounts());
+                // nan_value_counts
+                writeIntegerBigint(pageBuilder.getBlockBuilder(10), contentFile.nanValueCounts());
+                // lower_bounds
+                if (contentFile.lowerBounds() == null) {
+                    pageBuilder.getBlockBuilder(11).appendNull();
+                }
+                else {
+                    writeIntegerVarchar(pageBuilder.getBlockBuilder(11), contentFile.lowerBounds());
+                }
+                // upper_bounds
+                if (contentFile.upperBounds() == null) {
+                    pageBuilder.getBlockBuilder(12).appendNull();
+                }
+                else {
+                    writeIntegerVarchar(pageBuilder.getBlockBuilder(12), contentFile.upperBounds());
+                }
+                // key_metadata
+                if (contentFile.keyMetadata() == null) {
+                    pageBuilder.getBlockBuilder(13).appendNull();
+                }
+                else {
+                    VARBINARY.writeSlice(pageBuilder.getBlockBuilder(13), Slices.wrappedHeapBuffer(contentFile.keyMetadata()));
+                }
+                // split_offset
+                if (contentFile.splitOffsets() == null) {
+                    pageBuilder.getBlockBuilder(14).appendNull();
+                }
+                else {
+                    contentFile.splitOffsets().forEach(offset -> writeLongInArray(pageBuilder.getBlockBuilder(14), offset));
+                }
+                // equality_ids
+                if (contentFile.equalityFieldIds() == null) {
+                    pageBuilder.getBlockBuilder(15).appendNull();
+                }
+                else {
+                    contentFile.equalityFieldIds().forEach(id -> writeLongInArray(pageBuilder.getBlockBuilder(15), Integer.toUnsignedLong(id)));
+                }
+                // sort_order_id
+                if (contentFile.sortOrderId() == null) {
+                    pageBuilder.getBlockBuilder(16).appendNull();
+                }
+                else {
+                    INTEGER.writeLong(pageBuilder.getBlockBuilder(16), contentFile.sortOrderId());
+                }
+                // readable_metrics
+                if (schema.findField("readable_metrics") != null) {
+                    VARCHAR.writeString(
+                            pageBuilder.getBlockBuilder(17),
+                            toJson(readableMetricsStruct(schema, contentFile, schema.findField("readable_metrics").type().asStructType()), primitiveFields));
+                }
+                else {
+                    pageBuilder.getBlockBuilder(17).appendNull();
+                }
+            }
+
+            if (!pageBuilder.isEmpty()) {
+                Page page = pageBuilder.build();
+                pageBuilder.reset();
+                return SourcePage.create(page);
+            }
+
+            return null;
+        }
+
+        @Override
+        public long getMemoryUsage()
+        {
+            return 0;
+        }
+
+        @Override
+        public void close()
+                throws IOException
+        {
+            closer.close();
+        }
+
+        private static void writeLongInArray(BlockBuilder blockBuilder, Long value)
+        {
+            if (blockBuilder instanceof ArrayBlockBuilder arrayBlockBuilder) {
+                arrayBlockBuilder.buildEntry(builder -> {
+                    ((LongArrayBlockBuilder) builder).writeLong(value);
+                });
+            }
+        }
+
+        private static void writeIntegerBigint(BlockBuilder blockBuilder, Map<Integer, Long> values)
+        {
+            if (blockBuilder instanceof MapBlockBuilder mapBlockBuilder) {
+                mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> values.forEach((key, value) -> {
+                    INTEGER.writeLong(keyBuilder, key);
+                    BIGINT.writeLong(valueBuilder, value);
+                }));
+            }
+        }
+
+        private void writeIntegerVarchar(BlockBuilder blockBuilder, Map<Integer, ByteBuffer> values)
+        {
+            if (blockBuilder instanceof MapBlockBuilder mapBlockBuilder) {
+                mapBlockBuilder.buildEntry((keyBuilder, valueBuilder) -> {
+                    values.forEach((key, value) -> {
+                        if (idToTypeMapping.containsKey(key)) {
+                            INTEGER.writeLong(keyBuilder, key);
+                            VARCHAR.writeString(valueBuilder, Transforms.identity().toHumanString(
+                                    idToTypeMapping.get(key),
+                                    Conversions.fromByteBuffer(idToTypeMapping.get(key), value)));
+                        }
+                    });
+                });
+            }
+        }
     }
 
     public ConnectorPageSource createPageSource(

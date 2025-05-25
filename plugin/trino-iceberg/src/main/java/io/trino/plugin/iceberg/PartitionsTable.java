@@ -29,6 +29,7 @@ import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -135,6 +136,20 @@ public class PartitionsTable
     public ConnectorTableMetadata getTableMetadata()
     {
         return connectorTableMetadata;
+    }
+
+    static List<PartitionField> getAllPartitionFields(Schema schema, Map<Integer, PartitionSpec> specs)
+    {
+        Set<Integer> existingColumnsIds = TypeUtil.indexById(schema.asStruct()).keySet();
+
+        List<PartitionField> visiblePartitionFields = specs
+                .values().stream()
+                .flatMap(partitionSpec -> partitionSpec.fields().stream())
+                // skip columns that were dropped
+                .filter(partitionField -> existingColumnsIds.contains(partitionField.sourceId()))
+                .collect(toImmutableList());
+
+        return filterOutDuplicates(visiblePartitionFields);
     }
 
     static List<PartitionField> getAllPartitionFields(Table icebergTable)

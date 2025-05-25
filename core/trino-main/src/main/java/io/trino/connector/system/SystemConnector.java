@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system;
 
+import io.trino.connector.ConnectorServices;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -41,7 +42,8 @@ public class SystemConnector
             SystemTablesProvider tables,
             Function<TransactionId, ConnectorTransactionHandle> transactionHandleFunction,
             AccessControl accessControl,
-            String catalogName)
+            String catalogName,
+            ConnectorServices connectorServices)
     {
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(tables, "tables is null");
@@ -51,7 +53,7 @@ public class SystemConnector
 
         this.metadata = new SystemTablesMetadata(tables);
         this.splitManager = new SystemSplitManager(nodeManager, tables);
-        this.pageSourceProvider = new SystemPageSourceProvider(tables, accessControl, catalogName);
+        this.pageSourceProvider = new SystemPageSourceProvider(tables, accessControl, catalogName, connectorServices);
         this.transactionHandleFunction = transactionHandleFunction;
     }
 
