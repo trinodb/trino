@@ -65,9 +65,9 @@ public final class AcidTables
         return isTransactionalTable(parameters) && !isInsertOnlyTable(parameters);
     }
 
-    public static Location bucketFileName(Location subdir, int bucket)
+    public static Location bucketFileName(Location subdir, int bucket, String extension)
     {
-        return subdir.appendPath("bucket_%05d".formatted(bucket));
+        return subdir.appendPath("bucket_%05d".formatted(bucket) + extension);
     }
 
     public static String deltaSubdir(long writeId, int statementId)
@@ -268,6 +268,11 @@ public final class AcidTables
     {
         String fileName = path.substring(path.lastIndexOf('/') + 1);
         checkArgument(fileName.startsWith(deltaPrefix), "File does not start with '%s': %s", deltaPrefix, path);
+
+        // Remove extension
+        if (fileName.contains(".")) {
+            fileName = fileName.substring(0, fileName.indexOf('.'));
+        }
 
         int visibility = fileName.indexOf("_v");
         if (visibility != -1) {

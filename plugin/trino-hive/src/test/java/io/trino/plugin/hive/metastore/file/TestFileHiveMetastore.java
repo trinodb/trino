@@ -89,7 +89,7 @@ final class TestFileHiveMetastore
                 .setOwnerType(Optional.empty());
         getMetastore().createDatabase(database.build());
 
-        StorageFormat storageFormat = StorageFormat.create(PARQUET_HIVE_SERDE_CLASS, HUDI_PARQUET_INPUT_FORMAT, MAPRED_PARQUET_OUTPUT_FORMAT_CLASS);
+        StorageFormat storageFormat = StorageFormat.create(PARQUET_HIVE_SERDE_CLASS, HUDI_PARQUET_INPUT_FORMAT, MAPRED_PARQUET_OUTPUT_FORMAT_CLASS, ".parquet");
 
         String tableName = "some_table_name" + randomNameSuffix();
         Table table = Table.builder()
