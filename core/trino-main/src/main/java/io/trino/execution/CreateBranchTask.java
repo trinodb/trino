@@ -88,6 +88,8 @@ public class CreateBranchTask
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", table);
         }
 
+        accessControl.checkCanCreateBranch(session.toSecurityContext(), table, branch);
+
         if (metadata.branchExists(session, table, branch) && statement.getSaveMode() != REPLACE) {
             if (statement.getSaveMode() == FAIL) {
                 throw semanticException(BRANCH_ALREADY_EXISTS, statement, "Branch '%s' already exists", branch);
@@ -107,7 +109,6 @@ public class CreateBranchTask
                 parameterLookup,
                 true);
 
-        // TODO: Add accessControl#checkCanCreateBranch
         metadata.createBranch(session, tableHandle.get(), branch, toConnectorSaveMode(statement.getSaveMode()), properties);
 
         return immediateVoidFuture();

@@ -20,10 +20,10 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.security.AccessControl;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.Expression;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,11 +39,13 @@ public class DropBranchTask
         implements DataDefinitionTask<DropBranch>
 {
     private final Metadata metadata;
+    private final AccessControl accessControl;
 
     @Inject
-    public DropBranchTask(Metadata metadata)
+    public DropBranchTask(Metadata metadata, AccessControl accessControl)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -71,15 +73,14 @@ public class DropBranchTask
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", table);
         }
 
-        Collection<String> branches = metadata.listBranches(session, table);
-        if (!branches.contains(branch)) {
+        accessControl.canCanDropBranch(session.toSecurityContext(), table, branch);
+
+        if (!metadata.branchExists(session, table, branch)) {
             if (!statement.isExists()) {
                 throw semanticException(BRANCH_NOT_FOUND, statement, "Branch '%s' does not exist", branch);
             }
             return immediateVoidFuture();
         }
-
-        // TODO: Add accessControl#canCanDropBranch
         metadata.dropBranch(session, tableHandle.get(), branch);
 
         return immediateVoidFuture();

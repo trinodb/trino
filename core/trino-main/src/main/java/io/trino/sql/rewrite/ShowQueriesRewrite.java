@@ -811,6 +811,7 @@ public final class ShowQueriesRewrite
         protected Node visitShowBranches(ShowBranches showBranches, Void context)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showBranches, showBranches.getTableName());
+            accessControl.checkCanShowBranches(session.toSecurityContext(), tableName);
             getRequiredCatalogHandle(metadata, session, showBranches, tableName.catalogName());
             if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.catalogName(), tableName.schemaName()))) {
                 throw semanticException(SCHEMA_NOT_FOUND, showBranches, "Schema '%s' does not exist", tableName.schemaName());

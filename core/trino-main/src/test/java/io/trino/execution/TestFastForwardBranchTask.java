@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.tree.FastForwardBranch;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
@@ -99,7 +100,7 @@ final class TestFastForwardBranchTask
 
     private ListenableFuture<Void> executeFastForwardBranch(QualifiedName tableName, String fromBranch, String toBranch)
     {
-        return new FastForwardBranchTask(metadata)
+        return new FastForwardBranchTask(metadata, new AllowAllAccessControl())
                 .execute(new FastForwardBranch(new NodeLocation(1, 1), tableName, new Identifier(fromBranch), new Identifier(toBranch)), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 

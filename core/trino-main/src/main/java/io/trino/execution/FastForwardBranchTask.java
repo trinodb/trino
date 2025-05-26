@@ -20,10 +20,10 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.security.AccessControl;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FastForwardBranch;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,11 +39,13 @@ public class FastForwardBranchTask
         implements DataDefinitionTask<FastForwardBranch>
 {
     private final Metadata metadata;
+    private final AccessControl accessControl;
 
     @Inject
-    public FastForwardBranchTask(Metadata metadata)
+    public FastForwardBranchTask(Metadata metadata, AccessControl accessControl)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -71,19 +73,19 @@ public class FastForwardBranchTask
         if (tableHandle.isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", table);
         }
-
         if (sourceBranch.equals(targetBranch)) {
             throw semanticException(NOT_SUPPORTED, statement, "Fast forwarding branch between same branches is not supported");
         }
-        Collection<String> branches = metadata.listBranches(session, table);
-        if (!branches.contains(sourceBranch)) {
+
+        accessControl.canCanFastForwardBranch(session.toSecurityContext(), table, sourceBranch, targetBranch);
+
+        if (!metadata.branchExists(session, table, sourceBranch)) {
             throw semanticException(BRANCH_NOT_FOUND, statement, "Branch '%s' does not exist", sourceBranch);
         }
-        if (!branches.contains(targetBranch)) {
+        if (!metadata.branchExists(session, table, targetBranch)) {
             throw semanticException(BRANCH_NOT_FOUND, statement, "Branch '%s' does not exist", targetBranch);
         }
 
-        // TODO accessControl.canCanAlterBranch
         metadata.fastForwardBranch(session, tableHandle.get(), sourceBranch, targetBranch);
 
         return immediateVoidFuture();

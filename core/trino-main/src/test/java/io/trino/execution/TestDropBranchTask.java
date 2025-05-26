@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.sql.tree.DropBranch;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.NodeLocation;
@@ -108,7 +109,7 @@ final class TestDropBranchTask
 
     private ListenableFuture<Void> executeDropBranch(QualifiedName tableName, boolean exists, String branchName)
     {
-        return new DropBranchTask(metadata)
+        return new DropBranchTask(metadata, new AllowAllAccessControl())
                 .execute(new DropBranch(new NodeLocation(1, 1), tableName, exists, new Identifier(branchName)), queryStateMachine, ImmutableList.of(), WarningCollector.NOOP);
     }
 
