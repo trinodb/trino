@@ -78,8 +78,11 @@ public class TestHudiSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        ResourceHudiTablesInitializer resourceHudiTablesInitializer = new ResourceHudiTablesInitializer();
+        closeAfterClass(resourceHudiTablesInitializer::deleteTestResources);
+
         return HudiQueryRunner.builder()
-                .setDataLoader(new ResourceHudiTablesInitializer())
+                .setDataLoader(resourceHudiTablesInitializer)
                 .build();
     }
 

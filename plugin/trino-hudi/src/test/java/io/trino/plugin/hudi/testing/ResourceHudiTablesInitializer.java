@@ -32,9 +32,9 @@ import io.trino.plugin.hudi.HudiConnector;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryRunner;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -91,19 +91,23 @@ import static io.trino.plugin.hudi.testing.TypeInfoHelper.varcharHiveType;
 public class ResourceHudiTablesInitializer
         implements HudiTablesInitializer
 {
+    private static final String TEST_RESOURCE_NAME = "hudi-testing-data";
+
     @Override
     public void initializeTables(QueryRunner queryRunner, Location externalLocation, String schemaName)
             throws Exception
     {
+        HudiTableUnzipper.unzipAllItemsInResource(TEST_RESOURCE_NAME);
         TrinoFileSystem fileSystem = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
                 .getInstance(TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
         Location baseLocation = externalLocation.appendSuffix(schemaName);
-        copyDir(new File(getResource("hudi-testing-data").toURI()).toPath(), fileSystem, baseLocation);
+        copyDir(Path.of(getResource(TEST_RESOURCE_NAME).toURI()), fileSystem, baseLocation);
 
         for (TestingTable table : TestingTable.values()) {
             String tableName = table.getTableName();
             Location tablePath = baseLocation.appendPath(tableName);
+
             // Always create ro table by default
             createTable(
                     queryRunner,
@@ -127,6 +131,18 @@ public class ResourceHudiTablesInitializer
                         true);
             }
         }
+    }
+
+    /**
+     * Deletes the test resource directory specified by the {@code TEST_RESOURCE_NAME} constant.
+     *
+     * @throws IOException if an I/O error occurs during the deletion.
+     * @throws URISyntaxException if the resource URI, derived from the lookup, is invalid.
+     */
+    public void deleteTestResources()
+            throws IOException, URISyntaxException
+    {
+        HudiTableUnzipper.deleteInflatedFiles(TEST_RESOURCE_NAME);
     }
 
     private void createTable(
