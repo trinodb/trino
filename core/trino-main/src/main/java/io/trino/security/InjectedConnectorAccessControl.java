@@ -513,6 +513,30 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        accessControl.checkCanShowBranches(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
+    }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        accessControl.checkCanCreateBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), branchName);
+    }
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        accessControl.checkCanDropBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), branchName);
+    }
+
+    @Override
+    public void checkCanFastForwardBranch(ConnectorSecurityContext context, SchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        accessControl.checkCanFastForwardBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), sourceBranchName, targetBranchName);
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         checkArgument(context == null, "context must be null");
