@@ -25,7 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class TestSimpleFileSystemLayout
 {
-    private static final byte[] STATIC_ENTROPY = "notsorandombytes".getBytes(UTF_8);
+    private static final byte[] STATIC_ENTROPY = "notarandom".getBytes(UTF_8);
     private static final FileSystemLayout LAYOUT = new SimpleFileSystemLayout();
     private static final Location ROOT_LOCATION = Location.of("memory://root/");
 
@@ -34,12 +34,12 @@ class TestSimpleFileSystemLayout
     {
         FileSystemSpooledSegmentHandle handle = new FileSystemSpooledSegmentHandle("json", ULID.generateBinary(21370000, STATIC_ENTROPY), Optional.empty());
 
-        assertThat(handle.identifier()).isEqualTo("00000MC54GDSQQ8WVFE9GPWS3F");
+        assertThat(handle.identifier()).isEqualTo("00000MC54GDSQQ8RBJC5Q68VVD");
 
         Location segmentLocation = LAYOUT.location(ROOT_LOCATION, handle);
 
-        assertThat(segmentLocation).isEqualTo(ROOT_LOCATION.appendPath("00000MC54GDSQQ8WVFE9GPWS3F.json"));
-        assertThat(segmentLocation.fileName()).isEqualTo("00000MC54GDSQQ8WVFE9GPWS3F.json");
+        assertThat(segmentLocation).isEqualTo(ROOT_LOCATION.appendPath("00000MC54GDSQQ8RBJC5Q68VVD.json"));
+        assertThat(segmentLocation.fileName()).isEqualTo("00000MC54GDSQQ8RBJC5Q68VVD.json");
         assertThat(LAYOUT.getExpiration(segmentLocation)).hasValue(Instant.ofEpochMilli(21370000));
     }
 
