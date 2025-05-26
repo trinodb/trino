@@ -629,6 +629,30 @@ public class SqlStandardAccessControl
     }
 
     @Override
+    public void checkCanShowBranches(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support branches");
+    }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support branches");
+    }
+
+    @Override
+    public void canCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String branchName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support branches");
+    }
+
+    @Override
+    public void canCanFastForwardBranch(ConnectorSecurityContext context, SchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support branches");
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(ConnectorSecurityContext context, SchemaTableName tableName)
     {
         return ImmutableList.of();

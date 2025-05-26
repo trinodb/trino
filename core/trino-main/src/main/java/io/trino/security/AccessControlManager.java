@@ -1347,6 +1347,58 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanShowBranches(SecurityContext context, QualifiedObjectName tableName)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(context, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanShowBranches(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName()));
+
+        catalogAuthorizationCheck(tableName.catalogName(), context, (control, connectorContext) -> control.checkCanShowBranches(connectorContext, tableName.asSchemaTableName()));
+    }
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String branchName)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(context, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanCreateBranch(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), branchName));
+
+        catalogAuthorizationCheck(tableName.catalogName(), context, (control, connectorContext) -> control.checkCanCreateBranch(connectorContext, tableName.asSchemaTableName(), branchName));
+    }
+
+    @Override
+    public void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String branchName)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(context, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.canCanDropBranch(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), branchName));
+
+        catalogAuthorizationCheck(tableName.catalogName(), context, (control, connectorContext) -> control.canCanDropBranch(connectorContext, tableName.asSchemaTableName(), branchName));
+    }
+
+    @Override
+    public void canCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName)
+    {
+        requireNonNull(context, "context is null");
+        requireNonNull(tableName, "tableName is null");
+
+        checkCanAccessCatalog(context, tableName.catalogName());
+
+        systemAuthorizationCheck(control -> control.canCanFastForwardBranch(context.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), sourceBranchName, targetBranchName));
+
+        catalogAuthorizationCheck(tableName.catalogName(), context, (control, connectorContext) -> control.canCanFastForwardBranch(connectorContext, tableName.asSchemaTableName(), sourceBranchName, targetBranchName));
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         requireNonNull(context, "context is null");

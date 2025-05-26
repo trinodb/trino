@@ -534,6 +534,30 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanShowBranches(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName)
+    {
+        delegate().checkCanShowBranches(systemSecurityContext, tableName);
+    }
+
+    @Override
+    public void checkCanCreateBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        delegate().checkCanCreateBranch(systemSecurityContext, tableName, branchName);
+    }
+
+    @Override
+    public void canCanDropBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String branchName)
+    {
+        delegate().canCanDropBranch(systemSecurityContext, tableName, branchName);
+    }
+
+    @Override
+    public void canCanFastForwardBranch(SystemSecurityContext systemSecurityContext, CatalogSchemaTableName tableName, String sourceBranchName, String targetBranchName)
+    {
+        delegate().canCanFastForwardBranch(systemSecurityContext, tableName, sourceBranchName, targetBranchName);
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return delegate().getEventListeners();

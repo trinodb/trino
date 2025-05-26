@@ -738,6 +738,42 @@ public class TracingAccessControl
     }
 
     @Override
+    public void checkCanShowBranches(SecurityContext context, QualifiedObjectName tableName)
+    {
+        Span span = startSpan("checkCanShowBranches");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanShowBranches(context, tableName);
+        }
+    }
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String branchName)
+    {
+        Span span = startSpan("checkCanCreateBranch");
+        try (var ignored = scopedSpan(span)) {
+            delegate.checkCanCreateBranch(context, tableName, branchName);
+        }
+    }
+
+    @Override
+    public void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String branchName)
+    {
+        Span span = startSpan("canCanDropBranch");
+        try (var ignored = scopedSpan(span)) {
+            delegate.canCanDropBranch(context, tableName, branchName);
+        }
+    }
+
+    @Override
+    public void canCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName)
+    {
+        Span span = startSpan("canCanFastForwardBranch");
+        try (var ignored = scopedSpan(span)) {
+            delegate.canCanFastForwardBranch(context, tableName, sourceBranchName, targetBranchName);
+        }
+    }
+
+    @Override
     public List<ViewExpression> getRowFilters(SecurityContext context, QualifiedObjectName tableName)
     {
         Span span = startSpan("getRowFilters");
