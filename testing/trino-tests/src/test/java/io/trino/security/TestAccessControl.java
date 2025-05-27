@@ -58,6 +58,7 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.SqlPath;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -212,6 +213,19 @@ public class TestAccessControl
                     @Override
                     public Map<SchemaTableName, ConnectorMaterializedViewDefinition> apply(ConnectorSession session, SchemaTablePrefix schemaTablePrefix)
                     {
+                        ConnectorMaterializedViewDefinition selectFromUnderlyingTableDefinition = new ConnectorMaterializedViewDefinition(
+                                "SELECT * FROM tpch.sf1.region",
+                                Optional.of(new CatalogSchemaTableName("tpch", "sf1", "region")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(
+                                        new ConnectorMaterializedViewDefinition.Column("regionkey", BIGINT.getTypeId(), Optional.empty()),
+                                        new ConnectorMaterializedViewDefinition.Column("name", VarcharType.createVarcharType(25).getTypeId(), Optional.empty()),
+                                        new ConnectorMaterializedViewDefinition.Column("comment", VarcharType.createVarcharType(152).getTypeId(), Optional.empty())),
+                                Optional.of(Duration.ZERO),
+                                Optional.of("comment"),
+                                Optional.of("test_mv_access_owner"),
+                                ImmutableList.of());
                         ConnectorMaterializedViewDefinition materializedViewDefinition = new ConnectorMaterializedViewDefinition(
                                 "SELECT 1 AS test",
                                 Optional.empty(),
@@ -223,6 +237,7 @@ public class TestAccessControl
                                 Optional.of("owner"),
                                 ImmutableList.of());
                         return ImmutableMap.of(
+                                new SchemaTableName("default", "test_materialized_view_select_from_region"), selectFromUnderlyingTableDefinition,
                                 new SchemaTableName("default", "test_materialized_view"), materializedViewDefinition);
                     }
                 })
@@ -863,6 +878,56 @@ public class TestAccessControl
         assertQuery(query, "VALUES ('mock', 'default', 'redirected_source', 'this is a redirected table')");
         getQueryRunner().getAccessControl().denyTables(schemaTableName -> !schemaTableName.getTableName().equals("redirected_target"));
         assertQueryReturnsEmptyResult(query);
+    }
+
+    @Test
+    public void testMaterializedViewAccessControl()
+    {
+        reset();
+
+        Session viewOwnerSession = TestingSession.testSessionBuilder()
+                .setIdentity(Identity.ofUser("test_mv_access_owner"))
+                .setCatalog(getSession().getCatalog())
+                .setSchema(getSession().getSchema())
+                .build();
+
+        // Verify MV owner can access
+        assertAccessAllowed(
+                viewOwnerSession,
+                "SELECT * FROM mock.default.test_materialized_view_select_from_region");
+
+        // Verify it's accessible to non-owner session as well if nothing's denied
+        assertAccessAllowed(
+                "SELECT * FROM mock.default.test_materialized_view_select_from_region");
+
+        // Verify non-owner cannot access if it doesn't have SELECT
+        assertAccessDenied("SELECT * FROM mock.default.test_materialized_view_select_from_region",
+                "Cannot select from columns .* in table or view mock.default.test_materialized_view_select_from_region",
+                privilege(getSession().getUser(), "test_materialized_view_select_from_region", SELECT_COLUMN));
+
+        // Verify an MV is treated as a table, not a view, for the purposes of selecting from it
+        assertAccessAllowed(
+                viewOwnerSession,
+                "SELECT * FROM mock.default.test_materialized_view_select_from_region",
+                privilege(viewOwnerSession.getUser(), "region", CREATE_VIEW_WITH_SELECT_COLUMNS));
+        assertAccessAllowed(
+                "SELECT * FROM mock.default.test_materialized_view_select_from_region",
+                privilege(viewOwnerSession.getUser(), "region", CREATE_VIEW_WITH_SELECT_COLUMNS));
+        assertAccessAllowed(
+                viewOwnerSession,
+                "SELECT * FROM mock.default.test_materialized_view_select_from_region",
+                privilege(viewOwnerSession.getUser(), "region", SELECT_COLUMN));
+        assertAccessAllowed(
+                "SELECT * FROM mock.default.test_materialized_view_select_from_region",
+                privilege(viewOwnerSession.getUser(), "region", SELECT_COLUMN));
+
+        // Verify only the owner can refresh the MV and the permissions on the underlying table are checked
+        assertAccessAllowed(
+                viewOwnerSession,
+                "REFRESH MATERIALIZED VIEW mock.default.test_materialized_view_select_from_region");
+        assertAccessDenied("REFRESH MATERIALIZED VIEW mock.default.test_materialized_view_select_from_region",
+                "View owner does not have sufficient privileges: View owner 'test_mv_access_owner' cannot create view that selects from tpch.sf1.region",
+                privilege(viewOwnerSession.getUser(), "region", CREATE_VIEW_WITH_SELECT_COLUMNS));
     }
 
     @Test
