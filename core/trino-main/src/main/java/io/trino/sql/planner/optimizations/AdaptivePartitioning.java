@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.TableExecuteNode;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -43,6 +44,7 @@ import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.Ou
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
@@ -65,6 +67,14 @@ public class AdaptivePartitioning
     {
         // Skip if runtime adaptive partitioning is not enabled
         if (!isFaultTolerantExecutionRuntimeAdaptivePartitioningEnabled(context.session())) {
+            return new Result(plan, ImmutableSet.of());
+        }
+
+        if (searchFrom(plan)
+                .where(node -> node instanceof TableExecuteNode)
+                .findFirst()
+                .isPresent()) {
+            // TableExecute is not supported
             return new Result(plan, ImmutableSet.of());
         }
 
