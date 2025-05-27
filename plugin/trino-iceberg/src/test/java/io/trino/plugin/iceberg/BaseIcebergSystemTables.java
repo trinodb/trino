@@ -332,7 +332,7 @@ public abstract class BaseIcebergSystemTables
     @Test
     void testAllManifests()
     {
-        try (TestTable table = newTrinoTable("test_all_manifests", "AS SELECT 1 x")) {
+        try (TestTable table = newTrinoTable("test_all_manifests", "(x) AS VALUES 1, 2")) {
             assertThat(query("SHOW COLUMNS FROM \"" + table.getName() + "$all_manifests\""))
                     .skippingTypesCheck()
                     .matches("VALUES " +
@@ -343,7 +343,11 @@ public abstract class BaseIcebergSystemTables
                             "('added_data_files_count', 'integer', '', '')," +
                             "('existing_data_files_count', 'integer', '', '')," +
                             "('deleted_data_files_count', 'integer', '', '')," +
-                            "('partition_summaries', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')");
+                            "('added_delete_files_count', 'integer', '', '')," +
+                            "('existing_delete_files_count', 'integer', '', '')," +
+                            "('deleted_delete_files_count', 'integer', '', '')," +
+                            "('partition_summaries', 'array(row(contains_null boolean, contains_nan boolean, lower_bound varchar, upper_bound varchar))', '', '')," +
+                            "('reference_snapshot_id', 'bigint', '', '')");
 
             assertThat((String) computeScalar("SELECT path FROM \"" + table.getName() + "$all_manifests\"")).endsWith("-m0.avro");
             assertThat((Long) computeScalar("SELECT length FROM \"" + table.getName() + "$all_manifests\"")).isPositive();
@@ -352,10 +356,15 @@ public abstract class BaseIcebergSystemTables
             assertThat((Integer) computeScalar("SELECT added_data_files_count FROM \"" + table.getName() + "$all_manifests\"")).isEqualTo(1);
             assertThat((Integer) computeScalar("SELECT existing_data_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
             assertThat((Integer) computeScalar("SELECT deleted_data_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
+            assertThat((Integer) computeScalar("SELECT added_delete_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
+            assertThat((Integer) computeScalar("SELECT existing_delete_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
+            assertThat((Integer) computeScalar("SELECT deleted_delete_files_count FROM \"" + table.getName() + "$all_manifests\"")).isZero();
             assertThat((List<?>) computeScalar("SELECT partition_summaries FROM \"" + table.getName() + "$all_manifests\"")).isEmpty();
+            assertThat((Long) computeScalar("SELECT reference_snapshot_id FROM \"" + table.getName() + "$all_manifests\"")).isPositive();
 
-            assertUpdate("DELETE FROM " + table.getName(), 1);
-            assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\"")).isEqualTo(2);
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE x = 1", 1);
+            assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\"")).isEqualTo(3);
+            assertThat((Long) computeScalar("SELECT count(1) FROM \"" + table.getName() + "$all_manifests\" WHERE added_delete_files_count > 0")).isEqualTo(1);
         }
     }
 
