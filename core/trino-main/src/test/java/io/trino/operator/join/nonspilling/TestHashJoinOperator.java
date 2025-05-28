@@ -34,6 +34,7 @@ import io.trino.operator.join.JoinOperatorInfo;
 import io.trino.operator.join.nonspilling.JoinTestUtils.BuildSideSetup;
 import io.trino.operator.join.nonspilling.JoinTestUtils.TestInternalJoinFilterFunction;
 import io.trino.spi.Page;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
@@ -59,6 +60,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
 import static io.trino.operator.JoinOperatorType.fullOuterJoin;
 import static io.trino.operator.JoinOperatorType.innerJoin;
 import static io.trino.operator.JoinOperatorType.probeOuterJoin;
@@ -207,6 +209,53 @@ public class TestHashJoinOperator
                 .row("21", 62L, "21", 2L)
                 .row("21", 63L, "21", 3L)
                 .row("21", 63L, "21", 2L)
+                .build();
+        MaterializedResult actual = toMaterializedResult(expected.getTypes(), pages);
+        assertThat(actual).containsExactlyElementsOf(expected);
+    }
+
+    @Test
+    public void testInnerJoinWithNullableRunLengthEncodedAndDictionaryProbe()
+    {
+        TaskContext taskContext = createTaskContext();
+
+        // build factory
+        RowPagesBuilder buildPages = rowPagesBuilder(ImmutableList.of(VARCHAR, BIGINT))
+                .row("20", 1L)
+                .row("21", 2L)
+                .row("21", 3L);
+        BuildSideSetup buildSideSetup = setupBuildSide(partitionFunctionProvider, false, taskContext, buildPages, Ints.asList(0), Optional.empty(), true);
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+
+        // probe factory
+        RowPagesBuilder probePagesBuilder = rowPagesBuilder(ImmutableList.of(VARCHAR, BIGINT))
+                .addBlocksPage(
+                        RunLengthEncodedBlock.create(VARCHAR, null, 2),
+                        createLongsBlock(42, 43))
+                .addBlocksPage(
+                        DictionaryBlock.create(2, createStringsBlock("-1", null), new int[] {0, 0}),
+                        createLongsBlock(52, 53))
+                .addBlocksPage(
+                        createStringsBlock("21", null),
+                        createLongsBlock(62, 63));
+        OperatorFactory joinOperatorFactory = innerJoinOperatorFactory(lookupSourceFactory, probePagesBuilder, Ints.asList(0), true);
+
+        // build drivers and operators
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+        buildLookupSource(executor, buildSideSetup);
+
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        List<Page> pages = toPages(joinOperatorFactory, driverContext, probePagesBuilder.build(), true, true);
+
+        assertThat(pages).hasSize(1);
+        assertThat(pages.get(0).getBlock(2)).isInstanceOf(VariableWidthBlock.class);
+        assertThat(pages.get(0).getBlock(3)).isInstanceOf(LongArrayBlock.class);
+        assertThat(getJoinOperatorInfo(driverContext).getTotalProbes()).isEqualTo(3);
+
+        // expected
+        MaterializedResult expected = MaterializedResult.resultBuilder(concat(probePagesBuilder.getTypes(), buildPages.getTypes()))
+                .row("21", 62L, "21", 3L)
+                .row("21", 62L, "21", 2L)
                 .build();
         MaterializedResult actual = toMaterializedResult(expected.getTypes(), pages);
         assertThat(actual).containsExactlyElementsOf(expected);

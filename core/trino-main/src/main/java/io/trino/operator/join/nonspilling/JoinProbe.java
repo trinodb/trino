@@ -16,6 +16,7 @@ package io.trino.operator.join.nonspilling;
 import com.google.common.primitives.Ints;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.join.LookupSource;
+import io.trino.operator.join.NullablePositions;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -155,57 +156,19 @@ public class JoinProbe
         }
 
         long[] joinPositionCache = new long[positionCount];
-        if (nullableBlocksCount > 0) {
-            Arrays.fill(joinPositionCache, -1);
-            boolean[] isNull = new boolean[positionCount];
-            int nonNullCount = getIsNull(nullableBlocks, nullableBlocksCount, positionCount, isNull);
-            if (nonNullCount < positionCount) {
-                // We only store positions that are not null
-                int[] positions = new int[nonNullCount];
-                nonNullCount = 0;
-                for (int i = 0; i < positionCount; i++) {
-                    if (!isNull[i]) {
-                        positions[nonNullCount] = i;
-                    }
-                    // This way less code is in the if branch and CPU should be able to optimize branch prediction better
-                    nonNullCount += isNull[i] ? 0 : 1;
-                }
-
-                long[] hashes = new long[positionCount];
-                hashGenerator.hashNonNulls(probePage, positions, hashes);
-                lookupSource.getJoinPosition(positions, probePage, page, hashes, joinPositionCache);
-                return joinPositionCache;
-            } // else fall back to non-null path
-        }
-        int[] positions = new int[positionCount];
-        for (int i = 0; i < positionCount; i++) {
-            positions[i] = i;
-        }
-
+        int[] positions = NullablePositions.getNonNullPositions(nullableBlocks, nullableBlocksCount, positionCount);
         long[] hashes = new long[positionCount];
+        if (nullableBlocksCount > 0 && positions.length < positionCount) {
+            Arrays.fill(joinPositionCache, -1);
+            hashGenerator.hashNonNulls(probePage, positions, hashes);
+            lookupSource.getJoinPosition(positions, probePage, page, hashes, joinPositionCache);
+            return joinPositionCache;
+        } // else fall back to non-null path
+
         hashGenerator.hash(probePage, 0, positionCount, hashes);
         lookupSource.getJoinPosition(positions, probePage, page, hashes, joinPositionCache);
 
         return joinPositionCache;
-    }
-
-    private static int getIsNull(Block[] nullableBlocks, int nullableBlocksCount, int positionCount, boolean[] isNull)
-    {
-        for (int i = 0; i < nullableBlocksCount - 1; i++) {
-            Block block = nullableBlocks[i];
-            for (int position = 0; position < positionCount; position++) {
-                isNull[position] |= block.isNull(position);
-            }
-        }
-        // Last block will also calculate `nonNullCount`
-        int nonNullCount = 0;
-        Block lastBlock = nullableBlocks[nullableBlocksCount - 1];
-        for (int position = 0; position < positionCount; position++) {
-            isNull[position] |= lastBlock.isNull(position);
-            nonNullCount += isNull[position] ? 0 : 1;
-        }
-
-        return nonNullCount;
     }
 
     private static boolean hasOnlyRleBlocks(Page probePage)
