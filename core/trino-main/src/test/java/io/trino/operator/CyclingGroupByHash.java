@@ -55,6 +55,12 @@ public class CyclingGroupByHash
     }
 
     @Override
+    public void startReleasingOutput()
+    {
+        throw new UnsupportedOperationException("Not yet supported");
+    }
+
+    @Override
     public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         throw new UnsupportedOperationException("Not yet supported");
