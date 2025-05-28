@@ -248,8 +248,7 @@ final class TestLokiIntegration
     @Test
     void testQueryRangeInvalidArguments()
     {
-        assertQueryFails(
-                """
+        assertQueryFails("""
                         SELECT to_iso8601(timestamp), value FROM
                         TABLE(system.query_range(
                          'count_over_time({test="timestamp_metrics_query"}[5m])',
@@ -260,8 +259,7 @@ final class TestLokiIntegration
                         LIMIT 1
                         """,
                 "step must be positive");
-        assertQueryFails(
-                """
+        assertQueryFails("""
                         SELECT to_iso8601(timestamp), value FROM
                         TABLE(system.query_range(
                          'count_over_time({test="timestamp_metrics_query"}[5m])',
