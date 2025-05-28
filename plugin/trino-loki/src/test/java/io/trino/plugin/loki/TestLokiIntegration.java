@@ -88,7 +88,7 @@ final class TestLokiIntegration
     {
         Instant start = Instant.now().minus(Duration.ofHours(3));
         Instant end = start.plus(Duration.ofHours(2));
-       
+
         // Loki has a default of 100. Setting it to 120 verifies that the limit is propagated.
         long limit = 120;
         long numberOfRows = 150;

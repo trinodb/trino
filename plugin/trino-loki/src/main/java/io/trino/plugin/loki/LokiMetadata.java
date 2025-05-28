@@ -124,6 +124,8 @@ public class LokiMetadata
     {
         LokiTableHandle lokiTableHandle = (LokiTableHandle) tableHandle;
 
+        // TODO: return Optional.empty() if query is a metric query
+
         // This change has no effect
         if (limit == lokiTableHandle.limit()) {
             return Optional.empty();
