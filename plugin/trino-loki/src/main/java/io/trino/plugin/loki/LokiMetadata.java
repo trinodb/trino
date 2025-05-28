@@ -54,6 +54,8 @@ public class LokiMetadata
 
     private final LokiClient lokiClient;
 
+    private Data.ResultType expectedResultType;
+
     @Inject
     public LokiMetadata(LokiClient lokiClient, TypeManager typeManager)
     {
@@ -109,7 +111,8 @@ public class LokiMetadata
         columnsBuilder.add(new LokiColumnHandle("timestamp", TIMESTAMP_TZ_MILLIS, 1));
 
         try {
-            Type valueType = lokiClient.getExpectedResultType(query) == Data.ResultType.Matrix ? DOUBLE : VARCHAR;
+            this.expectedResultType = lokiClient.getExpectedResultType(query);
+            Type valueType = this.expectedResultType == Data.ResultType.Matrix ? DOUBLE : VARCHAR;
             columnsBuilder.add(new LokiColumnHandle("value", valueType, 2));
         }
         catch (LokiClientException e) {
@@ -124,10 +127,13 @@ public class LokiMetadata
     {
         LokiTableHandle lokiTableHandle = (LokiTableHandle) tableHandle;
 
-        // TODO: return Optional.empty() if query is a metric query
+        // Metric queries do not support setting a limit
+        if (this.expectedResultType != null && this.expectedResultType == Data.ResultType.Matrix) {
+            return Optional.empty();
+        }
 
         // This change has no effect
-        if (limit == lokiTableHandle.limit()) {
+        if (lokiTableHandle.limit().isPresent() && limit == lokiTableHandle.limit().getAsLong()) {
             return Optional.empty();
         }
 

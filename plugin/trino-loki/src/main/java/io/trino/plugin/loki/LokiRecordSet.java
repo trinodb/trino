@@ -29,6 +29,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.loki.LokiErrorCode.LOKI_CLIENT_ERROR;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class LokiRecordSet
@@ -53,12 +54,7 @@ public class LokiRecordSet
         // Execute the query
         try {
             log.info("querying %s with limit %d", split.query(), split.limit());
-            if (split.limit() == LokiTableHandle.NO_LIMIT) {
-                this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end(), split.step(), 0);
-            }
-            else {
-                this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end(), split.step(), Math.toIntExact(split.limit()));
-            }
+            this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end(), split.step(), toIntExact(split.limit()));
         }
         catch (LokiClientException e) {
             throw new TrinoException(LOKI_CLIENT_ERROR, e);

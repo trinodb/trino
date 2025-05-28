@@ -16,6 +16,7 @@ package io.trino.plugin.loki;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.time.Instant;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 

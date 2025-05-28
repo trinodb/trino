@@ -36,6 +36,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -130,7 +131,8 @@ public class QueryRangeTableFunction
                 start,
                 end,
                 step.intValue(),
-                columnHandles);
+                columnHandles,
+                OptionalLong.empty());
 
         return TableFunctionAnalysis.builder()
                 .returnedType(returnedType)

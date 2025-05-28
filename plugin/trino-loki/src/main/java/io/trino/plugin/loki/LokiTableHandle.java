@@ -19,29 +19,24 @@ import io.trino.spi.connector.ConnectorTableHandle;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.OptionalLong;
 
 import static java.util.Objects.requireNonNull;
 
-public record LokiTableHandle(String query, Instant start, Instant end, int step, List<ColumnHandle> columnHandles, long limit)
+public record LokiTableHandle(String query, Instant start, Instant end, int step, List<ColumnHandle> columnHandles, OptionalLong limit)
         implements ConnectorTableHandle
 {
-    public static long NO_LIMIT = -1;
-
-    public LokiTableHandle(String query, Instant start, Instant end, int step, List<ColumnHandle> columnHandles)
-    {
-        this(query, start, end, step, columnHandles, NO_LIMIT);
-    }
-
     public LokiTableHandle
     {
         requireNonNull(query, "query is null");
         requireNonNull(start, "start is null");
         requireNonNull(end, "end is null");
+        requireNonNull(limit, "limit is null");
         columnHandles = ImmutableList.copyOf(columnHandles);
     }
 
     public LokiTableHandle withLimit(long limit)
     {
-        return new LokiTableHandle(query, start, end, step, columnHandles, limit);
+        return new LokiTableHandle(query, start, end, step, columnHandles, OptionalLong.of(limit));
     }
 }

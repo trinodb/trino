@@ -39,7 +39,9 @@ public class LokiSplitManager
     {
         final LokiTableHandle table = (LokiTableHandle) connectorTableHandle;
 
-        List<ConnectorSplit> splits = ImmutableList.of(new LokiSplit(table.query(), table.start(), table.end(), table.step(), table.limit()));
+        // Set the limit to 0 as the default. Since the client ignores 0.
+        long limit = table.limit().orElse(0);
+        List<ConnectorSplit> splits = ImmutableList.of(new LokiSplit(table.query(), table.start(), table.end(), table.step(), limit));
         return new FixedSplitSource(splits);
     }
 }
