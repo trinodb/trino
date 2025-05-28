@@ -109,6 +109,8 @@ public interface GroupByHash
 
     void appendValuesTo(int groupId, PageBuilder pageBuilder);
 
+    void startReleasingOutput();
+
     Work<?> addPage(Page page);
 
     /**

@@ -127,6 +127,12 @@ public class BigintGroupByHash
     }
 
     @Override
+    public void startReleasingOutput()
+    {
+        // NOOP
+    }
+
+    @Override
     public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         checkArgument(groupId >= 0, "groupId is negative");

@@ -248,12 +248,18 @@ public class InMemoryHashAggregationBuilder
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
             groupedAggregator.prepareFinal();
         }
-        return buildResult(consecutiveGroupIds());
+        // Only incrementally release memory for final aggregations, since partial aggregations have a fixed
+        // memory limit and can be expected to fully flush and release their output quickly
+        boolean releaseMemoryOnOutput = !partial;
+        if (releaseMemoryOnOutput) {
+            groupByHash.startReleasingOutput();
+        }
+        return buildResult(consecutiveGroupIds(), releaseMemoryOnOutput);
     }
 
     public WorkProcessor<Page> buildHashSortedResult()
     {
-        return buildResult(hashSortedGroupIds());
+        return buildResult(hashSortedGroupIds(), false);
     }
 
     public List<Type> buildSpillTypes()
@@ -271,7 +277,7 @@ public class InMemoryHashAggregationBuilder
         return groupByHash.getCapacity();
     }
 
-    private WorkProcessor<Page> buildResult(IntIterator groupIds)
+    private WorkProcessor<Page> buildResult(IntIterator groupIds, boolean releaseMemoryOnOutput)
     {
         PageBuilder pageBuilder = new PageBuilder(buildTypes());
         return WorkProcessor.create(() -> {
@@ -292,6 +298,11 @@ public class InMemoryHashAggregationBuilder
                     BlockBuilder output = pageBuilder.getBlockBuilder(groupByChannels.length + i);
                     groupedAggregator.evaluate(groupId, output);
                 }
+            }
+
+            // Update memory usage after producing each page of output
+            if (releaseMemoryOnOutput) {
+                updateMemory();
             }
 
             return ProcessState.ofResult(pageBuilder.build());

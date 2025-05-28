@@ -51,6 +51,12 @@ public class NoChannelGroupByHash
     }
 
     @Override
+    public void startReleasingOutput()
+    {
+        throw new UnsupportedOperationException("NoChannelGroupByHash does not support startReleasingOutput");
+    }
+
+    @Override
     public Work<?> addPage(Page page)
     {
         updateGroupCount(page);

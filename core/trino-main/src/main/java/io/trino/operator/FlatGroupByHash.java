@@ -130,6 +130,12 @@ public class FlatGroupByHash
     }
 
     @Override
+    public void startReleasingOutput()
+    {
+        flatHash.startReleasingOutput();
+    }
+
+    @Override
     public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         BlockBuilder[] blockBuilders = currentBlockBuilders;
