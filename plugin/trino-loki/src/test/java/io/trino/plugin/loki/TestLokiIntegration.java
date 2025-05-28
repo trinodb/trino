@@ -82,6 +82,30 @@ final class TestLokiIntegration
     }
 
     @Test
+    void testLimitedLogsQuery()
+            throws Exception
+    {
+        Instant start = Instant.now().minus(Duration.ofHours(3));
+        Instant end = start.plus(Duration.ofHours(2));
+
+        for (int i = 0; i < 150; i++) {
+            client.pushLogLine("line " + i, end.minus(Duration.ofMinutes(i)), ImmutableMap.of("test", "limited_logs_query"));
+        }
+        client.flush();
+
+        assertQuery(format("""
+                        SELECT value FROM
+                        TABLE(system.query_range(
+                         '{test="logs_query"}',
+                         TIMESTAMP '%s',
+                         TIMESTAMP '%s'
+                        ))
+                        LIMIT 120
+                        """, timestampFormatter.format(start), timestampFormatter.format(end)),
+                "VALUES ('line 1')");
+    }
+
+    @Test
     void testMetricsQuery()
             throws Exception
     {
@@ -213,27 +237,27 @@ final class TestLokiIntegration
     {
         assertQueryFails(
                 """
-                SELECT to_iso8601(timestamp), value FROM
-                TABLE(system.query_range(
-                 'count_over_time({test="timestamp_metrics_query"}[5m])',
-                 TIMESTAMP '2012-08-08',
-                 TIMESTAMP '2012-08-09',
-                 -300
-                ))
-                LIMIT 1
-                """,
+                        SELECT to_iso8601(timestamp), value FROM
+                        TABLE(system.query_range(
+                         'count_over_time({test="timestamp_metrics_query"}[5m])',
+                         TIMESTAMP '2012-08-08',
+                         TIMESTAMP '2012-08-09',
+                         -300
+                        ))
+                        LIMIT 1
+                        """,
                 "step must be positive");
         assertQueryFails(
                 """
-                SELECT to_iso8601(timestamp), value FROM
-                TABLE(system.query_range(
-                 'count_over_time({test="timestamp_metrics_query"}[5m])',
-                 TIMESTAMP '2012-08-08',
-                 TIMESTAMP '2012-08-09',
-                 NULL
-                ))
-                LIMIT 1
-                """,
+                        SELECT to_iso8601(timestamp), value FROM
+                        TABLE(system.query_range(
+                         'count_over_time({test="timestamp_metrics_query"}[5m])',
+                         TIMESTAMP '2012-08-08',
+                         TIMESTAMP '2012-08-09',
+                         NULL
+                        ))
+                        LIMIT 1
+                        """,
                 "step must be positive");
     }
 }

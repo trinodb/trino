@@ -49,7 +49,12 @@ public class LokiRecordSet
 
         // Execute the query
         try {
-            this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end(), split.step());
+            if (split.limit() == LokiTableHandle.NO_LIMIT) {
+                this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end(), split.step(), 0);
+            }
+            else {
+                this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end(), split.step(), Math.toIntExact(split.limit()));
+            }
         }
         catch (LokiClientException e) {
             throw new TrinoException(LOKI_CLIENT_ERROR, e);

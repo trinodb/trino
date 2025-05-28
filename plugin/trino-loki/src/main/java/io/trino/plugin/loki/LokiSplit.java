@@ -19,7 +19,7 @@ import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
-public record LokiSplit(String query, Instant start, Instant end, int step)
+public record LokiSplit(String query, Instant start, Instant end, int step, long limit)
         implements ConnectorSplit
 {
     public LokiSplit

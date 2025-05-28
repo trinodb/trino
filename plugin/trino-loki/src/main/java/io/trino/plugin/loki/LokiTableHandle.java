@@ -22,14 +22,26 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public record LokiTableHandle(String query, Instant start, Instant end, int step, List<ColumnHandle> columnHandles)
+public record LokiTableHandle(String query, Instant start, Instant end, int step, List<ColumnHandle> columnHandles, long limit)
         implements ConnectorTableHandle
 {
+    public static long NO_LIMIT = -1;
+
+    public LokiTableHandle(String query, Instant start, Instant end, int step, List<ColumnHandle> columnHandles)
+    {
+        this(query, start, end, step, columnHandles, NO_LIMIT);
+    }
+
     public LokiTableHandle
     {
         requireNonNull(query, "query is null");
         requireNonNull(start, "start is null");
         requireNonNull(end, "end is null");
         columnHandles = ImmutableList.copyOf(columnHandles);
+    }
+
+    public LokiTableHandle withLimit(long limit)
+    {
+        return new LokiTableHandle(query, start, end, step, columnHandles, limit);
     }
 }

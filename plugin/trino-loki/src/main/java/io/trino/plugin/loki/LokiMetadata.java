@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -116,5 +117,19 @@ public class LokiMetadata
         }
 
         return columnsBuilder.build();
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle tableHandle, long limit)
+    {
+        LokiTableHandle lokiTableHandle = (LokiTableHandle) tableHandle;
+
+        // This change has no effect
+        if (limit == lokiTableHandle.limit()) {
+            return Optional.empty();
+        }
+
+        lokiTableHandle = lokiTableHandle.withLimit(limit);
+        return Optional.of(new LimitApplicationResult<>(lokiTableHandle, true, false));
     }
 }
