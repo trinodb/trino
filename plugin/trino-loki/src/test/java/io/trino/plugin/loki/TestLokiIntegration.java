@@ -25,6 +25,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 
@@ -87,22 +88,34 @@ final class TestLokiIntegration
     {
         Instant start = Instant.now().minus(Duration.ofHours(3));
         Instant end = start.plus(Duration.ofHours(2));
+       
+        // Loki has a default of 100. Setting it to 120 verifies that the limit is propagated.
+        long limit = 120;
+        long numberOfRows = 150;
 
-        for (int i = 0; i < 150; i++) {
-            client.pushLogLine("line " + i, end.minus(Duration.ofMinutes(i)), ImmutableMap.of("test", "limited_logs_query"));
+        for (int i = 0; i < numberOfRows; i++) {
+            client.pushLogLine("line " + i, end.minus(Duration.ofSeconds(i)), ImmutableMap.of("test", "limited_logs_query"));
         }
         client.flush();
 
-        assertQuery(format("""
+        // We expect the last 120 lines
+        StringBuilder expected = new StringBuilder("VALUES ");
+        for (long i = numberOfRows - limit; i < numberOfRows; i++) {
+            expected.append("('line ").append(i).append("')");
+            if (i < numberOfRows - 1) {
+                expected.append(", ");
+            }
+        }
+        assertQueryEventually(getSession(), format("""
                         SELECT value FROM
                         TABLE(system.query_range(
-                         '{test="logs_query"}',
+                         '{test="limited_logs_query"}',
                          TIMESTAMP '%s',
                          TIMESTAMP '%s'
                         ))
-                        LIMIT 120
-                        """, timestampFormatter.format(start), timestampFormatter.format(end)),
-                "VALUES ('line 1')");
+                        LIMIT %d
+                        """, timestampFormatter.format(start), timestampFormatter.format(end), limit),
+                expected.toString(), new io.airlift.units.Duration(30, TimeUnit.SECONDS));
     }
 
     @Test
