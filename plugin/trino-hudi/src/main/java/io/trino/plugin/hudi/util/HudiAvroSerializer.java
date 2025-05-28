@@ -16,12 +16,12 @@ package io.trino.plugin.hudi.util;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -115,7 +115,7 @@ public class HudiAvroSerializer
         this.synthesizedColumnHandler = synthesizedColumnHandler;
     }
 
-    public IndexedRecord serialize(SourcePage sourcePage, int position)
+    public IndexedRecord serialize(Page sourcePage, int position)
     {
         IndexedRecord record = new GenericData.Record(schema);
         for (int i = 0; i < columnTypes.size(); i++) {
@@ -125,7 +125,7 @@ public class HudiAvroSerializer
         return record;
     }
 
-    public Object getValue(SourcePage sourcePage, int channel, int position)
+    public Object getValue(Page sourcePage, int channel, int position)
     {
         return columnTypes.get(channel).getObjectValue(null, sourcePage.getBlock(channel), position);
     }
@@ -167,7 +167,7 @@ public class HudiAvroSerializer
         }
     }
 
-    public void buildRecordInPage(PageBuilder pageBuilder, SourcePage sourcePage, int position,
+    public void buildRecordInPage(PageBuilder pageBuilder, Page sourcePage, int position,
             Map<Integer, String> partitionValueMap, boolean skipMetaColumns)
     {
         pageBuilder.declarePosition();

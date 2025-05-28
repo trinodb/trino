@@ -16,8 +16,8 @@ package io.trino.plugin.hudi.reader;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.HudiAvroSerializer;
 import io.trino.plugin.hudi.util.SynthesizedColumnHandler;
+import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.SourcePage;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericData.Record;
@@ -79,7 +79,7 @@ public class HudiTrinoReaderContext
     {
         return new ClosableIterator<>()
         {
-            private SourcePage currentPage;
+            private Page currentPage;
             private int currentPosition;
 
             @Override
@@ -103,7 +103,7 @@ public class HudiTrinoReaderContext
                     }
 
                     // Get next page and reset currentPosition
-                    currentPage = pageSource.getNextSourcePage();
+                    currentPage = pageSource.getNextPage();
                     currentPosition = 0;
 
                     // If no more pages are available

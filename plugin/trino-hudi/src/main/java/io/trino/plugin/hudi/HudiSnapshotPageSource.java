@@ -20,7 +20,6 @@ import io.trino.plugin.hudi.util.HudiAvroSerializer;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
-import io.trino.spi.connector.SourcePage;
 import io.trino.spi.metrics.Metrics;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.IndexedRecord;
@@ -142,7 +141,7 @@ public class HudiSnapshotPageSource
     }
 
     @Override
-    public SourcePage getNextSourcePage()
+    public Page getNextPage()
     {
         if (logRecordMap == null) {
             try (HoodieMergedLogRecordScanner logScanner = getMergedLogRecordScanner(storage, basePath, split, readerSchema)) {
@@ -156,7 +155,7 @@ public class HudiSnapshotPageSource
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
 
         if (baseFilePageSource.isPresent()) {
-            SourcePage sourcePage = baseFilePageSource.get().getNextSourcePage();
+            Page sourcePage = baseFilePageSource.get().getNextPage();
             if (sourcePage != null) {
                 try {
                     // Merge records from the page with log records
@@ -179,7 +178,7 @@ public class HudiSnapshotPageSource
 
                     Page newPage = pageBuilder.build();
                     pageBuilder.reset();
-                    return SourcePage.create(newPage);
+                    return newPage;
                 }
                 catch (IOException e) {
                     throw new HoodieIOException("Cannot merge record in split " + split);
@@ -200,7 +199,7 @@ public class HudiSnapshotPageSource
         logRecordMap.clear();
         Page newPage = pageBuilder.build();
         pageBuilder.reset();
-        return SourcePage.create(newPage);
+        return newPage;
     }
 
     @Override

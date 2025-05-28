@@ -20,6 +20,7 @@ import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveTransactionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
