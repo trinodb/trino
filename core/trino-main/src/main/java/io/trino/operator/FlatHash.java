@@ -124,8 +124,8 @@ public final class FlatHash
         this.mask = other.mask;
         this.nextGroupId = other.nextGroupId;
         this.maxFill = other.maxFill;
-        this.control = Arrays.copyOf(other.control, other.control.length);
-        this.groupIdsByHash = Arrays.copyOf(other.groupIdsByHash, other.groupIdsByHash.length);
+        this.control = other.control == null ? null : Arrays.copyOf(other.control, other.control.length);
+        this.groupIdsByHash = other.groupIdsByHash == null ? null : Arrays.copyOf(other.groupIdsByHash, other.groupIdsByHash.length);
         this.fixedSizeRecords = Arrays.stream(other.fixedSizeRecords)
                 .map(fixedSizeRecords -> fixedSizeRecords == null ? null : Arrays.copyOf(fixedSizeRecords, fixedSizeRecords.length))
                 .toArray(byte[][]::new);
@@ -153,13 +153,36 @@ public final class FlatHash
         return capacity;
     }
 
+    /**
+     * Releases memory associated with the hash table which is no longer necessary to produce output. Subsequent
+     * calls to insert new elements are rejected, and calls to {@link FlatHash#appendTo(int, BlockBuilder[])} will
+     * incrementally release memory associated with prior groupId values assuming that the caller will only call into
+     * the method to produce output in a sequential fashion.
+     */
+    public void startReleasingOutput()
+    {
+        if (isReleasingOutput()) {
+            throw new IllegalStateException("already releasing output");
+        }
+        control = null;
+        groupIdsByHash = null;
+    }
+
+    private boolean isReleasingOutput()
+    {
+        return control == null;
+    }
+
     public long hashPosition(int groupId)
     {
-        if (groupId < 0) {
-            throw new IllegalArgumentException("groupId is negative");
+        if (groupId < 0 || groupId >= nextGroupId) {
+            throw new IllegalArgumentException("groupId out of range: " + groupId);
         }
         byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
         int fixedRecordOffset = getFixedRecordOffset(groupId);
+        if (isReleasingOutput() && fixedSizeRecords == null) {
+            throw new IllegalStateException("groupId already released");
+        }
         if (cacheHashValue) {
             return (long) LONG_HANDLE.get(fixedSizeRecords, fixedRecordOffset);
         }
@@ -182,7 +205,8 @@ public final class FlatHash
     {
         checkArgument(groupId < nextGroupId, "groupId out of range");
 
-        byte[] fixedSizeRecords = getFixedSizeRecords(groupId);
+        int recordGroupIndex = recordGroupIndexForGroupId(groupId);
+        byte[] fixedSizeRecords = this.fixedSizeRecords[recordGroupIndex];
         int recordOffset = getFixedRecordOffset(groupId);
 
         byte[] variableWidthChunk = null;
@@ -201,6 +225,18 @@ public final class FlatHash
 
         if (hasPrecomputedHash) {
             BIGINT.writeLong(blockBuilders[blockBuilders.length - 1], (long) LONG_HANDLE.get(fixedSizeRecords, recordOffset));
+        }
+        // Release memory from the previous fixed size records batch
+        if (isReleasingOutput() && recordOffset == 0 && recordGroupIndex > 0) {
+            byte[] releasedRecords = this.fixedSizeRecords[recordGroupIndex - 1];
+            this.fixedSizeRecords[recordGroupIndex - 1] = null;
+            if (releasedRecords == null) {
+                throw new IllegalStateException("already released previous record batch");
+            }
+            fixedRecordGroupsRetainedSize -= sizeOf(releasedRecords);
+            if (variableWidthData != null) {
+                variableWidthData.freeChunksBefore(fixedSizeRecords, recordOffset + variableWidthOffset);
+            }
         }
     }
 
@@ -251,6 +287,9 @@ public final class FlatHash
 
     private int getIndex(Block[] blocks, int position, long hash)
     {
+        if (isReleasingOutput()) {
+            throw new IllegalStateException("already releasing output");
+        }
         byte hashPrefix = (byte) (hash & 0x7F | 0x80);
         int bucket = bucket((int) (hash >> 7));
 
@@ -351,6 +390,9 @@ public final class FlatHash
 
     public boolean ensureAvailableCapacity(int batchSize)
     {
+        if (isReleasingOutput()) {
+            throw new IllegalStateException("already releasing output");
+        }
         long requiredMaxFill = nextGroupId + batchSize;
         if (requiredMaxFill >= maxFill) {
             long minimumRequiredCapacity = (requiredMaxFill + 1) * 16 / 15;

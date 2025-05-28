@@ -127,6 +127,13 @@ public class BigintGroupByHash
     }
 
     @Override
+    public void startReleasingOutput()
+    {
+        dictionaryLookBack = null;
+        currentPageSizeInBytes = 0;
+    }
+
+    @Override
     public void appendValuesTo(int groupId, PageBuilder pageBuilder)
     {
         checkArgument(groupId >= 0, "groupId is negative");
