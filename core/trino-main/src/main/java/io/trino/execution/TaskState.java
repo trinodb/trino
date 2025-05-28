@@ -92,6 +92,6 @@ public enum TaskState
 
     public boolean isTerminatingOrDone()
     {
-        return terminating | doneState;
+        return terminating || doneState;
     }
 }

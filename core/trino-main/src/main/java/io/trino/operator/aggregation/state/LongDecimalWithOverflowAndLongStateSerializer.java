@@ -63,7 +63,7 @@ public class LongDecimalWithOverflowAndLongStateSerializer
         // high != 0 (countOffset = 2)
         //    overflow == 0 & count == 1  -> bufferLength = 2
         //    overflow != 0 || count != 1 -> bufferLength = 4
-        int bufferLength = countOffset + ((overflow == 0 & count == 1) ? 0 : 2);
+        int bufferLength = countOffset + ((overflow == 0 && count == 1) ? 0 : 2);
         VARBINARY.writeSlice(out, buffer, 0, bufferLength * Long.BYTES);
     }
 
