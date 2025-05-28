@@ -469,8 +469,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        TableStatistics tableStatistics = tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
-        return tableStatistics;
+        return tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
     }
 
     private Optional<ExtendedStatistics> readExtendedStatisticsFromTableResource(String tableLocationResourceName)

@@ -64,6 +64,7 @@ public class OperatorContext
 {
     private final int operatorId;
     private final PlanNodeId planNodeId;
+    private final Optional<PlanNodeId> sourceId;
     private final String operatorType;
     private final DriverContext driverContext;
     private final Executor executor;
@@ -117,6 +118,7 @@ public class OperatorContext
     public OperatorContext(
             int operatorId,
             PlanNodeId planNodeId,
+            Optional<PlanNodeId> sourceId,
             String operatorType,
             DriverContext driverContext,
             Executor executor,
@@ -125,6 +127,7 @@ public class OperatorContext
         checkArgument(operatorId >= 0, "operatorId is negative");
         this.operatorId = operatorId;
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
+        this.sourceId = requireNonNull(sourceId, "sourceId is null");
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.driverContext = requireNonNull(driverContext, "driverContext is null");
         this.spillContext = new OperatorSpillContext(this.driverContext);
@@ -532,6 +535,7 @@ public class OperatorContext
                 driverContext.getPipelineContext().getPipelineId(),
                 operatorId,
                 planNodeId,
+                sourceId,
                 operatorType,
 
                 1,

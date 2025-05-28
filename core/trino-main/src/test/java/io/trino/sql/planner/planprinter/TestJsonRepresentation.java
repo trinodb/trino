@@ -225,6 +225,7 @@ public class TestJsonRepresentation
                     StatsAndCosts.empty(),
                     Optional.empty(),
                     ImmutableMap.of(),
+                    ImmutableMap.of(),
                     new NoOpAnonymizer())
                     .toJson();
             assertThat(jsonRenderedNode).isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedRepresentation));

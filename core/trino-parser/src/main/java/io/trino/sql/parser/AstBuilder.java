@@ -1176,54 +1176,21 @@ class AstBuilder
     {
         QueryBody term = (QueryBody) visit(context.queryTerm());
 
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
-        }
+        Optional<OrderBy> orderBy = visitIfPresent(context.orderBy(), OrderBy.class);
 
         Optional<Offset> offset = Optional.empty();
         if (context.OFFSET() != null) {
-            Expression rowCount;
-            if (context.offset.INTEGER_VALUE() != null) {
-                rowCount = new LongLiteral(getLocation(context.offset.INTEGER_VALUE()), context.offset.getText());
-            }
-            else {
-                rowCount = new Parameter(getLocation(context.offset.QUESTION_MARK()), parameterPosition);
-                parameterPosition++;
-            }
+            Expression rowCount = (Expression) visit(context.offset);
             offset = Optional.of(new Offset(getLocation(context.OFFSET()), rowCount));
         }
 
         Optional<Node> limit = Optional.empty();
         if (context.FETCH() != null) {
-            Optional<Expression> rowCount = Optional.empty();
-            if (context.fetchFirst != null) {
-                if (context.fetchFirst.INTEGER_VALUE() != null) {
-                    rowCount = Optional.of(new LongLiteral(getLocation(context.fetchFirst.INTEGER_VALUE()), context.fetchFirst.getText()));
-                }
-                else {
-                    rowCount = Optional.of(new Parameter(getLocation(context.fetchFirst.QUESTION_MARK()), parameterPosition));
-                    parameterPosition++;
-                }
-            }
+            Optional<Expression> rowCount = visitIfPresent(context.fetchFirst, Expression.class);
             limit = Optional.of(new FetchFirst(getLocation(context.FETCH()), rowCount, context.TIES() != null));
         }
         else if (context.LIMIT() != null) {
-            if (context.limit == null) {
-                throw new IllegalStateException("Missing LIMIT value");
-            }
-            Expression rowCount;
-            if (context.limit.ALL() != null) {
-                rowCount = new AllRows(getLocation(context.limit.ALL()));
-            }
-            else if (context.limit.rowCount().INTEGER_VALUE() != null) {
-                rowCount = new LongLiteral(getLocation(context.limit.rowCount().INTEGER_VALUE()), context.limit.getText());
-            }
-            else {
-                rowCount = new Parameter(getLocation(context.limit.rowCount().QUESTION_MARK()), parameterPosition);
-                parameterPosition++;
-            }
-
+            Expression rowCount = (Expression) visit(context.limit);
             limit = Optional.of(new Limit(getLocation(context.LIMIT()), rowCount));
         }
 
@@ -1300,6 +1267,12 @@ class AstBuilder
     }
 
     @Override
+    public Node visitOrderBy(SqlBaseParser.OrderByContext context)
+    {
+        return new OrderBy(getLocation(context), visit(context.sortItem(), SortItem.class));
+    }
+
+    @Override
     public Node visitGroupBy(SqlBaseParser.GroupByContext context)
     {
         return new GroupBy(getLocation(context), isDistinct(context.setQuantifier()), visit(context.groupingElement(), GroupingElement.class));
@@ -1342,18 +1315,34 @@ class AstBuilder
     }
 
     @Override
-    public Node visitWindowSpecification(SqlBaseParser.WindowSpecificationContext context)
+    public Node visitLimitRowCount(SqlBaseParser.LimitRowCountContext context)
     {
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        if (context.ALL() != null) {
+            return new AllRows(getLocation(context.ALL()));
+        }
+        return visitRowCount(context.rowCount());
+    }
+
+    @Override
+    public Node visitRowCount(SqlBaseParser.RowCountContext context)
+    {
+        if (context.INTEGER_VALUE() != null) {
+            return new LongLiteral(getLocation(context.INTEGER_VALUE()), context.getText());
         }
 
+        Parameter parameter = new Parameter(getLocation(context.QUESTION_MARK()), parameterPosition);
+        parameterPosition++;
+        return parameter;
+    }
+
+    @Override
+    public Node visitWindowSpecification(SqlBaseParser.WindowSpecificationContext context)
+    {
         return new WindowSpecification(
                 getLocation(context),
                 visitIfPresent(context.existingWindowName, Identifier.class),
                 visit(context.partition, Expression.class),
-                orderBy,
+                visitIfPresent(context.orderBy(), OrderBy.class),
                 visitIfPresent(context.windowFrame(), WindowFrame.class));
     }
 
@@ -1904,10 +1893,7 @@ class AstBuilder
             return child;
         }
 
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
-        }
+        Optional<OrderBy> orderBy = visitIfPresent(context.orderBy(), OrderBy.class);
 
         Optional<PatternSearchMode> searchMode = Optional.empty();
         if (context.INITIAL() != null) {
@@ -2492,7 +2478,7 @@ class AstBuilder
     public Node visitListagg(SqlBaseParser.ListaggContext context)
     {
         Optional<Window> window = visitIfPresent(context.over(), Window.class);
-        OrderBy orderBy = new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class));
+        OrderBy orderBy = (OrderBy) visit(context.orderBy());
         boolean distinct = isDistinct(context.setQuantifier());
 
         Expression expression = (Expression) visit(context.expression());
@@ -2903,10 +2889,7 @@ class AstBuilder
         Optional<Expression> filter = visitIfPresent(context.filter(), Expression.class);
         Optional<Window> window = visitIfPresent(context.over(), Window.class);
 
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
-        }
+        Optional<OrderBy> orderBy = visitIfPresent(context.orderBy(), OrderBy.class);
 
         QualifiedName name = getQualifiedName(context.qualifiedName());
 

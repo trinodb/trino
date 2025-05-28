@@ -16,7 +16,6 @@ package io.trino.operator.table;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -41,6 +40,7 @@ import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import java.math.BigInteger;
 import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -194,12 +194,12 @@ public class SequenceFunction
         }
 
         @Override
-        public Map<String, String> getSplitInfo()
+        public String toString()
         {
-            return ImmutableMap.<String, String>builder()
-                    .put("start", String.valueOf(start))
-                    .put("stop", String.valueOf(stop))
-                    .buildOrThrow();
+            return toStringHelper(this)
+                    .add("start", start)
+                    .add("stop", stop)
+                    .toString();
         }
 
         @Override

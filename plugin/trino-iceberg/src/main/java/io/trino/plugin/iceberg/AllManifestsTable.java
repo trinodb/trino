@@ -50,11 +50,15 @@ public class AllManifestsTable
                         .add(new ColumnMetadata("added_data_files_count", INTEGER))
                         .add(new ColumnMetadata("existing_data_files_count", INTEGER))
                         .add(new ColumnMetadata("deleted_data_files_count", INTEGER))
+                        .add(new ColumnMetadata("added_delete_files_count", INTEGER))
+                        .add(new ColumnMetadata("existing_delete_files_count", INTEGER))
+                        .add(new ColumnMetadata("deleted_delete_files_count", INTEGER))
                         .add(new ColumnMetadata("partition_summaries", new ArrayType(RowType.rowType(
                                 RowType.field("contains_null", BOOLEAN),
                                 RowType.field("contains_nan", BOOLEAN),
                                 RowType.field("lower_bound", VARCHAR),
                                 RowType.field("upper_bound", VARCHAR)))))
+                        .add(new ColumnMetadata("reference_snapshot_id", BIGINT))
                         .build()),
                 ALL_MANIFESTS,
                 executor);
@@ -71,8 +75,12 @@ public class AllManifestsTable
         pagesBuilder.appendInteger(row.get("added_data_files_count", Integer.class));
         pagesBuilder.appendInteger(row.get("existing_data_files_count", Integer.class));
         pagesBuilder.appendInteger(row.get("deleted_data_files_count", Integer.class));
+        pagesBuilder.appendInteger(row.get("added_delete_files_count", Integer.class));
+        pagesBuilder.appendInteger(row.get("existing_delete_files_count", Integer.class));
+        pagesBuilder.appendInteger(row.get("deleted_delete_files_count", Integer.class));
         //noinspection unchecked
         appendPartitionSummaries((ArrayBlockBuilder) pagesBuilder.nextColumn(), row.get("partition_summaries", List.class));
+        pagesBuilder.appendBigint(row.get("reference_snapshot_id", Long.class));
         pagesBuilder.endRow();
     }
 

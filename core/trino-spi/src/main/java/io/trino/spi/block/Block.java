@@ -13,7 +13,6 @@
  */
 package io.trino.spi.block;
 
-import java.util.OptionalInt;
 import java.util.function.ObjLongConsumer;
 
 import static io.trino.spi.block.BlockUtil.checkArrayRange;
@@ -39,37 +38,19 @@ public sealed interface Block
     int getPositionCount();
 
     /**
-     * Returns the size of this block as if it was compacted, ignoring any over-allocations.
-     * For example, in dictionary blocks, this only counts each dictionary entry once,
-     * rather than each time a value is referenced.
+     * Returns the estimated size of this block as if were fully expanded.
+     * This size includes the extra space to represent null values.
+     * For example, the size of an RLE block is the size of the repeated value
+     * times the number of positions in the block. The size of a dictionary
+     * block is the average size of a dictionary entry times the number of
+     * positions in the block.
      */
     long getSizeInBytes();
 
     /**
      * Returns the size of {@code block.getRegion(position, length)}.
-     * The method can be expensive. Do not use it outside an implementation of Block.
      */
     long getRegionSizeInBytes(int position, int length);
-
-    /**
-     * Returns the number of bytes (in terms of {@link Block#getSizeInBytes()}) required per position
-     * that this block contains, assuming that the number of bytes required is a known static quantity
-     * and not dependent on any particular specific position. This allows for some complex block wrappings
-     * to potentially avoid having to call {@link Block#getPositionsSizeInBytes(boolean[], int)}  which
-     * would require computing the specific positions selected
-     *
-     * @return The size in bytes, per position, if this block type does not require specific position information to compute its size
-     */
-    OptionalInt fixedSizeInBytesPerPosition();
-
-    /**
-     * Returns the size of all positions marked true in the positions array.
-     * This is equivalent to multiple calls of {@code block.getRegionSizeInBytes(position, length)}
-     * where you mark all positions for the regions first.
-     * The 'selectedPositionsCount' variable may be used to skip iterating through
-     * the positions array in case this is a fixed-width block
-     */
-    long getPositionsSizeInBytes(boolean[] positions, int selectedPositionsCount);
 
     /**
      * Returns the retained size of this block in memory, including over-allocations.

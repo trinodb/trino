@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metastore.HiveMetastore;
 import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
@@ -22,7 +23,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;

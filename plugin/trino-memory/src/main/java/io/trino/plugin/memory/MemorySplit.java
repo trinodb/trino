@@ -14,12 +14,10 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -58,12 +56,6 @@ public record MemorySplit(
         this.address = requireNonNull(address, "address is null");
         this.expectedRows = expectedRows;
         this.limit = limit;
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of("table", String.valueOf(table), "partNumber", String.valueOf(partNumber), "address", address.toString());
     }
 
     @Override

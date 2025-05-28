@@ -22,6 +22,7 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
@@ -40,6 +41,7 @@ public class TestStageStats
             new DateTime(0),
 
             ImmutableMap.of(new PlanNodeId("1"), getTestDistribution(1)),
+            ImmutableMap.of(new PlanNodeId("2"), new Metrics(ImmutableMap.of("metric", new LongCount(2)))),
 
             4,
             5,

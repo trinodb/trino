@@ -25,6 +25,7 @@ import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
+import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -172,6 +173,48 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testHiveMetastoreTableParameter()
+    {
+        try (TestTable table = newTrinoTable("test_table_params", "(id int)")) {
+            String snapshotId = getTableParameterValue(table.getName(), "current-snapshot-id");
+            String snapshotTimestamp = getTableParameterValue(table.getName(), "current-snapshot-timestamp-ms");
+            assertThat(snapshotId).isNotNull();
+            assertThat(snapshotTimestamp).isNotNull();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertThat(getTableParameterValue(table.getName(), "current-snapshot-id")).isNotEqualTo(snapshotId);
+            assertThat(getTableParameterValue(table.getName(), "current-snapshot-timestamp-ms")).isNotEqualTo(snapshotTimestamp);
+        }
+    }
+
+    @Test
+    void testHiveMetastoreMaterializedParameter()
+    {
+        String mvName = "test_mv_params_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_mv_params", "(id int)")) {
+            assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + table.getName());
+            String snapshotId = getTableParameterValue(mvName, "current-snapshot-id");
+            String snapshotTimestamp = getTableParameterValue(mvName, "current-snapshot-timestamp-ms");
+            assertThat(snapshotId).isNotNull();
+            assertThat(snapshotTimestamp).isNotNull();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+            assertThat(getTableParameterValue(mvName, "current-snapshot-id")).isNotEqualTo(snapshotId);
+            assertThat(getTableParameterValue(mvName, "current-snapshot-timestamp-ms")).isNotEqualTo(snapshotTimestamp);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mvName);
+        }
+    }
+
+    private String getTableParameterValue(String tableName, String parameterKey)
+    {
+        String tableId = onMetastore("SELECT tbl_id FROM TBLS t INNER JOIN DBS db ON t.db_id = db.db_id WHERE db.name = '" + schemaName + "' and t.tbl_name = '" + tableName + "'");
+        return onMetastore("SELECT param_value FROM TABLE_PARAMS WHERE param_key = '" + parameterKey + "' AND tbl_id = " + tableId);
     }
 
     @Test

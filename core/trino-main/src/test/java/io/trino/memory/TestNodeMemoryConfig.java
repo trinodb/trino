@@ -22,17 +22,17 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.trino.memory.NodeMemoryConfig.AVAILABLE_HEAP_MEMORY;
 
 public class TestNodeMemoryConfig
 {
+    private static final long AVAILABLE_HEAP_MEMORY = Runtime.getRuntime().maxMemory();
+
     @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(NodeMemoryConfig.class)
-                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)))
-                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3))));
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)).toString())
+                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.3)).toString()));
     }
 
     @Test
@@ -44,8 +44,23 @@ public class TestNodeMemoryConfig
                 .buildOrThrow();
 
         NodeMemoryConfig expected = new NodeMemoryConfig()
-                .setMaxQueryMemoryPerNode(DataSize.of(1, GIGABYTE))
-                .setHeapHeadroom(DataSize.of(1, GIGABYTE));
+                .setMaxQueryMemoryPerNode("1GB")
+                .setHeapHeadroom("1GB");
+
+        assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testExplicitPropertyMappingsWithRelativeValues()
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("query.max-memory-per-node", "50%")
+                .put("memory.heap-headroom-per-node", "25%")
+                .buildOrThrow();
+
+        NodeMemoryConfig expected = new NodeMemoryConfig()
+                .setMaxQueryMemoryPerNode(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.5)).toString())
+                .setHeapHeadroom(DataSize.ofBytes(Math.round(AVAILABLE_HEAP_MEMORY * 0.25)).toString());
 
         assertFullMapping(properties, expected);
     }

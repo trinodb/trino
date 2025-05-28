@@ -34,6 +34,7 @@ import io.trino.execution.buffer.OutputBufferStatus;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -345,7 +346,7 @@ public class TestScaledWriterScheduler
         }
 
         @Override
-        public void recordGetSplitTime(PlanNodeId nodeId, long start)
+        public void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long start)
         {
             throw new UnsupportedOperationException();
         }

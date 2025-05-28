@@ -16,9 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Provider;
-import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.mapping.IdentifierMappingModule;
@@ -109,6 +107,10 @@ public class JdbcModule
 
         newSetBinder(binder, JdbcQueryEventListener.class);
 
+        newOptionalBinder(binder, Key.get(ExecutorService.class, ForJdbcClient.class))
+                .setDefault()
+                .toInstance(newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName))));
+
         closingBinder(binder)
                 .registerExecutor(Key.get(ExecutorService.class, ForJdbcClient.class));
     }
@@ -141,13 +143,5 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
-    }
-
-    @Provides
-    @Singleton
-    @ForJdbcClient
-    public ExecutorService provideJdbcClientExecutor(CatalogName catalogName)
-    {
-        return newCachedThreadPool(daemonThreadsNamed(format("%s-jdbc-client-%%d", catalogName)));
     }
 }

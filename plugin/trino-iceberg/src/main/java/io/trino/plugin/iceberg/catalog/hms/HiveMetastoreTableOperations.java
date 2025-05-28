@@ -42,6 +42,8 @@ import static java.lang.Boolean.parseBoolean;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
+import static org.apache.iceberg.TableProperties.CURRENT_SNAPSHOT_ID;
+import static org.apache.iceberg.TableProperties.CURRENT_SNAPSHOT_TIMESTAMP;
 import static org.apache.iceberg.TableProperties.HIVE_LOCK_ENABLED;
 
 @NotThreadSafe
@@ -84,7 +86,9 @@ public class HiveMetastoreTableOperations
         commitTableUpdate(materializedView, metadata, (table, newMetadataLocation) -> Table.builder(table)
                 .apply(builder -> builder
                         .setParameter(METADATA_LOCATION_PROP, newMetadataLocation)
-                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation))
+                        .setParameter(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation)
+                        .setParameter(CURRENT_SNAPSHOT_ID, String.valueOf(metadata.currentSnapshot().snapshotId()))
+                        .setParameter(CURRENT_SNAPSHOT_TIMESTAMP, String.valueOf(metadata.currentSnapshot().timestampMillis())))
                 .build());
     }
 

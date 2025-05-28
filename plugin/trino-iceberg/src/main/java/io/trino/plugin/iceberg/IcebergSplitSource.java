@@ -30,6 +30,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
+import io.trino.plugin.base.metrics.DurationTiming;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
 import io.trino.spi.SplitWeight;
@@ -39,6 +41,7 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
@@ -60,6 +63,9 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.iceberg.metrics.InMemoryMetricsReporter;
+import org.apache.iceberg.metrics.ScanMetricsResult;
+import org.apache.iceberg.metrics.ScanReport;
 import org.apache.iceberg.types.Type;
 
 import java.io.IOException;
@@ -173,6 +179,7 @@ public class IcebergSplitSource
     @GuardedBy("this")
     private long outputRowsLowerBound;
     private final CachingHostAddressProvider cachingHostAddressProvider;
+    private final InMemoryMetricsReporter metricsReporter;
     private volatile boolean finished;
 
     public IcebergSplitSource(
@@ -189,6 +196,7 @@ public class IcebergSplitSource
             boolean recordScannedFiles,
             double minimumAssignedSplitWeight,
             CachingHostAddressProvider cachingHostAddressProvider,
+            InMemoryMetricsReporter metricsReporter,
             ListeningExecutorService executor)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -226,6 +234,7 @@ public class IcebergSplitSource
                 .collect(toImmutableSet());
         this.fileModifiedTimeDomain = getFileModifiedTimeDomain(tableHandle.getEnforcedPredicate());
         this.cachingHostAddressProvider = requireNonNull(cachingHostAddressProvider, "cachingHostAddressProvider is null");
+        this.metricsReporter = requireNonNull(metricsReporter, "metricsReporter is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
 
@@ -498,6 +507,25 @@ public class IcebergSplitSource
         }
         log.info("Generated %d splits, skipped %d files for OPTIMIZE", splitsInfo.size(), filesSkipped);
         return Optional.of(splitsInfo);
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        ScanReport scanReport = metricsReporter.scanReport();
+        if (scanReport == null) {
+            return Metrics.EMPTY;
+        }
+        ScanMetricsResult scanMetrics = scanReport.scanMetrics();
+        return new Metrics(ImmutableMap.of(
+                "scanPlanningDuration", new DurationTiming(Duration.succinctDuration(scanMetrics.totalPlanningDuration().totalDuration().toMillis(), MILLISECONDS)),
+                "dataFiles", new LongCount(scanMetrics.resultDataFiles().value()),
+                "dataFileSizeBytes", new LongCount(scanMetrics.totalFileSizeInBytes().value()),
+                "deleteFileSizeBytes", new LongCount(scanMetrics.totalDeleteFileSizeInBytes().value()),
+                "dataManifests", new LongCount(scanMetrics.scannedDataManifests().value()),
+                "deleteManifests", new LongCount(scanMetrics.scannedDeleteManifests().value()),
+                "equalityDeleteFiles", new LongCount(scanMetrics.equalityDeleteFiles().value()),
+                "positionalDeleteFiles", new LongCount(scanMetrics.positionalDeleteFiles().value())));
     }
 
     @Override

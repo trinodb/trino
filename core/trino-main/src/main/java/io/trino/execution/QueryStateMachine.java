@@ -49,6 +49,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.eventlistener.TableInfo;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.security.SelectedRole;
@@ -56,6 +57,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.SessionPropertyResolver.SessionPropertiesApplier;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
@@ -776,7 +778,17 @@ public class QueryStateMachine
 
             stageGcStatistics.add(stageStats.getGcInfo());
 
-            operatorStatsSummary.addAll(stageInfo.getStageStats().getOperatorSummaries());
+            List<OperatorStats> operatorStats = stageInfo.getStageStats().getOperatorSummaries();
+            Map<PlanNodeId, Metrics> splitSourceMetrics = stageInfo.getStageStats().getSplitSourceMetrics();
+            for (OperatorStats stats : operatorStats) {
+                if (stats.getSourceId().isPresent()) {
+                    Metrics metrics = splitSourceMetrics.get(stats.getSourceId().get());
+                    if (metrics != null && metrics != Metrics.EMPTY) {
+                        stats = stats.withConnectorSplitSourceMetrics(metrics);
+                    }
+                }
+                operatorStatsSummary.add(stats);
+            }
         }
 
         if (rootStage.isPresent()) {

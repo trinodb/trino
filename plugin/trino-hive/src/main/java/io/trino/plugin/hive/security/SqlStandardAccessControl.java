@@ -579,7 +579,7 @@ public class SqlStandardAccessControl
     public void checkCanExecuteTableProcedure(ConnectorSecurityContext context, SchemaTableName tableName, String procedure)
     {
         if (!isTableOwner(context, tableName)) {
-            denyExecuteTableProcedure(tableName.toString(), tableName.toString());
+            denyExecuteTableProcedure(tableName.toString(), procedure);
         }
     }
 

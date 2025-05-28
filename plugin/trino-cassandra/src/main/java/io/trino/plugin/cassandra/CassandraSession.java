@@ -17,7 +17,6 @@ import com.datastax.oss.driver.api.core.AllNodesFailedException;
 import com.datastax.oss.driver.api.core.CqlIdentifier;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.ProtocolVersion;
-import com.datastax.oss.driver.api.core.Version;
 import com.datastax.oss.driver.api.core.connection.ReconnectionPolicy;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
@@ -81,7 +80,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
-import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_VERSION_ERROR;
 import static io.trino.plugin.cassandra.CassandraMetadata.PRESTO_COMMENT_METADATA;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.selectDistinctFrom;
 import static io.trino.plugin.cassandra.util.CassandraCqlUtils.validSchemaName;
@@ -101,7 +99,6 @@ public class CassandraSession
 
     private static final String SYSTEM = "system";
     private static final String SIZE_ESTIMATES = "size_estimates";
-    private static final Version PARTITION_FETCH_WITH_IN_PREDICATE_VERSION = Version.parse("2.2");
 
     private final CassandraTypeManager cassandraTypeManager;
     private final JsonCodec<List<ExtraColumnMetadata>> extraColumnMetadataCodec;
@@ -131,18 +128,6 @@ public class CassandraSession
             session = sessionSupplier.get();
         }
         return session;
-    }
-
-    public Version getCassandraVersion()
-    {
-        ResultSet result = executeWithSession(session -> session.execute("select release_version from system.local"));
-        Row versionRow = result.one();
-        if (versionRow == null) {
-            throw new TrinoException(CASSANDRA_VERSION_ERROR, "The cluster version is not available. " +
-                                                              "Please make sure that the Cassandra cluster is up and running, " +
-                                                              "and that the contact points are specified correctly.");
-        }
-        return Version.parse(versionRow.getString("release_version"));
     }
 
     public ProtocolVersion getProtocolVersion()
@@ -417,15 +402,7 @@ public class CassandraSession
             return ImmutableList.of(CassandraPartition.UNPARTITIONED);
         }
 
-        Iterable<Row> rows;
-        if (getCassandraVersion().compareTo(PARTITION_FETCH_WITH_IN_PREDICATE_VERSION) > 0) {
-            log.debug("Using IN predicate to fetch partitions.");
-            rows = queryPartitionKeysWithInClauses(table, filterPrefixes);
-        }
-        else {
-            log.debug("Using combination of partition values to fetch partitions.");
-            rows = queryPartitionKeysLegacyWithMultipleQueries(table, filterPrefixes);
-        }
+        Iterable<Row> rows = queryPartitionKeysLegacyWithMultipleQueries(table, filterPrefixes);
 
         ByteBuffer buffer = ByteBuffer.allocate(1000);
         HashMap<ColumnHandle, NullableValue> map = new HashMap<>();

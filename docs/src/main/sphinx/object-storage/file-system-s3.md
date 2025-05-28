@@ -34,6 +34,10 @@ support:
   - S3 storage class to use while writing data. Defaults to `STANDARD`. Other allowed
     values are: `STANDARD_IA`, `INTELLIGENT_TIERING`, `REDUCED_REDUNDANCY`, `ONEZONE_IA`,
     `GLACIER`, `DEEP_ARCHIVE`, `OUTPOSTS`, `GLACIER_IR`, `SNOW`, `EXPRESS_ONEZONE`.
+* - `s3.signer-type`
+  - AWS signing protocol to use for authenticating S3 requests. Supported values are: 
+    `AwsS3V4Signer`, `Aws4Signer`, `AsyncAws4Signer`, `Aws4UnsignedPayloadSigner`, 
+    `EventStreamAws4Signer`.
 * - `s3.exclusive-create`
   - Whether conditional write is supported by the S3-compatible storage. Defaults to `true`.
 * - `s3.canned-acl`
@@ -58,7 +62,7 @@ support:
     `CUSTOMER`. 
 * - `s3.streaming.part-size`
   - Part size for S3 streaming upload. Values between `5MB` and `256MB` are
-    valid. Defaults to `16MB`.
+    valid. Defaults to `32MB`.
 * - `s3.requester-pays`
   - Switch to activate billing transfer cost to the requester. Defaults to
     `false`.
@@ -386,13 +390,15 @@ the following edits to your catalog configuration:
    * - `hive.s3.path-style-access`
      - `s3.path-style-access`
      -
+   * - `hive.s3.signer-type`
+     - `s3.signer-type`
+     -
   :::
 
 1. Remove the following legacy configuration properties if they exist in your
    catalog configuration:
 
       * `hive.s3.storage-class`
-      * `hive.s3.signer-type`
       * `hive.s3.signer-class`
       * `hive.s3.staging-directory`
       * `hive.s3.pin-client-to-current-region`

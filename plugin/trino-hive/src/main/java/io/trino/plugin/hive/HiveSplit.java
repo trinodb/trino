@@ -283,28 +283,17 @@ public class HiveSplit
     }
 
     @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.<String, String>builder()
-                .put("path", path)
-                .put("start", String.valueOf(start))
-                .put("length", String.valueOf(length))
-                .put("estimatedFileSize", String.valueOf(estimatedFileSize))
-                .put("hosts", addresses.stream().map(HostAddress::toString).collect(joining(",")))
-                .put("forceLocalScheduling", String.valueOf(forceLocalScheduling))
-                .put("partitionName", partitionName)
-                .put("serializationLibraryName", schema.serializationLibraryName())
-                .buildOrThrow();
-    }
-
-    @Override
     public String toString()
     {
         return toStringHelper(this)
-                .addValue(path)
-                .addValue(start)
-                .addValue(length)
-                .addValue(estimatedFileSize)
+                .add("path", path)
+                .add("start", String.valueOf(start))
+                .add("length", String.valueOf(length))
+                .add("estimatedFileSize", String.valueOf(estimatedFileSize))
+                .add("hosts", addresses.stream().map(HostAddress::toString).collect(joining(",")))
+                .add("forceLocalScheduling", String.valueOf(forceLocalScheduling))
+                .add("partitionName", partitionName)
+                .add("serializationLibraryName", schema.serializationLibraryName())
                 .toString();
     }
 

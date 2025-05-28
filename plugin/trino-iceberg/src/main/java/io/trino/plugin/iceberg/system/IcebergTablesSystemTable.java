@@ -19,6 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -87,13 +88,15 @@ public class IcebergTablesSystemTable
 
         Optional<String> schemaFilter = tryGetSingleVarcharValue(schemaDomain);
 
-        TrinoCatalog catalog = catalogFactory.create(connectorSession.getIdentity());
-        List<SchemaTableName> icebergTables = catalog.listIcebergTables(connectorSession, schemaFilter);
-        Set<SchemaTableName> accessibleIcebergTables = accessControl.filterTables(null, ImmutableSet.copyOf(icebergTables));
-        for (SchemaTableName table : accessibleIcebergTables) {
-            result.addRow(table.getSchemaName(), table.getTableName());
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            TrinoCatalog catalog = catalogFactory.create(connectorSession.getIdentity());
+            List<SchemaTableName> icebergTables = catalog.listIcebergTables(connectorSession, schemaFilter);
+            Set<SchemaTableName> accessibleIcebergTables = accessControl.filterTables(null, ImmutableSet.copyOf(icebergTables));
+            for (SchemaTableName table : accessibleIcebergTables) {
+                result.addRow(table.getSchemaName(), table.getTableName());
+            }
+            return result.build().cursor();
         }
-        return result.build().cursor();
     }
 
     private static <T> Optional<String> tryGetSingleVarcharValue(Domain domain)
