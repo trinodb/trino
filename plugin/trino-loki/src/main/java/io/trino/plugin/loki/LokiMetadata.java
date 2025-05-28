@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableVersion;
+import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableFunctionApplicationResult;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
@@ -52,6 +53,8 @@ public class LokiMetadata
     private final Type labelsMapType;
 
     private final LokiClient lokiClient;
+
+    private Data.ResultType expectedResultType;
 
     @Inject
     public LokiMetadata(LokiClient lokiClient, TypeManager typeManager)
@@ -108,7 +111,8 @@ public class LokiMetadata
         columnsBuilder.add(new LokiColumnHandle("timestamp", TIMESTAMP_TZ_MILLIS, 1));
 
         try {
-            Type valueType = lokiClient.getExpectedResultType(query) == Data.ResultType.Matrix ? DOUBLE : VARCHAR;
+            this.expectedResultType = lokiClient.getExpectedResultType(query);
+            Type valueType = this.expectedResultType == Data.ResultType.Matrix ? DOUBLE : VARCHAR;
             columnsBuilder.add(new LokiColumnHandle("value", valueType, 2));
         }
         catch (LokiClientException e) {
@@ -116,5 +120,24 @@ public class LokiMetadata
         }
 
         return columnsBuilder.build();
+    }
+
+    @Override
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle tableHandle, long limit)
+    {
+        LokiTableHandle lokiTableHandle = (LokiTableHandle) tableHandle;
+
+        // Metric queries do not support setting a limit
+        if (this.expectedResultType != null && this.expectedResultType == Data.ResultType.Matrix) {
+            return Optional.empty();
+        }
+
+        // This change has no effect
+        if (lokiTableHandle.limit().isPresent() && limit == lokiTableHandle.limit().getAsLong()) {
+            return Optional.empty();
+        }
+
+        lokiTableHandle = lokiTableHandle.withLimit(limit);
+        return Optional.of(new LimitApplicationResult<>(lokiTableHandle, true, false));
     }
 }

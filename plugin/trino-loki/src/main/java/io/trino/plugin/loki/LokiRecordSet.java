@@ -14,6 +14,7 @@
 package io.trino.plugin.loki;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.github.jeschkies.loki.client.LokiClient;
 import io.github.jeschkies.loki.client.LokiClientException;
 import io.github.jeschkies.loki.client.model.Matrix;
@@ -28,11 +29,14 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.loki.LokiErrorCode.LOKI_CLIENT_ERROR;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class LokiRecordSet
         implements RecordSet
 {
+    private static final Logger log = Logger.get(LokiRecordSet.class);
+
     private final List<LokiColumnHandle> columnHandles;
     private final List<Type> columnTypes;
 
@@ -49,7 +53,8 @@ public class LokiRecordSet
 
         // Execute the query
         try {
-            this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end(), split.step());
+            log.info("querying %s with limit %d", split.query(), split.limit());
+            this.result = lokiClient.rangeQuery(split.query(), split.start(), split.end(), split.step(), toIntExact(split.limit()));
         }
         catch (LokiClientException e) {
             throw new TrinoException(LOKI_CLIENT_ERROR, e);
