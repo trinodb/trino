@@ -3067,7 +3067,8 @@ public class LocalExecutionPlanner
                         node.getFilter().isPresent(),
                         probeTypes,
                         probeJoinChannels,
-                        Optional.of(probeOutputChannels));
+                        Optional.of(probeOutputChannels),
+                        hashCompiler);
             }
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();

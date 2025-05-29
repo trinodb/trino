@@ -186,18 +186,6 @@ public class PartitionedLookupSource
     }
 
     @Override
-    public void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] result)
-    {
-        int positionCount = positions.length;
-        long[] rawHashes = new long[result.length];
-        for (int i = 0; i < positionCount; i++) {
-            rawHashes[positions[i]] = partitionGenerator.getRawHash(hashChannelsPage, positions[i]);
-        }
-
-        getJoinPosition(positions, hashChannelsPage, allChannelsPage, rawHashes, result);
-    }
-
-    @Override
     public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         int partition = decodePartition(currentJoinPosition);

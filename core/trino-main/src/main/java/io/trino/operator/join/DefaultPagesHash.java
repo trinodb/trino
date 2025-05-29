@@ -177,20 +177,6 @@ public final class DefaultPagesHash
     }
 
     @Override
-    public int[] getAddressIndex(int[] positions, Page hashChannelsPage)
-    {
-        if (positions.length == 0) {
-            return new int[0];
-        }
-        long[] hashes = new long[positions[positions.length - 1] + 1];
-        for (int i = 0; i < positions.length; i++) {
-            hashes[positions[i]] = pagesHashStrategy.hashRow(positions[i], hashChannelsPage);
-        }
-
-        return getAddressIndex(positions, hashChannelsPage, hashes);
-    }
-
-    @Override
     public int[] getAddressIndex(int[] positions, Page hashChannelsPage, long[] rawHashes)
     {
         int positionCount = positions.length;

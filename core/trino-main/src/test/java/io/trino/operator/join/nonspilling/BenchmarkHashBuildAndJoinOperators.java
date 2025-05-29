@@ -217,7 +217,8 @@ public class BenchmarkHashBuildAndJoinOperators
                     false,
                     types,
                     hashChannels,
-                    Optional.of(outputChannels));
+                    Optional.of(outputChannels),
+                    HASH_COMPILER);
             buildHash(this, lookupSourceFactory, outputChannels, partitionCount);
             initializeProbePages();
         }

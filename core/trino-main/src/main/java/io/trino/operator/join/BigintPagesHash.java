@@ -177,12 +177,6 @@ public final class BigintPagesHash
     @Override
     public int[] getAddressIndex(int[] positions, Page hashChannelsPage, long[] rawHashes)
     {
-        return getAddressIndex(positions, hashChannelsPage);
-    }
-
-    @Override
-    public int[] getAddressIndex(int[] positions, Page hashChannelsPage)
-    {
         checkArgument(hashChannelsPage.getChannelCount() == 1, "Multiple channel page passed to BigintPagesHash");
 
         int positionCount = positions.length;
