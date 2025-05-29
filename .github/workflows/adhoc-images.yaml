@@ -1,0 +1,35 @@
+name: build-adhoc-images
+
+on:
+  pull_request_review:
+    types: [ submitted ]
+  workflow_call:
+    secrets:
+      CI_PAT:
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  generate-tags:
+    if: contains(github.event.review.body, '/push-image')
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.tags.outputs.tags }}
+    steps:
+      - name: Parse tag
+        run: echo "IMAGE_TAG=$(echo ${{ github.event.review.body }} | sed -e s/\\/push-image\ //)" >> $GITHUB_ENV
+      - name: Fail if adhoc image uses reserved tag or is empty
+        if: contains(env.IMAGE_TAG, 'release-v') || env.IMAGE_TAG == 'latest' || env.IMAGE_TAG == ''
+        run: exit 1
+      - id: tags
+        run: echo "tags=$IMAGE_TAG" >> $GITHUB_OUTPUT
+  build-images:
+    if: ${{ github.event.issue.pull_request }} && contains(github.event.comment.body, '/push-image')
+    needs: generate-tags
+    uses: ./.github/workflows/build-images.yaml
+    secrets: inherit
+    with:
+      tags: ${{ needs.generate-tags.outputs.tags }}
