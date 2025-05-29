@@ -3096,8 +3096,7 @@ public class LocalExecutionPlanner
                         probeTypes,
                         probeJoinChannels,
                         probeHashChannel,
-                        Optional.of(probeOutputChannels),
-                        typeOperators);
+                        Optional.of(probeOutputChannels));
             }
 
             ImmutableMap.Builder<Symbol, Integer> outputMappings = ImmutableMap.builder();

@@ -285,8 +285,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
+                Optional.empty());
 
         instantiateBuildDrivers(buildSideSetup, taskContext);
         buildLookupSource(executor, buildSideSetup);
@@ -1106,8 +1105,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
+                Optional.empty());
 
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1163,8 +1161,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
+                Optional.empty());
 
         // drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1226,8 +1223,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
+                Optional.empty());
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1292,8 +1288,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
+                Optional.empty());
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1357,8 +1352,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
+                Optional.empty());
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1493,8 +1487,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
+                Optional.empty());
 
         // build drivers and operators
         instantiateBuildDrivers(buildSideSetup, taskContext);
@@ -1533,8 +1526,7 @@ public class TestHashJoinOperator
                 probePages.getTypes(),
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
-                Optional.empty(),
-                TYPE_OPERATORS);
+                Optional.empty());
     }
 
     private static <T> List<T> concat(List<T> initialElements, List<T> moreElements)
