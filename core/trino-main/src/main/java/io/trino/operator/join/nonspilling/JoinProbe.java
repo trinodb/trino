@@ -14,6 +14,7 @@
 package io.trino.operator.join.nonspilling;
 
 import com.google.common.primitives.Ints;
+import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -36,18 +37,20 @@ public class JoinProbe
         private final int[] probeOutputChannels;
         private final int[] probeJoinChannels;
         private final boolean hasFilter;
+        private final InterpretedHashGenerator hashGenerator;
 
-        public JoinProbeFactory(List<Integer> probeOutputChannels, List<Integer> probeJoinChannels, boolean hasFilter)
+        public JoinProbeFactory(List<Integer> probeOutputChannels, List<Integer> probeJoinChannels, boolean hasFilter, InterpretedHashGenerator hashGenerator)
         {
             this.probeOutputChannels = Ints.toArray(requireNonNull(probeOutputChannels, "probeOutputChannels is null"));
             this.probeJoinChannels = Ints.toArray(requireNonNull(probeJoinChannels, "probeJoinChannels is null"));
             this.hasFilter = hasFilter;
+            this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
         }
 
         public JoinProbe createJoinProbe(Page page, LookupSource lookupSource)
         {
             Page probePage = page.getColumns(probeJoinChannels);
-            return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, hasFilter);
+            return new JoinProbe(probeOutputChannels, page, probePage, lookupSource, hasFilter, hashGenerator);
         }
     }
 
@@ -57,7 +60,7 @@ public class JoinProbe
     private final boolean isRle;
     private int position = -1;
 
-    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, LookupSource lookupSource, boolean hasFilter)
+    private JoinProbe(int[] probeOutputChannels, Page page, Page probePage, LookupSource lookupSource, boolean hasFilter, InterpretedHashGenerator hashGenerator)
     {
         this.probeOutputChannels = requireNonNull(probeOutputChannels, "probeOutputChannels is null");
         this.page = requireNonNull(page, "page is null");
@@ -65,7 +68,7 @@ public class JoinProbe
         // if filter channels are not RLE encoded, then every probe
         // row might be unique and must be matched independently
         this.isRle = !hasFilter && hasOnlyRleBlocks(probePage);
-        joinPositionCache = fillCache(lookupSource, page, probePage, isRle);
+        joinPositionCache = fillCache(lookupSource, page, probePage, isRle, hashGenerator);
     }
 
     public int[] getOutputChannels()
@@ -113,7 +116,8 @@ public class JoinProbe
             LookupSource lookupSource,
             Page page,
             Page probePage,
-            boolean isRle)
+            boolean isRle,
+            InterpretedHashGenerator hashGenerator)
     {
         int positionCount = page.getPositionCount();
 
@@ -166,7 +170,10 @@ public class JoinProbe
                     // This way less code is in the if branch and CPU should be able to optimize branch prediction better
                     nonNullCount += isNull[i] ? 0 : 1;
                 }
-                lookupSource.getJoinPosition(positions, probePage, page, joinPositionCache);
+
+                long[] hashes = new long[positionCount];
+                hashGenerator.hashNonNulls(probePage, positions, hashes);
+                lookupSource.getJoinPosition(positions, probePage, page, hashes, joinPositionCache);
                 return joinPositionCache;
             } // else fall back to non-null path
         }
@@ -174,7 +181,10 @@ public class JoinProbe
         for (int i = 0; i < positionCount; i++) {
             positions[i] = i;
         }
-        lookupSource.getJoinPosition(positions, probePage, page, joinPositionCache);
+
+        long[] hashes = new long[positionCount];
+        hashGenerator.hash(probePage, 0, positionCount, hashes);
+        lookupSource.getJoinPosition(positions, probePage, page, hashes, joinPositionCache);
 
         return joinPositionCache;
     }

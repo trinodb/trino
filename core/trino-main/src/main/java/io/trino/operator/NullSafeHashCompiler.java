@@ -98,6 +98,8 @@ public final class NullSafeHashCompiler
         generateHashBlocksBatched("hashBatchedWithCombine", definition, callSiteBinder, hashMethod, true);
         generateHashBlocksDictionary("hashBatchedDictionary", definition, callSiteBinder, hashMethod, false);
         generateHashBlocksDictionary("hashBatchedDictionaryWithCombine", definition, callSiteBinder, hashMethod, true);
+        generateHashNonNullPositions("hashNonNullPositions", definition, callSiteBinder, hashMethod, false);
+        generateHashNonNullPositions("hashNonNullPositionsWithCombine", definition, callSiteBinder, hashMethod, true);
 
         try {
             return defineHiddenClass(definition, NullSafeHash.class, callSiteBinder.getClassData())
@@ -217,6 +219,42 @@ public final class NullSafeHashCompiler
                                         .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
                                         .ifFalse(hash.set(computeHashNonNull(callSiteBinder, valueBlock, position, hashMethod))))
                                 .append(setHashExpression(hashes, index, hash, combineHash))));
+
+        body.append(computeHashLoop).ret();
+    }
+
+    private static void generateHashNonNullPositions(String methodName, ClassDefinition definition, CallSiteBinder callSiteBinder, MethodHandle hashMethod, boolean combineHash)
+    {
+        Parameter block = arg("block", type(ValueBlock.class));
+        Parameter hashes = arg("hashes", type(long[].class));
+        Parameter positions = arg("positions", type(int[].class));
+
+        MethodDefinition methodDefinition = definition.declareMethod(
+                a(PUBLIC),
+                methodName,
+                type(void.class),
+                block,
+                hashes,
+                positions);
+
+        BytecodeBlock body = methodDefinition.getBody();
+        Scope scope = methodDefinition.getScope();
+
+        Variable position = scope.declareVariable(int.class, "position");
+        Variable hash = scope.declareVariable(long.class, "hash");
+
+        body.append(invokeStatic(Objects.class, "checkFromIndexSize", int.class, constantInt(0), block.invoke("getPositionCount", int.class), hashes.length()).pop());
+
+        Variable index = scope.declareVariable(int.class, "index");
+        BytecodeBlock computeHashLoop = new BytecodeBlock()
+                .append(new ForLoop("for (int index = 0; index < positions.length; index++)")
+                        .initialize(index.set(constantInt(0)))
+                        .condition(lessThan(index, positions.length()))
+                        .update(index.increment())
+                        .body(new BytecodeBlock()
+                                .append(position.set(positions.getElement(index)))
+                                .append(hash.set(computeHashNonNull(callSiteBinder, block, position, hashMethod)))
+                                .append(setHashExpression(hashes, position, hash, combineHash))));
 
         body.append(computeHashLoop).ret();
     }

@@ -25,7 +25,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomDictionaryBlock;
@@ -156,6 +158,49 @@ class TestInterpretedHashGenerator
     }
 
     @Test
+    void testBatchedNonNullPositionsHashesMatchSinglePositionHashes()
+    {
+        List<Type> types = createTestingTypes(typeOperators);
+        InterpretedHashGenerator hashGenerator = createPagePrefixHashGenerator(types, compiler);
+
+        int positionCount = 1024;
+        Block[] blocks = createRandomData(types, positionCount, 0.25f);
+
+        long[] hashes = new long[positionCount];
+        int[] nonNullPositions = getNonNullPositions(blocks, positionCount);
+        hashGenerator.hashNonNulls(new Page(blocks), nonNullPositions, hashes);
+        assertHashesEqual(types, blocks, hashes, hashGenerator);
+
+        // Convert all blocks to RunLengthEncoded and re-check result matches
+        Block[] rleBlocks = new Block[blocks.length];
+        for (int i = 0; i < blocks.length; i++) {
+            rleBlocks[i] = RunLengthEncodedBlock.create(blocks[i].getSingleValueBlock(nonNullPositions[0]), positionCount);
+        }
+        hashGenerator.hashNonNulls(new Page(rleBlocks), IntStream.range(0, positionCount).toArray(), hashes);
+        assertHashesEqual(types, rleBlocks, hashes, hashGenerator);
+
+        // Convert all blocks to Dictionary and check result matches
+        Block[] dictionaryBlocks = new Block[blocks.length];
+        for (int i = 0; i < blocks.length; i++) {
+            // Effective dictionaries
+            dictionaryBlocks[i] = createRandomDictionaryBlock(blocks[i].getRegion(0, 5), positionCount);
+        }
+        nonNullPositions = getNonNullPositions(dictionaryBlocks, positionCount);
+        hashes = new long[positionCount];
+        hashGenerator.hashNonNulls(new Page(dictionaryBlocks), nonNullPositions, hashes);
+        assertHashesEqual(types, dictionaryBlocks, hashes, hashGenerator);
+
+        for (int i = 0; i < blocks.length; i++) {
+            // In-effective dictionaries
+            dictionaryBlocks[i] = createRandomDictionaryBlock(blocks[i], positionCount);
+        }
+        nonNullPositions = getNonNullPositions(dictionaryBlocks, positionCount);
+        hashes = new long[positionCount];
+        hashGenerator.hashNonNulls(new Page(dictionaryBlocks), nonNullPositions, hashes);
+        assertHashesEqual(types, dictionaryBlocks, hashes, hashGenerator);
+    }
+
+    @Test
     void testBatchedRawHashesZeroLength()
     {
         List<Type> types = createTestingTypes(typeOperators);
@@ -175,6 +220,25 @@ class TestInterpretedHashGenerator
             assertThat(singleRowHash).isEqualTo(manualRowHash);
             assertThat(singleRowHash).isEqualTo(batchedHashes[position]);
         }
+    }
+
+    private static int[] getNonNullPositions(Block[] blocks, int positionCount)
+    {
+        int[] nonNullPositions = new int[positionCount];
+        int nonNullCount = 0;
+        for (int position = 0; position < positionCount; position++) {
+            boolean isNull = false;
+            for (Block block : blocks) {
+                if (block.isNull(position)) {
+                    isNull = true;
+                    break;
+                }
+            }
+            if (!isNull) {
+                nonNullPositions[nonNullCount++] = position;
+            }
+        }
+        return Arrays.copyOf(nonNullPositions, nonNullCount);
     }
 
     private static Block[] createRandomData(List<Type> types, int positionCount, float nullRate)

@@ -96,13 +96,6 @@ public final class JoinHash
         startJoinPosition(addressIndexex, positions, allChannelsPage, result);
     }
 
-    @Override
-    public void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] result)
-    {
-        int[] addressIndexex = pagesHash.getAddressIndex(positions, hashChannelsPage);
-        startJoinPosition(addressIndexex, positions, allChannelsPage, result);
-    }
-
     private long startJoinPosition(int currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         if (currentJoinPosition == -1) {

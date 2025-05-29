@@ -42,17 +42,6 @@ public interface LookupSource
 
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage, long rawHash);
 
-    /**
-     * The `result` array is global to the entire processed page, while the `positions` array may hold
-     * any number of selected positions from this page
-     */
-    default void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] result)
-    {
-        for (int i = 0; i < positions.length; i++) {
-            result[positions[i]] = getJoinPosition(positions[i], hashChannelsPage, allChannelsPage);
-        }
-    }
-
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage);
 
     long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
