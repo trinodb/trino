@@ -32,12 +32,13 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.LiteralInterpreter;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.ColumnPosition;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
 
 import java.util.List;
 import java.util.Map;
@@ -95,6 +96,7 @@ public class AddColumnTask
             WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
+        Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
         QualifiedObjectName originalTableName = createQualifiedObjectName(session, statement, statement.getName());
         RedirectionAwareTableHandle redirectionAwareTableHandle = plannerContext.getMetadata().getRedirectionAwareTableHandle(session, originalTableName);
         if (redirectionAwareTableHandle.tableHandle().isEmpty()) {
@@ -111,7 +113,6 @@ public class AddColumnTask
         TableMetadata tableMetadata = plannerContext.getMetadata().getTableMetadata(session, tableHandle);
         Map<String, ColumnMetadata> columns = tableMetadata.columns().stream()
                 .collect(toImmutableMap(ColumnMetadata::getName, identity()));
-        LiteralInterpreter literalInterpreter = new LiteralInterpreter(plannerContext, session);
 
         ColumnDefinition element = statement.getColumn();
         Identifier columnName = element.getName().getOriginalParts().get(0);
@@ -153,14 +154,14 @@ public class AddColumnTask
                     session,
                     plannerContext,
                     accessControl,
-                    bindParameters(statement, parameters),
+                    parameterLookup,
                     true);
 
             Type supportedType = getSupportedType(session, catalogHandle, tableMetadata.metadata().getProperties(), type);
             ColumnMetadata column = ColumnMetadata.builder()
                     .setName(columnName.getValue())
                     .setType(supportedType)
-                    .setDefaultValue(element.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, type)))
+                    .setDefaultValue(element.getDefaultValue().map(value -> evaluateLiteral(session, plannerContext, accessControl, parameterLookup, warningCollector, type, value)))
                     .setNullable(element.isNullable())
                     .setComment(element.getComment())
                     .setProperties(columnProperties)

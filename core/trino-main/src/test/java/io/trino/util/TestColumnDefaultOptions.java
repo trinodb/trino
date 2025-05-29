@@ -13,12 +13,13 @@
  */
 package io.trino.util;
 
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.LiteralInterpreter;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
@@ -31,6 +32,7 @@ import io.trino.sql.tree.StringLiteral;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
@@ -60,102 +62,113 @@ import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.time.ZoneOffset.UTC;
-import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 
 final class TestColumnDefaultOptions
 {
     private static final NodeLocation LOCATION = new NodeLocation(1, 1);
 
-    private final LiteralInterpreter literalInterpreter;
+    private final PlannerContext plannerContext;
 
     public TestColumnDefaultOptions()
     {
-        PlannerContext plannerContext = plannerContextBuilder().build();
-        literalInterpreter = new LiteralInterpreter(plannerContext, TEST_SESSION);
+        plannerContext = plannerContextBuilder().build();
     }
 
     @Test
     void testNull()
     {
-        assertLiteral(new NullLiteral(LOCATION), BOOLEAN, null);
+        assertLiteral(BOOLEAN, new NullLiteral(LOCATION), null);
     }
 
     @Test
     void testBoolean()
     {
-        assertLiteral(new BooleanLiteral(LOCATION, "true"), BOOLEAN, true);
-        assertLiteral(new BooleanLiteral(LOCATION, "false"), BOOLEAN, false);
+        assertLiteral(BOOLEAN, new BooleanLiteral(LOCATION, "true"), true);
+        assertLiteral(BOOLEAN, new BooleanLiteral(LOCATION, "false"), false);
     }
 
     @Test
     void testTinyint()
     {
-        assertLiteral(new LongLiteral(LOCATION, "-128"), TINYINT, -128L);
-        assertLiteral(new LongLiteral(LOCATION, "127"), TINYINT, 127L);
+        assertLiteral(TINYINT, new LongLiteral(LOCATION, "-128"), -128L);
+        assertLiteral(TINYINT, new LongLiteral(LOCATION, "127"), 127L);
+
+        assertInvalidLiteralFails(TINYINT, new LongLiteral(LOCATION, "-129"), "Value -129 exceeds MIN_BYTE");
+        assertInvalidLiteralFails(TINYINT, new LongLiteral(LOCATION, "128"), "Value 128 exceeds MAX_BYTE");
     }
 
     @Test
     void testSmallint()
     {
-        assertLiteral(new LongLiteral(LOCATION, "-32768"), SMALLINT, -32768L);
-        assertLiteral(new LongLiteral(LOCATION, "32767"), SMALLINT, 32767L);
+        assertLiteral(SMALLINT, new LongLiteral(LOCATION, "-32768"), -32768L);
+        assertLiteral(SMALLINT, new LongLiteral(LOCATION, "32767"), 32767L);
+
+        assertInvalidLiteralFails(SMALLINT, new LongLiteral(LOCATION, "-32769"), " Value -32769 exceeds MIN_SHORT");
+        assertInvalidLiteralFails(SMALLINT, new LongLiteral(LOCATION, "32768"), " Value 32768 exceeds MAX_SHORT");
     }
 
     @Test
     void testInteger()
     {
-        assertLiteral(new LongLiteral(LOCATION, "-2147483648"), INTEGER, -2147483648L);
-        assertLiteral(new LongLiteral(LOCATION, "2147483647"), INTEGER, 2147483647L);
+        assertLiteral(INTEGER, new LongLiteral(LOCATION, "-2147483648"), -2147483648L);
+        assertLiteral(INTEGER, new LongLiteral(LOCATION, "2147483647"), 2147483647L);
+
+        assertInvalidLiteralFails(INTEGER, new LongLiteral(LOCATION, "-2147483649"), "Value -2147483649 exceeds MIN_INT");
+        assertInvalidLiteralFails(INTEGER, new LongLiteral(LOCATION, "2147483648"), "Value 2147483648 exceeds MAX_INT");
     }
 
     @Test
     void testBigint()
     {
-        assertLiteral(new LongLiteral(LOCATION, "-9223372036854775808"), BIGINT, -9223372036854775808L);
-        assertLiteral(new LongLiteral(LOCATION, "9223372036854775807"), BIGINT, 9223372036854775807L);
+        assertLiteral(BIGINT, new LongLiteral(LOCATION, "-9223372036854775808"), -9223372036854775808L);
+        assertLiteral(BIGINT, new LongLiteral(LOCATION, "9223372036854775807"), 9223372036854775807L);
+
+        // LongLiteral disallows values outside the range of a long
     }
 
     @Test
     void testReal()
     {
-        assertLiteral(new GenericLiteral(LOCATION, "REAL", "3.14"), REAL, (long) floatToIntBits(3.14f));
-        assertLiteral(new GenericLiteral(LOCATION, "REAL", "10.3e0"), REAL, (long) floatToIntBits(10.3e0f));
+        assertLiteral(REAL, new GenericLiteral(LOCATION, "REAL", "3.14"), (long) floatToIntBits(3.14f));
+        assertLiteral(REAL, new GenericLiteral(LOCATION, "REAL", "10.3e0"), (long) floatToIntBits(10.3e0f));
+        assertLiteral(REAL, new LongLiteral(LOCATION, "123"), (long) floatToIntBits(123.0f));
 
-        assertThat(intBitsToFloat(toIntExact((Long) evaluateLiteral(literalInterpreter, new GenericLiteral(LOCATION, "REAL", "NaN"), REAL).getValue())))
+        assertThat(intBitsToFloat(toIntExact((Long) evaluate(new GenericLiteral(LOCATION, "REAL", "NaN"), REAL).getValue())))
                 .isNaN();
-        assertThat(intBitsToFloat(toIntExact((Long) evaluateLiteral(literalInterpreter, new GenericLiteral(LOCATION, "REAL", "+Infinity"), REAL).getValue())))
+        assertThat(intBitsToFloat(toIntExact((Long) evaluate(new GenericLiteral(LOCATION, "REAL", "+Infinity"), REAL).getValue())))
                 .isInfinite();
-        assertThat(intBitsToFloat(toIntExact((Long) evaluateLiteral(literalInterpreter, new GenericLiteral(LOCATION, "REAL", "-Infinity"), REAL).getValue())))
+        assertThat(intBitsToFloat(toIntExact((Long) evaluate(new GenericLiteral(LOCATION, "REAL", "-Infinity"), REAL).getValue())))
                 .isInfinite();
     }
 
     @Test
     void testDouble()
     {
-        assertLiteral(new DoubleLiteral(LOCATION, "3.14"), DOUBLE, 3.14);
-        assertLiteral(new DoubleLiteral(LOCATION, "1.0E100"), DOUBLE, 1.0E100);
-        assertLiteral(new DoubleLiteral(LOCATION, "1.23456E12"), DOUBLE, 1.23456E12);
+        assertLiteral(DOUBLE, new DoubleLiteral(LOCATION, "3.14"), 3.14);
+        assertLiteral(DOUBLE, new DoubleLiteral(LOCATION, "1.0E100"), 1.0E100);
+        assertLiteral(DOUBLE, new DoubleLiteral(LOCATION, "1.23456E12"), 1.23456E12);
+        assertLiteral(DOUBLE, new LongLiteral(LOCATION, "123"), 123.0);
 
-        assertThat((Double) evaluateLiteral(literalInterpreter, new DoubleLiteral(LOCATION, "NaN"), DOUBLE).getValue())
+        assertThat((Double) evaluate(new DoubleLiteral(LOCATION, "NaN"), DOUBLE).getValue())
                 .isNaN();
-        assertThat((Double) evaluateLiteral(literalInterpreter, new DoubleLiteral(LOCATION, "+Infinity"), DOUBLE).getValue())
+        assertThat((Double) evaluate(new DoubleLiteral(LOCATION, "+Infinity"), DOUBLE).getValue())
                 .isInfinite();
-        assertThat((Double) evaluateLiteral(literalInterpreter, new DoubleLiteral(LOCATION, "-Infinity"), DOUBLE).getValue())
+        assertThat((Double) evaluate(new DoubleLiteral(LOCATION, "-Infinity"), DOUBLE).getValue())
                 .isInfinite();
     }
 
     @Test
     void testDecimal()
     {
-        assertLiteral(new DecimalLiteral(LOCATION, "193"), createDecimalType(3), 193L);
-        assertLiteral(new DecimalLiteral(LOCATION, "-193"), createDecimalType(3), -193L);
-        assertLiteral(new DecimalLiteral(LOCATION, "10.0"), createDecimalType(3, 1), 100L);
-        assertLiteral(new DecimalLiteral(LOCATION, "-10.1"), createDecimalType(3, 1), -101L);
-        assertLiteral(new DecimalLiteral(LOCATION, "3141592653589793238462643.38327"), createDecimalType(30, 5), Int128.valueOf("314159265358979323846264338327"));
-        assertLiteral(new DecimalLiteral(LOCATION, "-3141592653589793238462643.38327"), createDecimalType(30, 5), Int128.valueOf("-314159265358979323846264338327"));
-        assertLiteral(new DecimalLiteral(LOCATION, "27182818284590452353602874713526624977"), createDecimalType(38), Int128.valueOf("27182818284590452353602874713526624977"));
-        assertLiteral(new DecimalLiteral(LOCATION, "-27182818284590452353602874713526624977"), createDecimalType(38), Int128.valueOf("-27182818284590452353602874713526624977"));
+        assertLiteral(createDecimalType(3), new DecimalLiteral(LOCATION, "193"), 193L);
+        assertLiteral(createDecimalType(3), new DecimalLiteral(LOCATION, "-193"), -193L);
+        assertLiteral(createDecimalType(3, 1), new DecimalLiteral(LOCATION, "10.0"), 100L);
+        assertLiteral(createDecimalType(3, 1), new DecimalLiteral(LOCATION, "-10.1"), -101L);
+        assertLiteral(createDecimalType(30, 5), new DecimalLiteral(LOCATION, "3141592653589793238462643.38327"), Int128.valueOf("314159265358979323846264338327"));
+        assertLiteral(createDecimalType(30, 5), new DecimalLiteral(LOCATION, "-3141592653589793238462643.38327"), Int128.valueOf("-314159265358979323846264338327"));
+        assertLiteral(createDecimalType(38), new DecimalLiteral(LOCATION, "27182818284590452353602874713526624977"), Int128.valueOf("27182818284590452353602874713526624977"));
+        assertLiteral(createDecimalType(38), new DecimalLiteral(LOCATION, "-27182818284590452353602874713526624977"), Int128.valueOf("-27182818284590452353602874713526624977"));
     }
 
     @Test
@@ -175,10 +188,10 @@ final class TestColumnDefaultOptions
     @Test
     void testChar()
     {
-        assertLiteral(new StringLiteral(LOCATION, "test"), createCharType(4), utf8Slice("test"));
-        assertLiteral(new StringLiteral(LOCATION, "test"), createCharType(10), utf8Slice("test"));
-        assertLiteral(new StringLiteral(LOCATION, "攻殻機動隊"), createCharType(5), utf8Slice("攻殻機動隊"));
-        assertLiteral(new StringLiteral(LOCATION, "😂"), createCharType(1), utf8Slice("😂"));
+        assertLiteral(createCharType(4), new StringLiteral(LOCATION, "test"), utf8Slice("test"));
+        assertLiteral(createCharType(10), new StringLiteral(LOCATION, "test"), utf8Slice("test"));
+        assertLiteral(createCharType(5), new StringLiteral(LOCATION, "攻殻機動隊"), utf8Slice("攻殻機動隊"));
+        assertLiteral(createCharType(1), new StringLiteral(LOCATION, "😂"), utf8Slice("😂"));
     }
 
     @Test
@@ -197,11 +210,11 @@ final class TestColumnDefaultOptions
     @Test
     void testVarchar()
     {
-        assertLiteral(new StringLiteral(LOCATION, "test"), createVarcharType(4), utf8Slice("test"));
-        assertLiteral(new StringLiteral(LOCATION, "test"), createVarcharType(10), utf8Slice("test"));
-        assertLiteral(new StringLiteral(LOCATION, "test"), VARCHAR, utf8Slice("test"));
-        assertLiteral(new StringLiteral(LOCATION, "攻殻機動隊"), createVarcharType(5), utf8Slice("攻殻機動隊"));
-        assertLiteral(new StringLiteral(LOCATION, "😂"), createVarcharType(1), utf8Slice("😂"));
+        assertLiteral(createVarcharType(4), new StringLiteral(LOCATION, "test"), utf8Slice("test"));
+        assertLiteral(createVarcharType(10), new StringLiteral(LOCATION, "test"), utf8Slice("test"));
+        assertLiteral(VARCHAR, new StringLiteral(LOCATION, "test"), utf8Slice("test"));
+        assertLiteral(createVarcharType(5), new StringLiteral(LOCATION, "攻殻機動隊"), utf8Slice("攻殻機動隊"));
+        assertLiteral(createVarcharType(1), new StringLiteral(LOCATION, "😂"), utf8Slice("😂"));
     }
 
     @Test
@@ -220,48 +233,48 @@ final class TestColumnDefaultOptions
     @Test
     void testTime()
     {
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:01"), createTimeType(0), 1000000000000L);
+        assertLiteral(createTimeType(0), new GenericLiteral(LOCATION, "TIME", "00:00:01"), 1000000000000L);
 
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00"), createTimeType(0), 0L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.1"), createTimeType(1), 100000000000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.12"), createTimeType(2), 120000000000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.123"), createTimeType(3), 123000000000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.1234"), createTimeType(4), 123400000000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.12345"), createTimeType(5), 123450000000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.123456"), createTimeType(6), 123456000000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.1234567"), createTimeType(7), 123456700000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.12345678"), createTimeType(8), 123456780000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.123456789"), createTimeType(9), 123456789000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.1234567890"), createTimeType(10), 123456789000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.12345678901"), createTimeType(11), 123456789010L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIME", "00:00:00.123456789012"), createTimeType(12), 123456789012L);
+        assertLiteral(createTimeType(0), new GenericLiteral(LOCATION, "TIME", "00:00:00"), 0L);
+        assertLiteral(createTimeType(1), new GenericLiteral(LOCATION, "TIME", "00:00:00.1"), 100000000000L);
+        assertLiteral(createTimeType(2), new GenericLiteral(LOCATION, "TIME", "00:00:00.12"), 120000000000L);
+        assertLiteral(createTimeType(3), new GenericLiteral(LOCATION, "TIME", "00:00:00.123"), 123000000000L);
+        assertLiteral(createTimeType(4), new GenericLiteral(LOCATION, "TIME", "00:00:00.1234"), 123400000000L);
+        assertLiteral(createTimeType(5), new GenericLiteral(LOCATION, "TIME", "00:00:00.12345"), 123450000000L);
+        assertLiteral(createTimeType(6), new GenericLiteral(LOCATION, "TIME", "00:00:00.123456"), 123456000000L);
+        assertLiteral(createTimeType(7), new GenericLiteral(LOCATION, "TIME", "00:00:00.1234567"), 123456700000L);
+        assertLiteral(createTimeType(8), new GenericLiteral(LOCATION, "TIME", "00:00:00.12345678"), 123456780000L);
+        assertLiteral(createTimeType(9), new GenericLiteral(LOCATION, "TIME", "00:00:00.123456789"), 123456789000L);
+        assertLiteral(createTimeType(10), new GenericLiteral(LOCATION, "TIME", "00:00:00.1234567890"), 123456789000L);
+        assertLiteral(createTimeType(11), new GenericLiteral(LOCATION, "TIME", "00:00:00.12345678901"), 123456789010L);
+        assertLiteral(createTimeType(12), new GenericLiteral(LOCATION, "TIME", "00:00:00.123456789012"), 123456789012L);
     }
 
     @Test
     void testDate()
     {
-        assertLiteral(new GenericLiteral(LOCATION, "DATE", "0001-01-01"), DATE, LocalDate.parse("0001-01-01").toEpochDay());
-        assertLiteral(new GenericLiteral(LOCATION, "DATE", "1969-12-31"), DATE, LocalDate.parse("1969-12-31").toEpochDay());
-        assertLiteral(new GenericLiteral(LOCATION, "DATE", "1970-01-01"), DATE, LocalDate.parse("1970-01-01").toEpochDay());
-        assertLiteral(new GenericLiteral(LOCATION, "DATE", "9999-12-31"), DATE, LocalDate.parse("9999-12-31").toEpochDay());
+        assertLiteral(DATE, new GenericLiteral(LOCATION, "DATE", "0001-01-01"), LocalDate.parse("0001-01-01").toEpochDay());
+        assertLiteral(DATE, new GenericLiteral(LOCATION, "DATE", "1969-12-31"), LocalDate.parse("1969-12-31").toEpochDay());
+        assertLiteral(DATE, new GenericLiteral(LOCATION, "DATE", "1970-01-01"), LocalDate.parse("1970-01-01").toEpochDay());
+        assertLiteral(DATE, new GenericLiteral(LOCATION, "DATE", "9999-12-31"), LocalDate.parse("9999-12-31").toEpochDay());
     }
 
     @Test
     void testTimestamp()
     {
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(0)", "1970-01-01 00:00:00"), createTimestampType(0), 0L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(1)", "1970-01-01 00:00:00.9"), createTimestampType(1), 900000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(2)", "1970-01-01 00:00:00.99"), createTimestampType(2), 990000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(3)", "1970-01-01 00:00:00.999"), createTimestampType(3), 999000L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(4)", "1970-01-01 00:00:00.9999"), createTimestampType(4), 999900L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(5)", "1970-01-01 00:00:00.99999"), createTimestampType(5), 999990L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(6)", "1970-01-01 00:00:00.999999"), createTimestampType(6), 999999L);
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(7)", "1970-01-01 00:00:00.9999999"), createTimestampType(7), new LongTimestamp(999999L, 900000));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(8)", "1970-01-01 00:00:00.99999999"), createTimestampType(8), new LongTimestamp(999999L, 990000));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(9)", "1970-01-01 00:00:00.999999999"), createTimestampType(9), new LongTimestamp(999999L, 999000));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(10)", "1970-01-01 00:00:00.9999999999"), createTimestampType(10), new LongTimestamp(999999L, 999900));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(11)", "1970-01-01 00:00:00.99999999999"), createTimestampType(11), new LongTimestamp(999999L, 999990));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(12)", "1970-01-01 00:00:00.999999999999"), createTimestampType(12), new LongTimestamp(999999L, 999999));
+        assertLiteral(createTimestampType(0), new GenericLiteral(LOCATION, "TIMESTAMP(0)", "1970-01-01 00:00:00"), 0L);
+        assertLiteral(createTimestampType(1), new GenericLiteral(LOCATION, "TIMESTAMP(1)", "1970-01-01 00:00:00.9"), 900000L);
+        assertLiteral(createTimestampType(2), new GenericLiteral(LOCATION, "TIMESTAMP(2)", "1970-01-01 00:00:00.99"), 990000L);
+        assertLiteral(createTimestampType(3), new GenericLiteral(LOCATION, "TIMESTAMP(3)", "1970-01-01 00:00:00.999"), 999000L);
+        assertLiteral(createTimestampType(4), new GenericLiteral(LOCATION, "TIMESTAMP(4)", "1970-01-01 00:00:00.9999"), 999900L);
+        assertLiteral(createTimestampType(5), new GenericLiteral(LOCATION, "TIMESTAMP(5)", "1970-01-01 00:00:00.99999"), 999990L);
+        assertLiteral(createTimestampType(6), new GenericLiteral(LOCATION, "TIMESTAMP(6)", "1970-01-01 00:00:00.999999"), 999999L);
+        assertLiteral(createTimestampType(7), new GenericLiteral(LOCATION, "TIMESTAMP(7)", "1970-01-01 00:00:00.9999999"), new LongTimestamp(999999L, 900000));
+        assertLiteral(createTimestampType(8), new GenericLiteral(LOCATION, "TIMESTAMP(8)", "1970-01-01 00:00:00.99999999"), new LongTimestamp(999999L, 990000));
+        assertLiteral(createTimestampType(9), new GenericLiteral(LOCATION, "TIMESTAMP(9)", "1970-01-01 00:00:00.999999999"), new LongTimestamp(999999L, 999000));
+        assertLiteral(createTimestampType(10), new GenericLiteral(LOCATION, "TIMESTAMP(10)", "1970-01-01 00:00:00.9999999999"), new LongTimestamp(999999L, 999900));
+        assertLiteral(createTimestampType(11), new GenericLiteral(LOCATION, "TIMESTAMP(11)", "1970-01-01 00:00:00.99999999999"), new LongTimestamp(999999L, 999990));
+        assertLiteral(createTimestampType(12), new GenericLiteral(LOCATION, "TIMESTAMP(12)", "1970-01-01 00:00:00.999999999999"), new LongTimestamp(999999L, 999999));
     }
 
     @Test
@@ -275,25 +288,30 @@ final class TestColumnDefaultOptions
         assertInvalidLiteralFails(
                 createTimestampType(9),
                 new GenericLiteral(new NodeLocation(1, 1), "TIMESTAMP(0)", "1970-01-01 00:00:00.0123456789"),
+                "Cannot parse '1970-01-01 00:00:00.0123456789' as short timestamp. Max allowed precision = 6");
+
+        assertInvalidLiteralFails(
+                createTimestampType(9),
+                new GenericLiteral(new NodeLocation(1, 1), "TIMESTAMP(9)", "1970-01-01 00:00:00.0123456789"),
                 "Value too large");
     }
 
     @Test
     void testTimestampWithTimeZone()
     {
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(0) WITH TIME ZONE", "1970-01-01 00:00:00 UTC"), createTimestampWithTimeZoneType(0), packDateTimeWithZone(0, UTC_KEY));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(1) WITH TIME ZONE", "1970-01-01 00:00:00.9 UTC"), createTimestampWithTimeZoneType(1), packDateTimeWithZone(900, UTC_KEY));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(2) WITH TIME ZONE", "1970-01-01 00:00:00.99 UTC"), createTimestampWithTimeZoneType(2), packDateTimeWithZone(990, UTC_KEY));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(3) WITH TIME ZONE", "1970-01-01 00:00:00.999 UTC"), createTimestampWithTimeZoneType(3), packDateTimeWithZone(999, UTC_KEY));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(4) WITH TIME ZONE", "1970-01-01 00:00:00.9999 UTC"), createTimestampWithTimeZoneType(4), longTimestampWithTimeZone(0, 999900000000L, UTC));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(5) WITH TIME ZONE", "1970-01-01 00:00:00.99999 UTC"), createTimestampWithTimeZoneType(5), longTimestampWithTimeZone(0, 999990000000L, UTC));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(6) WITH TIME ZONE", "1970-01-01 00:00:00.999999 UTC"), createTimestampWithTimeZoneType(6), longTimestampWithTimeZone(0, 999999000000L, UTC));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(7) WITH TIME ZONE", "1970-01-01 00:00:00.9999999 UTC"), createTimestampWithTimeZoneType(7), longTimestampWithTimeZone(0, 999999900000L, UTC));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(8) WITH TIME ZONE", "1970-01-01 00:00:00.99999999 UTC"), createTimestampWithTimeZoneType(8), longTimestampWithTimeZone(0, 999999990000L, UTC));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(9) WITH TIME ZONE", "1970-01-01 00:00:00.999999999 UTC"), createTimestampWithTimeZoneType(9), longTimestampWithTimeZone(0, 999999999000L, UTC));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(10) WITH TIME ZONE", "1970-01-01 00:00:00.9999999999 UTC"), createTimestampWithTimeZoneType(10), longTimestampWithTimeZone(0, 999999999900L, UTC));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(11) WITH TIME ZONE", "1970-01-01 00:00:00.99999999999 UTC"), createTimestampWithTimeZoneType(11), longTimestampWithTimeZone(0, 999999999990L, UTC));
-        assertLiteral(new GenericLiteral(LOCATION, "TIMESTAMP(12) WITH TIME ZONE", "1970-01-01 00:00:00.999999999999 UTC"), createTimestampWithTimeZoneType(12), longTimestampWithTimeZone(0, 999999999999L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(0), new GenericLiteral(LOCATION, "TIMESTAMP(0) WITH TIME ZONE", "1970-01-01 00:00:00 UTC"), packDateTimeWithZone(0, UTC_KEY));
+        assertLiteral(createTimestampWithTimeZoneType(1), new GenericLiteral(LOCATION, "TIMESTAMP(1) WITH TIME ZONE", "1970-01-01 00:00:00.9 UTC"), packDateTimeWithZone(900, UTC_KEY));
+        assertLiteral(createTimestampWithTimeZoneType(2), new GenericLiteral(LOCATION, "TIMESTAMP(2) WITH TIME ZONE", "1970-01-01 00:00:00.99 UTC"), packDateTimeWithZone(990, UTC_KEY));
+        assertLiteral(createTimestampWithTimeZoneType(3), new GenericLiteral(LOCATION, "TIMESTAMP(3) WITH TIME ZONE", "1970-01-01 00:00:00.999 UTC"), packDateTimeWithZone(999, UTC_KEY));
+        assertLiteral(createTimestampWithTimeZoneType(4), new GenericLiteral(LOCATION, "TIMESTAMP(4) WITH TIME ZONE", "1970-01-01 00:00:00.9999 UTC"), longTimestampWithTimeZone(0, 999900000000L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(5), new GenericLiteral(LOCATION, "TIMESTAMP(5) WITH TIME ZONE", "1970-01-01 00:00:00.99999 UTC"), longTimestampWithTimeZone(0, 999990000000L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(6), new GenericLiteral(LOCATION, "TIMESTAMP(6) WITH TIME ZONE", "1970-01-01 00:00:00.999999 UTC"), longTimestampWithTimeZone(0, 999999000000L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(7), new GenericLiteral(LOCATION, "TIMESTAMP(7) WITH TIME ZONE", "1970-01-01 00:00:00.9999999 UTC"), longTimestampWithTimeZone(0, 999999900000L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(8), new GenericLiteral(LOCATION, "TIMESTAMP(8) WITH TIME ZONE", "1970-01-01 00:00:00.99999999 UTC"), longTimestampWithTimeZone(0, 999999990000L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(9), new GenericLiteral(LOCATION, "TIMESTAMP(9) WITH TIME ZONE", "1970-01-01 00:00:00.999999999 UTC"), longTimestampWithTimeZone(0, 999999999000L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(10), new GenericLiteral(LOCATION, "TIMESTAMP(10) WITH TIME ZONE", "1970-01-01 00:00:00.9999999999 UTC"), longTimestampWithTimeZone(0, 999999999900L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(11), new GenericLiteral(LOCATION, "TIMESTAMP(11) WITH TIME ZONE", "1970-01-01 00:00:00.99999999999 UTC"), longTimestampWithTimeZone(0, 999999999990L, UTC));
+        assertLiteral(createTimestampWithTimeZoneType(12), new GenericLiteral(LOCATION, "TIMESTAMP(12) WITH TIME ZONE", "1970-01-01 00:00:00.999999999999 UTC"), longTimestampWithTimeZone(0, 999999999999L, UTC));
     }
 
     @Test
@@ -306,22 +324,31 @@ final class TestColumnDefaultOptions
 
         assertInvalidLiteralFails(
                 createTimestampWithTimeZoneType(9),
+                new GenericLiteral(new NodeLocation(1, 1), "TIMESTAMP(0) WITH TIME ZONE", "1970-01-01 00:00:00.0123456789 UTC"),
+                "Cannot parse '1970-01-01 00:00:00.0123456789 UTC' as short timestamp. Max allowed precision = 6");
+
+        assertInvalidLiteralFails(
+                createTimestampWithTimeZoneType(9),
                 new GenericLiteral(new NodeLocation(1, 1), "TIMESTAMP(9) WITH TIME ZONE", "1970-01-01 00:00:00.0123456789 UTC"),
                 "Value too large");
     }
 
-    private void assertLiteral(Literal literal, Type type, Object expected)
+    private void assertLiteral(Type columnType, Literal literal, Object expected)
     {
-        assertThat(evaluateLiteral(literalInterpreter, literal, type))
-                .isEqualTo(new Constant(expected, type));
+        assertThat(evaluate(literal, columnType))
+                .isEqualTo(new Constant(expected, columnType));
     }
 
-    private void assertInvalidLiteralFails(Type type, Literal literal, String expectedMessage)
+    private void assertInvalidLiteralFails(Type type, Literal literal, String stackTrace)
     {
-        assertTrinoExceptionThrownBy(() ->
-                evaluateLiteral(literalInterpreter, literal, type))
+        assertTrinoExceptionThrownBy(() -> evaluate(literal, type))
                 .hasErrorCode(INVALID_LITERAL)
-                .hasMessage("line 1:1: '%s' is not a valid %s literal", literal, type.getDisplayName().toUpperCase(ENGLISH))
-                .hasStackTraceContaining(expectedMessage);
+                .hasMessageMatching("line 1:1: .* is not a valid .* literal")
+                .hasStackTraceContaining(stackTrace);
+    }
+
+    private Constant evaluate(Literal literal, Type type)
+    {
+        return evaluateLiteral(TEST_SESSION, plannerContext, new AllowAllAccessControl(), Map.of(), WarningCollector.NOOP, type, literal);
     }
 }

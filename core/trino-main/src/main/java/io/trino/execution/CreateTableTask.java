@@ -37,7 +37,6 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.analyzer.LiteralInterpreter;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.analyzer.OutputColumn;
 import io.trino.sql.tree.ColumnDefinition;
@@ -126,11 +125,11 @@ public class CreateTableTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        return internalExecute(statement, stateMachine.getSession(), parameters, output -> stateMachine.setOutput(Optional.of(output)));
+        return internalExecute(statement, stateMachine.getSession(), parameters, output -> stateMachine.setOutput(Optional.of(output)), warningCollector);
     }
 
     @VisibleForTesting
-    ListenableFuture<Void> internalExecute(CreateTable statement, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
+    ListenableFuture<Void> internalExecute(CreateTable statement, Session session, List<Expression> parameters, Consumer<Output> outputConsumer, WarningCollector warningCollector)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -155,7 +154,6 @@ public class CreateTableTask
 
         String catalogName = tableName.catalogName();
         CatalogHandle catalogHandle = getRequiredCatalogHandle(plannerContext.getMetadata(), session, statement, catalogName);
-        LiteralInterpreter literalInterpreter = new LiteralInterpreter(plannerContext, session);
 
         Map<String, Object> properties = tablePropertyManager.getProperties(
                 catalogName,
@@ -210,7 +208,7 @@ public class CreateTableTask
                 columns.put(name.getValue().toLowerCase(ENGLISH), ColumnMetadata.builder()
                         .setName(name.getValue().toLowerCase(ENGLISH))
                         .setType(supportedType)
-                        .setDefaultValue(column.getDefaultValue().map(value -> evaluateLiteral(literalInterpreter, value, type)))
+                        .setDefaultValue(column.getDefaultValue().map(value -> evaluateLiteral(session, plannerContext, accessControl, parameterLookup, warningCollector, type, value)))
                         .setNullable(column.isNullable())
                         .setComment(column.getComment())
                         .setProperties(columnProperties)

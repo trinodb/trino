@@ -78,6 +78,7 @@ public class TestShowQueries
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.getTableName().equals("default_column_value")) {
                         return ImmutableList.<ColumnMetadata>builder()
+                                .add(columnMetadata("col_null", BOOLEAN, null))
                                 .add(columnMetadata("col_boolean", BOOLEAN, true))
                                 .add(columnMetadata("col_tinyint", TINYINT, 1L))
                                 .add(columnMetadata("col_smallint", SMALLINT, 10L))
@@ -285,6 +286,7 @@ public class TestShowQueries
                 .isEqualTo(
                         """
                                 CREATE TABLE mock.mockschema.default_column_value (
+                                   col_null boolean DEFAULT null,
                                    col_boolean boolean DEFAULT true,
                                    col_tinyint tinyint DEFAULT 1,
                                    col_smallint smallint DEFAULT 10,

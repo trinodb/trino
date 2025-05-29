@@ -64,6 +64,7 @@ import static io.trino.spi.connector.ConnectorCapabilities.DEFAULT_COLUMN_VALUE;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.rowType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -177,6 +178,35 @@ public class TestAddColumnTask
 
         assertThat(columns.get(1).getName()).isEqualTo("new_col");
         assertThat(columns.get(1).getDefaultValue()).contains(new Constant(123L, INTEGER));
+    }
+
+    @Test
+    void testAddDefaultColumnTypeCoercion()
+    {
+        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
+        TableHandle table = metadata.getTableHandle(testSession, tableName).orElseThrow();
+        assertThat(metadata.getTableMetadata(testSession, table).columns())
+                .containsExactly(new ColumnMetadata("test", BIGINT));
+
+        ColumnDefinition column = new ColumnDefinition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("new_col"),
+                toSqlType(DOUBLE),
+                Optional.of(new LongLiteral(new NodeLocation(1, 1), "123")),
+                true,
+                ImmutableList.of(),
+                Optional.empty());
+
+        getFutureValue(executeAddColumn(asQualifiedName(tableName), column, new ColumnPosition.Last(), false, false));
+
+        List<ColumnMetadata> columns = metadata.getTableMetadata(testSession, table).columns();
+        assertThat(columns).hasSize(2);
+
+        assertThat(columns.get(0).getName()).isEqualTo("test");
+
+        assertThat(columns.get(1).getName()).isEqualTo("new_col");
+        assertThat(columns.get(1).getDefaultValue()).contains(new Constant(123.0, DOUBLE));
     }
 
     @Test
