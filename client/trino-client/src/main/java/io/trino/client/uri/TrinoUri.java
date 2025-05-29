@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.client.DnsResolver;
@@ -30,6 +29,7 @@ import org.ietf.jgss.GSSCredential;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
@@ -454,7 +454,7 @@ public class TrinoUri
 
     public Duration getTimeout()
     {
-        return resolveWithDefault(TIMEOUT, Duration.valueOf("30s"));
+        return resolveWithDefault(TIMEOUT, Duration.ofSeconds(30));
     }
 
     public LoggingLevel getHttpLoggingLevel()
@@ -938,7 +938,7 @@ public class TrinoUri
             return setProperty(EXTERNAL_AUTHENTICATION, requireNonNull(externalAuthentication, "externalAuthentication is null"));
         }
 
-        public Builder setExternalAuthenticationTimeout(io.airlift.units.Duration externalAuthenticationTimeout)
+        public Builder setExternalAuthenticationTimeout(Duration externalAuthenticationTimeout)
         {
             return setProperty(EXTERNAL_AUTHENTICATION_TIMEOUT, requireNonNull(externalAuthenticationTimeout, "externalAuthenticationTimeout is null"));
         }

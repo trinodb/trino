@@ -16,7 +16,7 @@ package io.trino.cli;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.Futures;
-import io.airlift.units.Duration;
+import io.trino.client.uri.DurationUtils;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.Terminal.Signal;
 import org.jline.terminal.Terminal.SignalHandler;
@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
@@ -41,7 +42,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class QueryPreprocessor
 {
@@ -49,7 +49,7 @@ public final class QueryPreprocessor
     public static final String ENV_PREPROCESSOR_TIMEOUT = "TRINO_PREPROCESSOR_TIMEOUT";
     public static final String ENV_TRINO_CATALOG = "TRINO_CATALOG";
     public static final String ENV_TRINO_SCHEMA = "TRINO_SCHEMA";
-    private static final Duration DEFAULT_PREPROCESSOR_TIMEOUT = new Duration(10, SECONDS);
+    private static final Duration DEFAULT_PREPROCESSOR_TIMEOUT = Duration.ofSeconds(10);
 
     private static final String PREPROCESSING_QUERY_MESSAGE = "Preprocessing query...";
 
@@ -61,7 +61,7 @@ public final class QueryPreprocessor
         Duration timeout = DEFAULT_PREPROCESSOR_TIMEOUT;
         String timeoutEnvironment = nullToEmpty(System.getenv(ENV_PREPROCESSOR_TIMEOUT)).trim();
         if (!timeoutEnvironment.isEmpty()) {
-            timeout = Duration.valueOf(timeoutEnvironment);
+            timeout = DurationUtils.parseDuration(timeoutEnvironment);
         }
 
         String preprocessorCommand = System.getenv(ENV_PREPROCESSOR);

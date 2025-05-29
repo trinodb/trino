@@ -15,7 +15,6 @@ package io.trino.testing;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
@@ -36,11 +35,11 @@ import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -104,7 +103,7 @@ public abstract class AbstractTestingTrinoClient<T>
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
-        ClientSession clientSession = toClientSession(session, trinoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
+        ClientSession clientSession = toClientSession(session, trinoServer.getBaseUrl(), Duration.ofMinutes(2));
         try (StatementClient client = statementClientFactory.create(httpClient, session, clientSession, sql)) {
             while (client.isRunning()) {
                 resultsSession.addResults(client.currentStatusInfo(), client.currentRows());
