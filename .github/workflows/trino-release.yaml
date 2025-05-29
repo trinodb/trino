@@ -1,0 +1,46 @@
+name: trino-release
+
+on:
+  push:
+    branches:
+        - 'release-*'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  generate-tags:
+    runs-on: ubuntu-latest-8-cores
+    outputs:
+      tags: ${{ steps.tags.outputs.tags }}
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+          token: ${{ secrets.CI_PAT }}
+          fetch-depth: 0
+      - name: Set COMMIT_HASH
+        run: echo "COMMIT_HASH=$(git rev-parse $GITHUB_SHA)" >> $GITHUB_ENV
+      - name: Set IMAGE_TAG
+        run: |
+          if [ -z "$COMMIT_HASH"]; then
+            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=$COMMIT_HASH" >> $GITHUB_ENV
+          fi
+      - name: Set BRANCH_PREFIX
+        run: echo "BRANCH_PREFIX=branch/" >> $GITHUB_ENV
+      - name: Set RELEASE_BRANCH
+        run: echo "RELEASE_BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
+      - name: Set RELEASE_TAG
+        run: echo "RELEASE_TAG=${RELEASE_BRANCH#'$BRANCH_PREFIX'}" >> $GITHUB_ENV
+      - id: tags
+        run: echo "tags=$COMMIT_HASH $RELEASE_TAG" >> $GITHUB_OUTPUT
+  build-images:
+    needs: generate-tags
+    uses: ./.github/workflows/build-images.yaml
+    secrets: inherit
+    with:
+      tags: ${{needs.generate-tags.outputs.tags}}
