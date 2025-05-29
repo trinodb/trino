@@ -38,11 +38,14 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorSession;
+import org.apache.hudi.common.table.HoodieTableVersion;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.time.LocalDateTime;
@@ -54,14 +57,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static io.trino.metastore.HiveType.HIVE_TIMESTAMP;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hudi.HudiPageSourceProvider.createPageSource;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COMPREHENSIVE_TYPES_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_MULTI_FG_PT_MOR;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
@@ -79,11 +81,8 @@ public class TestHudiSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        ResourceHudiTablesInitializer resourceHudiTablesInitializer = new ResourceHudiTablesInitializer();
-        closeAfterClass(resourceHudiTablesInitializer::deleteTestResources);
-
         return HudiQueryRunner.builder()
-                .setDataLoader(resourceHudiTablesInitializer)
+                .setDataLoader(new ResourceHudiTablesInitializer())
                 .build();
     }
 
@@ -151,106 +150,6 @@ public class TestHudiSmokeTest
         assertThat(groupByResult.getMaterializedRows().getFirst().getField(0)).isEqualTo("driver-563");
         assertThat(groupByResult.getMaterializedRows().getFirst().getField(1)).isEqualTo(40000L);
         assertThat(groupByResult.getStatementStats().get().getPhysicalInputBytes()).isLessThan(500000L);
-    }
-
-    @Test
-    public void testPartitionPruningReadMultiFgPartitionedMORTableVer8()
-    {
-        // Test for partition pruning without MDT (i.e. w/o partition pruning using partition stats index)
-        Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(false)
-                .build();
-        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR + " WHERE country='SG'");
-        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
-        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
-        assertThat(prunedSplits).isLessThan(totalSplits);
-        // With partition pruning, only 2 splits in the partition should be returned
-        assertThat(prunedSplits).isEqualTo(2);
-    }
-
-    @Test
-    public void testColStatsFileSkipping()
-    {
-        Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(true)
-                .withColStatsIndexEnabled(true)
-                .withRecordLevelIndexEnabled(false)
-                .withSecondaryIndexEnabled(false)
-                .withPartitionStatsIndexEnabled(false)
-                .build();
-        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR
-                + " WHERE country='SG' AND name='a1'");
-        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
-        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
-        assertThat(prunedSplits).isLessThan(totalSplits);
-        // With colstats file skipping, only 1 split should be returned
-        assertThat(prunedSplits).isEqualTo(1);
-    }
-
-    @Test
-    public void testRecordLevelFileSkipping()
-    {
-        Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(true)
-                .withColStatsIndexEnabled(false)
-                .withRecordLevelIndexEnabled(true)
-                .withSecondaryIndexEnabled(false)
-                .withPartitionStatsIndexEnabled(false)
-                .build();
-        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR
-                + " WHERE country='SG' AND id IN (1, 3) AND name = 'a1'");
-        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
-        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
-        assertThat(prunedSplits).isLessThan(totalSplits);
-        // With RLI file skipping, only 1 split should be returned
-        assertThat(prunedSplits).isEqualTo(1);
-    }
-
-    @Test
-    public void testSecondaryIndexFileSkipping()
-    {
-        Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(true)
-                .withColStatsIndexEnabled(false)
-                .withRecordLevelIndexEnabled(false)
-                .withSecondaryIndexEnabled(true)
-                .withPartitionStatsIndexEnabled(false)
-                .build();
-        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR);
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR
-                + " WHERE country='SG' AND price = 101.00");
-        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
-        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
-        assertThat(prunedSplits).isLessThan(totalSplits);
-        // With SI file skipping, only 1 split should be returned
-        assertThat(prunedSplits).isEqualTo(1);
-    }
-
-    @Test
-    public void testPartitionStatsIndexPartitionPruning()
-    {
-        Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(true)
-                .withColStatsIndexEnabled(false)
-                .withRecordLevelIndexEnabled(false)
-                .withSecondaryIndexEnabled(false)
-                .withPartitionStatsIndexEnabled(true)
-                .build();
-        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + HUDI_MULTI_FG_PT_MOR
-                // Add a constraint that is in colstats
-                + " WHERE ts < 1001 " +
-                // Add a constraint that is in colstats
-                "AND price < 200.00 " +
-                // Add a constraint on a column that is not in colstats
-                "AND _hoodie_file_name = 'abc' " +
-                // Add a simple null check constraint
-                "AND id is not null");
-        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
-        // With PSI, only 2 splits in the SG partitions will be scanned
-        assertThat(prunedSplits).isEqualTo(2);
     }
 
     @Test
@@ -546,17 +445,179 @@ public class TestHudiSmokeTest
     }
 
     @Test
-    public void testDynamicFilterEnabledPredicatePushdown()
+    public void testPartitionFilterRequiredFilterIncluded()
     {
         Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(false)
+                .withPartitionFilterRequired(true)
                 .build();
-        final String tableIdentifier = "hudi:tests.hudi_multi_fg_pt_mor";
-        @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts FROM " +
-                HUDI_MULTI_FG_PT_MOR + " t1 " +
-                "INNER JOIN " + HUDI_MULTI_FG_PT_MOR + " t2 ON t1.id = t2.id " +
-                "WHERE t2.price <= 102";
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh = '10'", "VALUES 'a1'");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh < '12'", "VALUES 2");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE Hh < '11'", "VALUES 1");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE HH < '10'", "VALUES 0");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 = 1 and hh IS NOT NULL", "VALUES 'a2'");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh IS NULL", "VALUES 0");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh IS NOT NULL", "VALUES 2");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh LIKE '10'", "VALUES 'a1'");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh LIKE '1%'", "VALUES 'a1', 'a2'");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE id = 1 AND dt = '2021-12-09'", "VALUES 'a1'");
+        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh = '11' AND dt = '2021-12-09'", "VALUES 'a2'");
+        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '12' AND dt = '2021-12-19'", "VALUES 0");
 
+        // Predicate which could not be translated into tuple domain
+        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh";
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 = 0", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) - 11 = 0", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) * 2 = 20", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 > 0", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1' OR hh LIKE '%1'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1' AND hh LIKE '%0'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE id = 1 OR dt = '2021-12-09'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '11' OR dt = '2021-12-09'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '12' OR dt = '2021-12-19'", errorMessage);
+        assertQueryFails(session, "SELECT count(*) AS COUNT FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) > 2 GROUP BY name ", errorMessage);
+    }
+
+    @Test
+    public void testHudiLongTimestampType()
+            throws Exception
+    {
+        testTimestampMicros(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
+        testTimestampMicros(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        testTimestampMicros(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testPartitionPruningReadMultiFgPartitionedMOR(ResourceHudiTablesInitializer.TestingTable table)
+    {
+        // Test for partition pruning without MDT (i.e. w/o partition pruning using partition stats index)
+        Session session = SessionBuilder.from(getSession()).build();
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + table);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + table + " WHERE country='SG'");
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // With partition pruning, only 2 splits in the partition should be returned
+        assertThat(prunedSplits).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testColStatsFileSkipping(ResourceHudiTablesInitializer.TestingTable table)
+    {
+        Session session = SessionBuilder.from(getSession())
+                .withMdtEnabled(true)
+                .withColStatsIndexEnabled(true)
+                .withRecordLevelIndexEnabled(false)
+                .withSecondaryIndexEnabled(false)
+                .withPartitionStatsIndexEnabled(false)
+                .build();
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + table);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + table + " WHERE country='SG' AND name='a1'");
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // With colstats file skipping, only 1 split should be returned
+        assertThat(prunedSplits).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testRecordLevelFileSkipping(ResourceHudiTablesInitializer.TestingTable table)
+    {
+        Session session = SessionBuilder.from(getSession())
+                .withMdtEnabled(true)
+                .withColStatsIndexEnabled(false)
+                .withRecordLevelIndexEnabled(true)
+                .withSecondaryIndexEnabled(false)
+                .withPartitionStatsIndexEnabled(false)
+                .build();
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + table);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + table
+                + " WHERE country='SG' AND id IN (1, 3) AND name = 'a1'");
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // With RLI file skipping, only 1 split should be returned
+        assertThat(prunedSplits).isEqualTo(1);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testSecondaryIndexFileSkipping(ResourceHudiTablesInitializer.TestingTable table)
+    {
+        Session session = SessionBuilder.from(getSession())
+                .withMdtEnabled(true)
+                .withColStatsIndexEnabled(false)
+                .withRecordLevelIndexEnabled(false)
+                .withSecondaryIndexEnabled(true)
+                .withPartitionStatsIndexEnabled(false)
+                .build();
+        MaterializedResult totalRes = getQueryRunner().execute(session, "SELECT * FROM " + table);
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + table
+                + " WHERE country='SG' AND price = 101.00");
+        int totalSplits = totalRes.getStatementStats().get().getTotalSplits();
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+        assertThat(prunedSplits).isLessThan(totalSplits);
+        // SI is only available for table versions >= 8
+        // With SI file skipping, only 1 split should be returned
+        int expectedSplits = table.getHoodieTableVersion()
+                .greaterThanOrEquals(HoodieTableVersion.EIGHT) ? 1 : 2;
+        assertThat(prunedSplits).isEqualTo(expectedSplits);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testPartitionStatsIndexPartitionPruning(ResourceHudiTablesInitializer.TestingTable table)
+    {
+        Session session = SessionBuilder.from(getSession())
+                .withMdtEnabled(true)
+                .withColStatsIndexEnabled(false)
+                .withRecordLevelIndexEnabled(false)
+                .withSecondaryIndexEnabled(false)
+                .withPartitionStatsIndexEnabled(true)
+                .build();
+        MaterializedResult prunedRes = getQueryRunner().execute(session, "SELECT * FROM " + table
+                // Add a constraint that is in colstats
+                + " WHERE ts < 1001 " +
+                // Add a constraint that is in colstats
+                "AND price < 200.00 " +
+                // Add a constraint on a column that is not in colstats
+                "AND _hoodie_file_name = 'abc' " +
+                // Add a simple null check constraint
+                "AND id is not null");
+        int prunedSplits = prunedRes.getStatementStats().get().getTotalSplits();
+
+        // Partition stats index is only available for table versions >= 8
+        // With PSI, only 2 splits in the SG partitions will be scanned
+        int expectedSplits = table.getHoodieTableVersion()
+                .greaterThanOrEquals(HoodieTableVersion.EIGHT) ? 2 : 4;
+        assertThat(prunedSplits).isEqualTo(expectedSplits);
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testDynamicFilterEnabledPredicatePushdown(ResourceHudiTablesInitializer.TestingTable table)
+    {
+        Session session = getSession();
+        final String tableIdentifier = "hudi:tests." + table.getRoTableName();
+
+        @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts FROM " +
+                table + " t1 " +
+                "INNER JOIN " + table + " t2 ON t1.id = t2.id " +
+                "WHERE t2.price <= 102";
         MaterializedResult explainRes = getQueryRunner().execute(session, "EXPLAIN ANALYZE " + query);
         Pattern scanFilterInputRowsPattern = getScanFilterInputRowsPattern(tableIdentifier);
         Matcher matcher = scanFilterInputRowsPattern.matcher(explainRes.toString());
@@ -577,19 +638,24 @@ public class TestHudiSmokeTest
         assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000), (3, 'a3', 101.0, 1001)");
     }
 
-    @Test
-    public void testDynamicFilterDisabledPredicatePushdown()
+    /**
+     * Note that this test may be flaky, dynamic filter may be enabled in some occasions, causing this test to fail.
+     */
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testDynamicFilterDisabledPredicatePushdown(ResourceHudiTablesInitializer.TestingTable table)
     {
         Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(false)
                 .withDynamicFilterTimeout("0s")
                 .build();
-        final String tableIdentifier = "hudi:tests.hudi_multi_fg_pt_mor";
-        @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts FROM " +
-                HUDI_MULTI_FG_PT_MOR + " t1 " +
-                "INNER JOIN " + HUDI_MULTI_FG_PT_MOR + " t2 ON t1.id = t2.id " +
-                "WHERE t2.price <= 102";
+        final String tableIdentifier = "hudi:tests." + table.getRoTableName();
 
+        @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts FROM " +
+                table + " t1 " +
+                "INNER JOIN " + table + " t2 ON t1.id = t2.id " +
+                "WHERE t2.price <= 102";
         MaterializedResult explainRes = getQueryRunner().execute(session, "EXPLAIN ANALYZE " + query);
         Pattern scanFilterInputRowsPattern = getScanFilterInputRowsPattern(tableIdentifier);
         Matcher matcher = scanFilterInputRowsPattern.matcher(explainRes.toString());
@@ -611,17 +677,18 @@ public class TestHudiSmokeTest
         assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000), (3, 'a3', 101.0, 1001)");
     }
 
-    @Test
-    public void testDynamicFilterEnabled_withPartitionPruningUsingDynamicFilter()
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testDynamicFilterEnabled_withPartitionPruningUsingDynamicFilter(ResourceHudiTablesInitializer.TestingTable table)
     {
-        Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(false)
-                .build();
-        final String tableIdentifier = "hudi:tests.hudi_multi_fg_pt_mor";
+        Session session = SessionBuilder.from(getSession()).build();
+        final String tableIdentifier = "hudi:tests." + table.getRoTableName();
         // Query is joined-on recordKey and partitionField
         @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts, t1.country FROM " +
-                HUDI_MULTI_FG_PT_MOR + " t1 " +
-                "INNER JOIN " + HUDI_MULTI_FG_PT_MOR + " t2 ON t1.country = t2.country " +
+                table + " t1 " +
+                "INNER JOIN " + table + " t2 ON t1.country = t2.country " +
                 "WHERE t2.price <= 102";
 
         MaterializedResult explainRes = getQueryRunner().execute(session, "EXPLAIN ANALYZE " + query);
@@ -644,18 +711,21 @@ public class TestHudiSmokeTest
         assertQuery(query, "SELECT * FROM VALUES (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG'), (1, 'a1', 100.0, 1000, 'SG'), (3, 'a3', 101.0, 1001, 'SG')");
     }
 
-    @Test
-    public void testDynamicFilterDisabled_withPartitionPruningUsingDynamicFilter()
+    @ParameterizedTest
+    @EnumSource(
+            value = ResourceHudiTablesInitializer.TestingTable.class,
+            names = {"HUDI_MULTI_FG_PT_V6_MOR", "HUDI_MULTI_FG_PT_V8_MOR"})
+    public void testDynamicFilterDisabled_withPartitionPruningUsingDynamicFilter(ResourceHudiTablesInitializer.TestingTable table)
     {
         Session session = SessionBuilder.from(getSession())
-                .withMdtEnabled(false)
                 .withDynamicFilterTimeout("0s")
                 .build();
-        final String tableIdentifier = "hudi:tests.hudi_multi_fg_pt_mor";
+        final String tableIdentifier = "hudi:tests." + table.getRoTableName();
+
         // Query is joined-on recordKey and partitionField
         @Language("SQL") String query = "SELECT t1.id, t1.name, t1.price, t1.ts, t1.country FROM " +
-                HUDI_MULTI_FG_PT_MOR + " t1 " +
-                "INNER JOIN " + HUDI_MULTI_FG_PT_MOR + " t2 ON t1.country = t2.country " +
+                table + " t1 " +
+                "INNER JOIN " + table + " t2 ON t1.country = t2.country " +
                 "WHERE t2.price <= 102";
 
         MaterializedResult explainRes = getQueryRunner().execute(session, "EXPLAIN ANALYZE " + query);
@@ -681,8 +751,8 @@ public class TestHudiSmokeTest
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void testComprehensiveTypes(boolean isRtTable)
+    @MethodSource("comprehensiveTestParameters")
+    public void testComprehensiveTypes(ResourceHudiTablesInitializer.TestingTable table, boolean isRtTable)
     {
         Session session = SessionBuilder.from(getSession())
                 .withMdtEnabled(true)
@@ -814,7 +884,7 @@ public class TestHudiSmokeTest
         Map<String, ImmutableList<String>> mapping = listsToMap(columnsToTest, expectedRowValues);
 
         // Determine which table to use base on test parameters
-        final String sourceTable = isRtTable ? HUDI_COMPREHENSIVE_TYPES_MOR.getRtTableName() : HUDI_COMPREHENSIVE_TYPES_MOR.getTableName();
+        final String sourceTable = isRtTable ? table.getRtTableName() : table.getTableName();
 
         // Test each column individually so that errors thrown are more specific/useful
         for (String column : mapping.keySet()) {
@@ -869,48 +939,6 @@ public class TestHudiSmokeTest
         assertThat(actualNestedResult.getMaterializedRows())
                 .hasSameSizeAs(expectedNestedResult.getMaterializedRows())
                 .containsAll(expectedNestedResult.getMaterializedRows());
-    }
-
-    @Test
-    public void testPartitionFilterRequiredFilterIncluded()
-    {
-        Session session = SessionBuilder.from(getSession())
-                .withPartitionFilterRequired(true)
-                .build();
-        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh = '10'", "VALUES 'a1'");
-        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh < '12'", "VALUES 2");
-        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE Hh < '11'", "VALUES 1");
-        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE HH < '10'", "VALUES 0");
-        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 = 1 and hh IS NOT NULL", "VALUES 'a2'");
-        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh IS NULL", "VALUES 0");
-        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh IS NOT NULL", "VALUES 2");
-        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh LIKE '10'", "VALUES 'a1'");
-        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh LIKE '1%'", "VALUES 'a1', 'a2'");
-        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE id = 1 AND dt = '2021-12-09'", "VALUES 'a1'");
-        assertQuery(session, "SELECT name FROM " + HUDI_COW_PT_TBL + " WHERE hh = '11' AND dt = '2021-12-09'", "VALUES 'a2'");
-        assertQuery(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '12' AND dt = '2021-12-19'", "VALUES 0");
-
-        // Predicate which could not be translated into tuple domain
-        @Language("RegExp") String errorMessage = "Filter required on tests." + HUDI_COW_PT_TBL.getTableName() + " for at least one of the partition columns: dt, hh";
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 = 0", errorMessage);
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) - 11 = 0", errorMessage);
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) * 2 = 20", errorMessage);
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) % 2 > 0", errorMessage);
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1' OR hh LIKE '%1'", errorMessage);
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE name LIKE '%1' AND hh LIKE '%0'", errorMessage);
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE id = 1 OR dt = '2021-12-09'", errorMessage);
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '11' OR dt = '2021-12-09'", errorMessage);
-        assertQueryFails(session, "SELECT count(*) FROM " + HUDI_COW_PT_TBL + " WHERE hh = '12' OR dt = '2021-12-19'", errorMessage);
-        assertQueryFails(session, "SELECT count(*) AS COUNT FROM " + HUDI_COW_PT_TBL + " WHERE CAST(hh AS INTEGER) > 2 GROUP BY name ", errorMessage);
-    }
-
-    @Test
-    public void testHudiLongTimestampType()
-            throws Exception
-    {
-        testTimestampMicros(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
-        testTimestampMicros(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
-        testTimestampMicros(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
     }
 
     private void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
@@ -981,5 +1009,19 @@ public class TestHudiSmokeTest
                         values::get,
                         // Merge function for duplicate keys, last one wins
                         (_, newValue) -> newValue));
+    }
+
+    private static Stream<Arguments> comprehensiveTestParameters()
+    {
+        ResourceHudiTablesInitializer.TestingTable[] tablesToTest = {
+                ResourceHudiTablesInitializer.TestingTable.HUDI_COMPREHENSIVE_TYPES_V6_MOR,
+                ResourceHudiTablesInitializer.TestingTable.HUDI_COMPREHENSIVE_TYPES_V8_MOR
+        };
+        Boolean[] booleanValues = {true, false};
+
+        return Stream.of(tablesToTest)
+                .flatMap(table ->
+                        Stream.of(booleanValues)
+                                .map(boolValue -> Arguments.of(table, boolValue)));
     }
 }

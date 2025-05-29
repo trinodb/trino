@@ -35,7 +35,7 @@ public class HudiTableUnzipper
 
     private HudiTableUnzipper() {}
 
-    public static void unzipAllItemsInResource(String resourceName)
+    public static void unzipAllItemsInResource(String resourceName, Path outputPath)
             throws IOException, URISyntaxException
     {
         requireNonNull(resourceName, "Resource name cannot be null or empty.");
@@ -48,7 +48,7 @@ public class HudiTableUnzipper
         for (File file : Path.of(getResource(resourceName).toURI()).toFile().listFiles()) {
             if (file.isFile() && file.getName().endsWith(ZIP_EXT)) {
                 // Only handle zip files
-                unzipFile(file.toURI().toURL(), Path.of(file.getParent()));
+                unzipFile(file.toURI().toURL(), outputPath);
             }
         }
     }
@@ -94,20 +94,18 @@ public class HudiTableUnzipper
         }
     }
 
-    public static void deleteInflatedFiles(String resourceName)
+    public static void deleteInflatedFiles(Path path)
             throws URISyntaxException, IOException
     {
-        requireNonNull(resourceName, "Resource name cannot be null or empty.");
-        Path directoryPath = Path.of(getResource(resourceName).toURI());
-
-        for (File file : directoryPath.toFile().listFiles()) {
+        requireNonNull(path, "path cannot be null or empty.");
+        for (File file : path.toFile().listFiles()) {
             // Ignore all zip files
             if (file.isFile() && file.getName().endsWith(ZIP_EXT)) {
                 continue;
             }
             // Not really required, as we are in the test-classes directory
             // Ensure that we are only deleting deflated folders of zip
-            if (directoryPath.resolve(file.getName() + ZIP_EXT).toFile().exists()) {
+            if (path.resolve(file.getName() + ZIP_EXT).toFile().exists()) {
                 deleteFilesInDirectory(file.toPath());
             }
         }

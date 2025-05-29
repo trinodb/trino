@@ -15,6 +15,7 @@ package io.trino.plugin.hudi.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
@@ -29,25 +30,33 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.StorageFormat;
 import io.trino.metastore.Table;
 import io.trino.plugin.hudi.HudiConnector;
+import io.trino.plugin.hudi.storage.HudiTrinoStorage;
+import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.QueryRunner;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+import org.apache.hudi.common.table.HoodieTableVersion;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.google.common.io.Resources.getResource;
 import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
 import static io.trino.hive.formats.HiveClassNames.HUDI_PARQUET_REALTIME_INPUT_FORMAT;
 import static io.trino.hive.formats.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
@@ -91,18 +100,44 @@ import static io.trino.plugin.hudi.testing.TypeInfoHelper.varcharHiveType;
 public class ResourceHudiTablesInitializer
         implements HudiTablesInitializer
 {
+    private static final Logger log = Logger.get(ResourceHudiTablesInitializer.class);
+    private static final String HASH_ALGORITHM = "SHA-256";
     private static final String TEST_RESOURCE_NAME = "hudi-testing-data";
+
+    // There might be other entry points that are using this initializer, make the location unique so it is more identifiable via logs
+    private final String baseLocationPrefix = UUID.randomUUID().toString();
+    private final Path tempDir;
+
+    /**
+     * Manually declaring a temp directory here and performing a manual cleanup as this constructor is invoked in HudiQueryRunner in a @BeforeAll static function.
+     * This means that jupiter's managed @TempDir annotation cannot be used as the path will be passed as null.
+     */
+    public ResourceHudiTablesInitializer()
+    {
+        // There are multiple entry points and they may perform unzipping together, ensure that they are all unzipping to different paths
+        try {
+            this.tempDir = Files.createTempDirectory(TEST_RESOURCE_NAME + "_" + baseLocationPrefix);
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     @Override
     public void initializeTables(QueryRunner queryRunner, Location externalLocation, String schemaName)
             throws Exception
     {
-        HudiTableUnzipper.unzipAllItemsInResource(TEST_RESOURCE_NAME);
+        // Inflate all deflated test resource archives to a temporary directory
+        HudiTableUnzipper.unzipAllItemsInResource(TEST_RESOURCE_NAME, tempDir);
         TrinoFileSystem fileSystem = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
                 .getInstance(TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
-        Location baseLocation = externalLocation.appendSuffix(schemaName);
-        copyDir(Path.of(getResource(TEST_RESOURCE_NAME).toURI()), fileSystem, baseLocation);
+        String locationSuffix = schemaName + "_" + baseLocationPrefix;
+        Location baseLocation = externalLocation.appendSuffix(locationSuffix);
+        log.info("Initialized test resource directory as: %s", baseLocation.toString());
+        copyDir(tempDir, fileSystem, baseLocation);
+        // Perform a cleanup
+        HudiTableUnzipper.deleteInflatedFiles(tempDir);
 
         for (TestingTable table : TestingTable.values()) {
             String tableName = table.getTableName();
@@ -130,19 +165,14 @@ public class ResourceHudiTablesInitializer
                         table.getPartitions(),
                         true);
             }
-        }
-    }
 
-    /**
-     * Deletes the test resource directory specified by the {@code TEST_RESOURCE_NAME} constant.
-     *
-     * @throws IOException if an I/O error occurs during the deletion.
-     * @throws URISyntaxException if the resource URI, derived from the lookup, is invalid.
-     */
-    public void deleteTestResources()
-            throws IOException, URISyntaxException
-    {
-        HudiTableUnzipper.deleteInflatedFiles(TEST_RESOURCE_NAME);
+            // Set table version
+            HoodieTableMetaClient metaClient = HoodieTableMetaClient.builder()
+                    .setStorage(new HudiTrinoStorage(fileSystem, new TrinoStorageConfiguration()))
+                    .setBasePath(tablePath.toString())
+                    .build();
+            table.setTableVersion(metaClient.getTableConfig().getTableVersion());
+        }
     }
 
     private void createTable(
@@ -177,6 +207,7 @@ public class ResourceHudiTablesInitializer
                         .setStorageFormat(isRtTable ? rtStorageFormat : roStorageFormat)
                         .setLocation(tablePath.toString()))
                 .build();
+
         HiveMetastore metastore = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
@@ -218,12 +249,84 @@ public class ResourceHudiTablesInitializer
                     continue;
                 }
 
+                HashAndSizeResult srcHashAndSize;
+                try {
+                    srcHashAndSize = calculateHashAndSize(path);
+                }
+                catch (NoSuchAlgorithmException e) {
+                    throw new IOException("Failed to calculate source hash: Algorithm not found", e);
+                }
+
                 Location location = destinationDirectory.appendPath(sourceDirectory.relativize(path).toString());
                 fileSystem.createDirectory(location.parentDirectory());
                 try (OutputStream out = fileSystem.newOutputFile(location).create()) {
                     Files.copy(path, out);
+                    // Flush all data before close() to ensure durability
+                    out.flush();
+                }
+
+                HashAndSizeResult dstHashAndSize;
+                try {
+                    dstHashAndSize = calculateHashAndSize(location, fileSystem);
+                }
+                catch (NoSuchAlgorithmException e) {
+                    throw new IOException("Failed to calculate destination hash: Algorithm not found", e);
+                }
+                catch (IOException e) {
+                    throw new IOException("Failed to read back " + location + " for hash verification", e);
+                }
+
+                if (!Arrays.equals(srcHashAndSize.hash, dstHashAndSize.hash)) {
+                    // Hashes do not match, file is corrupt or copy failed
+                    String errorMessage = String.format(
+                            "Hash mismatch for file: %s (source size: %d bytes) copied to %s (destination size: %d bytes). Content hashes differ",
+                            path,
+                            srcHashAndSize.size,
+                            location,
+                            dstHashAndSize.size);
+                    throw new IOException(errorMessage);
                 }
             }
+        }
+    }
+
+    /**
+     * Helper method to calculate hash and size from an input stream
+     */
+    private static HashAndSizeResult calculateHashAndSize(InputStream inputStream)
+            throws IOException, NoSuchAlgorithmException
+    {
+        MessageDigest md = MessageDigest.getInstance(HASH_ALGORITHM);
+        try (DigestInputStream dis = new DigestInputStream(inputStream, md)) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            long streamSize = 0;
+            while ((bytesRead = dis.read(buffer)) != -1) {
+                streamSize += bytesRead;
+            }
+            return new HashAndSizeResult(md.digest(), streamSize);
+        }
+    }
+
+    /**
+     * Helper method to calculate hash for a local Path
+     */
+    private static HashAndSizeResult calculateHashAndSize(Path path)
+            throws IOException, NoSuchAlgorithmException
+    {
+        try (InputStream is = Files.newInputStream(path)) {
+            return calculateHashAndSize(is);
+        }
+    }
+
+    /**
+     * Helper method to calculate hash for a file on TrinoFileSystem
+     */
+    private static HashAndSizeResult calculateHashAndSize(Location location, TrinoFileSystem fileSystem)
+            throws IOException, NoSuchAlgorithmException
+    {
+        try (InputStream is = fileSystem.newInputFile(location).newStream()) {
+            return calculateHashAndSize(is);
         }
     }
 
@@ -236,8 +339,10 @@ public class ResourceHudiTablesInitializer
         STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions(), false),
         HUDI_STOCK_TICKS_COW(hudiStockTicksRegularColumns(), hudiStockTicksPartitionColumns(), hudiStockTicksPartitions(), false),
         HUDI_STOCK_TICKS_MOR(hudiStockTicksRegularColumns(), hudiStockTicksPartitionColumns(), hudiStockTicksPartitions(), false),
-        HUDI_MULTI_FG_PT_MOR(hudiMultiFgRegularColumns(), hudiMultiFgPartitionsColumn(), hudiMultiFgPartitions(), false),
-        HUDI_COMPREHENSIVE_TYPES_MOR(hudiComprehensiveTypesColumns(), hudiComprehensiveTypesPartitionColumns(), hudiComprehensiveTypesPartitions(), true),
+        HUDI_MULTI_FG_PT_V6_MOR(hudiMultiFgRegularColumns(), hudiMultiFgPartitionsColumn(), hudiMultiFgPartitions(), false),
+        HUDI_MULTI_FG_PT_V8_MOR(hudiMultiFgRegularColumns(), hudiMultiFgPartitionsColumn(), hudiMultiFgPartitions(), false),
+        HUDI_COMPREHENSIVE_TYPES_V6_MOR(hudiComprehensiveTypesColumns(), hudiComprehensiveTypesPartitionColumns(), hudiComprehensiveTypesPartitions(), true),
+        HUDI_COMPREHENSIVE_TYPES_V8_MOR(hudiComprehensiveTypesColumns(), hudiComprehensiveTypesPartitionColumns(), hudiComprehensiveTypesPartitions(), true),
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
@@ -251,6 +356,7 @@ public class ResourceHudiTablesInitializer
         private final List<Column> partitionColumns;
         private final Map<String, String> partitions;
         private final boolean isCreateRtTable;
+        private HoodieTableVersion tableVersion;
 
         TestingTable(
                 List<Column> regularColumns,
@@ -283,6 +389,16 @@ public class ResourceHudiTablesInitializer
         {
             // ro tables do not have suffix
             return getTableName();
+        }
+
+        public void setTableVersion(HoodieTableVersion tableVersion)
+        {
+            this.tableVersion = tableVersion;
+        }
+
+        public HoodieTableVersion getHoodieTableVersion()
+        {
+            return this.tableVersion;
         }
 
         public List<Column> getDataColumns()
@@ -529,6 +645,18 @@ public class ResourceHudiTablesInitializer
             return ImmutableMap.of(
                     "part_col=A", "part_col=A",
                     "part_col=B", "part_col=B");
+        }
+    }
+
+    static class HashAndSizeResult
+    {
+        final byte[] hash;
+        final long size;
+
+        HashAndSizeResult(byte[] hash, long size)
+        {
+            this.hash = hash;
+            this.size = size;
         }
     }
 }
