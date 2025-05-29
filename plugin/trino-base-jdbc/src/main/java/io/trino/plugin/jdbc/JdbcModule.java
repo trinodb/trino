@@ -60,6 +60,7 @@ public class JdbcModule
 
         procedureBinder(binder);
         tablePropertiesProviderBinder(binder);
+        columnPropertiesProviderBinder(binder);
 
         newOptionalBinder(binder, JdbcMetadataFactory.class).setDefault().to(DefaultJdbcMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, IdentityCacheMapping.class).setDefault().to(SingletonIdentityCacheMapping.class).in(Scopes.SINGLETON);
@@ -143,5 +144,15 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    public static Multibinder<ColumnPropertiesProvider> columnPropertiesProviderBinder(Binder binder)
+    {
+        return newSetBinder(binder, ColumnPropertiesProvider.class);
+    }
+
+    public static void bindColumnPropertiesProvider(Binder binder, Class<? extends ColumnPropertiesProvider> type)
+    {
+        columnPropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
     }
 }

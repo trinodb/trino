@@ -53,6 +53,7 @@ public class JdbcConnector
     private final Set<ConnectorTableFunction> connectorTableFunctions;
     private final List<PropertyMetadata<?>> sessionProperties;
     private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> columnProperties;
     private final JdbcTransactionManager transactionManager;
 
     @Inject
@@ -66,6 +67,7 @@ public class JdbcConnector
             Set<ConnectorTableFunction> connectorTableFunctions,
             Set<SessionPropertiesProvider> sessionProperties,
             Set<TablePropertiesProvider> tableProperties,
+            Set<ColumnPropertiesProvider> columnProperties,
             JdbcTransactionManager transactionManager)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -80,6 +82,9 @@ public class JdbcConnector
                 .collect(toImmutableList());
         this.tableProperties = tableProperties.stream()
                 .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
+                .collect(toImmutableList());
+        this.columnProperties = requireNonNull(columnProperties, "columnProperties is null").stream()
+                .flatMap(columnPropertiesProvider -> columnPropertiesProvider.getColumnProperties().stream())
                 .collect(toImmutableList());
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
@@ -154,6 +159,12 @@ public class JdbcConnector
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return columnProperties;
     }
 
     @Override
