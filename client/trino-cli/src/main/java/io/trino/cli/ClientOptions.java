@@ -47,6 +47,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
+import static io.trino.client.SourceBuilder.createSource;
 import static io.trino.client.uri.PropertyName.ACCESS_TOKEN;
 import static io.trino.client.uri.PropertyName.CATALOG;
 import static io.trino.client.uri.PropertyName.CLIENT_INFO;
@@ -99,7 +100,6 @@ public class ClientOptions
     private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
     private static final String SERVER_DEFAULT = "localhost:8080";
-    private static final String SOURCE_DEFAULT = "trino-cli";
     static final String DEBUG_OPTION_NAME = "--debug";
 
     @Parameters(paramLabel = "URL", description = "Trino server URL", arity = "0..1")
@@ -193,7 +193,7 @@ public class ClientOptions
     public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
 
     @PropertyMapping(SOURCE)
-    @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + SOURCE_DEFAULT + ")")
+    @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: ${SOURCE})")
     public Optional<String> source;
 
     @PropertyMapping(CLIENT_INFO)
@@ -344,7 +344,7 @@ public class ClientOptions
     {
         return uri
                 .toClientSessionBuilder()
-                .source(uri.getSource().orElse(SOURCE_DEFAULT))
+                .source(uri.getSource().orElse(createSource("trino-cli")))
                 .encoding(encoding)
                 .build();
     }

@@ -46,7 +46,7 @@ public class TestClientOptions
         assertThat(options.krb5ServicePrincipalPattern).isEqualTo(Optional.of("${SERVICE}@${HOST}"));
         ClientSession session = options.toClientSession(options.getTrinoUri());
         assertThat(session.getServer().toString()).isEqualTo("http://localhost:8080");
-        assertThat(session.getSource()).isEqualTo("trino-cli");
+        assertThat(session.getSource()).startsWith("trino-cli");
         assertThat(session.getTimeZone()).isEqualTo(ZoneId.systemDefault());
     }
 
