@@ -56,7 +56,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -65,6 +64,7 @@ import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
+import static io.trino.client.UserAgentBuilder.createUserAgent;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -82,10 +82,7 @@ class StatementClientV1
     private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
-    private static final String USER_AGENT_VALUE = StatementClientV1.class.getSimpleName() +
-            "/" +
-            firstNonNull(StatementClientV1.class.getPackage().getImplementationVersion(), "unknown");
-
+    private static final String USER_AGENT_VALUE = createUserAgent(StatementClientV1.class.getSimpleName());
     private final Call.Factory httpCallFactory;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
