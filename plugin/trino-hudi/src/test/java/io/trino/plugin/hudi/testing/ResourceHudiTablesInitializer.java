@@ -230,6 +230,7 @@ public class ResourceHudiTablesInitializer
     public enum TestingTable
     {
         HUDI_NON_PART_COW(nonPartitionRegularColumns()),
+        HUDI_TRIPS_COW_V8(tripsRegularColumns()),
         HUDI_COW_PT_TBL(multiPartitionRegularColumns(), multiPartitionColumns(), multiPartitions(), false),
         STOCK_TICKS_COW(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions(), false),
         STOCK_TICKS_MOR(stockTicksRegularColumns(), stockTicksPartitionColumns(), stockTicksPartitions(), false),
@@ -314,6 +315,21 @@ public class ResourceHudiTablesInitializer
                     column("ts", HIVE_LONG),
                     column("dt", HIVE_STRING),
                     column("hh", HIVE_STRING));
+        }
+
+        private static List<Column> tripsRegularColumns()
+        {
+            return ImmutableList.of(
+                    column("begin_lat", HIVE_DOUBLE),
+                    column("begin_lon", HIVE_DOUBLE),
+                    column("driver", HIVE_STRING),
+                    column("end_lat", HIVE_DOUBLE),
+                    column("end_lon", HIVE_DOUBLE),
+                    column("fare", HIVE_DOUBLE),
+                    column("partitionpath", HIVE_STRING),
+                    column("rider", HIVE_STRING),
+                    column("ts", HIVE_LONG),
+                    column("uuid", HIVE_STRING));
         }
 
         private static List<Column> stockTicksRegularColumns()

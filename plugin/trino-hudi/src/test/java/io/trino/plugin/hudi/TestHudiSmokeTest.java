@@ -65,6 +65,7 @@ import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.Testing
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_STOCK_TICKS_MOR;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_TRIPS_COW_V8;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static io.trino.spi.type.TimestampType.createTimestampType;
@@ -133,6 +134,23 @@ public class TestHudiSmokeTest
                 "SELECT * FROM VALUES ('2018-08-31')");
         assertQuery("SELECT date, count(1) FROM " + HUDI_STOCK_TICKS_COW + " GROUP BY date",
                 "SELECT * FROM VALUES ('2018-08-31', '99')");
+    }
+
+    @Test
+    public void testBaseFileOnlyReadWithProjection()
+    {
+        Session session = SessionBuilder.from(getSession()).build();
+        MaterializedResult countResult = getQueryRunner().execute(
+                session, "SELECT count(*) FROM " + HUDI_TRIPS_COW_V8);
+        assertThat(countResult.getOnlyValue()).isEqualTo(40000L);
+        assertThat(countResult.getStatementStats().get().getPhysicalInputBytes()).isLessThan(500000L);
+        MaterializedResult groupByResult = getQueryRunner().execute(
+                session, "SELECT driver, count(*) FROM " + HUDI_TRIPS_COW_V8 + " group by 1");
+        assertThat(groupByResult.getMaterializedRows().size()).isEqualTo(1);
+        assertThat(groupByResult.getMaterializedRows().getFirst().getFieldCount()).isEqualTo(2);
+        assertThat(groupByResult.getMaterializedRows().getFirst().getField(0)).isEqualTo("driver-563");
+        assertThat(groupByResult.getMaterializedRows().getFirst().getField(1)).isEqualTo(40000L);
+        assertThat(groupByResult.getStatementStats().get().getPhysicalInputBytes()).isLessThan(500000L);
     }
 
     @Test

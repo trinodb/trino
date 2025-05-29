@@ -59,6 +59,7 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.TableSchemaResolver;
 import org.apache.hudi.common.table.read.HoodieFileGroupReader;
 import org.apache.hudi.common.util.Option;
+import org.apache.hudi.common.util.ValidationUtils;
 import org.apache.hudi.storage.StoragePath;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.MessageColumnIO;
@@ -68,6 +69,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -81,6 +83,7 @@ import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
 import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
+import static io.trino.plugin.hive.HiveColumnHandle.partitionColumnHandle;
 import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.ParquetReaderProvider;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
@@ -176,25 +179,24 @@ public class HudiPageSourceProvider
             throw new TrinoException(HUDI_FILESYSTEM_ERROR, e);
         }
 
+        // Enable predicate pushdown for splits containing only base files
+        boolean isBaseFileOnly = hudiSplit.getLogFiles().isEmpty();
         // Convert columns to HiveColumnHandles
-        List<HiveColumnHandle> hiveColumnHandles = columns.stream()
-                .map(HiveColumnHandle.class::cast)
-                .toList();
+        List<HiveColumnHandle> hiveColumnHandles = getHiveColumns(columns, isBaseFileOnly);
 
         // Get non-synthesized columns (columns that are available in data file)
         List<HiveColumnHandle> dataColumnHandles = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isPartitionKey() && !columnHandle.isHidden())
                 .collect(Collectors.toList());
-
-        // The `columns` list could be empty when count(*) is issued, prepending hoodie meta columns allows a non-empty dataPageSource to be returned
+        // The `columns` list could be empty when count(*) is issued,
+        // prepending hoodie meta columns for Hudi split with log files
+        // to allow a non-empty dataPageSource to be returned
         List<HiveColumnHandle> hudiMetaAndDataColumnHandles = prependHudiMetaColumns(dataColumnHandles);
 
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        // Enable predicate pushdown for splits containing only base files
-        boolean isBaseFileOnly = hudiSplit.getLogFiles().isEmpty();
         ConnectorPageSource dataPageSource = createPageSource(
                 session,
-                hudiMetaAndDataColumnHandles,
+                isBaseFileOnly ? dataColumnHandles : hudiMetaAndDataColumnHandles,
                 hudiSplit,
                 fileSystem.newInputFile(Location.of(hudiBaseFileOpt.get().getPath()), hudiBaseFileOpt.get().getFileSize()),
                 dataSourceStats,
@@ -206,10 +208,12 @@ public class HudiPageSourceProvider
 
         // Avoid avro serialization if split/filegroup only contains base files
         if (isBaseFileOnly) {
+            ValidationUtils.checkArgument(!hiveColumnHandles.isEmpty(),
+                    "Column handles should always be present for providing Hudi data page source on a base file");
             return new HudiBaseFileOnlyPageSource(
                     dataPageSource,
-                    hiveColumnHandles.isEmpty() ? hudiMetaAndDataColumnHandles : hiveColumnHandles,
-                    hudiMetaAndDataColumnHandles,
+                    hiveColumnHandles,
+                    dataColumnHandles,
                     synthesizedColumnHandler);
         }
 
@@ -415,5 +419,20 @@ public class HudiPageSourceProvider
             log.debug("Combined predicate for Parquet read (Split: %s): %s", hudiSplit, combinedPredicate);
         }
         return combinedPredicate;
+    }
+
+    private static List<HiveColumnHandle> getHiveColumns(List<ColumnHandle> columns,
+                                                         boolean isBaseFileOnly)
+    {
+        if (!isBaseFileOnly || !columns.isEmpty()) {
+            return columns.stream()
+                    .map(HiveColumnHandle.class::cast)
+                    .toList();
+        }
+
+        // The `columns` list containing the requested columns to read could be empty
+        // when count(*) is in the statement; to make sure the page source works properly,
+        // the synthesized partition column is added in this case.
+        return Collections.singletonList(partitionColumnHandle());
     }
 }
