@@ -29,6 +29,7 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.operator.scalar.CombineHashFunction;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -98,6 +99,8 @@ public final class NullSafeHashCompiler
         generateHashBlock(definition, callSiteBinder, hashMethod);
         generateHashBlocksBatched("hashBatched", definition, callSiteBinder, hashMethod, false);
         generateHashBlocksBatched("hashBatchedWithCombine", definition, callSiteBinder, hashMethod, true);
+        generateHashBlocksDictionary("hashBatchedDictionary", definition, callSiteBinder, hashMethod, false);
+        generateHashBlocksDictionary("hashBatchedDictionaryWithCombine", definition, callSiteBinder, hashMethod, true);
 
         try {
             DynamicClassLoader classLoader = new DynamicClassLoader(NullSafeHashCompiler.class.getClassLoader(), callSiteBinder.getBindings());
@@ -175,7 +178,54 @@ public final class NullSafeHashCompiler
         body.append(computeHashLoop).ret();
     }
 
-    private static BytecodeExpression computeHashNonNull(CallSiteBinder callSiteBinder, Parameter block, Variable position, MethodHandle hashMethod)
+    private static void generateHashBlocksDictionary(String methodName, ClassDefinition definition, CallSiteBinder callSiteBinder, MethodHandle hashMethod, boolean combineHash)
+    {
+        Parameter dictionaryBlock = arg("dictionaryBlock", type(DictionaryBlock.class));
+        Parameter hashes = arg("hashes", type(long[].class));
+        Parameter offset = arg("offset", type(int.class));
+        Parameter length = arg("length", type(int.class));
+
+        MethodDefinition methodDefinition = definition.declareMethod(
+                a(PUBLIC),
+                methodName,
+                type(void.class),
+                dictionaryBlock,
+                hashes,
+                offset,
+                length);
+
+        BytecodeBlock body = methodDefinition.getBody();
+        Scope scope = methodDefinition.getScope();
+        Variable position = scope.declareVariable(int.class, "position");
+        body.append(invokeStatic(Objects.class, "checkFromToIndex", int.class, offset, add(offset, length), dictionaryBlock.invoke("getPositionCount", int.class)));
+        body.append(invokeStatic(Objects.class, "checkFromIndexSize", int.class, constantInt(0), length, hashes.length()).pop());
+
+        Variable mayHaveNull = scope.declareVariable(boolean.class, "mayHaveNull");
+        Variable hash = scope.declareVariable(long.class, "hash");
+        Variable valueBlock = scope.declareVariable("valueBlock", body, dictionaryBlock.invoke("getUnderlyingValueBlock", ValueBlock.class));
+        Variable index = scope.declareVariable(int.class, "index");
+        Variable rawIds = scope.declareVariable("rawIds", body, dictionaryBlock.invoke("getRawIds", int[].class));
+        Variable rawIdsOffset = scope.declareVariable("rawIdsOffset", body, dictionaryBlock.invoke("getRawIdsOffset", int.class));
+
+        BytecodeBlock computeHashLoop = new BytecodeBlock()
+                .append(mayHaveNull.set(valueBlock.invoke("mayHaveNull", boolean.class)))
+                .append(new ForLoop("for (int index = 0; index < length; index++)")
+                        .initialize(index.set(constantInt(0)))
+                        .condition(lessThan(index, length))
+                        .update(index.increment())
+                        .body(new BytecodeBlock()
+                                // position = rawIds[rawIdsOffset + offset + index]
+                                .append(position.set(rawIds.getElement(add(rawIdsOffset, add(offset, index)))))
+                                .append(new IfStatement("if (mayHaveNull && block.isNull(position))")
+                                        .condition(and(mayHaveNull, valueBlock.invoke("isNull", boolean.class, position)))
+                                        .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
+                                        .ifFalse(hash.set(computeHashNonNull(callSiteBinder, valueBlock, position, hashMethod))))
+                                .append(setHashExpression(hashes, index, hash, combineHash))));
+
+        body.append(computeHashLoop).ret();
+    }
+
+    private static BytecodeExpression computeHashNonNull(CallSiteBinder callSiteBinder, Variable block, BytecodeExpression position, MethodHandle hashMethod)
     {
         return invokeDynamic(
                 BOOTSTRAP_METHOD,

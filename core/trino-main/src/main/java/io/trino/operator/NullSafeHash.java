@@ -13,6 +13,7 @@
  */
 package io.trino.operator;
 
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.ValueBlock;
 
 public interface NullSafeHash
@@ -25,9 +26,13 @@ public interface NullSafeHash
      */
     void hashBatched(ValueBlock block, long[] hashes, int offset, int length);
 
+    void hashBatchedDictionary(DictionaryBlock dictionaryBlock, long[] hashes, int offset, int length);
+
     /**
      * Hashes the block and combines the result with the existing hash in the hashes array.
      * Should be used for combining hashes for multi-channel Pages after the first channel is processed by hashBatched.
      */
     void hashBatchedWithCombine(ValueBlock block, long[] hashes, int offset, int length);
+
+    void hashBatchedDictionaryWithCombine(DictionaryBlock dictionaryBlock, long[] hashes, int offset, int length);
 }
