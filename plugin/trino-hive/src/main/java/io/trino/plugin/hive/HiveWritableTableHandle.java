@@ -21,6 +21,7 @@ import io.trino.metastore.SortingColumn;
 import io.trino.metastore.Table;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -42,6 +43,7 @@ public class HiveWritableTableHandle
     private final HiveStorageFormat partitionStorageFormat;
     private final AcidTransaction transaction;
     private final boolean retriesEnabled;
+    private final Optional<PartitionProjection> partitionProjection;
 
     public HiveWritableTableHandle(
             String schemaName,
@@ -53,7 +55,8 @@ public class HiveWritableTableHandle
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             AcidTransaction transaction,
-            boolean retriesEnabled)
+            boolean retriesEnabled,
+            Optional<PartitionProjection> partitionProjection)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -65,6 +68,7 @@ public class HiveWritableTableHandle
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.retriesEnabled = retriesEnabled;
+        this.partitionProjection = requireNonNull(partitionProjection, "partitionProjection is null");
     }
 
     @JsonProperty
@@ -137,6 +141,12 @@ public class HiveWritableTableHandle
     public boolean isRetriesEnabled()
     {
         return retriesEnabled;
+    }
+
+    @JsonProperty
+    public Optional<PartitionProjection> getPartitionProjection()
+    {
+        return partitionProjection;
     }
 
     @Override

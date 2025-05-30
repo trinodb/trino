@@ -61,6 +61,7 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.procedure.OptimizeTableProcedure;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.plugin.hive.security.AccessControlMetadata;
 import io.trino.plugin.hive.statistics.HiveStatisticsProvider;
 import io.trino.plugin.hive.util.HiveUtil;
@@ -292,6 +293,8 @@ import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.Part
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getSupportedColumnStatistics;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.arePartitionProjectionPropertiesSet;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.createPartitionProjection;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionFromTable;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionHiveTableProperties;
 import static io.trino.plugin.hive.projection.PartitionProjectionProperties.getPartitionProjectionTrinoTableProperties;
 import static io.trino.plugin.hive.util.AcidTables.deltaSubdir;
@@ -1683,7 +1686,7 @@ public class HiveMetadata
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> getType(column.getHiveType(), typeManager, timestampPrecision)));
 
-        Map<List<String>, ComputedStatistics> computedStatisticsMap = createComputedStatisticsToPartitionMap(computedStatistics, partitionColumnNames, columnTypes);
+        Map<List<String>, ComputedStatistics> computedStatisticsMap = createComputedStatisticsToPartitionMap(computedStatistics, partitionColumnNames, columnTypes, handle.getPartitionProjection());
 
         if (partitionColumns.isEmpty()) {
             // commit the analysis result to an unpartitioned table
@@ -1719,12 +1722,13 @@ public class HiveMetadata
                     .map(HiveColumnHandle::getType)
                     .collect(toImmutableList());
 
+            Optional<PartitionProjection> partitionProjection = handle.getPartitionProjection();
             for (int i = 0; i < partitionNames.size(); i++) {
                 String partitionName = partitionNames.get(i);
                 List<String> partitionValues = partitionValuesList.get(i);
                 ComputedStatistics collectedStatistics = computedStatisticsMap.containsKey(partitionValues)
                         ? computedStatisticsMap.get(partitionValues)
-                        : computedStatisticsMap.get(canonicalizePartitionValues(partitionName, partitionValues, partitionTypes));
+                        : computedStatisticsMap.get(canonicalizePartitionValues(partitionName, partitionValues, partitionColumnNames, partitionTypes, partitionProjection));
                 if (collectedStatistics == null) {
                     partitionStatistics.put(partitionValues, emptyPartitionStatistics.get());
                 }
@@ -1736,17 +1740,23 @@ public class HiveMetadata
         }
     }
 
-    private static List<String> canonicalizePartitionValues(String partitionName, List<String> partitionValues, List<Type> partitionTypes)
+    private static List<String> canonicalizePartitionValues(
+            String partitionName,
+            List<String> partitionValues,
+            List<String> partitionColumnNames,
+            List<Type> partitionTypes,
+            Optional<PartitionProjection> partitionProjection)
     {
         verify(partitionValues.size() == partitionTypes.size(), "Expected partitionTypes size to be %s but got %s", partitionValues.size(), partitionTypes.size());
         Block[] parsedPartitionValuesBlocks = new Block[partitionValues.size()];
         for (int i = 0; i < partitionValues.size(); i++) {
+            String partitionColumnName = partitionColumnNames.get(i);
             String partitionValue = partitionValues.get(i);
             Type partitionType = partitionTypes.get(i);
-            parsedPartitionValuesBlocks[i] = parsePartitionValue(partitionName, partitionValue, partitionType).asBlock();
+            parsedPartitionValuesBlocks[i] = parsePartitionValue(partitionName, partitionValue, partitionType, partitionColumnName, partitionProjection).asBlock();
         }
 
-        return createPartitionValues(partitionTypes, new Page(parsedPartitionValuesBlocks), 0);
+        return createPartitionValues(partitionColumnNames, partitionTypes, new Page(parsedPartitionValuesBlocks), 0, partitionProjection);
     }
 
     @Override
@@ -1831,6 +1841,7 @@ public class HiveMetadata
 
         AcidTransaction transaction = isTransactional ? forCreateTable() : NO_ACID_TRANSACTION;
 
+        Map<String, Type> partitionTypes = Maps.transformValues(columnHandlesByName, HiveColumnHandle::getType);
         HiveOutputTableHandle result = new HiveOutputTableHandle(
                 schemaName,
                 tableName,
@@ -1845,7 +1856,8 @@ public class HiveMetadata
                 tableProperties,
                 transaction,
                 externalLocation.isPresent(),
-                retryMode != NO_RETRIES);
+                retryMode != NO_RETRIES,
+                createPartitionProjection(ImmutableList.copyOf(columnHandlesByName.keySet()), partitionTypes, tableProperties));
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         metastore.declareIntentionToWrite(session, writeInfo.writeMode(), writeInfo.writePath(), schemaTableName);
@@ -1906,7 +1918,7 @@ public class HiveMetadata
 
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(getTypeSignature(column.getHiveType()))));
-        Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, handle.getPartitionedBy(), columnTypes);
+        Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, handle.getPartitionedBy(), columnTypes, handle.getPartitionProjection());
 
         PartitionStatistics tableStatistics;
         if (table.getPartitionColumns().isEmpty()) {
@@ -2187,7 +2199,8 @@ public class HiveMetadata
                 tableStorageFormat,
                 isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session),
                 transaction,
-                retryMode != NO_RETRIES);
+                retryMode != NO_RETRIES,
+                getPartitionProjectionFromTable(table, typeManager));
 
         WriteInfo writeInfo = locationService.getQueryWriteInfo(locationHandle);
         if (getInsertExistingPartitionsBehavior(session) == InsertExistingPartitionsBehavior.OVERWRITE
@@ -2279,7 +2292,7 @@ public class HiveMetadata
                 .collect(toImmutableList());
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(getTypeSignature(column.getHiveType()))));
-        Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
+        Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes, handle.getPartitionProjection());
 
         ImmutableList.Builder<PartitionUpdateInfo> partitionUpdateInfosBuilder = ImmutableList.builder();
         for (PartitionUpdate partitionUpdate : partitionUpdates) {
@@ -2338,7 +2351,7 @@ public class HiveMetadata
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes));
+                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionedBy, partitionTypes, handle.getPartitionProjection()));
                 partitionUpdateInfosBuilder.add(
                         new PartitionUpdateInfo(
                                 partitionValues,
@@ -2361,7 +2374,7 @@ public class HiveMetadata
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
                         partitionUpdate.getStatistics(),
                         columnTypes,
-                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionTypes));
+                        getColumnStatistics(partitionComputedStatistics, partitionName, partitionValues, partitionedBy, partitionTypes, handle.getPartitionProjection()));
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
                     if (handle.getLocationHandle().getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
                         removeNonCurrentQueryFiles(session, partitionUpdate.getTargetPath());
@@ -2486,12 +2499,14 @@ public class HiveMetadata
             Map<List<String>, ComputedStatistics> statistics,
             String partitionName,
             List<String> partitionValues,
-            List<Type> partitionTypes)
+            List<String> partitionColumns,
+            List<Type> partitionTypes,
+            Optional<PartitionProjection> partitionProjection)
     {
         Optional<Map<ColumnStatisticMetadata, Block>> columnStatistics = Optional.ofNullable(statistics.get(partitionValues))
                 .map(ComputedStatistics::getColumnStatistics);
         return columnStatistics
-                .orElseGet(() -> getColumnStatistics(statistics, canonicalizePartitionValues(partitionName, partitionValues, partitionTypes)));
+                .orElseGet(() -> getColumnStatistics(statistics, canonicalizePartitionValues(partitionName, partitionValues, partitionColumns, partitionTypes, partitionProjection)));
     }
 
     @Override
@@ -2576,7 +2591,8 @@ public class HiveMetadata
                 // TODO: test with multiple partitions using different storage format
                 tableStorageFormat,
                 NO_ACID_TRANSACTION,
-                retryMode != NO_RETRIES));
+                retryMode != NO_RETRIES,
+                createPartitionProjection(hiveTableHandle.getDataColumns(), hiveTableHandle.getPartitionColumns(), hiveTableHandle.getTableParameters())));
     }
 
     @Override
