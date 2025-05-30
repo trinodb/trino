@@ -170,7 +170,7 @@ public final class GlueConverter
         List<Column> dataColumns;
         StorageDescriptor sd = glueTable.storageDescriptor();
         if (sd == null) {
-            if (!isIcebergTable(tableParameters) && !isDeltaLakeTable(tableParameters) && !isTrinoMaterializedView(tableType, tableParameters)) {
+            if (!isIcebergTable(tableParameters) && !isDeltaLakeTable(tableParameters) && !isTrinoMaterializedView(tableType, tableParameters) && !isTrinoView(tableType, tableParameters)) {
                 throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Table StorageDescriptor is null for table '%s' %s".formatted(databaseName, glueTable.name()));
             }
 

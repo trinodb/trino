@@ -44,6 +44,7 @@ import java.util.Random;
 import static io.trino.metastore.HiveType.HIVE_STRING;
 import static io.trino.metastore.Table.TABLE_COMMENT;
 import static io.trino.metastore.TableInfo.ICEBERG_MATERIALIZED_VIEW_COMMENT;
+import static io.trino.metastore.TableInfo.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.glue.GlueConverter.PUBLIC_OWNER;
@@ -109,6 +110,19 @@ class TestGlueConverter
             .tableType(TableType.VIRTUAL_VIEW.name())
             .viewOriginalText("/* %s: base64encodedquery */".formatted(ICEBERG_MATERIALIZED_VIEW_COMMENT))
             .viewExpandedText(ICEBERG_MATERIALIZED_VIEW_COMMENT)
+            .build();
+
+    private final software.amazon.awssdk.services.glue.model.Table glueView = software.amazon.awssdk.services.glue.model.Table.builder()
+            .databaseName(glueDatabase.name())
+            .name("test-regular-view")
+            .owner("owner")
+            .parameters(ImmutableMap.<String, String>builder()
+                    .put(PRESTO_VIEW_FLAG, "true")
+                    .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
+                    .buildOrThrow())
+            .tableType(TableType.VIRTUAL_VIEW.name())
+            .viewOriginalText("/* %s: base64encodedquery */".formatted(PRESTO_VIEW_COMMENT))
+            .viewExpandedText(PRESTO_VIEW_COMMENT)
             .build();
 
     private final software.amazon.awssdk.services.glue.model.Table glueTable = software.amazon.awssdk.services.glue.model.Table.builder()
@@ -407,10 +421,14 @@ class TestGlueConverter
     }
 
     @Test
-    public void testIcebergMaterializedViewNullStorageDescriptor()
+    public void testIcebergViewsNullStorageDescriptor()
     {
         assertThat(glueMaterializedView.storageDescriptor()).isNull();
         Table trinoTable = GlueConverter.fromGlueTable(glueMaterializedView, glueMaterializedView.databaseName());
+        assertThat(trinoTable.getDataColumns()).hasSize(1);
+
+        assertThat(glueView.storageDescriptor()).isNull();
+        trinoTable = GlueConverter.fromGlueTable(glueView, glueView.databaseName());
         assertThat(trinoTable.getDataColumns()).hasSize(1);
     }
 
