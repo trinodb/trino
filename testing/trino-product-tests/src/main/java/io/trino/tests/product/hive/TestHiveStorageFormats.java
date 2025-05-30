@@ -303,6 +303,8 @@ public class TestHiveStorageFormats
                 .filter(format -> !"CSV".equals(format))
                 // REGEX is read-only
                 .filter(format -> !"REGEX".equals(format))
+                // GROK is read-only
+                .filter(format -> !"GROK".equals(format))
                 // TODO when using JSON serde Hive fails with ClassNotFoundException: org.apache.hive.hcatalog.data.JsonSerDe
                 .filter(format -> !"JSON".equals(format))
                 // OPENX is not supported in Hive by default
