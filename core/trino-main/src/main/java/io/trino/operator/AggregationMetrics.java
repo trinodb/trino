@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.metrics.DurationTiming;
 import io.trino.plugin.base.metrics.LongCount;
+import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
 
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -28,6 +29,8 @@ public class AggregationMetrics
     static final String INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME = "Input rows processed without partial aggregation enabled";
     private static final String ACCUMULATOR_TIME_METRIC_NAME = "Accumulator update CPU time";
     private static final String GROUP_BY_HASH_TIME_METRIC_NAME = "Group by hash update CPU time";
+
+    private final SpillMetrics spillMetrics = new SpillMetrics();
 
     private long accumulatorTimeNanos;
     private long groupByHashTimeNanos;
@@ -48,11 +51,23 @@ public class AggregationMetrics
         inputRowsProcessedWithPartialAggregationDisabled += rows;
     }
 
+    public void recordSpillSince(long startNanos, long spillBytes)
+    {
+        spillMetrics.recordSpillSince(startNanos, spillBytes);
+    }
+
+    public void recordUnspillSince(long startNanos, long unspillBytes)
+    {
+        spillMetrics.recordUnspillSince(startNanos, unspillBytes);
+    }
+
     public Metrics getMetrics()
     {
-        return new Metrics(ImmutableMap.of(
-                INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME, new LongCount(inputRowsProcessedWithPartialAggregationDisabled),
-                ACCUMULATOR_TIME_METRIC_NAME, new DurationTiming(new Duration(accumulatorTimeNanos, NANOSECONDS)),
-                GROUP_BY_HASH_TIME_METRIC_NAME, new DurationTiming(new Duration(groupByHashTimeNanos, NANOSECONDS))));
+        return new Metrics(ImmutableMap.<String, Metric<?>>builder()
+                .put(INPUT_ROWS_WITH_PARTIAL_AGGREGATION_DISABLED_METRIC_NAME, new LongCount(inputRowsProcessedWithPartialAggregationDisabled))
+                .put(ACCUMULATOR_TIME_METRIC_NAME, new DurationTiming(new Duration(accumulatorTimeNanos, NANOSECONDS)))
+                .put(GROUP_BY_HASH_TIME_METRIC_NAME, new DurationTiming(new Duration(groupByHashTimeNanos, NANOSECONDS)))
+                .putAll(spillMetrics.getMetrics().getMetrics())
+                .buildOrThrow());
     }
 }

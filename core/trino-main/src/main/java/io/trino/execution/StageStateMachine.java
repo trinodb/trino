@@ -351,10 +351,7 @@ public class StageStateMachine
                 rawInputPositions += taskStats.getRawInputPositions();
             }
 
-            spilledDataSize += taskStats.getPipelines().stream()
-                    .flatMap(pipeline -> pipeline.getOperatorSummaries().stream())
-                    .mapToLong(summary -> summary.getSpilledDataSize().toBytes())
-                    .sum();
+            spilledDataSize += taskStats.getSpilledDataSize().toBytes();
         }
 
         OptionalDouble progressPercentage = OptionalDouble.empty();
@@ -440,6 +437,8 @@ public class StageStateMachine
         long peakUserMemoryReservation = peakUserMemory.get();
         long peakRevocableMemoryReservation = peakRevocableMemory.get();
 
+        long spilledDataSize = 0;
+
         long totalScheduledTime = 0;
         long failedScheduledTime = 0;
         long totalCpuTime = 0;
@@ -521,6 +520,8 @@ public class StageStateMachine
             if (taskFailedOrFailing) {
                 failedCumulativeUserMemory += taskStats.getCumulativeUserMemory();
             }
+
+            spilledDataSize += taskStats.getSpilledDataSize().toBytes();
 
             totalScheduledTime += taskStats.getTotalScheduledTime().roundTo(NANOSECONDS);
             totalCpuTime += taskStats.getTotalCpuTime().roundTo(NANOSECONDS);
@@ -628,6 +629,7 @@ public class StageStateMachine
                 succinctBytes(totalMemoryReservation),
                 succinctBytes(peakUserMemoryReservation),
                 succinctBytes(peakRevocableMemoryReservation),
+                succinctBytes(spilledDataSize),
                 succinctDuration(totalScheduledTime, NANOSECONDS),
                 succinctDuration(failedScheduledTime, NANOSECONDS),
                 succinctDuration(totalCpuTime, NANOSECONDS),

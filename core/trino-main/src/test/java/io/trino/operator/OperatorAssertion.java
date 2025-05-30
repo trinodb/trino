@@ -14,6 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
@@ -346,7 +347,7 @@ public final class OperatorAssertion
             actualPages = dropChannel(actualPages, ImmutableList.of(hashChannel.get()));
         }
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), actualPages);
-        assertThat(actual.getMaterializedRows()).containsExactlyInAnyOrderElementsOf(expected.getMaterializedRows());
+        assertThat(ImmutableMultiset.copyOf(actual.getMaterializedRows())).isEqualTo(ImmutableMultiset.copyOf(expected.getMaterializedRows()));
     }
 
     public static void assertOperatorIsBlocked(Operator operator)

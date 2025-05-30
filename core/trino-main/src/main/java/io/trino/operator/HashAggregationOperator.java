@@ -29,7 +29,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.SpillerFactory;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -73,7 +72,6 @@ public class HashAggregationOperator
         private final DataSize memoryLimitForMergeWithMemory;
         private final SpillerFactory spillerFactory;
         private final FlatHashStrategyCompiler hashStrategyCompiler;
-        private final TypeOperators typeOperators;
         private final Optional<PartialAggregationController> partialAggregationController;
 
         private boolean closed;
@@ -92,7 +90,6 @@ public class HashAggregationOperator
                 int expectedGroups,
                 Optional<DataSize> maxPartialMemory,
                 FlatHashStrategyCompiler hashStrategyCompiler,
-                TypeOperators typeOperators,
                 Optional<PartialAggregationController> partialAggregationController)
         {
             this(operatorId,
@@ -114,7 +111,6 @@ public class HashAggregationOperator
                         throw new UnsupportedOperationException();
                     },
                     hashStrategyCompiler,
-                    typeOperators,
                     partialAggregationController);
         }
 
@@ -135,7 +131,6 @@ public class HashAggregationOperator
                 DataSize unspillMemoryLimit,
                 SpillerFactory spillerFactory,
                 FlatHashStrategyCompiler hashStrategyCompiler,
-                TypeOperators typeOperators,
                 Optional<PartialAggregationController> partialAggregationController)
         {
             this(operatorId,
@@ -155,7 +150,6 @@ public class HashAggregationOperator
                     DataSize.succinctBytes((long) (unspillMemoryLimit.toBytes() * MERGE_WITH_MEMORY_RATIO)),
                     spillerFactory,
                     hashStrategyCompiler,
-                    typeOperators,
                     partialAggregationController);
         }
 
@@ -178,7 +172,6 @@ public class HashAggregationOperator
                 DataSize memoryLimitForMergeWithMemory,
                 SpillerFactory spillerFactory,
                 FlatHashStrategyCompiler hashStrategyCompiler,
-                TypeOperators typeOperators,
                 Optional<PartialAggregationController> partialAggregationController)
         {
             this.operatorId = operatorId;
@@ -198,7 +191,6 @@ public class HashAggregationOperator
             this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
             this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
             this.hashStrategyCompiler = requireNonNull(hashStrategyCompiler, "hashStrategyCompiler is null");
-            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.partialAggregationController = requireNonNull(partialAggregationController, "partialAggregationController is null");
         }
 
@@ -208,7 +200,7 @@ public class HashAggregationOperator
             checkState(!closed, "Factory is already closed");
 
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, HashAggregationOperator.class.getSimpleName());
-            HashAggregationOperator hashAggregationOperator = new HashAggregationOperator(
+            return new HashAggregationOperator(
                     operatorContext,
                     groupByTypes,
                     groupByChannels,
@@ -225,9 +217,7 @@ public class HashAggregationOperator
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
                     hashStrategyCompiler,
-                    typeOperators,
                     partialAggregationController);
-            return hashAggregationOperator;
         }
 
         @Override
@@ -257,7 +247,6 @@ public class HashAggregationOperator
                     memoryLimitForMergeWithMemory,
                     spillerFactory,
                     hashStrategyCompiler,
-                    typeOperators,
                     partialAggregationController.map(PartialAggregationController::duplicate));
         }
     }
@@ -279,7 +268,6 @@ public class HashAggregationOperator
     private final DataSize memoryLimitForMergeWithMemory;
     private final SpillerFactory spillerFactory;
     private final FlatHashStrategyCompiler flatHashStrategyCompiler;
-    private final TypeOperators typeOperators;
     private final AggregationMetrics aggregationMetrics = new AggregationMetrics();
 
     private final List<Type> types;
@@ -314,7 +302,6 @@ public class HashAggregationOperator
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
             FlatHashStrategyCompiler flatHashStrategyCompiler,
-            TypeOperators typeOperators,
             Optional<PartialAggregationController> partialAggregationController)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
@@ -340,7 +327,6 @@ public class HashAggregationOperator
         this.memoryLimitForMergeWithMemory = requireNonNull(memoryLimitForMergeWithMemory, "memoryLimitForMergeWithMemory is null");
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.flatHashStrategyCompiler = requireNonNull(flatHashStrategyCompiler, "hashStrategyCompiler is null");
-        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
 
         this.memoryContext = operatorContext.localUserMemoryContext();
     }
@@ -349,6 +335,17 @@ public class HashAggregationOperator
     public OperatorContext getOperatorContext()
     {
         return operatorContext;
+    }
+
+    @Override
+    public ListenableFuture<Void> isBlocked()
+    {
+        if (outputPages == null || !outputPages.isBlocked()) {
+            return NOT_BLOCKED;
+        }
+
+        // We can block e.g. because of self-triggered spill
+        return outputPages.getBlockedFuture();
     }
 
     @Override
@@ -426,7 +423,6 @@ public class HashAggregationOperator
                         memoryLimitForMergeWithMemory,
                         spillerFactory,
                         flatHashStrategyCompiler,
-                        typeOperators,
                         aggregationMetrics);
             }
 

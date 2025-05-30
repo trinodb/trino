@@ -104,7 +104,7 @@ public class FeaturesConfig
     private boolean spillEnabled;
     private DataSize aggregationOperatorUnspillMemoryLimit = DataSize.of(4, DataSize.Unit.MEGABYTE);
     private List<Path> spillerSpillPaths = ImmutableList.of();
-    private int spillerThreads = 4;
+    private Integer spillerThreads;
     private double spillMaxUsedSpaceThreshold = 0.9;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
@@ -287,6 +287,9 @@ public class FeaturesConfig
     @Min(1)
     public int getSpillerThreads()
     {
+        if (spillerThreads == null) {
+            return Math.max(spillerSpillPaths.size() * 2, 4);
+        }
         return spillerThreads;
     }
 

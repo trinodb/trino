@@ -13,11 +13,11 @@
  */
 package io.trino.operator;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
 import io.trino.util.MergeSortedPages.PageWithPosition;
 
 import java.io.Closeable;
@@ -26,7 +26,7 @@ import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.operator.InterpretedHashGenerator.createPagePrefixHashGenerator;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
 
 /**
@@ -40,20 +40,33 @@ public class MergeHashSort
         implements Closeable
 {
     private final AggregatedMemoryContext memoryContext;
-    private final TypeOperators typeOperators;
 
-    public MergeHashSort(AggregatedMemoryContext memoryContext, TypeOperators typeOperators)
+    public MergeHashSort(AggregatedMemoryContext memoryContext)
     {
         this.memoryContext = memoryContext;
-        this.typeOperators = typeOperators;
     }
 
     /**
      * Rows with same hash value are guaranteed to be in the same result page.
      */
-    public WorkProcessor<Page> merge(List<Type> keyTypes, List<Type> allTypes, List<WorkProcessor<Page>> channels, DriverYieldSignal driverYieldSignal)
+    public WorkProcessor<Page> merge(List<Type> allTypes, List<WorkProcessor<Page>> channels, DriverYieldSignal driverYieldSignal)
     {
-        InterpretedHashGenerator hashGenerator = createPagePrefixHashGenerator(keyTypes, typeOperators);
+        int hashChannel = allTypes.size() - 1;
+        HashGenerator hashGenerator = (position, page) -> BIGINT.getLong(page.getBlock(hashChannel), position);
+        return mergeSortedPages(
+                channels,
+                createHashPageWithPositionComparator(hashGenerator),
+                IntStream.range(0, allTypes.size()).boxed().collect(toImmutableList()),
+                allTypes,
+                keepSameHashValuesWithinSinglePage(hashGenerator),
+                true,
+                memoryContext,
+                driverYieldSignal);
+    }
+
+    @VisibleForTesting
+    public WorkProcessor<Page> merge(List<Type> allTypes, List<WorkProcessor<Page>> channels, DriverYieldSignal driverYieldSignal, HashGenerator hashGenerator)
+    {
         return mergeSortedPages(
                 channels,
                 createHashPageWithPositionComparator(hashGenerator),
@@ -71,7 +84,7 @@ public class MergeHashSort
         memoryContext.close();
     }
 
-    private static BiPredicate<PageBuilder, PageWithPosition> keepSameHashValuesWithinSinglePage(InterpretedHashGenerator hashGenerator)
+    private static BiPredicate<PageBuilder, PageWithPosition> keepSameHashValuesWithinSinglePage(HashGenerator hashGenerator)
     {
         return new BiPredicate<>()
         {

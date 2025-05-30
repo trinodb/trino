@@ -14,6 +14,7 @@
 package io.trino.spiller;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.spi.Page;
 
 import java.io.Closeable;
@@ -56,16 +57,16 @@ public interface PartitioningSpiller
 
     class PartitioningSpillResult
     {
-        private final ListenableFuture<Void> spillingFuture;
+        private final ListenableFuture<DataSize> spillingFuture;
         private final Page retained;
 
-        public PartitioningSpillResult(ListenableFuture<Void> spillingFuture, Page retained)
+        public PartitioningSpillResult(ListenableFuture<DataSize> spillingFuture, Page retained)
         {
             this.spillingFuture = requireNonNull(spillingFuture, "spillingFuture is null");
             this.retained = requireNonNull(retained, "retained is null");
         }
 
-        public ListenableFuture<Void> getSpillingFuture()
+        public ListenableFuture<DataSize> getSpillingFuture()
         {
             return spillingFuture;
         }

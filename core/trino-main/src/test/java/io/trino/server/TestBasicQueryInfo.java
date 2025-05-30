@@ -90,6 +90,7 @@ public class TestBasicQueryInfo
                                 DataSize.valueOf("29GB"),
                                 DataSize.valueOf("30GB"),
                                 DataSize.valueOf("31GB"),
+                                DataSize.valueOf("32GB"),
                                 true,
                                 OptionalDouble.of(100),
                                 OptionalDouble.of(0),
@@ -189,6 +190,7 @@ public class TestBasicQueryInfo
         assertThat(basicInfo.getQueryStats().getUserMemoryReservation()).isEqualTo(DataSize.valueOf("23GB"));
         assertThat(basicInfo.getQueryStats().getTotalMemoryReservation()).isEqualTo(DataSize.valueOf("25GB"));
         assertThat(basicInfo.getQueryStats().getPeakUserMemoryReservation()).isEqualTo(DataSize.valueOf("26GB"));
+        assertThat(basicInfo.getQueryStats().getSpilledDataSize()).isEqualTo(DataSize.valueOf("32GB"));
         assertThat(basicInfo.getQueryStats().getTotalScheduledTime()).isEqualTo(new Duration(32, MINUTES));
         assertThat(basicInfo.getQueryStats().getFailedScheduledTime()).isEqualTo(new Duration(33, MINUTES));
         assertThat(basicInfo.getQueryStats().getTotalCpuTime()).isEqualTo(new Duration(34, MINUTES));

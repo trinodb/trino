@@ -16,6 +16,7 @@ package io.trino.operator.join;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.operator.SpillMetrics;
 import io.trino.operator.WorkProcessor;
 import io.trino.operator.join.DefaultPageJoiner.SavedRow;
 import io.trino.operator.join.PageJoiner.PageJoinerFactory;
@@ -27,11 +28,14 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.Iterators.singletonIterator;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getDone;
+import static io.trino.operator.WorkProcessor.ProcessState.Type.FINISHED;
+import static io.trino.operator.WorkProcessor.ProcessState.Type.RESULT;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
@@ -43,6 +47,7 @@ public class SpillingJoinProcessor
     private final boolean waitForBuild;
     private final LookupSourceFactory lookupSourceFactory;
     private final ListenableFuture<LookupSourceProvider> lookupSourceProvider;
+    private final SpillMetrics spillMetrics;
     private final PageJoinerFactory pageJoinerFactory;
     private final PageJoiner sourcePagesJoiner;
     private final WorkProcessor<Page> joinedSourcePages;
@@ -65,6 +70,7 @@ public class SpillingJoinProcessor
             LookupSourceFactory lookupSourceFactory,
             ListenableFuture<LookupSourceProvider> lookupSourceProvider,
             PartitioningSpillerFactory partitioningSpillerFactory,
+            SpillMetrics spillMetrics,
             PageJoinerFactory pageJoinerFactory,
             WorkProcessor<Page> sourcePages)
     {
@@ -73,6 +79,7 @@ public class SpillingJoinProcessor
         this.waitForBuild = waitForBuild;
         this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
         this.lookupSourceProvider = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");
+        this.spillMetrics = requireNonNull(spillMetrics, "spillMetrics is null");
         this.pageJoinerFactory = requireNonNull(pageJoinerFactory, "pageJoinerFactory is null");
         sourcePagesJoiner = pageJoinerFactory.getPageJoiner(
                 lookupSourceProvider,
@@ -155,9 +162,25 @@ public class SpillingJoinProcessor
     private WorkProcessor<Page> joinUnspilledPages(PartitionedConsumption.Partition<Supplier<LookupSource>> partition)
     {
         int partitionNumber = partition.number();
-        WorkProcessor<Page> unspilledInputPages = WorkProcessor.fromIterator(sourcePagesJoiner.getSpiller()
-                .map(spiller -> spiller.getSpilledPages(partitionNumber))
-                .orElse(emptyIterator()));
+
+        WorkProcessor<Page> unspilledInputPages;
+        if (sourcePagesJoiner.getSpiller().isPresent()) {
+            long unspillStartNanos = System.nanoTime();
+            AtomicLong unspillBytes = new AtomicLong(0);
+            unspilledInputPages = WorkProcessor.fromIterator(sourcePagesJoiner.getSpiller().get().getSpilledPages(partitionNumber))
+                    .withProcessStateMonitor(state -> {
+                        if (state.getType() == FINISHED) {
+                            spillMetrics.recordUnspillSince(unspillStartNanos, unspillBytes.get());
+                        }
+                        else if (state.getType() == RESULT) {
+                            unspillBytes.addAndGet(state.getResult().getSizeInBytes());
+                        }
+                    });
+        }
+        else {
+            unspilledInputPages = WorkProcessor.of();
+        }
+
         Iterator<SavedRow> savedRow = Optional.ofNullable(sourcePagesJoiner.getSpilledRows().remove(partitionNumber))
                 .map(row -> (Iterator<SavedRow>) singletonIterator(row))
                 .orElse(emptyIterator());

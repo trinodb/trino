@@ -14,6 +14,7 @@
 package io.trino.spiller;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import io.airlift.units.DataSize;
 import io.trino.spi.Page;
 
 import java.io.Closeable;
@@ -27,16 +28,16 @@ public interface SingleStreamSpiller
         extends Closeable
 {
     /**
-     * Initiate spilling of pages stream. Returns completed future once spilling has finished.
+     * Initiate spilling of pages stream. Returns completed future (with spilled pages data size) once spilling has finished.
      * Next spill can be initiated as soon as previous one completes.
      */
-    ListenableFuture<Void> spill(Iterator<Page> page);
+    ListenableFuture<DataSize> spill(Iterator<Page> page);
 
     /**
-     * Initiate spilling of single page. Returns completed future once spilling has finished.
+     * Initiate spilling of single page. Returns completed future (with spilled pages data size) once spilling has finished.
      * Next spill can be initiated as soon as previous one completes.
      */
-    default ListenableFuture<Void> spill(Page page)
+    default ListenableFuture<DataSize> spill(Page page)
     {
         return spill(singletonIterator(page));
     }

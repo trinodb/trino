@@ -188,6 +188,7 @@ public class TestQueryInfo
         assertThat(queryStats.getTotalMemoryReservation()).isEqualTo(basicQueryStats.getTotalMemoryReservation());
         assertThat(queryStats.getPeakUserMemoryReservation()).isEqualTo(basicQueryStats.getPeakUserMemoryReservation());
         assertThat(queryStats.getPeakTotalMemoryReservation()).isEqualTo(basicQueryStats.getPeakTotalMemoryReservation());
+        assertThat(queryStats.getSpilledDataSize()).isEqualTo(basicQueryStats.getSpilledDataSize());
         assertThat(queryStats.getTotalCpuTime()).isEqualTo(basicQueryStats.getTotalCpuTime());
         assertThat(queryStats.isFullyBlocked()).isEqualTo(basicQueryStats.isFullyBlocked());
         assertThat(queryStats.getTotalCpuTime()).isEqualTo(basicQueryStats.getTotalCpuTime());
@@ -283,6 +284,7 @@ public class TestQueryInfo
                 value,
                 value,
                 value,
+                succinctBytes(value),
                 succinctBytes(value),
                 succinctBytes(value),
                 succinctBytes(value),

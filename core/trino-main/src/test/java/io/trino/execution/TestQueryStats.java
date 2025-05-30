@@ -220,6 +220,7 @@ public class TestQueryStats
             DataSize.ofBytes(25),
             DataSize.ofBytes(26),
             DataSize.ofBytes(27),
+            DataSize.ofBytes(28),
 
             true,
             OptionalDouble.of(8.88),
@@ -334,7 +335,7 @@ public class TestQueryStats
         assertThat(actual.getPeakTaskUserMemory()).isEqualTo(DataSize.ofBytes(25));
         assertThat(actual.getPeakTaskRevocableMemory()).isEqualTo(DataSize.ofBytes(26));
         assertThat(actual.getPeakTaskTotalMemory()).isEqualTo(DataSize.ofBytes(27));
-        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(693));
+        assertThat(actual.getSpilledDataSize()).isEqualTo(DataSize.ofBytes(28));
 
         assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(28, NANOSECONDS));
         assertThat(actual.getFailedScheduledTime()).isEqualTo(new Duration(29, NANOSECONDS));

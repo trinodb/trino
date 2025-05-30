@@ -74,6 +74,8 @@ public class PipelineContext
     private final AtomicReference<DateTime> lastExecutionStartTime = new AtomicReference<>();
     private final AtomicReference<DateTime> lastExecutionEndTime = new AtomicReference<>();
 
+    private final CounterStat spilledDataSize = new CounterStat();
+
     private final Distribution queuedTime = new Distribution();
     private final Distribution elapsedTime = new Distribution();
 
@@ -207,6 +209,8 @@ public class PipelineContext
         if (partitioned) {
             completedSplitsWeight.addAndGet(driverContext.getSplitWeight());
         }
+
+        spilledDataSize.update(driverStats.getSpilledDataSize().toBytes());
 
         queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
         elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -392,6 +396,8 @@ public class PipelineContext
 
         int totalDrivers = completedDrivers + driverContexts.size();
 
+        long spilledDataSize = this.spilledDataSize.getTotalCount();
+
         Distribution queuedTime = this.queuedTime.duplicate();
         Distribution elapsedTime = this.elapsedTime.duplicate();
 
@@ -439,6 +445,8 @@ public class PipelineContext
                 unfinishedDriversFullyBlocked &= driverStats.isFullyBlocked();
                 blockedReasons.addAll(driverStats.getBlockedReasons());
             }
+
+            spilledDataSize += driverStats.getSpilledDataSize().toBytes();
 
             queuedTime.add(driverStats.getQueuedTime().roundTo(NANOSECONDS));
             elapsedTime.add(driverStats.getElapsedTime().roundTo(NANOSECONDS));
@@ -524,6 +532,8 @@ public class PipelineContext
 
                 succinctBytes(pipelineMemoryContext.getUserMemory()),
                 succinctBytes(pipelineMemoryContext.getRevocableMemory()),
+
+                succinctBytes(spilledDataSize),
 
                 queuedTime.snapshot(),
                 elapsedTime.snapshot(),

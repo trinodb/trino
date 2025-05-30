@@ -248,12 +248,12 @@ public class InMemoryHashAggregationBuilder
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
             groupedAggregator.prepareFinal();
         }
-        return buildResult(consecutiveGroupIds());
+        return buildResult(consecutiveGroupIds(), new PageBuilder(buildTypes()), false);
     }
 
-    public WorkProcessor<Page> buildHashSortedResult()
+    public WorkProcessor<Page> buildSpillResult()
     {
-        return buildResult(hashSortedGroupIds());
+        return buildResult(hashSortedGroupIds(), new PageBuilder(buildSpillTypes()), true);
     }
 
     public List<Type> buildSpillTypes()
@@ -262,6 +262,8 @@ public class InMemoryHashAggregationBuilder
         for (GroupedAggregator groupedAggregator : groupedAggregators) {
             types.add(groupedAggregator.getSpillType());
         }
+        // raw hash
+        types.add(BIGINT);
         return types;
     }
 
@@ -271,9 +273,9 @@ public class InMemoryHashAggregationBuilder
         return groupByHash.getCapacity();
     }
 
-    private WorkProcessor<Page> buildResult(IntIterator groupIds)
+    private WorkProcessor<Page> buildResult(IntIterator groupIds, PageBuilder pageBuilder, boolean appendRawHash)
     {
-        PageBuilder pageBuilder = new PageBuilder(buildTypes());
+        int rawHashIndex = groupByChannels.length + groupedAggregators.size();
         return WorkProcessor.create(() -> {
             if (!groupIds.hasNext()) {
                 return ProcessState.finished();
@@ -291,6 +293,10 @@ public class InMemoryHashAggregationBuilder
                     GroupedAggregator groupedAggregator = groupedAggregators.get(i);
                     BlockBuilder output = pageBuilder.getBlockBuilder(groupByChannels.length + i);
                     groupedAggregator.evaluate(groupId, output);
+                }
+
+                if (appendRawHash) {
+                    BIGINT.writeLong(pageBuilder.getBlockBuilder(rawHashIndex), groupByHash.getRawHash(groupId));
                 }
             }
 
