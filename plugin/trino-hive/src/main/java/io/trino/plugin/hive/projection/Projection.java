@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.projection;
 
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,4 +23,9 @@ sealed interface Projection
         permits DateProjection, EnumProjection, InjectedProjection, IntegerProjection
 {
     List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
+
+    default Optional<NullableValue> parsePartitionValue(String value)
+    {
+        return Optional.empty();
+    }
 }

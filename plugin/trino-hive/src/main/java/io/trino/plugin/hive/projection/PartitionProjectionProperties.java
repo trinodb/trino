@@ -19,13 +19,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metastore.Column;
 import io.trino.metastore.Table;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -203,6 +204,25 @@ public final class PartitionProjectionProperties
                 tableProperties);
     }
 
+    public static Optional<PartitionProjection> getPartitionProjectionFromHiveTable(HiveTableHandle table)
+    {
+        Map<String, String> tableProperties = table.getTableParameters().orElse(ImmutableMap.of());
+        if (parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_IGNORE)) ||
+                !parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED))) {
+            return Optional.empty();
+        }
+
+        Set<String> partitionColumnNames = table.getPartitionColumns().stream().map(HiveColumnHandle::getName).collect(Collectors.toSet());
+        return createPartitionProjection(
+                table.getDataColumns().stream()
+                        .map(HiveColumnHandle::getName)
+                        .filter(partitionColumnNames::contains)
+                        .collect(toImmutableList()),
+                table.getPartitionColumns().stream()
+                        .collect(toImmutableMap(HiveColumnHandle::getName, HiveColumnHandle::getType)),
+                tableProperties);
+    }
+
     private static Optional<PartitionProjection> createPartitionProjection(List<String> dataColumns, Map<String, Type> partitionColumns, Map<String, String> tableProperties)
     {
         // This method is used during table creation to validate the properties. The validation is performed even if the projection is disabled.
@@ -223,7 +243,8 @@ public final class PartitionProjectionProperties
             }
         }
 
-        Map<String, Projection> columnProjections = new HashMap<>();
+        // Keep the order of the partitions
+        ImmutableMap.Builder<String, Projection> columnProjections = ImmutableMap.builder();
         partitionColumns.forEach((columnName, type) -> {
             Map<String, Object> columnProperties = rewriteColumnProjectionProperties(tableProperties, columnName);
             if (enabled) {
@@ -243,7 +264,7 @@ public final class PartitionProjectionProperties
         if (!enabled) {
             return Optional.empty();
         }
-        return Optional.of(new PartitionProjection(storageLocationTemplate, columnProjections));
+        return Optional.of(new PartitionProjection(storageLocationTemplate, columnProjections.buildOrThrow()));
     }
 
     private static Map<String, Object> rewriteColumnProjectionProperties(Map<String, String> metastoreTableProperties, String columnName)
