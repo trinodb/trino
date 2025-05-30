@@ -71,6 +71,7 @@ import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -1440,6 +1441,7 @@ public class TestIcebergV2
     }
 
     @Test
+    @Disabled // TODO https://github.com/trinodb/trino/issues/24539 Fix flaky test
     void testEnvironmentContext()
     {
         try (TestTable table = newTrinoTable("test_environment_context", "(x int)")) {
