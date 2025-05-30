@@ -3765,9 +3765,18 @@ class StatementAnalyzer
             List<ColumnHandle> dataColumnHandles = dataColumnHandlesBuilder.build();
             List<ColumnHandle> redistributionColumnHandles = redistributionColumnHandlesBuilder.build();
 
-            List<Integer> insertPartitioningArgumentIndexes = partitioningColumnNames.stream()
-                    .map(fieldIndexes::get)
-                    .collect(toImmutableList());
+            List<Integer> insertPartitioningArgumentIndexes = partitioningColumnNames.stream().map(columnName -> {
+                Integer index = fieldIndexes.get(columnName);
+                if (index == null) {
+                    String message = format("Missing field index for column: '%s', available columns: (%s)", columnName,
+                            fieldIndexes.keySet()
+                                    .stream()
+                                    .map(key -> "'" + key + "'")
+                                    .collect(Collectors.joining(", ")));
+                    throw new TrinoException(COLUMN_NOT_FOUND, message);
+                }
+                return index;
+            }).collect(toImmutableList());
 
             Set<ColumnHandle> nonNullableColumnHandles = metadata.getTableMetadata(session, handle).columns().stream()
                     .filter(column -> !column.isNullable())
