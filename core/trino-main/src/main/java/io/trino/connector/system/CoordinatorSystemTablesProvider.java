@@ -18,7 +18,6 @@ import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
@@ -27,8 +26,6 @@ import io.trino.transaction.TransactionManager;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
 import static java.util.Objects.requireNonNull;
 
 public class CoordinatorSystemTablesProvider
@@ -72,11 +69,6 @@ public class CoordinatorSystemTablesProvider
         Optional<SystemTable> systemTable = metadata.getSystemTable(
                 ((FullConnectorSession) session).getSession(),
                 new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()));
-
-        // dynamic tables require access to the transaction and thus can only run on the current coordinator
-        if (systemTable.isPresent() && systemTable.get().getDistribution() != SINGLE_COORDINATOR) {
-            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Distribution for dynamic system table must be " + SINGLE_COORDINATOR);
-        }
 
         return systemTable;
     }

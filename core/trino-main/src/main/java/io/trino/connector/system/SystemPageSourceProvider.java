@@ -16,6 +16,7 @@ package io.trino.connector.system;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.FullConnectorSession;
+import io.trino.connector.ConnectorServices;
 import io.trino.plugin.base.MappedPageSource;
 import io.trino.plugin.base.MappedRecordSet;
 import io.trino.security.AccessControl;
@@ -30,6 +31,7 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSystemSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.DynamicFilter;
@@ -60,12 +62,14 @@ public class SystemPageSourceProvider
     private final SystemTablesProvider tables;
     private final AccessControl accessControl;
     private final String catalogName;
+    private final ConnectorServices connectorServices;
 
-    public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName)
+    public SystemPageSourceProvider(SystemTablesProvider tables, AccessControl accessControl, String catalogName, ConnectorServices connectorServices)
     {
         this.tables = requireNonNull(tables, "tables is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.connectorServices = requireNonNull(connectorServices, "connectorServices is null");
     }
 
     @Override
@@ -77,6 +81,10 @@ public class SystemPageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter)
     {
+        if (split instanceof ConnectorSystemSplit) {
+            return connectorServices.getPageSourceProviderFactory().orElseThrow()
+                    .createPageSourceProvider().createPageSource(transaction, session, split, table, columns, dynamicFilter);
+        }
         requireNonNull(columns, "columns is null");
         SystemTransactionHandle systemTransaction = (SystemTransactionHandle) transaction;
         SystemSplit systemSplit = (SystemSplit) split;
