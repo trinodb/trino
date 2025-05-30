@@ -531,6 +531,33 @@ public class TracingAccessControl
     }
 
     @Override
+    public void checkCanGrantTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanGrantTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanGrantTableBranchPrivilege(context, privilege, tableName, branchName, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal grantee)
+    {
+        Span span = startSpan("checkCanDenyTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanDenyTableBranchPrivilege(context, privilege, tableName, branchName, grantee);
+        }
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(SecurityContext context, Privilege privilege, QualifiedObjectName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        Span span = startSpan("checkCanRevokeTableBranchPrivilege");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanRevokeTableBranchPrivilege(context, privilege, tableName, branchName, revokee, grantOption);
+        }
+    }
+
+    @Override
     public void checkCanGrantEntityPrivilege(SecurityContext context, EntityPrivilege privilege, EntityKindAndName entity, TrinoPrincipal grantee, boolean grantOption)
     {
         Span span = startSpan("checkCanGrantEntityPrivilege");
@@ -761,6 +788,33 @@ public class TracingAccessControl
         Span span = startSpan("checkCanSetEntityAuthorization");
         try (var ignored = scopedSpan(span)) {
             delegate.checkCanSetEntityAuthorization(context, entityKindAndName, principal);
+        }
+    }
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        Span span = startSpan("checkCanCreateBranch");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanCreateBranch(context, tableName, name);
+        }
+    }
+
+    @Override
+    public void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        Span span = startSpan("canCanDropBranch");
+        try (var _ = scopedSpan(span)) {
+            delegate.canCanDropBranch(context, tableName, name);
+        }
+    }
+
+    @Override
+    public void canCanAlterBranch(SecurityContext context, QualifiedObjectName tableName, String name)
+    {
+        Span span = startSpan("canCanAlterBranch");
+        try (var _ = scopedSpan(span)) {
+            delegate.canCanAlterBranch(context, tableName, name);
         }
     }
 

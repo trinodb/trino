@@ -378,6 +378,27 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanGrantTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal grantee, boolean grantOption)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanGrantTableBranchPrivilege(securityContext, privilege, getQualifiedObjectName(tableName), branchName, grantee, grantOption);
+    }
+
+    @Override
+    public void checkCanDenyTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal grantee)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanDenyTableBranchPrivilege(securityContext, privilege, getQualifiedObjectName(tableName), branchName, grantee);
+    }
+
+    @Override
+    public void checkCanRevokeTableBranchPrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, String branchName, TrinoPrincipal revokee, boolean grantOption)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanRevokeTableBranchPrivilege(securityContext, privilege, getQualifiedObjectName(tableName), branchName, revokee, grantOption);
+    }
+
+    @Override
     public void checkCanCreateRole(ConnectorSecurityContext context, String role, Optional<TrinoPrincipal> grantor)
     {
         checkArgument(context == null, "context must be null");
@@ -534,6 +555,27 @@ public class InjectedConnectorAccessControl
             return ImmutableMap.of();
         }
         throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
+    }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanCreateBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), name);
+    }
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.canCanDropBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), name);
+    }
+
+    @Override
+    public void checkCanAlterBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.canCanAlterBranch(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), name);
     }
 
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)

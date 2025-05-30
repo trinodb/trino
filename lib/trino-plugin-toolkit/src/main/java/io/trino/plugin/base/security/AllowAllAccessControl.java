@@ -258,4 +258,13 @@ public class AllowAllAccessControl
     {
         return ImmutableMap.of();
     }
+
+    @Override
+    public void checkCanCreateBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name) {}
+
+    @Override
+    public void checkCanDropBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name) {}
+
+    @Override
+    public void checkCanAlterBranch(ConnectorSecurityContext context, SchemaTableName tableName, String name) {}
 }

@@ -672,6 +672,21 @@ public interface Metadata
     List<GrantInfo> listTablePrivileges(Session session, QualifiedTablePrefix prefix);
 
     /**
+     * Grants the specified privilege to the specified user on the specified branch
+     */
+    void grantTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
+     * Deny the specified privilege to the specified principal on the specified branch
+     */
+    void denyTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee);
+
+    /**
+     * Revokes the specified privilege on the specified branch from the specified user.
+     */
+    void revokeTableBranchPrivileges(Session session, QualifiedObjectName tableName, String branchName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
+
+    /**
      * Gets all the EntityPrivileges associated with an entityKind.  Defines ALL PRIVILEGES
      * for the entityKind
      */
@@ -742,6 +757,16 @@ public interface Metadata
     void createLanguageFunction(Session session, QualifiedObjectName name, LanguageFunction function, boolean replace);
 
     void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken);
+
+    void createBranch(Session session, TableHandle tableHandle, String branch, Map<String, Object> properties);
+
+    void dropBranch(Session session, TableHandle tableHandle, String branch);
+
+    void fastForwardBranch(Session session, TableHandle tableHandle, String sourceBranch, String targetBranch);
+
+    Collection<String> listBranches(Session session, QualifiedObjectName tableName);
+
+    boolean branchExists(Session session, QualifiedObjectName tableName, String branch);
 
     /**
      * Creates the specified materialized view with the specified view definition.
@@ -820,12 +845,22 @@ public interface Metadata
     /**
      * Get the target table handle after performing redirection with a table version.
      */
-    RedirectionAwareTableHandle getRedirectionAwareTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+    RedirectionAwareTableHandle getRedirectionAwareTableHandle(
+            Session session,
+            QualifiedObjectName tableName,
+            Optional<TableVersion> startVersion,
+            Optional<TableVersion> endVersion,
+            Optional<String> branch);
 
     /**
      * Returns a table handle for the specified table name with a specified version
      */
-    Optional<TableHandle> getTableHandle(Session session, QualifiedObjectName tableName, Optional<TableVersion> startVersion, Optional<TableVersion> endVersion);
+    Optional<TableHandle> getTableHandle(
+            Session session,
+            QualifiedObjectName tableName,
+            Optional<TableVersion> startVersion,
+            Optional<TableVersion> endVersion,
+            Optional<String> branch);
 
     /**
      * Returns maximum number of tasks that can be created while writing data to specific connector.

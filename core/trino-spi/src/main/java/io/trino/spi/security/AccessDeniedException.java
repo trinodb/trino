@@ -593,6 +593,36 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot revoke privilege %s on table %s%s", privilege, tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyGrantTableBranchPrivilege(String privilege, String tableName, String branchName)
+    {
+        denyGrantTableBranchPrivilege(privilege, tableName, branchName, null);
+    }
+
+    public static void denyGrantTableBranchPrivilege(String privilege, String tableName, String branchName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot grant privilege %s on branch %s in table %s%s", privilege, branchName, tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDenyTableBranchPrivilege(String privilege, String tableName, String branchName)
+    {
+        denyDenyTableBranchPrivilege(privilege, tableName, branchName, null);
+    }
+
+    public static void denyDenyTableBranchPrivilege(String privilege, String tableName, String branchName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot deny privilege %s on branch %s in table %s%s", privilege, branchName, tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRevokeTableBranchPrivilege(String privilege, String tableName, String branchName)
+    {
+        denyRevokeTableBranchPrivilege(privilege, tableName, branchName, null);
+    }
+
+    public static void denyRevokeTableBranchPrivilege(String privilege, String tableName, String branchName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot revoke privilege %s on branch %s in table %s%s", privilege, branchName, tableName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyGrantEntityPrivilege(String privilege, EntityKindAndName entity)
     {
         denyGrantEntityPrivilege(privilege, entity, null);
@@ -787,6 +817,36 @@ public class AccessDeniedException
     private static String entityNameString(List<String> name)
     {
         return name.stream().collect(joining("."));
+    }
+
+    public static void denyCreateBranch(String tableName, String name)
+    {
+        denyCreateBranch(tableName, name, null);
+    }
+
+    public static void denyCreateBranch(String tableName, String name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot create branch %s@%s%s", tableName, name, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyDropBranch(String tableName, String name)
+    {
+        denyDropBranch(tableName, name, null);
+    }
+
+    public static void denyDropBranch(String tableName, String name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot alter branch %s@%s%s", tableName, name, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyAlterBranch(String tableName, String name, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot alter branch %s@%s%s", tableName, name, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyAlterBranch(String tableName, String name)
+    {
+        denyDropBranch(tableName, name, null);
     }
 
     private static Object formatExtraInfo(String extraInfo)
