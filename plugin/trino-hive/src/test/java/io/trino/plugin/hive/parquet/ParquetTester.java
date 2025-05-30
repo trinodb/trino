@@ -834,7 +834,7 @@ class ParquetTester
         writer.write(pageBuilder.build());
         writer.close();
         try {
-            writer.validate(new TrinoParquetDataSource(new LocalInputFile(outputFile), new ParquetReaderOptions(), new FileFormatDataSourceStats()));
+            writer.validate(new TrinoParquetDataSource(new LocalInputFile(outputFile), ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()));
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);

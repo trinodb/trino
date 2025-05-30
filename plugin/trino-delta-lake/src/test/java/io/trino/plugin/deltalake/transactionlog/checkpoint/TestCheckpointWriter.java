@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
+import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
@@ -33,7 +34,6 @@ import io.trino.plugin.deltalake.transactionlog.TransactionEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
-import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.predicate.TupleDomain;
@@ -505,7 +505,7 @@ public class TestCheckpointWriter
                 Optional.of(metadataEntry),
                 Optional.of(protocolEntry),
                 new FileFormatDataSourceStats(),
-                new ParquetReaderConfig().toParquetReaderOptions(),
+                ParquetReaderOptions.defaultOptions(),
                 rowStatisticsEnabled,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 TupleDomain.all(),

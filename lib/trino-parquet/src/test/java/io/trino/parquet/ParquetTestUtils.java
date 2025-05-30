@@ -111,7 +111,7 @@ public class ParquetTestUtils
             List<String> columnNames)
             throws IOException
     {
-        return createParquetReader(input, parquetMetadata, new ParquetReaderOptions(), newSimpleAggregatedMemoryContext(), types, columnNames, TupleDomain.all());
+        return createParquetReader(input, parquetMetadata, ParquetReaderOptions.defaultOptions(), newSimpleAggregatedMemoryContext(), types, columnNames, TupleDomain.all());
     }
 
     public static ParquetReader createParquetReader(
@@ -122,7 +122,7 @@ public class ParquetTestUtils
             List<String> columnNames)
             throws IOException
     {
-        return createParquetReader(input, parquetMetadata, new ParquetReaderOptions(), memoryContext, types, columnNames, TupleDomain.all());
+        return createParquetReader(input, parquetMetadata, ParquetReaderOptions.defaultOptions(), memoryContext, types, columnNames, TupleDomain.all());
     }
 
     public static ParquetReader createParquetReader(

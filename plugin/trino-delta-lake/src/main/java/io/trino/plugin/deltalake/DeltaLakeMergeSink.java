@@ -687,7 +687,7 @@ public class DeltaLakeMergeSink
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
-                new ParquetReaderOptions().withBloomFilter(false),
+                ParquetReaderOptions.builder().withBloomFilter(false).build(),
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.of(fileSize));

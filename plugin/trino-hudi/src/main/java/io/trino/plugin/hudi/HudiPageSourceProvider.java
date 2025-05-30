@@ -175,8 +175,10 @@ public class HudiPageSourceProvider
                 split,
                 inputFile,
                 dataSourceStats,
-                options.withSmallFileThreshold(getParquetSmallFileThreshold(session))
-                        .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
+                ParquetReaderOptions.builder(options)
+                        .withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                        .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                        .build(),
                 timeZone);
 
         Map<String, Block> partitionBlocks = convertPartitionValues(hiveColumns, split.partitionKeys());

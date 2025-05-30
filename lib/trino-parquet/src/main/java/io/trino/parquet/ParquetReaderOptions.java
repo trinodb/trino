@@ -37,7 +37,7 @@ public class ParquetReaderOptions
     private final DataSize smallFileThreshold;
     private final boolean vectorizedDecodingEnabled;
 
-    public ParquetReaderOptions()
+    private ParquetReaderOptions()
     {
         ignoreStatistics = false;
         maxReadBlockSize = DEFAULT_MAX_READ_BLOCK_SIZE;
@@ -71,6 +71,21 @@ public class ParquetReaderOptions
         this.useBloomFilter = useBloomFilter;
         this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
         this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder(new ParquetReaderOptions());
+    }
+
+    public static Builder builder(ParquetReaderOptions parquetReaderOptions)
+    {
+        return new Builder(parquetReaderOptions);
+    }
+
+    public static ParquetReaderOptions defaultOptions()
+    {
+        return new ParquetReaderOptions();
     }
 
     public boolean isIgnoreStatistics()
@@ -118,129 +133,98 @@ public class ParquetReaderOptions
         return smallFileThreshold;
     }
 
-    public ParquetReaderOptions withIgnoreStatistics(boolean ignoreStatistics)
+    public static class Builder
     {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
-    }
+        private boolean ignoreStatistics;
+        private DataSize maxReadBlockSize;
+        private int maxReadBlockRowCount;
+        private DataSize maxMergeDistance;
+        private DataSize maxBufferSize;
+        private boolean useColumnIndex;
+        private boolean useBloomFilter;
+        private DataSize smallFileThreshold;
+        private boolean vectorizedDecodingEnabled;
 
-    public ParquetReaderOptions withMaxReadBlockSize(DataSize maxReadBlockSize)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
-    }
+        private Builder(ParquetReaderOptions parquetReaderOptions)
+        {
+            requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
+            this.ignoreStatistics = parquetReaderOptions.ignoreStatistics;
+            this.maxReadBlockSize = parquetReaderOptions.maxReadBlockSize;
+            this.maxReadBlockRowCount = parquetReaderOptions.maxReadBlockRowCount;
+            this.maxMergeDistance = parquetReaderOptions.maxMergeDistance;
+            this.maxBufferSize = parquetReaderOptions.maxBufferSize;
+            this.useColumnIndex = parquetReaderOptions.useColumnIndex;
+            this.useBloomFilter = parquetReaderOptions.useBloomFilter;
+            this.smallFileThreshold = parquetReaderOptions.smallFileThreshold;
+            this.vectorizedDecodingEnabled = parquetReaderOptions.vectorizedDecodingEnabled;
+        }
 
-    public ParquetReaderOptions withMaxReadBlockRowCount(int maxReadBlockRowCount)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
-    }
+        public Builder withIgnoreStatistics(boolean ignoreStatistics)
+        {
+            this.ignoreStatistics = ignoreStatistics;
+            return this;
+        }
 
-    public ParquetReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
-    }
+        public Builder withMaxReadBlockSize(DataSize maxReadBlockSize)
+        {
+            this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
+            return this;
+        }
 
-    public ParquetReaderOptions withMaxBufferSize(DataSize maxBufferSize)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
-    }
+        public Builder withMaxReadBlockRowCount(int maxReadBlockRowCount)
+        {
+            this.maxReadBlockRowCount = maxReadBlockRowCount;
+            return this;
+        }
 
-    public ParquetReaderOptions withUseColumnIndex(boolean useColumnIndex)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
-    }
+        public Builder withMaxMergeDistance(DataSize maxMergeDistance)
+        {
+            this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
+            return this;
+        }
 
-    public ParquetReaderOptions withBloomFilter(boolean useBloomFilter)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
-    }
+        public Builder withMaxBufferSize(DataSize maxBufferSize)
+        {
+            this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
+            return this;
+        }
 
-    public ParquetReaderOptions withSmallFileThreshold(DataSize smallFileThreshold)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
-    }
+        public Builder withUseColumnIndex(boolean useColumnIndex)
+        {
+            this.useColumnIndex = useColumnIndex;
+            return this;
+        }
 
-    public ParquetReaderOptions withVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
-    {
-        return new ParquetReaderOptions(
-                ignoreStatistics,
-                maxReadBlockSize,
-                maxReadBlockRowCount,
-                maxMergeDistance,
-                maxBufferSize,
-                useColumnIndex,
-                useBloomFilter,
-                smallFileThreshold,
-                vectorizedDecodingEnabled);
+        public Builder withBloomFilter(boolean useBloomFilter)
+        {
+            this.useBloomFilter = useBloomFilter;
+            return this;
+        }
+
+        public Builder withSmallFileThreshold(DataSize smallFileThreshold)
+        {
+            this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
+            return this;
+        }
+
+        public Builder withVectorizedDecodingEnabled(boolean vectorizedDecodingEnabled)
+        {
+            this.vectorizedDecodingEnabled = vectorizedDecodingEnabled;
+            return this;
+        }
+
+        public ParquetReaderOptions build()
+        {
+            return new ParquetReaderOptions(
+                    ignoreStatistics,
+                    maxReadBlockSize,
+                    maxReadBlockRowCount,
+                    maxMergeDistance,
+                    maxBufferSize,
+                    useColumnIndex,
+                    useBloomFilter,
+                    smallFileThreshold,
+                    vectorizedDecodingEnabled);
+        }
     }
 }

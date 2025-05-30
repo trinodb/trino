@@ -32,7 +32,7 @@ public class TestColumnReaderFactory
     @Test
     public void testTopLevelPrimitiveFields()
     {
-        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, new ParquetReaderOptions());
+        ColumnReaderFactory columnReaderFactory = new ColumnReaderFactory(UTC, ParquetReaderOptions.defaultOptions());
         PrimitiveType primitiveType = new PrimitiveType(OPTIONAL, INT32, "test");
 
         PrimitiveField topLevelRepeatedPrimitiveField = new PrimitiveField(

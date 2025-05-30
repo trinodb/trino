@@ -59,7 +59,7 @@ public class TestTimeMillis
 
         ParquetDataSource dataSource = new FileParquetDataSource(
                 new File(Resources.getResource("time_millis_int32.snappy.parquet").toURI()),
-                new ParquetReaderOptions());
+                ParquetReaderOptions.defaultOptions());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
         ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames);
 

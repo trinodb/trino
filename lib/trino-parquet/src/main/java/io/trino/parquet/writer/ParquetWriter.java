@@ -288,7 +288,7 @@ public class ParquetWriter
                 input,
                 parquetTimeZone.orElseThrow(),
                 newSimpleAggregatedMemoryContext(),
-                new ParquetReaderOptions(),
+                ParquetReaderOptions.defaultOptions(),
                 exception -> {
                     throwIfUnchecked(exception);
                     return new RuntimeException(exception);

@@ -240,7 +240,7 @@ public final class IcebergTestUtils
     {
         try {
             return MetadataReader.readFooter(
-                    new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
+                    new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()),
                     Optional.empty());
         }
         catch (IOException e) {
