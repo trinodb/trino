@@ -284,5 +284,17 @@ public class AllowAllAccessControl
     public void checkCanShowCreateFunction(SecurityContext context, QualifiedObjectName functionName) {}
 
     @Override
+    public void checkCanShowBranches(SecurityContext context, QualifiedObjectName tableName) {}
+
+    @Override
+    public void checkCanCreateBranch(SecurityContext context, QualifiedObjectName tableName, String branchName) {}
+
+    @Override
+    public void canCanDropBranch(SecurityContext context, QualifiedObjectName tableName, String branchName) {}
+
+    @Override
+    public void canCanFastForwardBranch(SecurityContext context, QualifiedObjectName tableName, String sourceBranchName, String targetBranchName) {}
+
+    @Override
     public void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal) {}
 }
