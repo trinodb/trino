@@ -14,44 +14,52 @@
 package io.trino.filesystem;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-
-import java.util.stream.Stream;
 
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.filesystem.Locations.areDirectoryLocationsEquivalent;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestLocations
 {
-    private static Stream<Arguments> locations()
+    @Test
+    void testAppendPath()
     {
-        return Stream.of(
-                Arguments.of("test_dir", "", "test_dir/"),
-                Arguments.of("", "test_file.txt", "/test_file.txt"),
-                Arguments.of("test_dir", "test_file.txt", "test_dir/test_file.txt"),
-                Arguments.of("/test_dir", "test_file.txt", "/test_dir/test_file.txt"),
-                Arguments.of("test_dir/", "test_file.txt", "test_dir/test_file.txt"),
-                Arguments.of("/test_dir/", "test_file.txt", "/test_dir/test_file.txt"),
-                Arguments.of("test_dir", "test_dir2/", "test_dir/test_dir2/"),
-                Arguments.of("test_dir/", "test_dir2/", "test_dir/test_dir2/"),
-                Arguments.of("s3:/test_dir", "test_file.txt", "s3:/test_dir/test_file.txt"),
-                Arguments.of("s3://test_dir", "test_file.txt", "s3://test_dir/test_file.txt"),
-                Arguments.of("s3://test_dir/", "test_file.txt", "s3://test_dir/test_file.txt"),
-                Arguments.of("s3://test_dir/", "location?", "s3://test_dir/location?"),
-                Arguments.of("s3://test_dir/", "location#", "s3://test_dir/location#"),
-                Arguments.of("s3://dir_with_space ", "test_file.txt", "s3://dir_with_space /test_file.txt"),
-                Arguments.of("s3://dir_with_double_space  ", "test_file.txt", "s3://dir_with_double_space  /test_file.txt"));
-    }
+        assertThat(appendPath("/test_dir", "test_file.txt")).isEqualTo("/test_dir/test_file.txt");
+        assertThat(appendPath("/test_dir/", "test_file.txt")).isEqualTo("/test_dir/test_file.txt");
+        assertThat(appendPath("/test_dir", "test_dir2/")).isEqualTo("/test_dir/test_dir2/");
+        assertThat(appendPath("/test_dir/", "test_dir2/")).isEqualTo("/test_dir/test_dir2/");
+        assertThat(appendPath("s3://test_dir/", "test_file.txt")).isEqualTo("s3://test_dir/test_file.txt");
+        assertThat(appendPath("s3://test_dir/", "location?")).isEqualTo("s3://test_dir/location?");
+        assertThat(appendPath("s3://test_dir/", "location#")).isEqualTo("s3://test_dir/location#");
+        assertThat(appendPath("s3://test_dir/", "test_dir2/")).isEqualTo("s3://test_dir/test_dir2/");
+        assertThat(appendPath("s3://dir_with_space /", "test_file.txt")).isEqualTo("s3://dir_with_space /test_file.txt");
+        assertThat(appendPath("s3://dir_with_space /", "location?")).isEqualTo("s3://dir_with_space /location?");
+        assertThat(appendPath("s3://dir_with_space /", "location#")).isEqualTo("s3://dir_with_space /location#");
+        assertThat(appendPath("s3://dir_with_space /", "test_dir2/")).isEqualTo("s3://dir_with_space /test_dir2/");
+        assertThat(appendPath("s3://dir_with_double_space  /", "test_file.txt")).isEqualTo("s3://dir_with_double_space  /test_file.txt");
+        assertThat(appendPath("s3://dir_with_double_space  /", "location?")).isEqualTo("s3://dir_with_double_space  /location?");
+        assertThat(appendPath("s3://dir_with_double_space  /", "location#")).isEqualTo("s3://dir_with_double_space  /location#");
+        assertThat(appendPath("s3://dir_with_double_space  /", "test_dir2/")).isEqualTo("s3://dir_with_double_space  /test_dir2/");
 
-    @ParameterizedTest
-    @MethodSource("locations")
-    @SuppressWarnings("deprecation") // we're testing a deprecated method
-    public void testAppendPath(String location, String path, String expected)
-    {
-        assertThat(appendPath(location, path)).isEqualTo(expected);
+        assertThatThrownBy(() -> appendPath("", "test_file.txt"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("location is empty");
+        assertThatThrownBy(() -> appendPath("test_dir", "test_file.txt"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("No scheme for file system location: test_dir");
+        assertThatThrownBy(() -> appendPath("s3:test_dir", "test_file.txt"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path must begin with a '/' when no authority is present");
+        assertThatThrownBy(() -> appendPath("s3://test_dir", "test_file.txt"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: s3://test_dir");
+        assertThatThrownBy(() -> appendPath("s3://test_dir ", "test_file.txt"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Path missing in file system location: s3://test_dir ");
+        assertThatThrownBy(() -> appendPath("s3://user@host:invalid_port", "test_file.txt"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid port in file system location: s3://user@host:invalid_port");
     }
 
     @Test
