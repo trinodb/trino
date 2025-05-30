@@ -34,6 +34,8 @@ public interface NullSafeHash
      */
     void hashNonNullPositions(ValueBlock block, long[] hashes, int[] positions);
 
+    void hashNonNullPositionsDictionary(DictionaryBlock dictionaryBlock, long[] hashes, int[] positions);
+
     /**
      * Hashes the block and combines the result with the existing hash in the hashes array.
      * Should be used for combining hashes for multi-channel Pages after the first channel is processed by hashBatched.
@@ -47,4 +49,6 @@ public interface NullSafeHash
      * Should be used for combining hashes for multi-channel Pages after the first channel is processed by hashNonNullPositions.
      */
     void hashNonNullPositionsWithCombine(ValueBlock block, long[] hashes, int[] positions);
+
+    void hashNonNullPositionsDictionaryWithCombine(DictionaryBlock dictionaryBlock, long[] hashes, int[] positions);
 }

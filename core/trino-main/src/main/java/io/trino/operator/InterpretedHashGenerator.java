@@ -203,10 +203,7 @@ public class InterpretedHashGenerator
                     }
                 }
                 else {
-                    ValueBlock valueBlock = dictionaryBlock.getUnderlyingValueBlock();
-                    for (int position : positions) {
-                        hashes[position] = hashOperator.hash(valueBlock, dictionaryBlock.getUnderlyingValuePosition(position));
-                    }
+                    hashOperator.hashNonNullPositionsDictionary(dictionaryBlock, hashes, positions);
                 }
             }
             case ValueBlock valueBlock -> hashOperator.hashNonNullPositions(valueBlock, hashes, positions);
@@ -232,11 +229,7 @@ public class InterpretedHashGenerator
                     }
                 }
                 else {
-                    ValueBlock valueBlock = dictionaryBlock.getUnderlyingValueBlock();
-                    for (int position : positions) {
-                        long hash = hashOperator.hash(valueBlock, dictionaryBlock.getUnderlyingValuePosition(position));
-                        hashes[position] = CombineHashFunction.getHash(hashes[position], hash);
-                    }
+                    hashOperator.hashNonNullPositionsDictionaryWithCombine(dictionaryBlock, hashes, positions);
                 }
             }
             case ValueBlock valueBlock -> hashOperator.hashNonNullPositionsWithCombine(valueBlock, hashes, positions);
