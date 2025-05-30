@@ -24,6 +24,7 @@ import org.apache.iceberg.nessie.NessieIcebergClient;
 
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergNessieTableOperationsProvider
@@ -50,7 +51,7 @@ public class IcebergNessieTableOperationsProvider
     {
         return new IcebergNessieTableOperations(
                 nessieClient,
-                new ForwardingFileIo(fileSystemFactory.create(session)),
+                new ForwardingFileIo(fileSystemFactory.create(session), isUseFileSizeFromMetadata(session)),
                 session,
                 database,
                 table,

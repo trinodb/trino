@@ -37,6 +37,10 @@ import io.trino.parquet.metadata.ParquetMetadata;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -45,11 +49,13 @@ import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingInputFile;
 import io.trino.spi.block.Block;
 import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SourcePage;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
@@ -75,11 +81,19 @@ import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.METADATA_
 import static io.trino.plugin.iceberg.util.FileOperationUtils.FileType.fromFilePath;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.joda.time.DateTimeZone.UTC;
 
 public final class IcebergTestUtils
 {
+    public static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new IcebergSessionProperties(
+                    new IcebergConfig(),
+                    new OrcReaderConfig(),
+                    new OrcWriterConfig(),
+                    new ParquetReaderConfig(),
+                    new ParquetWriterConfig()).getSessionProperties())
+            .build();
+
     private IcebergTestUtils() {}
 
     public static Session withSmallRowGroups(Session session)

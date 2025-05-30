@@ -93,6 +93,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
+import static io.trino.plugin.iceberg.IcebergTestUtils.SESSION;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
@@ -102,7 +103,6 @@ import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDele
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.lang.String.format;
