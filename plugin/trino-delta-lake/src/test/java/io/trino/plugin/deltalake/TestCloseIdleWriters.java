@@ -74,8 +74,7 @@ public class TestCloseIdleWriters
                     comment, shipdate,
                     CASE
                         WHEN shipmode IN ('AIR', 'FOB', 'SHIP', 'TRUCK') THEN 0
-                        WHEN shipmode IN ('MAIL', 'RAIL', 'REG AIR') THEN 1
-                        ELSE 2
+                        ELSE 1
                     END AS shipmodeVal
                     FROM tpch.tiny.lineitem
                     ORDER BY shipmode
