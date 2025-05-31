@@ -77,6 +77,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.Maps.fromProperties;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.client.SourceBuilder.createSource;
 import static io.trino.client.StatementClientFactory.newStatementClient;
 import static io.trino.jdbc.ClientInfoProperty.APPLICATION_NAME;
 import static io.trino.jdbc.ClientInfoProperty.CLIENT_INFO;
@@ -999,7 +1000,7 @@ public class TrinoConnection
         else if (applicationName != null) {
             source = applicationName;
         }
-        return source;
+        return createSource(source);
     }
 
     private static boolean isTransientConnectionValidationException(Throwable e)

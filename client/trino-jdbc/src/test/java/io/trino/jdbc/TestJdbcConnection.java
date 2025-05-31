@@ -24,6 +24,7 @@ import io.trino.client.ClientSelectedRole;
 import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.ResultRows;
+import io.trino.client.SourceBuilder;
 import io.trino.client.StatementClient;
 import io.trino.client.StatementStats;
 import io.trino.plugin.blackhole.BlackHolePlugin;
@@ -72,6 +73,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
@@ -369,21 +371,21 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection()) {
-            assertConnectionSource(connection, "trino-jdbc");
+            assertConnectionSource(connection, "trino-jdbc/" + getVersion());
         }
 
         try (Connection connection = createConnection()) {
             connection.setClientInfo("ApplicationName", "testing");
-            assertConnectionSource(connection, "testing");
+            assertConnectionSource(connection, "testing/" + getVersion());
         }
 
         try (Connection connection = createConnection("applicationNamePrefix=fruit:")) {
-            assertConnectionSource(connection, "fruit:");
+            assertConnectionSource(connection, "fruit:/" + getVersion());
         }
 
         try (Connection connection = createConnection("applicationNamePrefix=fruit:")) {
             connection.setClientInfo("ApplicationName", "testing");
-            assertConnectionSource(connection, "fruit:testing");
+            assertConnectionSource(connection, "fruit:testing/" + getVersion());
         }
     }
 
@@ -410,7 +412,7 @@ public class TestJdbcConnection
         }
 
         try (Connection connection = createConnection()) {
-            assertConnectionSource(connection, "trino-jdbc");
+            assertConnectionSource(connection, "trino-jdbc/" + getVersion());
         }
     }
 
@@ -854,7 +856,7 @@ public class TestJdbcConnection
             statement.setString(1, queryId);
             try (ResultSet rs = statement.executeQuery()) {
                 assertThat(rs.next()).isTrue();
-                assertThat(rs.getString("source")).isEqualTo(expectedSource);
+                assertThat(rs.getString("source").split(" ")[0]).isEqualTo(expectedSource);
                 assertThat(rs.next()).isFalse();
             }
         }
@@ -1064,5 +1066,11 @@ public class TestJdbcConnection
 
         @Override
         public void close() {}
+    }
+
+    private static String getVersion()
+    {
+        String version = SourceBuilder.class.getPackage().getImplementationVersion();
+        return firstNonNull(version, "unknown");
     }
 }
