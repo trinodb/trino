@@ -16,6 +16,7 @@ package io.trino.plugin.opa;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.net.URI;
 import java.util.Optional;
@@ -31,6 +32,7 @@ public class OpaConfig
     private Optional<URI> opaRowFiltersUri = Optional.empty();
     private Optional<URI> opaColumnMaskingUri = Optional.empty();
     private Optional<URI> opaBatchColumnMaskingUri = Optional.empty();
+    private Optional<Integer> opaBatchSize = Optional.empty();
 
     @NotNull
     public URI getOpaUri()
@@ -44,6 +46,19 @@ public class OpaConfig
     {
         this.opaUri = opaUri;
         return this;
+    }
+
+    @Config("opa.policy.batch-size")
+    @ConfigDescription("Size of a single batch for OPA requests")
+    public OpaConfig setOpaBatchSize(Integer batchSize)
+    {
+        this.opaBatchSize = Optional.ofNullable(batchSize);
+        return this;
+    }
+
+    public Optional<@Positive Integer> getOpaBatchSize()
+    {
+        return this.opaBatchSize;
     }
 
     @NotNull
