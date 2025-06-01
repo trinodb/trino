@@ -22,18 +22,21 @@ import static java.util.Objects.requireNonNull;
 
 public record TrinoIdentity(
         String user,
+        String principal,
         Set<String> groups)
 {
     public static TrinoIdentity fromTrinoIdentity(Identity identity)
     {
         return new TrinoIdentity(
                 identity.getUser(),
+                identity.getPrincipal().isPresent() ? identity.getPrincipal().get().getName() : identity.getUser(),
                 identity.getGroups());
     }
 
     public TrinoIdentity
     {
         requireNonNull(user, "user is null");
+        requireNonNull(principal, "principal is null");
         groups = ImmutableSet.copyOf(requireNonNull(groups, "groups is null"));
     }
 }
