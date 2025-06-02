@@ -97,6 +97,7 @@ import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
 import static io.trino.spi.security.AccessDeniedException.denyKillQuery;
 import static io.trino.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.trino.spi.security.AccessDeniedException.denyRefreshMaterializedView;
+import static io.trino.spi.security.AccessDeniedException.denyRefreshView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.trino.spi.security.AccessDeniedException.denyRenameMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyRenameSchema;
@@ -724,6 +725,14 @@ public class FileBasedSystemAccessControl
     {
         List<String> names = List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName());
         checkCanSetEntityAuthorization(context, new EntityKindAndName("VIEW", names), principal);
+    }
+
+    @Override
+    public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName view)
+    {
+        if (!checkTablePermission(context, view, OWNERSHIP)) {
+            denyRefreshView(view.toString());
+        }
     }
 
     @Override

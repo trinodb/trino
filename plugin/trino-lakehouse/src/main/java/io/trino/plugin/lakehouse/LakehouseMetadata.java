@@ -39,6 +39,7 @@ import io.trino.plugin.iceberg.IcebergTableHandle;
 import io.trino.plugin.iceberg.IcebergWritableTableHandle;
 import io.trino.plugin.iceberg.procedure.IcebergTableExecuteHandle;
 import io.trino.spi.RefreshType;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -111,6 +112,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.lakehouse.LakehouseTableProperties.getTableType;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 
 public class LakehouseMetadata
@@ -600,6 +602,12 @@ public class LakehouseMetadata
     public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
     {
         hiveMetadata.setViewAuthorization(session, viewName, principal);
+    }
+
+    @Override
+    public void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support refreshing view definition");
     }
 
     @Override

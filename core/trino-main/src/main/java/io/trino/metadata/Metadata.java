@@ -514,6 +514,11 @@ public interface Metadata
     void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
 
     /**
+     * Refreshes the view definition.
+     */
+    void refreshView(Session session, QualifiedObjectName viewName, ViewDefinition definition);
+
+    /**
      * Drops the specified view.
      */
     void dropView(Session session, QualifiedObjectName viewName);
