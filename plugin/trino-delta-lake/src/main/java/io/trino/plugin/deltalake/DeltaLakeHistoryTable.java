@@ -16,17 +16,16 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.CommitInfoEntry;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.TypeManager;
 
@@ -46,21 +45,18 @@ public class DeltaLakeHistoryTable
         extends BaseTransactionsTable
 {
     public DeltaLakeHistoryTable(
-            SchemaTableName tableName,
-            String tableLocation,
+            DeltaMetastoreTable table,
             TrinoFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager,
-            TransactionLogReader transactionLogReader)
+            TypeManager typeManager)
     {
         super(
-                tableName,
-                tableLocation,
+                requireNonNull(table, "table is null"),
                 fileSystemFactory,
                 transactionLogAccess,
                 typeManager,
                 new ConnectorTableMetadata(
-                        requireNonNull(tableName, "tableName is null"),
+                        requireNonNull(table.schemaTableName(), "tableName is null"),
                         ImmutableList.<ColumnMetadata>builder()
                                 .add(new ColumnMetadata("version", BIGINT))
                                 .add(new ColumnMetadata("timestamp", TIMESTAMP_TZ_MILLIS))
@@ -74,8 +70,7 @@ public class DeltaLakeHistoryTable
                                 .add(new ColumnMetadata("is_blind_append", BOOLEAN))
                                 .add(new ColumnMetadata("operation_metrics", typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()))))
                                 //TODO add support for userMetadata, engineInfo
-                                .build()),
-                transactionLogReader);
+                                .build()));
     }
 
     @Override

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.deltalake.statistics;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.filesystem.Location;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
@@ -24,7 +23,6 @@ import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
@@ -71,19 +69,16 @@ public class FileBasedTableStatisticsProvider
     private final TypeManager typeManager;
     private final TransactionLogAccess transactionLogAccess;
     private final CachingExtendedStatisticsAccess statisticsAccess;
-    private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     @Inject
     public FileBasedTableStatisticsProvider(
             TypeManager typeManager,
             TransactionLogAccess transactionLogAccess,
-            CachingExtendedStatisticsAccess statisticsAccess,
-            TransactionLogReaderFactory transactionLogReaderFactory)
+            CachingExtendedStatisticsAccess statisticsAccess)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.statisticsAccess = requireNonNull(statisticsAccess, "statisticsAccess is null");
-        this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogLoaderFactory is null");
     }
 
     @Override
@@ -129,14 +124,7 @@ public class FileBasedTableStatisticsProvider
         Domain pathDomain = getPathDomain(tableHandle.getNonPartitionConstraint());
         Domain fileModifiedDomain = getFileModifiedTimeDomain(tableHandle.getNonPartitionConstraint());
         Domain fileSizeDomain = getFileSizeDomain(tableHandle.getNonPartitionConstraint());
-        try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(
-                session,
-                transactionLogReaderFactory.createReader(tableHandle),
-                tableSnapshot,
-                tableHandle.getMetadataEntry(),
-                tableHandle.getProtocolEntry(),
-                tableHandle.getEnforcedPartitionConstraint(),
-                tableHandle.getProjectedColumns().orElse(ImmutableSet.of()))) {
+        try (Stream<AddFileEntry> addEntries = transactionLogAccess.getActiveFiles(session, tableHandle, tableSnapshot)) {
             Iterator<AddFileEntry> addEntryIterator = addEntries.iterator();
             while (addEntryIterator.hasNext()) {
                 AddFileEntry addEntry = addEntryIterator.next();

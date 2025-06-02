@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogEntries;
-import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -31,7 +31,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedPageSource;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -53,29 +52,23 @@ import static java.util.Objects.requireNonNull;
 public abstract class BaseTransactionsTable
         implements SystemTable
 {
-    private final SchemaTableName tableName;
-    private final String tableLocation;
+    private final DeltaMetastoreTable table;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final TransactionLogAccess transactionLogAccess;
     private final ConnectorTableMetadata tableMetadata;
-    private final TransactionLogReader transactionLogReader;
 
     public BaseTransactionsTable(
-            SchemaTableName tableName,
-            String tableLocation,
+            DeltaMetastoreTable table,
             TrinoFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
             TypeManager typeManager,
-            ConnectorTableMetadata tableMetadata,
-            TransactionLogReader transactionLogReader)
+            ConnectorTableMetadata tableMetadata)
     {
         requireNonNull(typeManager, "typeManager is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
+        this.table = requireNonNull(table, "table is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.transactionLogAccess = requireNonNull(transactionLogAccess, "transactionLogAccess is null");
         this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
-        this.transactionLogReader = requireNonNull(transactionLogReader, "transactionLogReader is null");
     }
 
     @Override
@@ -96,13 +89,12 @@ public abstract class BaseTransactionsTable
         long snapshotVersion;
         try {
             // Verify the transaction log is readable
-            SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, transactionLogReader, baseTableName, tableLocation, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table, Optional.empty());
             snapshotVersion = tableSnapshot.getVersion();
             transactionLogAccess.getMetadataEntry(session, tableSnapshot);
         }
         catch (IOException e) {
-            throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + tableLocation, e);
+            throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + table.location(), e);
         }
 
         int versionColumnIndex = IntStream.range(0, tableMetadata.getColumns().size())
@@ -148,14 +140,14 @@ public abstract class BaseTransactionsTable
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
         try {
-            List<Transaction> transactions = loadNewTailBackward(fileSystem, tableLocation, startVersionExclusive, endVersionInclusive.get()).reversed();
+            List<Transaction> transactions = loadNewTailBackward(fileSystem, table.location(), startVersionExclusive, endVersionInclusive.get()).reversed();
             return new FixedPageSource(buildPages(session, pagesBuilder, transactions, fileSystem));
         }
         catch (TrinoException e) {
             throw e;
         }
         catch (IOException | RuntimeException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries from " + tableLocation, e);
+            throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error getting commit info entries from " + table.location(), e);
         }
     }
 

@@ -17,16 +17,15 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry;
 import io.trino.plugin.deltalake.transactionlog.Transaction;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
-import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.util.PageListBuilder;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeSignature;
 
@@ -43,26 +42,22 @@ public class DeltaLakeTransactionsTable
     private static final JsonCodec<List<DeltaLakeTransactionLogEntry>> TRANSACTION_LOG_ENTRIES_CODEC = listJsonCodec(DeltaLakeTransactionLogEntry.class);
 
     public DeltaLakeTransactionsTable(
-            SchemaTableName tableName,
-            String tableLocation,
+            DeltaMetastoreTable table,
             TrinoFileSystemFactory fileSystemFactory,
             TransactionLogAccess transactionLogAccess,
-            TypeManager typeManager,
-            TransactionLogReader transactionLogReader)
+            TypeManager typeManager)
     {
         super(
-                tableName,
-                tableLocation,
+                requireNonNull(table, "table is null"),
                 fileSystemFactory,
                 transactionLogAccess,
                 typeManager,
                 new ConnectorTableMetadata(
-                        requireNonNull(tableName, "tableName is null"),
+                        requireNonNull(table.schemaTableName(), "tableName is null"),
                         ImmutableList.<ColumnMetadata>builder()
                                 .add(new ColumnMetadata("version", BIGINT))
                                 .add(new ColumnMetadata("transaction", typeManager.getType(new TypeSignature(JSON))))
-                                .build()),
-                transactionLogReader);
+                                .build()));
     }
 
     @Override
