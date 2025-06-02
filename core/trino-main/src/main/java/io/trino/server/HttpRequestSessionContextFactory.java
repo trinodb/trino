@@ -46,6 +46,7 @@ import java.net.URLDecoder;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
@@ -103,8 +104,8 @@ public class HttpRequestSessionContextFactory
         catch (ProtocolDetectionException e) {
             throw new BadRequestException(e.getMessage());
         }
-        Optional<String> catalog = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog())));
-        Optional<String> schema = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema())));
+        Optional<String> catalog = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog()))).map(value -> value.toLowerCase(Locale.ENGLISH));
+        Optional<String> schema = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema()))).map(value -> value.toLowerCase(Locale.ENGLISH));
         Optional<String> path = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestPath())));
         assertRequest(catalog.isPresent() || schema.isEmpty(), "Schema is set but catalog is not");
 

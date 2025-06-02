@@ -86,8 +86,8 @@ public class TestQuerySessionSupplier
         assertThat(session.getQueryId()).isEqualTo(new QueryId("test_query_id"));
         assertThat(session.getUser()).isEqualTo("testUser");
         assertThat(session.getSource().get()).isEqualTo("testSource");
-        assertThat(session.getCatalog().get()).isEqualTo("testCatalog");
-        assertThat(session.getSchema().get()).isEqualTo("testSchema");
+        assertThat(session.getCatalog().get()).isEqualTo("testcatalog"); // lowercased
+        assertThat(session.getSchema().get()).isEqualTo("testschema"); // lowercased
         assertThat(session.getPath().getRawPath()).isEqualTo("testPath");
         assertThat(session.getLocale()).isEqualTo(Locale.TAIWAN);
         assertThat(session.getTimeZoneKey()).isEqualTo(getTimeZoneKey("Asia/Taipei"));
