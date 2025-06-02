@@ -168,7 +168,7 @@ public class TestJmxSplitManager
                 .findFirst()
                 .orElseThrow();
 
-        ImmutableList<String> objectNamesWithUnknowns = ImmutableList.<String>builder()
+        List<String> objectNamesWithUnknowns = ImmutableList.<String>builder()
                 .addAll(jmxTableHandle.objectNames())
                 .add("JMImplementation:type=Unknown")
                 .build();

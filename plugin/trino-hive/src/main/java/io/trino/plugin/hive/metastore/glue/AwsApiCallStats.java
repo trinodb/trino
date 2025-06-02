@@ -55,14 +55,6 @@ public class AwsApiCallStats
         return totalFailures;
     }
 
-    public void recordCall(long executionTimeNanos, boolean failure)
-    {
-        time.addNanos(executionTimeNanos);
-        if (failure) {
-            totalFailures.update(1);
-        }
-    }
-
     public interface ThrowingCallable<V, E extends Exception>
             extends Callable<V>
     {

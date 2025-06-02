@@ -31,12 +31,17 @@ public class HiveMetastoreTableOperationsProvider
 {
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ThriftMetastoreFactory thriftMetastoreFactory;
+    private final boolean lockingEnabled;
 
     @Inject
-    public HiveMetastoreTableOperationsProvider(TrinoFileSystemFactory fileSystemFactory, ThriftMetastoreFactory thriftMetastoreFactory)
+    public HiveMetastoreTableOperationsProvider(
+            TrinoFileSystemFactory fileSystemFactory,
+            ThriftMetastoreFactory thriftMetastoreFactory,
+            IcebergHiveCatalogConfig metastoreConfig)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastoreFactory is null");
+        this.lockingEnabled = metastoreConfig.getLockingEnabled();
     }
 
     @Override
@@ -52,6 +57,7 @@ public class HiveMetastoreTableOperationsProvider
                 new ForwardingFileIo(fileSystemFactory.create(session)),
                 ((TrinoHiveCatalog) catalog).getMetastore(),
                 thriftMetastoreFactory.createMetastore(Optional.of(session.getIdentity())),
+                lockingEnabled,
                 session,
                 database,
                 table,

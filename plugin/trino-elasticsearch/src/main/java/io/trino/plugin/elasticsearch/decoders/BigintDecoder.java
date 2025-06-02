@@ -45,8 +45,8 @@ public class BigintDecoder
         if (value == null) {
             output.appendNull();
         }
-        else if (value instanceof Number) {
-            BIGINT.writeLong(output, ((Number) value).longValue());
+        else if (value instanceof Number number) {
+            BIGINT.writeLong(output, number.longValue());
         }
         else if (value instanceof String stringValue) {
             if (stringValue.isEmpty()) {

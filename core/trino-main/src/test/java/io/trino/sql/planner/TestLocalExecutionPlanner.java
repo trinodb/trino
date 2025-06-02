@@ -62,7 +62,7 @@ public class TestLocalExecutionPlanner
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer + " FROM (VALUES rand()) t(x)"))
                 .hasErrorCode(QUERY_EXCEEDED_COMPILER_LIMIT)
-                .hasMessage("Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.");
+                .hasMessage("Failed to execute query; there may be too many columns used or expressions are too complex");
     }
 
     @Test

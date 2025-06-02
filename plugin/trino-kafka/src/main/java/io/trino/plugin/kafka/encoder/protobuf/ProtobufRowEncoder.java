@@ -101,8 +101,8 @@ public class ProtobufRowEncoder
             return isSupportedType(typeParameters.get(0)) && isSupportedType(typeParameters.get(1));
         }
 
-        if (type instanceof RowType) {
-            checkArgument(((RowType) type).getFields().stream().allMatch(field -> field.getName().isPresent()), "expecting name for field in rows");
+        if (type instanceof RowType rowType) {
+            checkArgument(rowType.getFields().stream().allMatch(field -> field.getName().isPresent()), "expecting name for field in rows");
             for (Type fieldType : type.getTypeParameters()) {
                 if (!isSupportedType(fieldType)) {
                     return false;
@@ -115,7 +115,7 @@ public class ProtobufRowEncoder
 
     private boolean isSupportedPrimitive(Type type)
     {
-        return (type instanceof TimestampType && ((TimestampType) type).isShort()) ||
+        return (type instanceof TimestampType timestampType && timestampType.isShort()) ||
                 type instanceof VarcharType ||
                 type instanceof VarbinaryType ||
                 SUPPORTED_PRIMITIVE_TYPES.contains(type);
@@ -229,7 +229,7 @@ public class ProtobufRowEncoder
                 .limit(2)
                 .splitToList(columnMapping);
         FieldDescriptor fieldDescriptor = descriptor.findFieldByName(columnPath.get(0));
-        checkState(fieldDescriptor != null, format("Unknown Field %s", columnPath.get(0)));
+        checkState(fieldDescriptor != null, "Unknown Field %s", columnPath.get(0));
         if (columnPath.size() == 2) {
             checkState(fieldDescriptor.getJavaType() == MESSAGE, "Expected MESSAGE type, but got: %s", fieldDescriptor.getJavaType());
             value = setField(

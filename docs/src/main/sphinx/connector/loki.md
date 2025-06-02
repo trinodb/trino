@@ -136,7 +136,7 @@ LoqQL query is a log query.
 
 ## Examples
 
-The following examples show case combinations of
+The following examples showcase combinations of
 [LogQL](https://grafana.com/docs/loki/latest/query/) queries passed through the
 table function with SQL accessing the data in the returned table. 
 

@@ -22,6 +22,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorSplitSource.ConnectorSplitBatch;
+import io.trino.spi.metrics.Metrics;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -52,6 +53,7 @@ public class ConnectorAwareSplitSource
     private ConnectorSplitSource source;
     private boolean finished;
     private Optional<Optional<List<Object>>> tableExecuteSplitsInfo = Optional.empty();
+    private Metrics metrics = Metrics.EMPTY;
 
     public ConnectorAwareSplitSource(CatalogHandle catalogHandle, ConnectorSplitSource source)
     {
@@ -98,6 +100,7 @@ public class ConnectorAwareSplitSource
         if (source != null) {
             try {
                 source.close();
+                metrics = source.getMetrics();
             }
             finally {
                 source = null;
@@ -123,6 +126,15 @@ public class ConnectorAwareSplitSource
     public Optional<List<Object>> getTableExecuteSplitsInfo()
     {
         return tableExecuteSplitsInfo.orElseThrow(() -> new IllegalStateException("Not finished yet"));
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        if (source == null) {
+            return metrics;
+        }
+        return source.getMetrics();
     }
 
     @Override

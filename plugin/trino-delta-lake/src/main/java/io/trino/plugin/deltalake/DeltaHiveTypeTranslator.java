@@ -121,8 +121,8 @@ public class DeltaHiveTypeTranslator
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            verify(((TimestampWithTimeZoneType) type).getPrecision() == 3, "Unsupported type: %s", type);
+        if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
+            verify(timestampWithTimeZoneType.getPrecision() == 3, "Unsupported type: %s", type);
             return HIVE_TIMESTAMP.getTypeInfo();
         }
         if (type instanceof TimestampType timestampType) {

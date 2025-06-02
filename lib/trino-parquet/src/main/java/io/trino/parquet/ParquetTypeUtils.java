@@ -90,12 +90,12 @@ public final class ParquetTypeUtils
          *     };
          *  }
          */
-        if (columnIO instanceof GroupColumnIO &&
+        if (columnIO instanceof GroupColumnIO groupColumnIO &&
                 columnIO.getType().getLogicalTypeAnnotation() == null &&
-                ((GroupColumnIO) columnIO).getChildrenCount() == 1 &&
+                groupColumnIO.getChildrenCount() == 1 &&
                 !columnIO.getName().equals("array") &&
                 !columnIO.getName().equals(columnIO.getParent().getName() + "_tuple")) {
-            return ((GroupColumnIO) columnIO).getChild(0);
+            return groupColumnIO.getChild(0);
         }
 
         /* Backward-compatibility support for 2-level arrays where a repeated field is not a group:

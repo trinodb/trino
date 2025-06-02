@@ -14,18 +14,15 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public record CassandraSplit(String partitionId, String splitCondition, List<HostAddress> addresses)
         implements ConnectorSplit
@@ -36,15 +33,6 @@ public record CassandraSplit(String partitionId, String splitCondition, List<Hos
     {
         requireNonNull(partitionId, "partitionId is null");
         addresses = ImmutableList.copyOf(addresses);
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.<String, String>builder()
-                .put("hosts", addresses.stream().map(HostAddress::toString).collect(joining(",")))
-                .put("partitionId", partitionId)
-                .buildOrThrow();
     }
 
     @Override

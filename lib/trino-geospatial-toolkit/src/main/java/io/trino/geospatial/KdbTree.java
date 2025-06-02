@@ -112,11 +112,10 @@ public class KdbTree
                 return false;
             }
 
-            if (!(obj instanceof Node)) {
+            if (!(obj instanceof Node other)) {
                 return false;
             }
 
-            Node other = (Node) obj;
             return this.extent.equals(other.extent)
                     && Objects.equals(this.leafId, other.leafId)
                     && Objects.equals(this.left, other.left)
@@ -149,11 +148,10 @@ public class KdbTree
             return false;
         }
 
-        if (!(obj instanceof KdbTree)) {
+        if (!(obj instanceof KdbTree other)) {
             return false;
         }
 
-        KdbTree other = (KdbTree) obj;
         return this.root.equals(other.root);
     }
 

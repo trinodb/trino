@@ -307,7 +307,7 @@ public final class GlueConverter
     private static Storage fromGlueStorage(StorageDescriptor sd, String tablePartitionName)
     {
         Optional<HiveBucketProperty> bucketProperty = Optional.empty();
-        if (sd.numberOfBuckets() > 0) {
+        if (sd.numberOfBuckets() != null && sd.numberOfBuckets() > 0) {
             if (sd.bucketColumns().isEmpty()) {
                 throw new TrinoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
             }

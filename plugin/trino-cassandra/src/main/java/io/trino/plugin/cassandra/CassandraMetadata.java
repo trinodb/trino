@@ -294,8 +294,7 @@ public class CassandraMetadata
             CassandraClusteringPredicatesExtractor clusteringPredicatesExtractor = new CassandraClusteringPredicatesExtractor(
                     cassandraTypeManager,
                     cassandraSession.getTable(handle.getSchemaTableName()).clusteringKeyColumns(),
-                    partitionResult.unenforcedConstraint(),
-                    cassandraSession.getCassandraVersion());
+                    partitionResult.unenforcedConstraint());
             clusteringKeyPredicates = clusteringPredicatesExtractor.getClusteringKeyPredicates();
             unenforcedConstraint = clusteringPredicatesExtractor.getUnenforcedConstraints();
         }

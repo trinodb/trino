@@ -29,7 +29,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.server.protocol.ProtocolUtil.createColumn;
-import static io.trino.server.protocol.spooling.SpooledBlock.SPOOLING_METADATA_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -43,17 +42,11 @@ public class QueryResultRows
     {
         this.columns = requireNonNull(columns, "columns is null")
                 .map(values -> values.stream()
-                .filter(column -> !isSpooledMetadataColumn(column))
                 .collect(toImmutableList()));
         this.pages = ImmutableList.copyOf(pages);
         this.totalRows = countRows(pages);
 
         verify(totalRows == 0 || (totalRows > 0 && columns.isPresent()), "data present without columns and types");
-    }
-
-    private boolean isSpooledMetadataColumn(OutputColumn column)
-    {
-        return column.type().equals(SPOOLING_METADATA_TYPE);
     }
 
     public boolean isEmpty()

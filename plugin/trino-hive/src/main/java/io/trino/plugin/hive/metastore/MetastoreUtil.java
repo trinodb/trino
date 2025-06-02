@@ -373,9 +373,9 @@ public final class MetastoreUtil
         if (value == null) {
             return nullString;
         }
-        if (type instanceof CharType) {
+        if (type instanceof CharType charType) {
             Slice slice = (Slice) value;
-            return padSpaces(slice, (CharType) type).toStringUtf8();
+            return padSpaces(slice, charType).toStringUtf8();
         }
         if (type instanceof VarcharType) {
             Slice slice = (Slice) value;

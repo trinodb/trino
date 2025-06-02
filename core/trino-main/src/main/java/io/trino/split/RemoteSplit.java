@@ -18,8 +18,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.exchange.ExchangeInput;
 import io.trino.spi.connector.ConnectorSplit;
 
-import java.util.Map;
-
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
@@ -41,12 +39,6 @@ public class RemoteSplit
     public ExchangeInput getExchangeInput()
     {
         return exchangeInput;
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return Map.of("exchangeInput", exchangeInput.toString());
     }
 
     @Override

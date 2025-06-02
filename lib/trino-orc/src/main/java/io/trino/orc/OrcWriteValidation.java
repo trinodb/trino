@@ -492,10 +492,10 @@ public class OrcWriteValidation
             return new WriteChecksumBuilder(readTypes);
         }
 
-        public void addStripe(int rowCount)
+        public void addStripe(long rowCount)
         {
-            longSlice.setInt(0, rowCount);
-            stripeHash.update(longBuffer, 0, Integer.BYTES);
+            longSlice.setLong(0, rowCount);
+            stripeHash.update(longBuffer, 0, Long.BYTES);
         }
 
         public void addPage(Page page)
@@ -687,7 +687,7 @@ public class OrcWriteValidation
             }
             else if (type instanceof RowType) {
                 statisticsBuilder = new CountStatisticsBuilder();
-                fieldExtractor = block -> RowBlock.getRowFieldsFromBlock(block.getLoadedBlock());
+                fieldExtractor = RowBlock::getRowFieldsFromBlock;
                 fieldBuilders = type.getTypeParameters().stream()
                         .map(ColumnStatisticsValidation::new)
                         .collect(toImmutableList());
@@ -885,7 +885,7 @@ public class OrcWriteValidation
             return this;
         }
 
-        public OrcWriteValidationBuilder addStripe(int rowCount)
+        public OrcWriteValidationBuilder addStripe(long rowCount)
         {
             checksum.addStripe(rowCount);
             return this;

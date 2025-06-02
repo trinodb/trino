@@ -16,6 +16,7 @@ package io.trino.split;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.metadata.Split;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.Closeable;
 import java.util.List;
@@ -36,6 +37,14 @@ public interface SplitSource
     boolean isFinished();
 
     Optional<List<Object>> getTableExecuteSplitsInfo();
+
+    /**
+     * Returns the split source's metrics, mapping a metric id to its latest value.
+     * Each call must return an immutable snapshot of available metrics.
+     * The metrics for each split source are collected independently and exposed via StageStats and OperatorStats.
+     * This method can be called after the split source is closed, and in that case the final metrics should be returned.
+     */
+    Metrics getMetrics();
 
     class SplitBatch
     {

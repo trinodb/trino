@@ -16,7 +16,6 @@ package io.trino.operator.project;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
@@ -171,8 +170,6 @@ public class TestDictionaryAwarePageFilter
     {
         testFilter(block, true, expectedType);
         testFilter(block, false, expectedType);
-        testFilter(lazyWrapper(block), true, expectedType);
-        testFilter(lazyWrapper(block), false, expectedType);
     }
 
     private static void testFilter(Block block, boolean filterRange, Class<? extends Block> expectedType)
@@ -192,8 +189,6 @@ public class TestDictionaryAwarePageFilter
     {
         IntSet actualSelectedPositions = toSet(filter.filter(null, SourcePage.create(block)));
 
-        block = block.getLoadedBlock();
-
         IntSet expectedSelectedPositions = new IntArraySet(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (isSelected(filterRange, BIGINT.getLong(block, position))) {
@@ -211,11 +206,6 @@ public class TestDictionaryAwarePageFilter
             return new IntArraySet(Arrays.copyOfRange(selectedPositions.getPositions(), start, end));
         }
         return new IntArraySet(IntStream.range(start, end).toArray());
-    }
-
-    private static LazyBlock lazyWrapper(Block block)
-    {
-        return new LazyBlock(block.getPositionCount(), () -> block);
     }
 
     private static boolean isSelected(boolean filterRange, long value)

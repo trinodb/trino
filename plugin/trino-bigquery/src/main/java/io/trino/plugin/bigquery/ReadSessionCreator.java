@@ -59,6 +59,7 @@ public class ReadSessionCreator
     private final boolean arrowSerializationEnabled;
     private final Duration viewExpiration;
     private final int maxCreateReadSessionRetries;
+    private final Optional<Integer> maxParallelism;
 
     public ReadSessionCreator(
             BigQueryClientFactory bigQueryClientFactory,
@@ -66,7 +67,8 @@ public class ReadSessionCreator
             boolean viewEnabled,
             boolean arrowSerializationEnabled,
             Duration viewExpiration,
-            int maxCreateReadSessionRetries)
+            int maxCreateReadSessionRetries,
+            Optional<Integer> maxParallelism)
     {
         this.bigQueryClientFactory = bigQueryClientFactory;
         this.bigQueryReadClientFactory = bigQueryReadClientFactory;
@@ -74,6 +76,7 @@ public class ReadSessionCreator
         this.arrowSerializationEnabled = arrowSerializationEnabled;
         this.viewExpiration = viewExpiration;
         this.maxCreateReadSessionRetries = maxCreateReadSessionRetries;
+        this.maxParallelism = maxParallelism;
     }
 
     public ReadSession create(ConnectorSession session, TableId remoteTable, List<BigQueryColumnHandle> selectedFields, Optional<String> filter, int currentWorkerCount)
@@ -102,14 +105,19 @@ public class ReadSessionCreator
             }
             // At least 100 to cater for cluster scale up
             int desiredParallelism = Math.min(currentWorkerCount * 3, 100);
-            CreateReadSessionRequest createReadSessionRequest = CreateReadSessionRequest.newBuilder()
+            CreateReadSessionRequest.Builder requestBuilder = CreateReadSessionRequest.newBuilder()
                     .setParent("projects/" + client.getParentProjectId())
                     .setReadSession(ReadSession.newBuilder()
                             .setDataFormat(format)
                             .setTable(toTableResourceName(actualTable.getTableId()))
-                            .setReadOptions(readOptions))
-                    .setPreferredMinStreamCount(desiredParallelism)
-                    .build();
+                            .setReadOptions(readOptions));
+            if (maxParallelism.isPresent()) {
+                int maxStreamCount = maxParallelism.get();
+                requestBuilder.setMaxStreamCount(maxStreamCount);
+                // preferred_min_stream_count must be less than or equal to max_stream_count
+                desiredParallelism = Math.min(desiredParallelism, maxStreamCount);
+            }
+            requestBuilder.setPreferredMinStreamCount(desiredParallelism);
 
             return Failsafe.with(RetryPolicy.builder()
                             .withMaxRetries(maxCreateReadSessionRetries)
@@ -119,7 +127,7 @@ public class ReadSessionCreator
                             .build())
                     .get(() -> {
                         try {
-                            return bigQueryReadClient.createReadSession(createReadSessionRequest);
+                            return bigQueryReadClient.createReadSession(requestBuilder.build());
                         }
                         catch (ApiException e) {
                             throw new TrinoException(BIGQUERY_CREATE_READ_SESSION_ERROR, "Cannot create read session" + firstNonNull(e.getMessage(), e), e);

@@ -22,6 +22,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.metastore.Partition;
 import io.trino.metastore.Storage;
 import io.trino.metastore.Table;
+import io.trino.spi.connector.SchemaTableName;
 import jakarta.annotation.Nullable;
 
 import java.io.IOException;
@@ -51,8 +52,6 @@ public class TransactionScopeCachingDirectoryLister
         implements DirectoryLister
 {
     private final long transactionId;
-    //TODO use a cache key based on Path & SchemaTableName and iterate over the cache keys
-    // to deal more efficiently with cache invalidation scenarios for partitioned tables.
     private final Cache<TransactionDirectoryListingCacheKey, FetchingValueHolder> cache;
     private final DirectoryLister delegate;
 
@@ -67,7 +66,7 @@ public class TransactionScopeCachingDirectoryLister
     public RemoteIterator<TrinoFileStatus> listFilesRecursively(TrinoFileSystem fs, Table table, Location location)
             throws IOException
     {
-        return listInternal(fs, table, new TransactionDirectoryListingCacheKey(transactionId, location));
+        return listInternal(fs, table, new TransactionDirectoryListingCacheKey(transactionId, location, table.getSchemaTableName()));
     }
 
     private RemoteIterator<TrinoFileStatus> listInternal(TrinoFileSystem fs, Table table, TransactionDirectoryListingCacheKey cacheKey)
@@ -98,10 +97,10 @@ public class TransactionScopeCachingDirectoryLister
     }
 
     @Override
-    public void invalidate(Location location)
+    public void invalidate(Location location, SchemaTableName schemaTableName)
     {
-        cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, location));
-        delegate.invalidate(location);
+        cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, location, schemaTableName));
+        delegate.invalidate(location, schemaTableName);
     }
 
     @Override
@@ -109,11 +108,11 @@ public class TransactionScopeCachingDirectoryLister
     {
         if (isLocationPresent(table.getStorage())) {
             if (table.getPartitionColumns().isEmpty()) {
-                cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, Location.of(table.getStorage().getLocation())));
+                cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, Location.of(table.getStorage().getLocation()), table.getSchemaTableName()));
             }
             else {
-                // a partitioned table can have multiple paths in cache
-                cache.invalidateAll();
+                // Invalidate only entries for this table by iterating over cache keys
+                cache.asMap().keySet().removeIf(key -> key.getSchemaTableName().equals(table.getSchemaTableName()));
             }
         }
         delegate.invalidate(table);
@@ -123,7 +122,7 @@ public class TransactionScopeCachingDirectoryLister
     public void invalidate(Partition partition)
     {
         if (isLocationPresent(partition.getStorage())) {
-            cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, Location.of(partition.getStorage().getLocation())));
+            cache.invalidate(new TransactionDirectoryListingCacheKey(transactionId, Location.of(partition.getStorage().getLocation()), partition.getSchemaTableName()));
         }
         delegate.invalidate(partition);
     }
@@ -172,9 +171,9 @@ public class TransactionScopeCachingDirectoryLister
     }
 
     @Override
-    public boolean isCached(Location location)
+    public boolean isCached(Location location, SchemaTableName schemaTableName)
     {
-        return isCached(new TransactionDirectoryListingCacheKey(transactionId, location)) || delegate.isCached(location);
+        return isCached(new TransactionDirectoryListingCacheKey(transactionId, location, schemaTableName)) || delegate.isCached(location, schemaTableName);
     }
 
     @VisibleForTesting

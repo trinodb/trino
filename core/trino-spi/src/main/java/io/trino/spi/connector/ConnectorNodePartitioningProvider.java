@@ -48,16 +48,7 @@ public interface ConnectorNodePartitioningProvider
             ConnectorPartitioningHandle partitioningHandle,
             int bucketCount)
     {
-        return getSplitBucketFunction(transactionHandle, session, partitioningHandle);
-    }
-
-    /**
-     * @deprecated Use {@link #getSplitBucketFunction(ConnectorTransactionHandle, ConnectorSession, ConnectorPartitioningHandle, int)} instead
-     */
-    @Deprecated(forRemoval = true)
-    default ToIntFunction<ConnectorSplit> getSplitBucketFunction(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
-    {
-        return split -> {
+        return _ -> {
             throw new UnsupportedOperationException();
         };
     }

@@ -16,7 +16,7 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -48,7 +48,7 @@ public class TestDeltaLakeConfig
                 .setDomainCompactionThreshold(1000)
                 .setMaxSplitsPerSecond(Integer.MAX_VALUE)
                 .setMaxOutstandingSplits(1_000)
-                .setMaxSplitSize(DataSize.of(64, DataSize.Unit.MEGABYTE))
+                .setMaxSplitSize(DataSize.of(128, DataSize.Unit.MEGABYTE))
                 .setMinimumAssignedSplitWeight(0.05)
                 .setMaxPartitionsPerWriter(100)
                 .setUnsafeWritesEnabled(false)
@@ -61,7 +61,7 @@ public class TestDeltaLakeConfig
                 .setTableStatisticsEnabled(true)
                 .setExtendedStatisticsEnabled(true)
                 .setCollectExtendedStatisticsOnWrite(true)
-                .setCompressionCodec(HiveCompressionCodec.ZSTD)
+                .setCompressionCodec(HiveCompressionOption.ZSTD)
                 .setDeleteSchemaLocationsFallback(false)
                 .setParquetTimeZone(TimeZone.getDefault().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(1000)
@@ -76,7 +76,8 @@ public class TestDeltaLakeConfig
                 .setQueryPartitionFilterRequired(false)
                 .setDeletionVectorsEnabled(false)
                 .setDeltaLogFileSystemCacheDisabled(false)
-                .setMetadataParallelism(8));
+                .setMetadataParallelism(8)
+                .setCheckpointProcessingParallelism(4));
     }
 
     @Test
@@ -120,6 +121,7 @@ public class TestDeltaLakeConfig
                 .put("delta.deletion-vectors-enabled", "true")
                 .put("delta.fs.cache.disable-transaction-log-caching", "true")
                 .put("delta.metadata.parallelism", "10")
+                .put("delta.checkpoint-processing.parallelism", "8")
                 .buildOrThrow();
 
         DeltaLakeConfig expected = new DeltaLakeConfig()
@@ -144,7 +146,7 @@ public class TestDeltaLakeConfig
                 .setTableStatisticsEnabled(false)
                 .setExtendedStatisticsEnabled(false)
                 .setCollectExtendedStatisticsOnWrite(false)
-                .setCompressionCodec(HiveCompressionCodec.GZIP)
+                .setCompressionCodec(HiveCompressionOption.GZIP)
                 .setDeleteSchemaLocationsFallback(true)
                 .setParquetTimeZone(nonDefaultTimeZone().getID())
                 .setPerTransactionMetastoreCacheMaximumSize(500)
@@ -159,7 +161,8 @@ public class TestDeltaLakeConfig
                 .setQueryPartitionFilterRequired(true)
                 .setDeletionVectorsEnabled(true)
                 .setDeltaLogFileSystemCacheDisabled(true)
-                .setMetadataParallelism(10);
+                .setMetadataParallelism(10)
+                .setCheckpointProcessingParallelism(8);
 
         assertFullMapping(properties, expected);
     }

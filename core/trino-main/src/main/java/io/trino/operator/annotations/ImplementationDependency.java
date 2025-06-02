@@ -71,11 +71,11 @@ public interface ImplementationDependency
 
     static void validateImplementationDependencyAnnotation(AnnotatedElement element, Annotation annotation, Set<String> typeParametersNames, Collection<String> literalParameters)
     {
-        if (annotation instanceof TypeParameter) {
-            checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value(), ImmutableSet.of()), typeParametersNames, element);
+        if (annotation instanceof TypeParameter typeParameter) {
+            checkTypeParameters(parseTypeSignature(typeParameter.value(), ImmutableSet.of()), typeParametersNames, element);
         }
-        if (annotation instanceof LiteralParameter) {
-            checkArgument(literalParameters.contains(((LiteralParameter) annotation).value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", element);
+        if (annotation instanceof LiteralParameter literalParameter) {
+            checkArgument(literalParameters.contains(literalParameter.value()), "Parameter injected by @LiteralParameter must be declared with @LiteralParameters on the method [%s]", element);
         }
     }
 
@@ -101,11 +101,11 @@ public interface ImplementationDependency
 
         public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters, Class<?> type)
         {
-            if (annotation instanceof TypeParameter) {
-                return new TypeImplementationDependency(parseTypeSignature(((TypeParameter) annotation).value(), literalParameters));
+            if (annotation instanceof TypeParameter typeParameter) {
+                return new TypeImplementationDependency(parseTypeSignature(typeParameter.value(), literalParameters));
             }
-            if (annotation instanceof LiteralParameter) {
-                return new LiteralImplementationDependency(((LiteralParameter) annotation).value());
+            if (annotation instanceof LiteralParameter literalParameter) {
+                return new LiteralImplementationDependency(literalParameter.value());
             }
 
             if (annotation instanceof FunctionDependency functionDependency) {

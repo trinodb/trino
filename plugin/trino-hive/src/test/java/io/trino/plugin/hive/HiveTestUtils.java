@@ -58,7 +58,6 @@ import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.spi.PageSorter;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -145,11 +144,6 @@ public final class HiveTestUtils
                 .build();
     }
 
-    public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig)
-    {
-        return getHiveSessionProperties(hiveConfig, new OrcReaderConfig());
-    }
-
     public static HiveSessionProperties getHiveSessionProperties(HiveConfig hiveConfig, OrcReaderConfig orcReaderConfig)
     {
         return new HiveSessionProperties(
@@ -170,11 +164,6 @@ public final class HiveTestUtils
                 parquetWriterConfig);
     }
 
-    public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(HdfsEnvironment hdfsEnvironment, HiveConfig hiveConfig)
-    {
-        return getDefaultHivePageSourceFactories(new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS), hiveConfig);
-    }
-
     public static Set<HivePageSourceFactory> getDefaultHivePageSourceFactories(TrinoFileSystemFactory fileSystemFactory, HiveConfig hiveConfig)
     {
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
@@ -190,11 +179,6 @@ public final class HiveTestUtils
                 .add(new OrcPageSourceFactory(new OrcReaderConfig(), fileSystemFactory, stats, hiveConfig))
                 .add(new ParquetPageSourceFactory(fileSystemFactory, stats, new ParquetReaderConfig(), hiveConfig))
                 .build();
-    }
-
-    public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
-    {
-        return getDefaultHiveFileWriterFactories(hiveConfig, new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS));
     }
 
     public static Set<HiveFileWriterFactory> getDefaultHiveFileWriterFactories(HiveConfig hiveConfig, TrinoFileSystemFactory fileSystemFactory)
@@ -214,27 +198,11 @@ public final class HiveTestUtils
                 .build();
     }
 
-    public static List<Type> getTypes(List<? extends ColumnHandle> columnHandles)
-    {
-        ImmutableList.Builder<Type> types = ImmutableList.builder();
-        for (ColumnHandle columnHandle : columnHandles) {
-            types.add(((HiveColumnHandle) columnHandle).getType());
-        }
-        return types.build();
-    }
-
     public static MapType mapType(Type keyType, Type valueType)
     {
         return (MapType) TESTING_TYPE_MANAGER.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
                 TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
-    }
-
-    public static ArrayType arrayType(Type elementType)
-    {
-        return (ArrayType) TESTING_TYPE_MANAGER.getParameterizedType(
-                StandardTypes.ARRAY,
-                ImmutableList.of(TypeSignatureParameter.typeParameter(elementType.getTypeSignature())));
     }
 
     public static RowType rowType(List<NamedTypeSignature> elementTypeSignatures)

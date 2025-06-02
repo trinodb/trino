@@ -37,6 +37,7 @@ import io.trino.spi.eventlistener.QueryContext;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryFailureInfo;
 import io.trino.spi.eventlistener.QueryIOMetadata;
+import io.trino.spi.eventlistener.QueryInputMetadata;
 import io.trino.spi.eventlistener.QueryMetadata;
 import io.trino.spi.eventlistener.QueryOutputMetadata;
 import io.trino.spi.eventlistener.QueryStatistics;
@@ -309,9 +310,9 @@ public class OpenLineageListener
 
             ImmutableList.Builder<OpenLineage.InputField> inputFields = ImmutableList.builder();
             ioMetadata.getInputs().forEach(input -> {
-                for (String columnName : input.getColumns()) {
+                for (QueryInputMetadata.Column column : input.getColumns()) {
                     inputFields.add(openLineage.newInputFieldBuilder()
-                            .field(columnName)
+                            .field(column.name())
                             .namespace(this.datasetNamespace)
                             .name(getDatasetName(input.getCatalogName(), input.getSchema(), input.getTable()))
                             .build());

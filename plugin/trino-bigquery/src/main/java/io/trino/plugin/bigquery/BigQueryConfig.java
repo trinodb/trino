@@ -65,6 +65,7 @@ public class BigQueryConfig
     private boolean proxyEnabled;
     private boolean projectionPushDownEnabled = true;
     private int metadataParallelism = Math.min(Runtime.getRuntime().availableProcessors(), MAX_METADATA_PARALLELISM);
+    private Optional<Integer> maxParallelism = Optional.empty();
 
     public Optional<String> getProjectId()
     {
@@ -385,6 +386,20 @@ public class BigQueryConfig
         return this;
     }
 
+    @NotNull
+    public Optional<@Min(1) Integer> getMaxParallelism()
+    {
+        return maxParallelism;
+    }
+
+    @Config("bigquery.max-parallelism")
+    @ConfigDescription("The max number of partitions to split the data into")
+    public BigQueryConfig setMaxParallelism(Integer maxParallelism)
+    {
+        this.maxParallelism = Optional.ofNullable(maxParallelism);
+        return this;
+    }
+
     @AssertTrue(message = "View expiration duration must be longer than view cache TTL")
     public boolean isValidViewExpireDuration()
     {
@@ -392,7 +407,7 @@ public class BigQueryConfig
     }
 
     @AssertTrue(message = VIEWS_ENABLED + " config property must be enabled when bigquery.skip-view-materialization is enabled")
-    public boolean isValidViewsWehnEnabledSkipViewMaterialization()
+    public boolean isValidViewsWhenEnabledSkipViewMaterialization()
     {
         return !skipViewMaterialization || viewsEnabled;
     }

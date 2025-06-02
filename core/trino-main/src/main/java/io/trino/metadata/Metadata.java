@@ -223,11 +223,6 @@ public interface Metadata
     void renameSchema(Session session, CatalogSchemaName source, String target);
 
     /**
-     * Set the specified schema's user/role.
-     */
-    void setSchemaAuthorization(Session session, CatalogSchemaName source, TrinoPrincipal principal);
-
-    /**
      * Creates a table using the specified table metadata.
      *
      * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@code saveMode} is set to FAIL.
@@ -298,11 +293,6 @@ public interface Metadata
      * Drop a not null constraint on the specified column.
      */
     void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column);
-
-    /**
-     * Set the authorization (owner) of specified table's user/role
-     */
-    void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);
 
     /**
      * Drop the specified column.
@@ -519,11 +509,6 @@ public interface Metadata
      * Rename the specified view.
      */
     void renameView(Session session, QualifiedObjectName existingViewName, QualifiedObjectName newViewName);
-
-    /**
-     * Set the authorization (owner) of specified view's user/role
-     */
-    void setViewAuthorization(Session session, CatalogSchemaTableName view, TrinoPrincipal principal);
 
     /**
      * Drops the specified view.
@@ -866,4 +851,6 @@ public interface Metadata
      * Returns writer scaling options for the specified table.
      */
     WriterScalingOptions getInsertWriterScalingOptions(Session session, TableHandle tableHandle);
+
+    void setEntityAuthorization(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal);
 }

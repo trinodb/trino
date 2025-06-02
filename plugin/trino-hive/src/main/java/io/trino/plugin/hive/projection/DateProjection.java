@@ -181,7 +181,7 @@ final class DateProjection
         if (type instanceof DateType) {
             return domain.contains(singleValue(type, MILLISECONDS.toDays(value.toEpochMilli())));
         }
-        if (type instanceof TimestampType && ((TimestampType) type).isShort()) {
+        if (type instanceof TimestampType timestampType && timestampType.isShort()) {
             return domain.contains(singleValue(type, MILLISECONDS.toMicros(value.toEpochMilli())));
         }
         throw new InvalidProjectionException(columnName, type);

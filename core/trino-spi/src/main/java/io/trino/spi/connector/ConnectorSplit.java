@@ -42,10 +42,14 @@ public interface ConnectorSplit
         return List.of();
     }
 
+    /**
+     * @deprecated Use {@link Object#toString()} for printing debugging information, or {@link ConnectorSplitSource#getMetrics()} for recording metrics
+     */
+    @Deprecated(forRemoval = true)
     @JsonIgnore // ConnectorSplit is json-serializable, but we don't want to repeat information in that field
     default Map<String, String> getSplitInfo()
     {
-        return Map.of();
+        throw new UnsupportedOperationException();
     }
 
     default SplitWeight getSplitWeight()

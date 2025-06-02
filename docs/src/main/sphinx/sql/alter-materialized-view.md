@@ -21,7 +21,7 @@ exists.
 
 The `ALTER MATERIALIZED VIEW SET PROPERTIES`  statement followed by some number
 of `property_name` and `expression` pairs applies the specified properties
-and values to a materialized view. Ommitting an already-set property from this
+and values to a materialized view. Omitting an already-set property from this
 statement leaves that property unchanged in the materialized view.
 
 A property in a `SET PROPERTIES` statement can be set to `DEFAULT`, which

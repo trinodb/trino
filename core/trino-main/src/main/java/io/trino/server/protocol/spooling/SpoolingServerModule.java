@@ -75,7 +75,7 @@ public class SpoolingServerModule
     // Fully qualified so not to confuse with Guice's Module
     public static com.fasterxml.jackson.databind.Module queryDataJacksonModule()
     {
-        return new QueryDataJacksonModule();
+        return new ServerQueryDataJacksonModule();
     }
 
     private static class SpoolingManagerProvider

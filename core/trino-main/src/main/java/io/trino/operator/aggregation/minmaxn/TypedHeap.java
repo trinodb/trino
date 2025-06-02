@@ -167,8 +167,10 @@ public final class TypedHeap
         int recordOffset = getRecordOffset(index);
 
         byte[] variableWidthChunk = EMPTY_CHUNK;
+        int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(fixedChunk, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(fixedChunk, recordOffset);
         }
 
         try {
@@ -176,6 +178,7 @@ public final class TypedHeap
                     fixedChunk,
                     recordOffset + recordElementOffset,
                     variableWidthChunk,
+                    variableWidthChunkOffset,
                     blockBuilder);
         }
         catch (Throwable throwable) {
@@ -215,9 +218,7 @@ public final class TypedHeap
                 fixedChunk,
                 recordSize,
                 0,
-                positionCount,
-                (fixedSizeOffset, variableWidthChunk, variableWidthChunkOffset) ->
-                        elementType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordElementOffset, variableWidthChunk, variableWidthChunkOffset));
+                positionCount);
     }
 
     private void set(int index, ValueBlock block, int position)
@@ -297,9 +298,13 @@ public final class TypedHeap
 
         byte[] leftVariableWidthChunk = EMPTY_CHUNK;
         byte[] rightVariableWidthChunk = EMPTY_CHUNK;
+        int leftVariableWidthChunkOffset = 0;
+        int rightVariableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             leftVariableWidthChunk = variableWidthData.getChunk(fixedChunk, leftRecordOffset);
             rightVariableWidthChunk = variableWidthData.getChunk(fixedChunk, rightRecordOffset);
+            leftVariableWidthChunkOffset = getChunkOffset(fixedChunk, leftRecordOffset);
+            rightVariableWidthChunkOffset = getChunkOffset(fixedChunk, rightRecordOffset);
         }
 
         try {
@@ -307,9 +312,11 @@ public final class TypedHeap
                     fixedChunk,
                     leftRecordOffset + recordElementOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthChunkOffset,
                     fixedChunk,
                     rightRecordOffset + recordElementOffset,
-                    rightVariableWidthChunk);
+                    rightVariableWidthChunk,
+                    rightVariableWidthChunkOffset);
             return (int) (min ? result : -result);
         }
         catch (Throwable throwable) {
@@ -323,8 +330,10 @@ public final class TypedHeap
         byte[] leftFixedRecordChunk = fixedChunk;
         int leftRecordOffset = getRecordOffset(0);
         byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        int leftVariableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             leftVariableWidthChunk = variableWidthData.getChunk(leftFixedRecordChunk, leftRecordOffset);
+            leftVariableWidthChunkOffset = getChunkOffset(leftFixedRecordChunk, leftRecordOffset);
         }
 
         try {
@@ -332,6 +341,7 @@ public final class TypedHeap
                     leftFixedRecordChunk,
                     leftRecordOffset + recordElementOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthChunkOffset,
                     right,
                     rightPosition);
             return min ? result > 0 : result < 0;
@@ -349,12 +359,7 @@ public final class TypedHeap
 
     private static final double MAX_FREE_RATIO = 0.66;
 
-    public interface RelocateVariableWidthOffsets
-    {
-        void relocate(int fixedSizeOffset, byte[] variableWidthChunk, int variableWidthChunkOffset);
-    }
-
-    public static VariableWidthData compactIfNecessary(VariableWidthData data, byte[] fixedSizeChunk, int fixedRecordSize, int fixedRecordPointerOffset, int recordCount, RelocateVariableWidthOffsets relocateVariableWidthOffsets)
+    public static VariableWidthData compactIfNecessary(VariableWidthData data, byte[] fixedSizeChunk, int fixedRecordSize, int fixedRecordPointerOffset, int recordCount)
     {
         List<byte[]> chunks = data.getAllChunks();
         double freeRatio = 1.0 * data.getFreeBytes() / data.getAllocatedBytes();
@@ -370,7 +375,7 @@ public final class TypedHeap
         for (int i = 0; i < recordCount; i++) {
             int valueLength = getValueLength(fixedSizeChunk, i * fixedRecordSize + fixedRecordPointerOffset);
             if (newSize + valueLength > MAX_CHUNK_SIZE) {
-                moveVariableWidthToNewSlice(data, fixedSizeChunk, fixedRecordSize, fixedRecordPointerOffset, indexStart, i, newSlices, newSize, relocateVariableWidthOffsets);
+                moveVariableWidthToNewSlice(data, fixedSizeChunk, fixedRecordSize, fixedRecordPointerOffset, indexStart, i, newSlices, newSize);
                 indexStart = i;
                 newSize = 0;
             }
@@ -384,7 +389,7 @@ public final class TypedHeap
             if (newSize < MAX_CHUNK_SIZE) {
                 openSliceSize = clamp(openSliceSize * 2L, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
             }
-            moveVariableWidthToNewSlice(data, fixedSizeChunk, fixedRecordSize, fixedRecordPointerOffset, indexStart, recordCount, newSlices, openSliceSize, relocateVariableWidthOffsets);
+            moveVariableWidthToNewSlice(data, fixedSizeChunk, fixedRecordSize, fixedRecordPointerOffset, indexStart, recordCount, newSlices, openSliceSize);
             openChunkOffset = newSize;
         }
         else {
@@ -402,8 +407,7 @@ public final class TypedHeap
             int indexStart,
             int indexEnd,
             List<byte[]> newSlices,
-            int newSliceSize,
-            RelocateVariableWidthOffsets relocateVariableWidthOffsets)
+            int newSliceSize)
     {
         int newSliceIndex = newSlices.size();
         byte[] newSlice = new byte[newSliceSize];
@@ -425,7 +429,6 @@ public final class TypedHeap
                     newSliceIndex,
                     newSliceOffset,
                     variableWidthLength);
-            relocateVariableWidthOffsets.relocate(fixedChunkOffset, newSlice, newSliceOffset);
             newSliceOffset += variableWidthLength;
         }
     }

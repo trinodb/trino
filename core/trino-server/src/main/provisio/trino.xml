@@ -67,12 +67,6 @@
         </artifact>
     </artifactSet>
 
-    <artifactSet to="plugin/example-http">
-        <artifact id="${project.groupId}:trino-example-http:zip:${project.version}">
-            <unpack />
-        </artifact>
-    </artifactSet>
-
     <artifactSet to="plugin/exasol">
         <artifact id="${project.groupId}:trino-exasol:zip:${project.version}">
             <unpack />
@@ -162,6 +156,12 @@
 
     <artifactSet to="plugin/loki">
         <artifact id="${project.groupId}:trino-loki:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
+    <artifactSet to="plugin/ldap-group-provider">
+        <artifact id="${project.groupId}:trino-ldap-group-provider:zip:${project.version}">
             <unpack />
         </artifact>
     </artifactSet>

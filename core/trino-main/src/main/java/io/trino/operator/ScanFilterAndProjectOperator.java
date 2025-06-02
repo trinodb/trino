@@ -51,6 +51,7 @@ import jakarta.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -263,8 +264,8 @@ public class ScanFilterAndProjectOperator
                 source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
             }
 
-            if (source instanceof RecordPageSource) {
-                cursor = ((RecordPageSource) source).getCursor();
+            if (source instanceof RecordPageSource recordPageSource) {
+                cursor = recordPageSource.getCursor();
                 return ofResult(processColumnSource());
             }
             pageSource = source;
@@ -512,7 +513,7 @@ public class ScanFilterAndProjectOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, getOperatorType());
+            OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, Optional.of(sourceId), getOperatorType());
             return new WorkProcessorSourceOperatorAdapter(operatorContext, this);
         }
 

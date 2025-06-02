@@ -16,12 +16,10 @@ package io.trino.plugin.tpch;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -68,16 +66,6 @@ public class TpchSplit
     }
 
     @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.<String, String>builder()
-                .put("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")))
-                .put("partNumber", String.valueOf(partNumber))
-                .put("totalParts", String.valueOf(totalParts))
-                .buildOrThrow();
-    }
-
-    @Override
     public boolean isRemotelyAccessible()
     {
         return false;
@@ -114,6 +102,7 @@ public class TpchSplit
     public String toString()
     {
         return toStringHelper(this)
+                .add("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")))
                 .add("partNumber", partNumber)
                 .add("totalParts", totalParts)
                 .toString();

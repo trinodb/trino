@@ -14,13 +14,16 @@
 package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.compress.v3.Compressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.metrics.Metrics;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -59,6 +62,9 @@ public class CompressingEncryptingPageSerializer
 {
     private static final int INSTANCE_SIZE = instanceSize(CompressingEncryptingPageSerializer.class);
 
+    private long inputBytes;
+    private long outputBytes;
+
     private final BlockEncodingSerde blockEncodingSerde;
     private final SerializedPageOutput output;
 
@@ -84,13 +90,33 @@ public class CompressingEncryptingPageSerializer
     {
         output.startPage(page.getPositionCount(), toIntExact(page.getSizeInBytes()));
         writeRawPage(page, output, blockEncodingSerde);
-        return output.closePage();
+        SerializedPage serializedPage = output.closePage();
+        inputBytes += serializedPage.uncompressedSize();
+        outputBytes += serializedPage.compressedSize();
+        return serializedPage.slice();
     }
 
     @Override
     public long getRetainedSizeInBytes()
     {
         return INSTANCE_SIZE + output.getRetainedSize();
+    }
+
+    @Override
+    public Metrics getAndResetMetrics()
+    {
+        Metrics finalMetrics = getMetrics();
+        inputBytes = 0;
+        outputBytes = 0;
+        return finalMetrics;
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return new Metrics(ImmutableMap.of(
+                "exchangeSerializerInputBytes", new LongCount(inputBytes),
+                "exchangeSerializerOutputBytes", new LongCount(outputBytes)));
     }
 
     private static class SerializedPageOutput
@@ -330,7 +356,7 @@ public class CompressingEncryptingPageSerializer
             uncompressedSize += length * Double.BYTES;
         }
 
-        public Slice closePage()
+        public SerializedPage closePage()
         {
             compress();
             encrypt();
@@ -353,8 +379,9 @@ public class CompressingEncryptingPageSerializer
                 buffer.reset();
             }
             buffers[buffers.length - 1] = null;
+            SerializedPage serializedPage = new SerializedPage(uncompressedSize, compressedSize, page);
             uncompressedSize = 0;
-            return page;
+            return serializedPage;
         }
 
         private void ensureCapacityFor(int bytes)
@@ -614,6 +641,14 @@ public class CompressingEncryptingPageSerializer
         {
             writeBytes(slice);
             return this;
+        }
+    }
+
+    private record SerializedPage(int uncompressedSize, int compressedSize, Slice slice)
+    {
+        private SerializedPage
+        {
+            requireNonNull(slice, "slice is null");
         }
     }
 

@@ -175,7 +175,8 @@ public class CommentTask
     {
         String columnName = statement.getName().getSuffix();
         ViewColumn viewColumn = viewDefinition.getColumns().stream()
-                .filter(column -> column.name().equals(columnName))
+                // TODO (https://github.com/trinodb/trino/issues/17) change to equals()
+                .filter(column -> column.name().equalsIgnoreCase(columnName))
                 .findAny()
                 .orElseThrow(() -> semanticException(COLUMN_NOT_FOUND, statement, "Column does not exist: %s", columnName));
         accessControl.checkCanSetColumnComment(session.toSecurityContext(), originalObjectName);

@@ -124,7 +124,7 @@ public final class ColumnReaderFactory
             return createColumnReader(field, valueDecoders::getShortDecoder, SHORT_ADAPTER, memoryContext);
         }
         if (DATE.equals(type) && primitiveType == INT32) {
-            if (annotation == null || annotation instanceof DateLogicalTypeAnnotation) {
+            if (isIntegerAnnotation(annotation) || annotation instanceof DateLogicalTypeAnnotation) {
                 return createColumnReader(field, valueDecoders::getIntDecoder, INT_ADAPTER, memoryContext);
             }
             throw unsupportedException(type, field);

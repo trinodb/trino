@@ -175,11 +175,7 @@ public class ParquetWriter
 
         checkArgument(page.getChannelCount() == columnWriters.size());
 
-        // page should already be loaded, but double check
-        page = page.getLoadedPage();
-
-        Page validationPage = page;
-        recordValidation(validation -> validation.addPage(validationPage));
+        recordValidation(validation -> validation.addPage(page));
 
         int writeOffset = 0;
         while (writeOffset < page.getPositionCount()) {
@@ -250,8 +246,8 @@ public class ParquetWriter
             }
         }
         catch (IOException e) {
-            if (e instanceof ParquetCorruptionException) {
-                throw (ParquetCorruptionException) e;
+            if (e instanceof ParquetCorruptionException pce) {
+                throw pce;
             }
             throw new ParquetCorruptionException(input.getId(), "Validation failed with exception %s", e);
         }
@@ -292,7 +288,7 @@ public class ParquetWriter
                 input,
                 parquetTimeZone.orElseThrow(),
                 newSimpleAggregatedMemoryContext(),
-                new ParquetReaderOptions(),
+                ParquetReaderOptions.defaultOptions(),
                 exception -> {
                     throwIfUnchecked(exception);
                     return new RuntimeException(exception);
@@ -415,7 +411,7 @@ public class ParquetWriter
     {
         long totalCompressedBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_compressed_size).sum();
         long totalBytes = columnMetaData.stream().mapToLong(ColumnMetaData::getTotal_uncompressed_size).sum();
-        ImmutableList<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
+        List<org.apache.parquet.format.ColumnChunk> columnChunks = columnMetaData.stream().map(ParquetWriter::toColumnChunk).collect(toImmutableList());
         fileFooter.addRowGroup(new RowGroup(columnChunks, totalBytes, rows)
                 .setTotal_compressed_size(totalCompressedBytes)
                 .setFile_offset(fileOffset));

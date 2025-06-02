@@ -142,7 +142,7 @@ public class ProtobufColumnDecoder
 
     private static boolean isSupportedPrimitive(Type type)
     {
-        return (type instanceof TimestampType && ((TimestampType) type).isShort()) ||
+        return (type instanceof TimestampType timestampType && timestampType.isShort()) ||
                 type instanceof VarcharType ||
                 SUPPORTED_PRIMITIVE_TYPES.contains(type);
     }

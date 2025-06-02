@@ -6,6 +6,9 @@
 ```{toctree}
 :maxdepth: 1
 
+release/release-475
+release/release-474
+release/release-473
 release/release-472
 release/release-471
 release/release-470

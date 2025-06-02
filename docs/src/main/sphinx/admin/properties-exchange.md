@@ -89,7 +89,7 @@ responses for more tasks, rather than hold more data from fewer tasks.
 
 Output buffer size for task data that is waiting to be pulled by upstream
 tasks. If the task output is hash partitioned, then the buffer is
-shared across all of the partitioned consumers. Increasing this value may
+shared across all the partitioned consumers. Increasing this value may
 improve network throughput for data transferred between stages, if the
 network has high latency, or if there are many nodes in the cluster.
 

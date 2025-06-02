@@ -231,7 +231,7 @@ public class RcFileTester
     public void testRoundTrip(Type type, Iterable<?> writeValues, Format... skipFormats)
             throws Exception
     {
-        ImmutableSet<Format> skipFormatsSet = ImmutableSet.copyOf(skipFormats);
+        Set<Format> skipFormatsSet = ImmutableSet.copyOf(skipFormats);
 
         // just the values
         testRoundTripType(type, writeValues, skipFormatsSet);

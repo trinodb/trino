@@ -187,7 +187,7 @@ public class TestCachedHiveGlueMetastore
             assertQueryFails(select, "Partition location does not exist: " + partitionLocation);
             // flush cache
             assertQuerySucceeds("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => 'test_flush_partition', partition_columns => ARRAY['regionkey'], partition_values => ARRAY['2'])");
-            assertQueryFails(select, "Partition no longer exists: regionkey=2");
+            assertQueryFails(select, "Partition regionkey=2 no longer exists for %s.test_flush_partition".formatted(testSchema));
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_select_from_partitioned_where");

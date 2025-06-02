@@ -128,6 +128,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.airlift.slice.SizeOf.instanceSize;
+import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
@@ -532,7 +534,7 @@ public class IcebergPageSourceProvider
                     partitionSpecId,
                     partitionData,
                     dataColumns,
-                    parquetReaderOptions
+                    ParquetReaderOptions.builder(parquetReaderOptions)
                             .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                             .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                             .withSmallFileThreshold(getParquetSmallFileThreshold(session))
@@ -540,7 +542,8 @@ public class IcebergPageSourceProvider
                             .withBloomFilter(useParquetBloomFilter(session))
                             // TODO https://github.com/trinodb/trino/issues/11000
                             .withUseColumnIndex(false)
-                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session)),
+                            .withVectorizedDecodingEnabled(isParquetVectorizedDecodingEnabled(session))
+                            .build(),
                     predicate,
                     fileFormatDataSourceStats,
                     nameMapping,
@@ -746,8 +749,8 @@ public class IcebergPageSourceProvider
                     }
                 }
             }
-            if (e instanceof TrinoException) {
-                throw (TrinoException) e;
+            if (e instanceof TrinoException trinoException) {
+                throw trinoException;
             }
             if (e instanceof OrcCorruptionException) {
                 throw new TrinoException(ICEBERG_BAD_DATA, e);
@@ -786,16 +789,16 @@ public class IcebergPageSourceProvider
 
     private static Type getOrcReadType(Type columnType, TypeManager typeManager)
     {
-        if (columnType instanceof ArrayType) {
-            return new ArrayType(getOrcReadType(((ArrayType) columnType).getElementType(), typeManager));
+        if (columnType instanceof ArrayType arrayType) {
+            return new ArrayType(getOrcReadType(arrayType.getElementType(), typeManager));
         }
         if (columnType instanceof MapType mapType) {
             Type keyType = getOrcReadType(mapType.getKeyType(), typeManager);
             Type valueType = getOrcReadType(mapType.getValueType(), typeManager);
             return new MapType(keyType, valueType, typeManager.getTypeOperators());
         }
-        if (columnType instanceof RowType) {
-            return RowType.from(((RowType) columnType).getFields().stream()
+        if (columnType instanceof RowType rowType) {
+            return RowType.from(rowType.getFields().stream()
                     .map(field -> new RowType.Field(field.getName(), getOrcReadType(field.getType(), typeManager)))
                     .collect(toImmutableList()));
         }
@@ -1037,8 +1040,8 @@ public class IcebergPageSourceProvider
                     e.addSuppressed(ex);
                 }
             }
-            if (e instanceof TrinoException) {
-                throw (TrinoException) e;
+            if (e instanceof TrinoException trinoException) {
+                throw trinoException;
             }
             if (e instanceof ParquetCorruptionException) {
                 throw new TrinoException(ICEBERG_BAD_DATA, e);
@@ -1390,8 +1393,8 @@ public class IcebergPageSourceProvider
 
     private static TrinoException handleException(OrcDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof OrcCorruptionException) {
             return new TrinoException(ICEBERG_BAD_DATA, exception);
@@ -1401,8 +1404,8 @@ public class IcebergPageSourceProvider
 
     private static TrinoException handleException(ParquetDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(ICEBERG_BAD_DATA, exception);
@@ -1514,6 +1517,8 @@ public class IcebergPageSourceProvider
     private record PrefixColumnsSourcePage(SourcePage sourcePage, int channelCount, int[] channels)
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(PrefixColumnsSourcePage.class);
+
         private PrefixColumnsSourcePage
         {
             requireNonNull(sourcePage, "sourcePage is null");
@@ -1542,12 +1547,16 @@ public class IcebergPageSourceProvider
         @Override
         public long getRetainedSizeInBytes()
         {
-            return sourcePage.getRetainedSizeInBytes();
+            return INSTANCE_SIZE +
+                    sizeOf(channels) +
+                    sourcePage.getRetainedSizeInBytes();
         }
 
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            consumer.accept(this, INSTANCE_SIZE);
+            consumer.accept(channels, sizeOf(channels));
             sourcePage.retainedBytesForEachPart(consumer);
         }
 

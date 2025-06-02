@@ -15,7 +15,6 @@ package io.trino.execution.buffer;
 
 import com.google.common.base.VerifyException;
 import io.airlift.compress.v3.Decompressor;
-import io.airlift.compress.v3.lz4.Lz4Decompressor;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.Slices;
@@ -63,6 +62,7 @@ public class CompressingDecryptingPageDeserializer
     public CompressingDecryptingPageDeserializer(
             BlockEncodingSerde blockEncodingSerde,
             Optional<Decompressor> decompressor,
+            int decompressorRetainedSize,
             Optional<SecretKey> encryptionKey,
             int blockSizeInBytes,
             OptionalInt maxCompressedBlockSizeInBytes)
@@ -72,6 +72,7 @@ public class CompressingDecryptingPageDeserializer
         encryptionKey.ifPresent(secretKey -> checkArgument(is256BitSecretKeySpec(secretKey), "encryptionKey is expected to be an instance of SecretKeySpec containing a 256bit key"));
         input = new SerializedPageInput(
                 requireNonNull(decompressor, "decompressor is null"),
+                decompressorRetainedSize,
                 encryptionKey,
                 blockSizeInBytes,
                 maxCompressedBlockSizeInBytes);
@@ -96,19 +97,19 @@ public class CompressingDecryptingPageDeserializer
             extends SliceInput
     {
         private static final int INSTANCE_SIZE = instanceSize(SerializedPageInput.class);
-        // TODO: implement getRetainedSizeInBytes in Lz4Decompressor
-        private static final int DECOMPRESSOR_RETAINED_SIZE = instanceSize(Lz4Decompressor.class);
         private static final int ENCRYPTION_KEY_RETAINED_SIZE = toIntExact(instanceSize(SecretKeySpec.class) + sizeOfByteArray(256 / 8));
 
         private final Optional<Decompressor> decompressor;
+        private final int decompressorRetainedSize;
         private final Optional<SecretKey> encryptionKey;
         private final Optional<Cipher> cipher;
 
         private final ReadBuffer[] buffers;
 
-        private SerializedPageInput(Optional<Decompressor> decompressor, Optional<SecretKey> encryptionKey, int blockSizeInBytes, OptionalInt maxCompressedBlockSizeInBytes)
+        private SerializedPageInput(Optional<Decompressor> decompressor, int decompressorRetainedSize, Optional<SecretKey> encryptionKey, int blockSizeInBytes, OptionalInt maxCompressedBlockSizeInBytes)
         {
             this.decompressor = requireNonNull(decompressor, "decompressor is null");
+            this.decompressorRetainedSize = decompressorRetainedSize;
             this.encryptionKey = requireNonNull(encryptionKey, "encryptionKey is null");
 
             buffers = new ReadBuffer[
@@ -502,7 +503,7 @@ public class CompressingDecryptingPageDeserializer
         public long getRetainedSize()
         {
             long size = INSTANCE_SIZE;
-            size += sizeOf(decompressor, compressor -> DECOMPRESSOR_RETAINED_SIZE);
+            size += sizeOf(decompressor, compressor -> decompressorRetainedSize);
             size += sizeOf(encryptionKey, encryptionKey -> ENCRYPTION_KEY_RETAINED_SIZE);
             size += sizeOf(cipher, cipher -> ESTIMATED_AES_CIPHER_RETAINED_SIZE);
             for (ReadBuffer input : buffers) {

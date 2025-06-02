@@ -102,8 +102,8 @@ public final class BlackHolePageSourceProvider
 
         Slice slice;
         // do not exceed varchar limit
-        if (type instanceof VarcharType && !((VarcharType) type).isUnbounded()) {
-            slice = constantSlice.slice(0, Math.min(((VarcharType) type).getBoundedLength(), constantSlice.length()));
+        if (type instanceof VarcharType varcharType && !varcharType.isUnbounded()) {
+            slice = constantSlice.slice(0, Math.min(varcharType.getBoundedLength(), constantSlice.length()));
         }
         else {
             slice = constantSlice;

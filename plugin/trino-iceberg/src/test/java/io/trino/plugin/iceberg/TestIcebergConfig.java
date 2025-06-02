@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.AssertFalse;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +30,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.plugin.hive.HiveCompressionCodec.ZSTD;
+import static io.trino.plugin.hive.HiveCompressionOption.ZSTD;
 import static io.trino.plugin.iceberg.CatalogType.GLUE;
 import static io.trino.plugin.iceberg.CatalogType.HIVE_METASTORE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -73,6 +73,7 @@ public class TestIcebergConfig
                 .setQueryPartitionFilterRequired(false)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of())
                 .setSplitManagerThreads(Integer.toString(Runtime.getRuntime().availableProcessors() * 2))
+                .setPlanningThreads(Integer.toString(Runtime.getRuntime().availableProcessors()))
                 .setAllowedExtraProperties(ImmutableList.of())
                 .setIncrementalRefreshEnabled(true)
                 .setMetadataCacheEnabled(true)
@@ -115,6 +116,7 @@ public class TestIcebergConfig
                 .put("iceberg.query-partition-filter-required", "true")
                 .put("iceberg.query-partition-filter-required-schemas", "bronze,silver")
                 .put("iceberg.split-manager-threads", "42")
+                .put("iceberg.planning-threads", "42")
                 .put("iceberg.allowed-extra-properties", "propX,propY")
                 .put("iceberg.incremental-refresh-enabled", "false")
                 .put("iceberg.metadata-cache.enabled", "false")
@@ -126,7 +128,7 @@ public class TestIcebergConfig
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(ORC)
-                .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setCompressionCodec(HiveCompressionOption.NONE)
                 .setMaxCommitRetry(100)
                 .setUseFileSizeFromMetadata(false)
                 .setMaxPartitionsPerWriter(222)
@@ -153,6 +155,7 @@ public class TestIcebergConfig
                 .setQueryPartitionFilterRequired(true)
                 .setQueryPartitionFilterRequiredSchemas(ImmutableSet.of("bronze", "silver"))
                 .setSplitManagerThreads("42")
+                .setPlanningThreads("42")
                 .setAllowedExtraProperties(ImmutableList.of("propX", "propY"))
                 .setIncrementalRefreshEnabled(false)
                 .setMetadataCacheEnabled(false)

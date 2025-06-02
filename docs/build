@@ -6,7 +6,7 @@ cd "${BASH_SOURCE%/*}"
 
 test -t 1 && OPTS='-it' || OPTS=''
 
-SPHINX_IMAGE=${SPHINX_IMAGE:-ghcr.io/trinodb/build/sphinx:8}
+SPHINX_IMAGE=${SPHINX_IMAGE:-ghcr.io/trinodb/build/sphinx:114}
 
 docker run --security-opt label:disable --rm $OPTS -e TRINO_VERSION -u $(id -u):$(id -g) -v "$PWD":/docs $SPHINX_IMAGE \
   sphinx-build -q -j auto -b html -W --keep-going -d target/doctrees src/main/sphinx target/html

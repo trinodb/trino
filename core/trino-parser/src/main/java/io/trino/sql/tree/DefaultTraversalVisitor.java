@@ -606,6 +606,12 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitAutoGroupBy(AutoGroupBy node, C context)
+    {
+        return null;
+    }
+
+    @Override
     protected Void visitGroupingSets(GroupingSets node, C context)
     {
         return null;

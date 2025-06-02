@@ -18,11 +18,13 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.execution.Column;
 import io.trino.execution.Input;
+import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -67,7 +69,13 @@ public class InputExtractor
         CatalogSchemaTableName tableName = metadata.getTableName(session, table);
         SchemaTableName schemaTable = tableName.getSchemaTableName();
         Optional<Object> inputMetadata = metadata.getInfo(session, table);
+        Optional<String> connectorName = metadata.listCatalogs(session).stream()
+                .filter(catalogInfo -> catalogInfo.catalogName().equals(tableName.getCatalogName()))
+                .map(CatalogInfo::connectorName)
+                .map(ConnectorName::toString)
+                .findFirst();
         return new Input(
+                connectorName,
                 tableName.getCatalogName(),
                 table.catalogHandle().getVersion(),
                 schemaTable.getSchemaName(),

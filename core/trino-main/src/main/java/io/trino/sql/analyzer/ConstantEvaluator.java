@@ -32,7 +32,7 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
-public class ConstantEvaluator
+public final class ConstantEvaluator
 {
     private ConstantEvaluator() {}
 

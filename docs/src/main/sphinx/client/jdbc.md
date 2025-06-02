@@ -12,7 +12,7 @@ communicate with the coordinator on the cluster.
 
 The Trino JDBC driver has the following requirements:
 
-- Java version 8 or higher. Java 22 or higher is recommended for improved
+- Java version 11 or higher. Java 22 or higher is recommended for improved
   decompression performance.
 - All users that connect to Trino with the JDBC driver must be granted access to
   query tables in the `system.jdbc` schema.

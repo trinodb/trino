@@ -466,7 +466,7 @@ SELECT from_date_string(NULL); -- NULL (handles NULL string)
 SELECT from_date_string('abc'); -- NULL (not matched to any format)
 ```
 
-## Human readable days
+## Human-readable days
 
 Trino includes a built-in function called {func}`human_readable_seconds` that
 formats a number of seconds into a string:
@@ -476,7 +476,7 @@ SELECT human_readable_seconds(134823);
 -- 1 day, 13 hours, 27 minutes, 3 seconds
 ```
 
-The example SQL UDF `hrd` formats a number of days into a human readable text
+The example SQL UDF `hrd` formats a number of days into a human-readable text
 that provides the approximate number of years and months:
 
 ```sql
@@ -625,7 +625,7 @@ A possible improvement is to introduce parameters for the total length.
 
 Trino includes a built-in `format_number()` function. However, it is using units
 that do not work well with bytes. The following `format_data_size` SQL UDF can
-format large values of bytes into a human readable string:
+format large values of bytes into a human-readable string:
 
 ```sql
 FUNCTION format_data_size(input BIGINT)

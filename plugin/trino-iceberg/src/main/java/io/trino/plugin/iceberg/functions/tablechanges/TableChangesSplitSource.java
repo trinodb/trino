@@ -127,11 +127,11 @@ public class TableChangesSplitSource
     private ConnectorSplit toIcebergSplit(ChangelogScanTask task)
     {
         // TODO: Support DeletedRowsScanTask (requires https://github.com/apache/iceberg/pull/6182)
-        if (task instanceof AddedRowsScanTask) {
-            return toSplit((AddedRowsScanTask) task);
+        if (task instanceof AddedRowsScanTask addedRowsScanTask) {
+            return toSplit(addedRowsScanTask);
         }
-        else if (task instanceof DeletedDataFileScanTask) {
-            return toSplit((DeletedDataFileScanTask) task);
+        else if (task instanceof DeletedDataFileScanTask deletedDataFileScanTask) {
+            return toSplit(deletedDataFileScanTask);
         }
         else {
             throw new TrinoException(NOT_SUPPORTED, "ChangelogScanTask type is not supported:" + task);

@@ -71,7 +71,7 @@ public class TestIcebergHiveViewsCompatibility
             onTrino().executeQuery("USE tpch.tiny");
 
             // both hive and iceberg catalogs should list all the tables and views.
-            ImmutableList<QueryAssert.Row> newlyCreated = ImmutableList.<QueryAssert.Row>builder()
+            List<QueryAssert.Row> newlyCreated = ImmutableList.<QueryAssert.Row>builder()
                     .add(row("hive_table"))
                     .add(row("iceberg_table"))
                     .add(row("hive_view_qualified_hive"))

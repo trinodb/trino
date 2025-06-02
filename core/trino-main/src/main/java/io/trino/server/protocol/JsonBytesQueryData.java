@@ -55,4 +55,12 @@ public class JsonBytesQueryData
     {
         return false;
     }
+
+    @Override
+    public long getRowsCount()
+    {
+        return pages.stream()
+                .mapToLong(Page::getPositionCount)
+                .sum();
+    }
 }

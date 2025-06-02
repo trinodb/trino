@@ -955,6 +955,8 @@ public final class MathFunctions
     @Description("Round to given number of decimal places")
     public static final class RoundN
     {
+        private RoundN() {}
+
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp, s)")
         @Constraint(variable = "rp", expression = "min(38, p + 1)")
@@ -1024,6 +1026,8 @@ public final class MathFunctions
     @Description("Round to integer by dropping digits after decimal point")
     public static final class Truncate
     {
+        private Truncate() {}
+
         @LiteralParameters({"p", "s", "rp"})
         @SqlType("decimal(rp,0)")
         @Constraint(variable = "rp", expression = "max(1, p - s)")

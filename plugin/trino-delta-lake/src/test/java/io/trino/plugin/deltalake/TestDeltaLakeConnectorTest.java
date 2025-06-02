@@ -49,7 +49,10 @@ import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -96,8 +99,10 @@ import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Map.entry;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -1005,18 +1010,271 @@ public class TestDeltaLakeConnectorTest
     @Test
     public void testPathColumn()
     {
-        try (TestTable table = newTrinoTable("test_path_column", "(x VARCHAR)")) {
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+        try (TestTable table = newTrinoTable("test_path_column", "(x VARCHAR, part VARCHAR) WITH (partitioned_by = ARRAY['part'])")) {
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first', 'a#sharp'", 1);
             String firstFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName());
-            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
-            String secondFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE x = 'second'");
+            assertThat(firstFilePath.contains("a#sharp")).isFalse();
+            assertThat(firstFilePath.contains("a%23sharp")).isTrue();
 
-            // Verify predicate correctness on $path column
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", "VALUES 'first'");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" <> '" + firstFilePath + "'", "VALUES 'second'");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IN ('" + firstFilePath + "', '" + secondFilePath + "')", "VALUES ('first'), ('second')");
-            assertQuery("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL", "VALUES ('first'), ('second')");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second', 'a%23sharp'", 1);
+            String secondFilePath = (String) computeScalar("SELECT \"$path\" FROM " + table.getName() + " WHERE x = 'second'");
+            assertThat(secondFilePath.contains("a%23sharp")).isFalse();
+            assertThat(secondFilePath.contains("a%2523sharp")).isTrue();
+
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE part = 'a#sharp'", "VALUES 'first'");
+            assertQuery("SELECT x FROM " + table.getName() + " WHERE part = 'a%23sharp'", "VALUES 'second'");
+
+            // Verify predicate correctness on $path column, and check it is pusheddown
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'"))
+                    .matches("VALUES CAST('first' AS VARCHAR)")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" <> '" + firstFilePath + "'"))
+                    .matches("VALUES CAST('second' AS VARCHAR)")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" IN ('" + firstFilePath + "', '" + secondFilePath + "')"))
+                    .matches("VALUES (CAST('first' AS VARCHAR)), (CAST('second' AS VARCHAR))")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NOT NULL"))
+                    .matches("VALUES (CAST('first' AS VARCHAR)), (CAST('second' AS VARCHAR))")
+                    .isFullyPushedDown();
             assertQueryReturnsEmptyResult("SELECT x FROM " + table.getName() + " WHERE \"$path\" IS NULL");
+
+            assertQuery("SHOW STATS FOR (SELECT x FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "')",
+                    "VALUES " +
+                            "('x', 11.0, 1.0, 0.0, null, null, null)," +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = 'not exist'", 0);
+            assertQuery("SELECT x FROM " + table.getName(),  "VALUES 'first', 'second'");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$path\" = '" + firstFilePath + "'", 1);
+            assertQuery("SELECT x FROM " + table.getName(), "VALUES 'second'");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET x = 'update' WHERE \"$path\" = '" + secondFilePath + "'", 1);
+            assertQuery("SELECT x FROM " + table.getName(), "VALUES 'update'");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithPathColumn()
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_path_column", "(id integer)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 4", 1);
+
+            String firstPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 1");
+            String secondPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 2");
+            String thirdPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 3");
+            String fourthPath = (String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4");
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + firstPath + "' OR \"$path\" = '" + secondPath + "'");
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + thirdPath + "' OR \"$path\" = '" + fourthPath + "'");
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
+    public void testFileModifiedTimeHiddenColumn()
+            throws Exception
+    {
+        ZonedDateTime beforeTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+        MILLISECONDS.sleep(1);
+        try (TestTable table = newTrinoTable("test_file_modified_time_", "(col) AS VALUES 1")) {
+            // Describe output should not have the $file_modified_time hidden column
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('col', 'integer', '', '')");
+
+            ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + table.getName());
+            ZonedDateTime afterTime = (ZonedDateTime) computeScalar("SELECT current_timestamp(3)");
+            assertThat(fileModifiedTime).isBetween(beforeTime, afterTime);
+
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2)", 1);
+            ZonedDateTime anotherFileModifiedTime = (ZonedDateTime) computeScalar("SELECT max(\"$file_modified_time\") FROM " + table.getName());
+            assertThat(fileModifiedTime)
+                    .isNotEqualTo(anotherFileModifiedTime);
+            assertThat(anotherFileModifiedTime).isAfter(fileModifiedTime); // to detect potential clock backward adjustment
+
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')"))
+                    .matches("VALUES 1")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IN (from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'), from_iso8601_timestamp('" + anotherFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" <> from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')"))
+                    .matches("VALUES 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NOT NULL"))
+                    .matches("VALUES 1, 2")
+                    .isFullyPushedDown();
+            assertThat(query("SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" IS NULL"))
+                    .returnsEmptyResult()
+                    .isFullyPushedDown();
+
+            assertQuery("SHOW STATS FOR (SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "'))",
+                    "VALUES " +
+                            "('col', null, 1.0, 0.0, null, 1, 1), " +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + beforeTime.format(ISO_OFFSET_DATE_TIME) + "')", 0);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 1, 2");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')", 1);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 2");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET col = 100 WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + anotherFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')", 1);
+            assertQuery("SELECT col FROM " + table.getName(), "VALUES 100");
+
+            // EXPLAIN triggers stats calculation and also rendering
+            assertQuerySucceeds("EXPLAIN SELECT col FROM " + table.getName() + " WHERE \"$file_modified_time\" = from_iso8601_timestamp('" + fileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithFileModifiedTimeColumn()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_file_modified_time_", "(id INT)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+            MILLISECONDS.sleep(1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES 4", 1);
+
+            ZonedDateTime firstFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 1");
+            ZonedDateTime secondFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 2");
+            ZonedDateTime thirdFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 3");
+            ZonedDateTime fourthFileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + tableName + " WHERE id = 4");
+            // Sanity check
+            assertThat(List.of(firstFileModifiedTime, secondFileModifiedTime, thirdFileModifiedTime, fourthFileModifiedTime))
+                    .doesNotHaveDuplicates();
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            MILLISECONDS.sleep(1);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + thirdFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
+                    "\"$file_modified_time\" = from_iso8601_timestamp('" + fourthFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+        }
+    }
+
+    @Test
+    public void testFileSizeHiddenColumn()
+    {
+        try (TestTable table = newTrinoTable("test_file_size_column", "(val VARCHAR)")) {
+            String tableName = table.getName();
+
+            // Describe output should not have the $file_size hidden column
+            assertThat(query("DESCRIBE " + table.getName()))
+                    .skippingTypesCheck()
+                    .matches("VALUES ('val', 'varchar', '', '')");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1234567890'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345678901234567890'", 1);
+
+            long firstFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1'");
+            long secondFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345'");
+            long thirdFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1234567890'");
+            long fourthFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345678901234567890'");
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" = " + firstFileSize))
+                    .matches("VALUES CAST('1' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + firstFileSize + " AND \"$file_size\" <= " + thirdFileSize))
+                    .matches("VALUES CAST('12345' AS VARCHAR), CAST('1234567890' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertThat(query("SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + secondFileSize + " AND \"$file_size\" <= " + fourthFileSize))
+                    .matches("VALUES CAST('1234567890' AS VARCHAR), CAST('12345678901234567890' AS VARCHAR)")
+                    .isFullyPushedDown();
+
+            assertQuery("SHOW STATS FOR (SELECT val FROM " + table.getName() + " WHERE \"$file_size\" > " + thirdFileSize + ")",
+                    "VALUES " +
+                            "('val', 36.0, 1.0, 0.0, null, null, null), " +
+                            "(null, null, null, null, 1.0, null, null)");
+
+            // test simple delete correctness
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_size\" = 0", 0);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES '1', '12345', '1234567890', '12345678901234567890'");
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE \"$file_size\" = " + firstFileSize, 1);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES '12345', '1234567890', '12345678901234567890'");
+
+            // test simple update correctness
+            assertUpdate("UPDATE " + table.getName() + " SET val = 'update' WHERE \"$file_size\" = " + secondFileSize, 1);
+            assertQuery("SELECT val FROM " + table.getName(), "VALUES 'update', '1234567890', '12345678901234567890'");
+        }
+    }
+
+    @Test
+    public void testOptimizeWithFileSizeColumn()
+            throws Exception
+    {
+        try (TestTable table = newTrinoTable("test_optimize_with_file_size_", "(val VARCHAR)")) {
+            String tableName = table.getName();
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '1234567890'", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES '12345678901234567890'", 1);
+
+            long secondFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '12345'");
+            long thirdFileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + tableName + " WHERE val = '1234567890'");
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(4);
+
+            MILLISECONDS.sleep(1);
+
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
+            Session singleWriterSession = Session.builder(getSession())
+                    .setSystemProperty("task_min_writer_count", "1")
+                    .build();
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " + "\"$file_size\" <= " + secondFileSize);
+            assertQuerySucceeds(singleWriterSession, "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " + "\"$file_size\" >= " + thirdFileSize);
+
+            Set<String> updatedFiles = getActiveFiles(tableName);
+            assertThat(updatedFiles)
+                    .hasSize(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
         }
     }
 
@@ -3541,7 +3799,7 @@ public class TestDeltaLakeConnectorTest
                 // delete filter applied on partitioned field and on synthesized field
                 "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
                 "address = 'Antioch' AND \"$file_size\" > 0",
-                false);
+                true);
         testDeleteWithFilter(
                 // delete filter applied on function over partitioned field
                 "CREATE TABLE %s (customer VARCHAR, address VARCHAR, purchases INT) WITH (location = 's3://%s/%s', partitioned_by = ARRAY['address'])",
@@ -4650,6 +4908,72 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testSelectTableUsingTemporalVersion()
+            throws InterruptedException
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable(
+                "test_select_table_using_temporal_version",
+                "(id INT, country VARCHAR)")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (1, 'India')", 1);
+            String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (2, 'Germany')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (3, 'United States')", 1);
+            String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'"))
+                    .returnsEmptyResult();
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (2, CAST('Germany' AS varchar)), (3, CAST('United States' AS varchar))");
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'")).matches("VALUES (1, CAST('India' AS varchar))");
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'"))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (2, CAST('Germany' AS varchar)), (3, CAST('United States' AS varchar))");
+
+            // Dummy delete to increase transaction logs and generate checkpoint file
+            for (int i = 0; i < 20; i++) {
+                assertUpdate("DELETE FROM " + table.getName() + " WHERE id  = 10", 0);
+                MILLISECONDS.sleep(10);
+            }
+
+            // DML operations to create new transaction log
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (4, 'Austria')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (5, 'Poland')", 1);
+            assertUpdate("UPDATE " + table.getName() + " SET country = 'USA' WHERE id  = 3", 1);
+            String timeAfterUpdate = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id  = 2", 1);
+            String timeAfterDelete = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES (6, 'Japan')", 1);
+
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (3, CAST('USA' AS varchar)), (4, CAST('Austria' AS varchar)), (5, CAST('Poland' AS varchar)), (6, CAST('Japan' AS varchar))");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'"))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (2, CAST('Germany' AS varchar)), (3, CAST('United States' AS varchar))");
+
+            // After Update
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterUpdate + "'"))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (2, CAST('Germany' AS varchar)), (3, CAST('USA' AS varchar)), (4, CAST('Austria' AS varchar)), (5, CAST('Poland' AS varchar))");
+
+            // After Delete
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterDelete + "'"))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (3, CAST('USA' AS varchar)), (4, CAST('Austria' AS varchar)), (5, CAST('Poland' AS varchar))");
+
+            // Recover data from last version after deleting whole table
+            assertUpdate("DELETE FROM " + table.getName(), 5);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .returnsEmptyResult();
+            assertUpdate("INSERT INTO " + table.getName() + " (id, country) SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterDelete + "'", 4);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (1, CAST('India' AS varchar)), (3, CAST('USA' AS varchar)), (4, CAST('Austria' AS varchar)), (5, CAST('Poland' AS varchar))");
+        }
+    }
+
+    @Test
     public void testReadMultipleVersions()
     {
         try (TestTable table = newTrinoTable("test_read_multiple_versions", "AS SELECT 1 id")) {
@@ -4658,6 +4982,22 @@ public class TestDeltaLakeConnectorTest
                     "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0 " +
                             "UNION ALL " +
                             "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1",
+                    "VALUES 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testReadMultipleTemporalVersions()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_multiple_versions_using_temporal", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+            assertQuery(
+                    "SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'" +
+                            "UNION ALL " +
+                            "SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'",
                     "VALUES 1, 1, 2");
         }
     }
@@ -4681,6 +5021,35 @@ public class TestDeltaLakeConnectorTest
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES 1, 2");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 2", "VALUES 1, 2");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 3", "VALUES 1, 2, 3");
+        }
+    }
+
+    @Test
+    public void testReadTemporalVersionedTableWithOptimize()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_temporal_versioned_optimize", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            Set<String> beforeActiveFiles = getActiveFiles(table.getName());
+            computeActual("ALTER TABLE " + table.getName() + " EXECUTE OPTIMIZE");
+            String timeAfterOptimize = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertThat(getActiveFiles(table.getName())).isNotEqualTo(beforeActiveFiles);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterOptimize + "'", "VALUES 1, 2");
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 3", 1);
+            String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterOptimize + "'", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'", "VALUES 1, 2, 3");
         }
     }
 
@@ -4731,6 +5100,61 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testReadTemporalVersionedTableWithVacuum()
+            throws Exception
+    {
+        Session sessionWithShortRetentionUnlocked = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "vacuum_min_retention", "0s")
+                .build();
+
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_add_column_and_vacuum_temporal", "(x VARCHAR)")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'first'", 1);
+            String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT 'second'", 1);
+            String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            Set<String> initialFiles = getActiveFiles(table.getName());
+            assertThat(initialFiles).hasSize(2);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN a varchar(50)");
+            String timeAfterAddColumn = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("UPDATE " + table.getName() + " SET a = 'new column'", 2);
+            String timeAfterUpdate = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            Stopwatch timeSinceUpdate = Stopwatch.createStarted();
+            Set<String> updatedFiles = getActiveFiles(table.getName());
+            assertThat(updatedFiles)
+                    .hasSizeGreaterThanOrEqualTo(1)
+                    .hasSizeLessThanOrEqualTo(2)
+                    .doesNotContainAnyElementsOf(initialFiles);
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(union(initialFiles, updatedFiles));
+
+            assertQuery("SELECT x, a FROM " + table.getName(), "VALUES ('first', 'new column'), ('second', 'new column')");
+
+            MILLISECONDS.sleep(1_000 - timeSinceUpdate.elapsed(MILLISECONDS) + 1);
+            assertUpdate(sessionWithShortRetentionUnlocked, "CALL system.vacuum(schema_name => CURRENT_SCHEMA, table_name => '" + table.getName() + "', retention => '1s')");
+
+            // Verify VACUUM happened, but table data didn't change
+            assertThat(getAllDataFilesFromTableDirectory(table.getName())).isEqualTo(updatedFiles);
+
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'");
+
+            // Failure is the expected behavior because the data file doesn't exist
+            // TODO: Improve error message
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "Error opening Hive split.*");
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'", "Error opening Hive split.*");
+            assertQueryFails("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterAddColumn + "'", "Error opening Hive split.*");
+
+            assertQuery("SELECT x, a FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterUpdate + "'", "VALUES ('first', 'new column'), ('second', 'new column')");
+        }
+    }
+
+    @Test
     public void testInsertFromVersionedTable()
     {
         try (TestTable targetTable = newTrinoTable("test_read_versioned_insert", "(col int)");
@@ -4742,6 +5166,27 @@ public class TestDeltaLakeConnectorTest
             assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1");
 
             assertUpdate("INSERT INTO " + targetTable.getName() + " SELECT * FROM " + sourceTable.getName() + " FOR VERSION AS OF 1", 2);
+            assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testInsertFromTemporalVersionedTable()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable targetTable = newTrinoTable("test_read_versioned_insert", "(col int)");
+                TestTable sourceTable = newTrinoTable("test_read_versioned_insert", "AS SELECT 1 col")) {
+            String timeAfterCreateSourceTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 2", 1);
+            String timeAfterInsertSourceTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + sourceTable.getName() + " VALUES 3", 1);
+
+            assertUpdate("INSERT INTO " + targetTable.getName() + " SELECT * FROM " + sourceTable.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateSourceTable + "'", 1);
+            assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1");
+
+            assertUpdate("INSERT INTO " + targetTable.getName() + " SELECT * FROM " + sourceTable.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsertSourceTable + "'", 2);
             assertQuery("SELECT * FROM " + targetTable.getName(), "VALUES 1, 1, 2");
         }
     }
@@ -4771,6 +5216,25 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testInsertFromTemporalVersionedSameTable()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_temporal_versioned_insert", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1");
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", 2);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1, 2, 1");
+        }
+    }
+
+
+    @Test
     public void testInsertFromMultipleVersionedSameTable()
     {
         try (TestTable table = newTrinoTable("test_read_versioned_insert", "AS SELECT 1 id")) {
@@ -4782,6 +5246,28 @@ public class TestDeltaLakeConnectorTest
                             "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0 " +
                             "UNION ALL " +
                             "SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1",
+                    3);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1, 1, 2");
+        }
+    }
+
+    @Test
+    public void testInsertFromMultipleTemporalVersionedSameTable()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_temporal_versioned_insert", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
+
+            assertUpdate(
+                    "INSERT INTO " + table.getName() + " " +
+                            "SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'" +
+                            "UNION ALL " +
+                            "SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'",
                     3);
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2, 1, 1, 2");
         }
@@ -4803,6 +5289,29 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testReadTemporalVersionedTableWithChangeDataFeed()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        try (TestTable table = newTrinoTable("test_read_temporal_versioned_cdf", "WITH (change_data_feed_enabled=true) AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+            String timeAfterInsert = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("UPDATE " + table.getName() + " SET id = -2 WHERE id = 2", 1);
+            String timeAfterUpdate = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("DELETE FROM " + table.getName() + " WHERE id = 1", 1);
+            String timeAfterDelete = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'", "VALUES 1, 2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterUpdate + "'", "VALUES 1, -2");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterDelete + "'", "VALUES -2");
+        }
+    }
+
+    @Test
     public void testSelectTableUsingVersionSchemaEvolution()
     {
         // Delta Lake respects the old schema unlike Iceberg connector
@@ -4810,6 +5319,22 @@ public class TestDeltaLakeConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col VARCHAR");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 1", "VALUES (1, NULL)");
+        }
+    }
+
+    @Test
+    public void testSelectTableUsingTemporalVersionSchemaEvolution()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        // Delta Lake respects the old schema unlike Iceberg connector
+        try (TestTable table = newTrinoTable("test_select_table_using_temporal_version", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN new_col VARCHAR");
+            String timeAfterAddColumn = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterAddColumn + "'", "VALUES (1, NULL)");
         }
     }
 
@@ -4843,12 +5368,63 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testSelectTableUsingTemporalVersionDeletedCheckpoints()
+            throws InterruptedException
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+
+        String tableName = "test_time_travel_temporal_" + randomNameSuffix();
+        String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
+        String deltaLog = "%s/%s/_delta_log".formatted(SCHEMA, tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + " WITH (location = '" + tableLocation + "', checkpoint_interval = 1) AS SELECT 1 id", 1);
+        MILLISECONDS.sleep(10);
+        Instant InstantAfterCreateTable = Instant.ofEpochMilli(System.currentTimeMillis());
+        String timeAfterCreateTable = ZonedDateTime.ofInstant(InstantAfterCreateTable, ZoneId.of("UTC")).format(timestampWithTimeZoneFormatter);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
+        Instant InstantAfterInsert = Instant.ofEpochMilli(System.currentTimeMillis());
+        String timeAfterInsert = ZonedDateTime.ofInstant(InstantAfterInsert, ZoneId.of("UTC")).format(timestampWithTimeZoneFormatter);
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES 3", 1);
+
+        // Remove 0 and 1 versions
+        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(7);
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000000.json");
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.json");
+        minioClient.removeObject(bucketName, deltaLog + "/00000000000000000001.checkpoint.parquet");
+        assertThat(minioClient.listObjects(bucketName, deltaLog)).hasSize(4);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2, 3");
+
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "No temporal version history at or before " + InstantAfterCreateTable);
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert + "'", "No temporal version history at or before " + InstantAfterInsert);
+
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + ZonedDateTime.now().format(timestampWithTimeZoneFormatter) + "'", "VALUES 1, 2, 3");
+    }
+
+    @Test
     public void testSelectAfterReadVersionedTable()
     {
         // Run normal SELECT after reading from versioned table
         try (TestTable table = newTrinoTable("test_select_after_version", "AS SELECT 1 id")) {
             assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
             assertQuery("SELECT * FROM " + table.getName() + " FOR VERSION AS OF 0", "VALUES 1");
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
+        }
+    }
+
+    @Test
+    public void testSelectAfterReadTemporalVersionedTable()
+    {
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+        // Run normal SELECT after reading from versioned table
+        try (TestTable table = newTrinoTable("test_select_after_temporal_version", "AS SELECT 1 id")) {
+            String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 2", 1);
+
+            assertQuery("SELECT * FROM " + table.getName() + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'", "VALUES 1");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
         }
     }
@@ -4876,10 +5452,95 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testReadTemporalVersionedTableWithoutCheckpointFiltering()
+    {
+        String tableName = "test_without_checkpoint_filtering_temporal_" + randomNameSuffix();
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "false")
+                .build();
+
+        DateTimeFormatter timestampWithTimeZoneFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS VV");
+
+        assertUpdate("CREATE TABLE " + tableName + "(col INT) WITH (checkpoint_interval = 3)");
+        String timeAfterCreateTable = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 1", 1);
+        String timeAfterInsert1 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 2, 3", 2);
+        String timeAfterInsert2 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES 4, 5", 2);
+        String timeAfterInsert3 = ZonedDateTime.now().format(timestampWithTimeZoneFormatter);
+
+        assertQueryReturnsEmptyResult(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterCreateTable + "'");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert1 + "'", "VALUES 1");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert2 + "'", "VALUES 1, 2, 3");
+        assertQuery(session, "SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert3 + "'", "VALUES 1, 2, 3, 4, 5");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTimeTravelUsingTemporalVersionWithDifferentTimePrecision()
+            throws InterruptedException
+    {
+        testTimeTravelUsingTemporalVersionWithDifferentTimePrecision(true);
+        testTimeTravelUsingTemporalVersionWithDifferentTimePrecision(false);
+    }
+
+    private void testTimeTravelUsingTemporalVersionWithDifferentTimePrecision(boolean partition)
+            throws InterruptedException
+    {
+        String tableName = "test_time_travel_temporal_different_precision_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(col INT, part varchar)" +
+                (partition ? " WITH (partitioned_by = ARRAY['part'])" : ""));
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')", 3);
+        ZonedDateTime timeAfterInsert = ZonedDateTime.now(ZoneId.of("UTC"));
+
+        SECONDS.sleep(1);
+        assertUpdate("DELETE FROM " + tableName + " WHERE col = 3", 1);
+
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        // TODO: Add success case that using date to do time travel
+        // make sure the date is not in the past we plus 2 days
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF DATE '" + timeAfterInsert.plusDays(2).format(dateFormatter) + "'", ".* Pointer value '" + timeAfterInsert.plusDays(2).format(dateFormatter) + "' is not in the past");
+        assertQueryFails("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF DATE '" + timeAfterInsert.minusSeconds(1).format(dateFormatter) + "'", "No temporal version history at or before .*");
+
+        // precision 1-9
+        String pattern = "yyyy-MM-dd HH:mm:ss.%s VV";
+        for (int precision = 1; precision <= 9; precision++) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern.formatted("S".repeat(precision)));
+            assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.plusSeconds(1).format(formatter) + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+        }
+
+        // precision 0
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timeAfterInsert.plusSeconds(1).format(formatter) + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+
+        // precision 10
+        String timestampWithPrecision10 = timeAfterInsert.plusSeconds(1).format(formatter) + "." + "0".repeat(10) + " UTC";
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timestampWithPrecision10 + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+
+        // precision 11
+        String timestampWithPrecision11 = timeAfterInsert.plusSeconds(1).format(formatter) + "." + "0".repeat(11) + " UTC";
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timestampWithPrecision11 + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+
+        // precision 12
+        String timestampWithPrecision12 = timeAfterInsert.plusSeconds(1).format(formatter) + "." + "0".repeat(12) + " UTC";
+        assertQuery("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + timestampWithPrecision12 + "'", "VALUES (1, 'aa'), (2, 'bb'), (3, 'bb')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testReadVersionedSystemTables()
     {
         // TODO https://github.com/trinodb/trino/issues/12920 System tables not accessible with AS OF syntax
         assertQueryFails("SELECT * FROM \"region$history\" FOR VERSION AS OF 0", "This connector does not support versioned tables");
+        assertQueryFails("SELECT * FROM \"region$history\" FOR TIMESTAMP AS OF DATE '2025-01-01'", "This connector does not support versioned tables");
     }
 
     @Override
@@ -4888,7 +5549,8 @@ public class TestDeltaLakeConnectorTest
         assertThat(e)
                 .hasMessageMatching("This connector does not support reading tables with TIMESTAMP AS OF|" +
                         "Delta Lake snapshot ID does not exists: .*|" +
-                        "Unsupported type for table version: .*");
+                        "Unsupported type for table version: .*|" +
+                        "No temporal version history at or before .*");
     }
 
     @Test

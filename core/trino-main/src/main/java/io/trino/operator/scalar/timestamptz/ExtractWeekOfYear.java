@@ -27,7 +27,7 @@ import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @Description("Week of the year of the given timestamp")
 @ScalarFunction(value = "week", alias = "week_of_year")
-public class ExtractWeekOfYear
+public final class ExtractWeekOfYear
 {
     private ExtractWeekOfYear() {}
 

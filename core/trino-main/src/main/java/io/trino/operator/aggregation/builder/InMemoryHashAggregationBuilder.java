@@ -70,6 +70,7 @@ public class InMemoryHashAggregationBuilder
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
             Optional<Integer> hashChannel,
+            boolean spillable,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             FlatHashStrategyCompiler hashStrategyCompiler,
@@ -82,6 +83,7 @@ public class InMemoryHashAggregationBuilder
                 groupByTypes,
                 groupByChannels,
                 hashChannel,
+                spillable,
                 operatorContext,
                 maxPartialMemory,
                 Optional.empty(),
@@ -97,6 +99,7 @@ public class InMemoryHashAggregationBuilder
             List<Type> groupByTypes,
             List<Integer> groupByChannels,
             Optional<Integer> hashChannel,
+            boolean spillable,
             OperatorContext operatorContext,
             Optional<DataSize> maxPartialMemory,
             Optional<Integer> unspillIntermediateChannelOffset,
@@ -124,6 +127,7 @@ public class InMemoryHashAggregationBuilder
                 operatorContext.getSession(),
                 groupByTypes,
                 hashChannel.isPresent(),
+                spillable,
                 expectedGroups,
                 hashStrategyCompiler,
                 updateMemory);
@@ -154,10 +158,10 @@ public class InMemoryHashAggregationBuilder
     public Work<?> processPage(Page page)
     {
         if (groupedAggregators.isEmpty()) {
-            return new MeasuredGroupByHashWork<>(groupByHash.addPage(page.getLoadedPage(groupByChannels)), aggregationMetrics);
+            return new MeasuredGroupByHashWork<>(groupByHash.addPage(page.getColumns(groupByChannels)), aggregationMetrics);
         }
         return new TransformWork<>(
-                new MeasuredGroupByHashWork<>(groupByHash.getGroupIds(page.getLoadedPage(groupByChannels)), aggregationMetrics),
+                new MeasuredGroupByHashWork<>(groupByHash.getGroupIds(page.getColumns(groupByChannels)), aggregationMetrics),
                 groupByIdBlock -> {
                     int groupCount = groupByHash.getGroupCount();
                     for (GroupedAggregator groupedAggregator : groupedAggregators) {

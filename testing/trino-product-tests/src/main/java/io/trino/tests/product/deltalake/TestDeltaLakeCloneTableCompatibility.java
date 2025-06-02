@@ -22,6 +22,7 @@ import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
+import java.sql.Date;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -79,7 +80,7 @@ public class TestDeltaLakeCloneTableCompatibility
             List<String> cdfFilesPostOnlyInsertAndUpdate = getFilesFromTableDirectory(directoryName + clonedTable + changeDataPrefix);
             assertThat(cdfFilesPostOnlyInsertAndUpdate).hasSize(2);
 
-            ImmutableList<Row> expectedRowsClonedTableOnTrino = ImmutableList.of(
+            List<Row> expectedRowsClonedTableOnTrino = ImmutableList.of(
                     row(2, "b", "insert", 1L),
                     row(1, "a", "update_preimage", 2L),
                     row(2, "a", "update_postimage", 2L),
@@ -89,7 +90,7 @@ public class TestDeltaLakeCloneTableCompatibility
             assertThat(onTrino().executeQuery("SELECT a_int, b_string, _change_type, _commit_version FROM TABLE(delta.system.table_changes('default', '" + clonedTable + "', 0))"))
                     .containsOnly(expectedRowsClonedTableOnTrino);
 
-            ImmutableList<Row> expectedRowsClonedTableOnSpark = ImmutableList.of(
+            List<Row> expectedRowsClonedTableOnSpark = ImmutableList.of(
                     row(1, "a", "insert", 0L),
                     row(2, "b", "insert", 1L),
                     row(1, "a", "update_preimage", 2L),
@@ -100,7 +101,7 @@ public class TestDeltaLakeCloneTableCompatibility
                     "SELECT a_int, b_string, _change_type, _commit_version FROM table_changes('default." + clonedTable + "', 0)"))
                     .containsOnly(expectedRowsClonedTableOnSpark);
 
-            ImmutableList<Row> expectedRows = ImmutableList.of(row(2, "a"), row(3, "b"));
+            List<Row> expectedRows = ImmutableList.of(row(2, "a"), row(3, "b"));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTable)).containsOnly(expectedRows);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTable)).containsOnly(expectedRows);
         }
@@ -203,7 +204,7 @@ public class TestDeltaLakeCloneTableCompatibility
             assertThat(clonedTableV4ActiveDataFiles).hasSize(2)
                     .hasSameElementsAs(clonedTableV4AllDataFiles);
 
-            ImmutableList<Row> expectedRowsClonedTable = ImmutableList.of(row(2, "a"), row(3, "b"));
+            List<Row> expectedRowsClonedTable = ImmutableList.of(row(2, "a"), row(3, "b"));
             assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTable))
                     .containsOnly(expectedRowsClonedTable);
             assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTable))
@@ -247,6 +248,99 @@ public class TestDeltaLakeCloneTableCompatibility
         // Deep Clone is not supported on Delta-Lake OSS
         testReadSchemaChangedCloneTable("DEEP", true);
         testReadSchemaChangedCloneTable("DEEP", false);
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testShallowCloneTableMerge()
+    {
+        testShallowCloneTableMerge(false);
+        testShallowCloneTableMerge(true);
+    }
+
+    private void testShallowCloneTableMerge(boolean partitioned)
+    {
+        String baseTable = "test_dl_base_table_" + randomNameSuffix();
+        String clonedTable = "test_dl_clone_tableV1_" + randomNameSuffix();
+        String directoryName = "databricks-merge-clone-compatibility-test-";
+        try {
+            onDelta().executeQuery("CREATE TABLE default." + baseTable +
+                    " (id INT, v STRING, part DATE) USING delta " +
+                    (partitioned ? "PARTITIONED BY (part) " : "") +
+                    "LOCATION 's3://" + bucketName + "/" + directoryName + baseTable + "'");
+
+            onDelta().executeQuery("INSERT INTO default." + baseTable + " " +
+                    "VALUES (1, 'A', TIMESTAMP '2024-01-01'), " +
+                    "(2, 'B', TIMESTAMP '2024-01-01'), " +
+                    "(3, 'C', TIMESTAMP '2024-02-02'), " +
+                    "(4, 'D', TIMESTAMP '2024-02-02')");
+
+            onDelta().executeQuery("CREATE TABLE default." + clonedTable +
+                    " SHALLOW CLONE default." + baseTable +
+                    " LOCATION 's3://" + bucketName + "/" + directoryName + clonedTable + "'");
+
+            List<Row> expectedRows = ImmutableList.of(
+                    row(1, "A", Date.valueOf("2024-01-01")),
+                    row(2, "B", Date.valueOf("2024-01-01")),
+                    row(3, "C", Date.valueOf("2024-02-02")),
+                    row(4, "D", Date.valueOf("2024-02-02")));
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTable))
+                    .containsOnly(expectedRows);
+
+            // update on cloned table
+            onTrino().executeQuery("UPDATE delta.default." + clonedTable + " SET v = 'xxx' WHERE id in (1,3)");
+            // source table not change
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTable))
+                    .containsOnly(expectedRows);
+            List<Row> expectedRowsAfterUpdate = ImmutableList.of(
+                    row(1, "xxx", Date.valueOf("2024-01-01")),
+                    row(2, "B", Date.valueOf("2024-01-01")),
+                    row(3, "xxx", Date.valueOf("2024-02-02")),
+                    row(4, "D", Date.valueOf("2024-02-02")));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTable))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTable))
+                    .containsOnly(expectedRowsAfterUpdate);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable))
+                    .containsOnly(expectedRows);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTable))
+                    .containsOnly(expectedRowsAfterUpdate);
+
+            // merge on cloned table
+            String mergeSql = format("""
+                  MERGE INTO %s t
+                  USING (VALUES (3, 'yyy', TIMESTAMP '2025-01-01'), (4, 'zzz', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
+                  ON (t.id = s.id)
+                    WHEN MATCHED AND s.v = 'zzz' THEN DELETE
+                    WHEN MATCHED THEN UPDATE SET v = s.v
+                    WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
+                    """, "delta.default." + clonedTable);
+            onTrino().executeQuery(mergeSql);
+
+            List<Row> expectedRowsAfterMerge = ImmutableList.of(
+                    row(1, "xxx", Date.valueOf("2024-01-01")),
+                    row(2, "B", Date.valueOf("2024-01-01")),
+                    row(3, "yyy", Date.valueOf("2024-02-02")),
+                    row(5, "kkk", Date.valueOf("2025-03-03")));
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTable))
+                    .containsOnly(expectedRows);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + clonedTable))
+                    .containsOnly(expectedRowsAfterMerge);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + baseTable))
+                    .containsOnly(expectedRows);
+            assertThat(onDelta().executeQuery("SELECT * FROM default." + clonedTable))
+                    .containsOnly(expectedRowsAfterMerge);
+
+            // access base table after drop cloned table
+            onTrino().executeQuery("DROP TABLE delta.default." + clonedTable);
+            assertThat(onTrino().executeQuery("SELECT * FROM delta.default." + baseTable))
+                    .containsOnly(expectedRows);
+        }
+        finally {
+            onTrino().executeQuery("DROP TABLE IF EXISTS delta.default." + baseTable);
+            onTrino().executeQuery("DROP TABLE IF EXISTS delta.default." + clonedTable);
+        }
     }
 
     private void testReadSchemaChangedCloneTable(String cloneType, boolean partitioned)

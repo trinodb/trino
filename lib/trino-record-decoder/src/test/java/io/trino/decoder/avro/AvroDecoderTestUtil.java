@@ -50,12 +50,12 @@ public final class AvroDecoderTestUtil
             assertThat(expected instanceof CharSequence || expected instanceof GenericEnumSymbol).isTrue();
             assertThat(actual.toString()).isEqualTo(expected.toString());
         }
-        else if (actual instanceof SqlVarbinary) {
-            if (expected instanceof GenericFixed) {
-                assertThat(((SqlVarbinary) actual).getBytes()).isEqualTo(((GenericFixed) expected).bytes());
+        else if (actual instanceof SqlVarbinary sqlVarbinary) {
+            if (expected instanceof GenericFixed genericFixed) {
+                assertThat(sqlVarbinary.getBytes()).isEqualTo(genericFixed.bytes());
             }
-            else if (expected instanceof ByteBuffer) {
-                assertThat(((SqlVarbinary) actual).getBytes()).isEqualTo(((ByteBuffer) expected).array());
+            else if (expected instanceof ByteBuffer byteBuffer) {
+                assertThat(ByteBuffer.wrap(sqlVarbinary.getBytes())).isEqualTo(byteBuffer);
             }
             else {
                 fail(format("Unexpected value type %s", actual.getClass()));

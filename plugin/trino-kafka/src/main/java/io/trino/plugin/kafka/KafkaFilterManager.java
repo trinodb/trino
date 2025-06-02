@@ -213,9 +213,9 @@ public class KafkaFilterManager
         }
         else {
             ValueSet valueSet = domain.getValues();
-            if (valueSet instanceof SortedRangeSet) {
+            if (valueSet instanceof SortedRangeSet sortedRangeSet) {
                 // still return range for single value case like (_partition_offset in (XXX1,XXX2) or _timestamp in XXX1, XXX2)
-                Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+                Ranges ranges = sortedRangeSet.getRanges();
                 List<io.trino.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
                 if (rangeList.stream().allMatch(io.trino.spi.predicate.Range::isSingleValue)) {
                     List<Long> values = rangeList.stream()
@@ -246,8 +246,8 @@ public class KafkaFilterManager
             return sourceValues.stream().filter(sourceValue -> sourceValue == singleValue).collect(toImmutableSet());
         }
         ValueSet valueSet = domain.getValues();
-        if (valueSet instanceof SortedRangeSet) {
-            Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
+        if (valueSet instanceof SortedRangeSet sortedRangeSet) {
+            Ranges ranges = sortedRangeSet.getRanges();
             List<io.trino.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
             if (rangeList.stream().allMatch(io.trino.spi.predicate.Range::isSingleValue)) {
                 return rangeList.stream()
@@ -287,7 +287,7 @@ public class KafkaFilterManager
         if (type == BIGINT) {
             return 1;
         }
-        if (type instanceof TimestampType && ((TimestampType) type).getPrecision() == 3) {
+        if (type instanceof TimestampType timestampType && timestampType.getPrecision() == 3) {
             // native representation is in microseconds
             return 1000;
         }

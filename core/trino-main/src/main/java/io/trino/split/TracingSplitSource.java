@@ -20,6 +20,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.metrics.Metrics;
 import io.trino.tracing.TrinoAttributes;
 
 import java.util.List;
@@ -105,6 +106,12 @@ public class TracingSplitSource
     public Optional<List<Object>> getTableExecuteSplitsInfo()
     {
         return source.getTableExecuteSplitsInfo();
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        return source.getMetrics();
     }
 
     @Override

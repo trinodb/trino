@@ -55,7 +55,6 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.JsonBodyGenerator.jsonBodyGenerator;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
@@ -159,7 +158,7 @@ public class OpaHttpClient
 
     public <K, V> Map<K, Set<V>> parallelBatchFilterFromOpa(Map<K, ? extends Collection<V>> items, BiFunction<K, List<V>, OpaQueryInput> requestBuilder, URI uri, JsonCodec<? extends OpaBatchQueryResult> deserializer)
     {
-        ImmutableList<Map.Entry<K, ImmutableList<V>>> parallelRequestItems = items.entrySet()
+        List<Map.Entry<K, ImmutableList<V>>> parallelRequestItems = items.entrySet()
                 .stream()
                 .filter(entry -> !entry.getValue().isEmpty())
                 .map(entry -> Map.entry(entry.getKey(), ImmutableList.copyOf(entry.getValue())))

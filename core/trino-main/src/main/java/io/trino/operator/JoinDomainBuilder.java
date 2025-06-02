@@ -14,13 +14,11 @@
 package io.trino.operator;
 
 import com.google.common.base.Throwables;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
-import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.spi.predicate.Domain;
@@ -34,8 +32,8 @@ import java.lang.invoke.VarHandle;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.trino.operator.VariableWidthData.EMPTY_CHUNK;
-import static io.trino.operator.VariableWidthData.POINTER_SIZE;
+import static io.trino.operator.AppendOnlyVariableWidthData.POINTER_SIZE;
+import static io.trino.operator.AppendOnlyVariableWidthData.getChunkOffset;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FLAT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.VALUE_BLOCK_POSITION_NOT_NULL;
@@ -88,7 +86,7 @@ public class JoinDomainBuilder
 
     private byte[] distinctControl;
     private byte[] distinctRecords;
-    private VariableWidthData distinctVariableWidthData;
+    private AppendOnlyVariableWidthData distinctVariableWidthData;
 
     private int distinctSize;
     private int distinctMaxFill;
@@ -142,7 +140,7 @@ public class JoinDomainBuilder
         distinctControl = new byte[distinctCapacity + VECTOR_LENGTH];
 
         boolean variableWidth = type.isFlatVariableWidth();
-        distinctVariableWidthData = variableWidth ? new VariableWidthData() : null;
+        distinctVariableWidthData = variableWidth ? new AppendOnlyVariableWidthData() : null;
         distinctRecordValueOffset = (variableWidth ? POINTER_SIZE : 0);
         distinctRecordSize = distinctRecordValueOffset + type.getFlatFixedSize();
         distinctRecords = new byte[multiplyExact(distinctCapacity, distinctRecordSize)];
@@ -162,7 +160,6 @@ public class JoinDomainBuilder
 
     public void add(Block block)
     {
-        block = block.getLoadedBlock();
         if (collectDistinctValues) {
             switch (block) {
                 case ValueBlock valueBlock -> {
@@ -177,7 +174,6 @@ public class JoinDomainBuilder
                         add(dictionary, dictionaryBlock.getId(i));
                     }
                 }
-                case LazyBlock _ -> throw new VerifyException("Did not expect LazyBlock after loading " + block.getClass().getSimpleName());
             }
 
             // if the distinct size is too large, fall back to min max, and drop the distinct values
@@ -348,7 +344,7 @@ public class JoinDomainBuilder
         }
     }
 
-    private int matchInVector(byte[] otherValues, VariableWidthData otherVariableWidthData, int position, int vectorStartBucket, long repeated, long controlVector)
+    private int matchInVector(byte[] otherValues, AppendOnlyVariableWidthData otherVariableWidthData, int position, int vectorStartBucket, long repeated, long controlVector)
     {
         long controlMatches = match(controlVector, repeated);
         while (controlMatches != 0) {
@@ -393,12 +389,12 @@ public class JoinDomainBuilder
 
         int recordOffset = getRecordOffset(index);
 
-        byte[] variableWidthChunk = EMPTY_CHUNK;
+        byte[] variableWidthChunk = null;
         int variableWidthChunkOffset = 0;
         if (distinctVariableWidthData != null) {
             int variableWidthLength = type.getFlatVariableWidthSize(block, position);
             variableWidthChunk = distinctVariableWidthData.allocate(distinctRecords, recordOffset, variableWidthLength);
-            variableWidthChunkOffset = VariableWidthData.getChunkOffset(distinctRecords, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(distinctRecords, recordOffset);
         }
 
         try {
@@ -516,15 +512,18 @@ public class JoinDomainBuilder
         int recordOffset = getRecordOffset(position);
 
         try {
-            byte[] variableWidthChunk = EMPTY_CHUNK;
+            byte[] variableWidthChunk = null;
+            int variableChunkOffset = 0;
             if (distinctVariableWidthData != null) {
                 variableWidthChunk = distinctVariableWidthData.getChunk(distinctRecords, recordOffset);
+                variableChunkOffset = getChunkOffset(distinctRecords, recordOffset);
             }
 
             return (Object) readFlat.invokeExact(
                     distinctRecords,
                     recordOffset + distinctRecordValueOffset,
-                    variableWidthChunk);
+                    variableWidthChunk,
+                    variableChunkOffset);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -542,15 +541,18 @@ public class JoinDomainBuilder
         int recordOffset = getRecordOffset(position);
 
         try {
-            byte[] variableWidthChunk = EMPTY_CHUNK;
+            byte[] variableWidthChunk = null;
+            int variableWidthOffset = 0;
             if (distinctVariableWidthData != null) {
                 variableWidthChunk = distinctVariableWidthData.getChunk(values, recordOffset);
+                variableWidthOffset = getChunkOffset(values, recordOffset);
             }
 
             return (long) hashFlat.invokeExact(
                     values,
                     recordOffset + distinctRecordValueOffset,
-                    variableWidthChunk);
+                    variableWidthChunk,
+                    variableWidthOffset);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -573,9 +575,11 @@ public class JoinDomainBuilder
     {
         byte[] leftFixedRecordChunk = distinctRecords;
         int leftRecordOffset = getRecordOffset(leftPosition);
-        byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        byte[] leftVariableWidthChunk = null;
+        int leftVariableWidthOffset = 0;
         if (distinctVariableWidthData != null) {
             leftVariableWidthChunk = distinctVariableWidthData.getChunk(leftFixedRecordChunk, leftRecordOffset);
+            leftVariableWidthOffset = getChunkOffset(leftFixedRecordChunk, leftRecordOffset);
         }
 
         try {
@@ -583,6 +587,7 @@ public class JoinDomainBuilder
                     leftFixedRecordChunk,
                     leftRecordOffset + distinctRecordValueOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthOffset,
                     right,
                     rightPosition);
         }
@@ -592,20 +597,24 @@ public class JoinDomainBuilder
         }
     }
 
-    private boolean valueIdentical(int leftPosition, byte[] rightValues, VariableWidthData rightVariableWidthData, int rightPosition)
+    private boolean valueIdentical(int leftPosition, byte[] rightValues, AppendOnlyVariableWidthData rightVariableWidthData, int rightPosition)
     {
         byte[] leftFixedRecordChunk = distinctRecords;
         int leftRecordOffset = getRecordOffset(leftPosition);
-        byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        byte[] leftVariableWidthChunk = null;
+        int leftVariableWidthOffset = 0;
         if (distinctVariableWidthData != null) {
             leftVariableWidthChunk = distinctVariableWidthData.getChunk(leftFixedRecordChunk, leftRecordOffset);
+            leftVariableWidthOffset = getChunkOffset(leftFixedRecordChunk, leftRecordOffset);
         }
 
         byte[] rightFixedRecordChunk = rightValues;
         int rightRecordOffset = getRecordOffset(rightPosition);
-        byte[] rightVariableWidthChunk = EMPTY_CHUNK;
+        byte[] rightVariableWidthChunk = null;
+        int rightVariableWidthOffset = 0;
         if (rightVariableWidthData != null) {
             rightVariableWidthChunk = rightVariableWidthData.getChunk(rightFixedRecordChunk, rightRecordOffset);
+            rightVariableWidthOffset = getChunkOffset(rightFixedRecordChunk, rightRecordOffset);
         }
 
         try {
@@ -613,9 +622,11 @@ public class JoinDomainBuilder
                     leftFixedRecordChunk,
                     leftRecordOffset + distinctRecordValueOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthOffset,
                     rightFixedRecordChunk,
                     rightRecordOffset + distinctRecordValueOffset,
-                    rightVariableWidthChunk);
+                    rightVariableWidthChunk,
+                    rightVariableWidthOffset);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);
@@ -643,11 +654,15 @@ public class JoinDomainBuilder
         int leftRecordOffset = getRecordOffset(leftPosition);
         int rightRecordOffset = getRecordOffset(rightPosition);
 
-        byte[] leftVariableWidthChunk = EMPTY_CHUNK;
-        byte[] rightVariableWidthChunk = EMPTY_CHUNK;
+        byte[] leftVariableWidthChunk = null;
+        byte[] rightVariableWidthChunk = null;
+        int leftVariableWidthOffset = 0;
+        int rightVariableWidthOffset = 0;
         if (distinctVariableWidthData != null) {
             leftVariableWidthChunk = distinctVariableWidthData.getChunk(distinctRecords, leftRecordOffset);
             rightVariableWidthChunk = distinctVariableWidthData.getChunk(distinctRecords, rightRecordOffset);
+            leftVariableWidthOffset = getChunkOffset(distinctRecords, leftRecordOffset);
+            rightVariableWidthOffset = getChunkOffset(distinctRecords, rightRecordOffset);
         }
 
         try {
@@ -655,9 +670,11 @@ public class JoinDomainBuilder
                     distinctRecords,
                     leftRecordOffset + distinctRecordValueOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthOffset,
                     distinctRecords,
                     rightRecordOffset + distinctRecordValueOffset,
-                    rightVariableWidthChunk);
+                    rightVariableWidthChunk,
+                    rightVariableWidthOffset);
         }
         catch (Throwable throwable) {
             Throwables.throwIfUnchecked(throwable);

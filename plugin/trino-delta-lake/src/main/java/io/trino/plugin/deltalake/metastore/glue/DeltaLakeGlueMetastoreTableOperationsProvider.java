@@ -17,7 +17,6 @@ import com.google.inject.Inject;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperations;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperationsProvider;
 import io.trino.plugin.hive.metastore.glue.GlueCache;
-import io.trino.plugin.hive.metastore.glue.GlueContext;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.spi.connector.ConnectorSession;
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -28,19 +27,16 @@ public class DeltaLakeGlueMetastoreTableOperationsProvider
         implements DeltaLakeTableOperationsProvider
 {
     private final GlueClient glueClient;
-    private final GlueContext glueContext;
     private final GlueCache glueCache;
     private final GlueMetastoreStats stats;
 
     @Inject
     public DeltaLakeGlueMetastoreTableOperationsProvider(
             GlueClient glueClient,
-            GlueContext glueContext,
             GlueCache glueCache,
             GlueMetastoreStats stats)
     {
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
-        this.glueContext = requireNonNull(glueContext, "glueContext is null");
         this.glueCache = requireNonNull(glueCache, "glueCache is null");
         this.stats = requireNonNull(stats, "stats is null");
     }
@@ -48,6 +44,6 @@ public class DeltaLakeGlueMetastoreTableOperationsProvider
     @Override
     public DeltaLakeTableOperations createTableOperations(ConnectorSession session)
     {
-        return new DeltaLakeGlueMetastoreTableOperations(glueClient, glueContext, glueCache, stats);
+        return new DeltaLakeGlueMetastoreTableOperations(glueClient, glueCache, stats);
     }
 }

@@ -595,6 +595,7 @@ public final class ShowQueriesRewrite
             List<Property> propertyNodes = toSqlProperties("view " + objectName, INVALID_VIEW_PROPERTY, properties, allViewProperties);
             CreateView.Security security = viewDefinition.get().isRunAsInvoker() ? INVOKER : DEFINER;
             String sql = formatSql(new CreateView(
+                    node.getLocation().orElseThrow(),
                     QualifiedName.of(ImmutableList.of(catalogName, schemaName, tableName)),
                     query,
                     false,
@@ -649,6 +650,7 @@ public final class ShowQueriesRewrite
             List<Property> propertyNodes = toSqlProperties("table " + targetTableName, INVALID_TABLE_PROPERTY, properties, allTableProperties);
 
             CreateTable createTable = new CreateTable(
+                    node.getLocation().orElseThrow(),
                     QualifiedName.of(targetTableName.catalogName(), targetTableName.schemaName(), targetTableName.objectName()),
                     columns,
                     FAIL,

@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.io.Resources;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.Session;
+import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
@@ -64,8 +65,11 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -75,9 +79,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -91,6 +98,7 @@ import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.copyDirectoryContents;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnsMetadata;
+import static io.trino.plugin.deltalake.transactionlog.TemporalTimeTravelUtil.findLatestVersionUsingTemporal;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -102,6 +110,7 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.entry;
 import static org.assertj.core.util.Files.fileNamesIn;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -389,7 +398,7 @@ public class TestDeltaLakeBasic
             RowType partitionValuesParsedType = (RowType) partitionValuesParsedField.getType();
             assertThat(partitionValuesParsedType.getFields().stream().collect(onlyElement()).getName().orElseThrow()).isEqualTo(physicalColumnName);
 
-            TrinoParquetDataSource dataSource = new TrinoParquetDataSource(new LocalInputFile(checkpoint.toFile()), new ParquetReaderOptions(), new FileFormatDataSourceStats());
+            TrinoParquetDataSource dataSource = new TrinoParquetDataSource(new LocalInputFile(checkpoint.toFile()), ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats());
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
             try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, ImmutableList.of(addEntryType), List.of("add"))) {
                 List<Object> actual = new ArrayList<>();
@@ -468,7 +477,7 @@ public class TestDeltaLakeBasic
         // Verify optimized parquet file contains the expected physical id and name
         TrinoInputFile inputFile = new LocalInputFile(tableLocation.resolve(addFileEntry.getPath()).toFile());
         ParquetMetadata parquetMetadata = MetadataReader.readFooter(
-                new TrinoParquetDataSource(inputFile, new ParquetReaderOptions(), new FileFormatDataSourceStats()),
+                new TrinoParquetDataSource(inputFile, ParquetReaderOptions.defaultOptions(), new FileFormatDataSourceStats()),
                 Optional.empty());
         FileMetadata fileMetaData = parquetMetadata.getFileMetaData();
         PrimitiveType physicalType = getOnlyElement(fileMetaData.getSchema().getColumns().iterator()).getPrimitiveType();
@@ -1537,6 +1546,74 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see databricks154.variant_read_after_optimization
+     */
+    @Test
+    public void testVariantReadAfterOptimization()
+            throws Exception
+    {
+        String tableName = "test_variant_read_after_optimization_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("databricks154/variant_read_after_optimization").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type")
+                .skippingTypesCheck()
+                .matches("VALUES " +
+                        "('id', 'integer')," +
+                        "('col_variant', 'json')");
+
+        // works with the version before executing optimization
+        assertThat(query("SELECT col_variant FROM " + tableName + " FOR VERSION AS OF 1"))
+                .matches(
+                        """
+                        VALUES
+                        JSON '["a","b","c"]',
+                        JSON '[1,"a",true,null]',
+                        JSON '{"a":1,"b":2}',
+                        JSON '{"a":[1,2],"b":{"x":true}}',
+                        JSON '[{"x":1},{"y":"z"}]'
+                        """);
+        // works correctly with json_extract function
+        assertThat(query("SELECT json_extract(col_variant, '$[1]') AS second_value FROM " + tableName + " FOR VERSION AS OF 1"))
+                .skippingTypesCheck()
+                .matches("VALUES '\"b\"', '\"a\"', NULL, NULL, '{\"y\":\"z\"}'");
+        assertThat(query("SELECT json_extract(col_variant, '$.a') AS second_value FROM " + tableName + " FOR VERSION AS OF 1"))
+                .skippingTypesCheck()
+                .matches("VALUES NULL, NULL, '1', '[1,2]', NULL");
+
+        // after optimization,
+        // all rows of variant column read successfully
+        assertThat(query("SELECT col_variant FROM " + tableName))
+                .matches(
+                        """
+                        VALUES
+                        JSON '["a","b","c"]',
+                        JSON '[1,"a",true,null]',
+                        JSON '{"a":1,"b":2}',
+                        JSON '{"a":[1,2],"b":{"x":true}}',
+                        JSON '[{"x":1},{"y":"z"}]',
+                        JSON '{"nested":[{"x":1},2,null]}',
+                        JSON '{"deep":{"deeper_a":{"value":"va"}}}',
+                        JSON '{"deep":{"deeper_a":{"value":"vaa"},"deeper_b":{"value":"vbb"}}}',
+                        JSON '{"deep":{"deeper_c":{"value":"vc"}}}'
+                        """);
+        // works correctly with json_extract function
+        assertThat(query("SELECT json_extract(col_variant, '$[1]') AS second_value FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES '\"b\"', '\"a\"', NULL, NULL, '{\"y\":\"z\"}', NULL, NULL, NULL, NULL");
+        assertThat(query("SELECT json_extract(col_variant, '$.a') as variant_a FROM " + tableName + " WHERE id <= 4"))
+                .skippingTypesCheck()
+                .matches("VALUES NULL, NULL, '1', '[1,2]'");
+        assertThat(query("SELECT json_extract(col_variant, '$.deep.deeper_a') as variant_deeper_a FROM " + tableName + " WHERE id >= 7"))
+                .skippingTypesCheck()
+                .matches("VALUES '{\"value\":\"va\"}', '{\"value\":\"vaa\"}', NULL");
+        assertThat(query("SELECT json_extract(col_variant, '$.deep.deeper_c') as variant_deeper_c FROM " + tableName + " WHERE id >= 7"))
+                .skippingTypesCheck()
+                .matches("VALUES NULL, NULL, '{\"value\":\"vc\"}'");
+    }
+
+    /**
      * @see databricks153.variant_types
      */
     @Test
@@ -1702,6 +1779,22 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
     }
 
+    /**
+     * @see deltalake.multipart_v2_checkpoint
+     */
+    @Test
+    public void testReadMultipartV2Checkpoint()
+            throws Exception
+    {
+        String tableName = "test_multipart_v2_checkpoint_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/multipart_v2_checkpoint").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("DESCRIBE " + tableName)).result().projected("Column", "Type").skippingTypesCheck().matches("VALUES ('a', 'integer'), ('b', 'integer')");
+        assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (1,2), (3,4), (5,6), (7,8)");
+    }
+
     @Test
     public void testTimeTravelWithMultipartCheckpoint()
             throws Exception
@@ -1716,12 +1809,22 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6")).matches("VALUES 1, 2, 3, 4, 5, 6");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 7")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
 
+        // use temporal version syntax
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:09.907 UTC'")).matches("VALUES 1, 2, 3, 4, 5");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:14.248 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:26.526 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
+
         // Redo the time travel without _last_checkpoint file
         Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
         assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 5")).matches("VALUES 1, 2, 3, 4, 5");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 6")).matches("VALUES 1, 2, 3, 4, 5, 6");
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 7")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
+
+        // use temporal version syntax
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:09.907 UTC'")).matches("VALUES 1, 2, 3, 4, 5");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:14.248 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2023-10-16 06:53:26.526 UTC'")).matches("VALUES 1, 2, 3, 4, 5, 6, 7");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1755,6 +1858,57 @@ public class TestDeltaLakeBasic
         assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 1")).matches("VALUES (1, 2)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTimeTravelWithV2CheckpointUsingTemporal()
+            throws Exception
+    {
+        testTimeTravelWithV2CheckpointWithTemporalVersion("deltalake/v2_checkpoint_json_using_temporal", "2025-01-30 13:14:58.530 UTC", "2025-01-30 13:15:05.942 UTC");
+        testTimeTravelWithV2CheckpointWithTemporalVersion("deltalake/v2_checkpoint_parquet_using_temporal", "2025-01-31 02:35:49.788 UTC", "2025-01-31 02:36:28.433 UTC");
+    }
+
+    private void testTimeTravelWithV2CheckpointWithTemporalVersion(String resourceName, String v2TimestampWithZone, String v3TimestampWithZone)
+            throws Exception
+    {
+        String tableName = "test_time_travel_v2_checkpoint_using_temporal_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource(resourceName).toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        // Version 2 has v2 checkpoint
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + v2TimestampWithZone + "'")).matches("VALUES (1, 2), (3, 4)");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + v3TimestampWithZone + "'")).matches("VALUES (1, 2), (3, 4), (5, 6)");
+
+        // Redo the time travel without _last_checkpoint file
+        Files.delete(tableLocation.resolve("_delta_log/_last_checkpoint"));
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + v2TimestampWithZone + "'")).matches("VALUES (1, 2), (3, 4)");
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '" + v3TimestampWithZone + "'")).matches("VALUES (1, 2), (3, 4), (5, 6)");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    // TODO: using session property to control the maxLinearSearchSize
+    @Test
+    public void testTemporalTimeTravelUtilParallelSearch()
+            throws Exception
+    {
+        String tableName = "test_time_travel_util_parallel_" + randomNameSuffix();
+        Path tableLocation = catalogDir.resolve(tableName);
+        copyDirectoryContents(new File(Resources.getResource("deltalake/v2_checkpoint_json_using_temporal").toURI()).toPath(), tableLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(tableName, tableLocation.toUri()));
+
+        try (ExecutorService executorService = Executors.newCachedThreadPool()) {
+            // set maxLinearSearch force to the parallel search
+            assertThatThrownBy(() -> findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), 1738242898530L - 1L, executorService, 1))
+                    .hasMessage("No temporal version history at or before %s".formatted(Instant.ofEpochMilli(1738242898530L - 1L)));
+            assertThat(findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), 1738242898530L, executorService, 1)).isEqualTo(2);
+            assertThat(findLatestVersionUsingTemporal(FILE_SYSTEM, tableLocation.toString(), 1738242905942L, executorService, 1)).isEqualTo(3);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     /**
@@ -2373,6 +2527,121 @@ public class TestDeltaLakeBasic
         // The first two versions commitInfo doesn't contain `inCommitTimestamp`, the value is read from `timestamp` in commitInfo
         // The last two versions commitInfo contain `inCommitTimestamp`, the value is read from it.
         assertQuery("SELECT date_diff('millisecond', TIMESTAMP '1970-01-01 00:00:00 UTC', timestamp) FROM \"%s$history\"".formatted(tableName), "VALUES 1739859668531L, 1739859684775L, 1739859743394L, 1739859755480L");
+    }
+
+    /**
+     * @see deltalake.clone_merge
+     */
+    @Test
+    public void testMergeOnClonedTable()
+            throws Exception
+    {
+        testMergeOnClonedTable(
+                "deltalake/clone_merge/clone_merge_source",
+                "deltalake/clone_merge/clone_merge_cloned",
+                "clone_merge_source",
+                "spark_catalog.tiny.clone_merge_source");
+        testMergeOnClonedTable(
+                "deltalake/clone_merge/clone_merge_deletion_vector_source",
+                "deltalake/clone_merge/clone_merge_deletion_vector_cloned",
+                "clone_merge_deletion_vector_source",
+                "spark_catalog.tiny.clone_merge_deletion_vector_source");
+    }
+
+    private void testMergeOnClonedTable(String sourceResourceName, String clonedResourceName, String sourceTableDir, String oldSchemaTableName)
+            throws Exception
+    {
+        String sourceTable = sourceTableDir + randomNameSuffix();
+        // load source table to a random suffix sub dir of the catalogDir
+        Path sourceLocation = catalogDir.resolve("clone_test_dir" + randomNameSuffix()).resolve(sourceTableDir);
+        FILE_SYSTEM.createDirectory(Location.of(sourceLocation.toString()));
+        copyDirectoryContents(new File(Resources.getResource(sourceResourceName).toURI()).toPath(), sourceLocation);
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(sourceTable, sourceLocation.toUri()));
+
+        @Language("SQL") String sourceTableValues = """
+                VALUES
+                (1, 'A', TIMESTAMP '2024-01-01'),
+                (2, 'B', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'D', TIMESTAMP '2024-02-02')
+                """;
+
+        assertQuery("SELECT * FROM " + sourceTable, sourceTableValues);
+
+        String clonedTable = "test_clone_merge_cloned_" + randomNameSuffix();
+        Path cloneTableLocation = sourceLocation.resolveSibling(clonedTable);
+        copyDirectoryContents(new File(Resources.getResource(clonedResourceName).toURI()).toPath(), cloneTableLocation);
+
+        String schema = getSession().getSchema().orElseThrow();
+        // Replace the fixed s3 prefix with actual(local) absolute path prefix and update reference source
+        updateClonedTableDeletionVectorPathPrefixAndSource(cloneTableLocation, "file://" + sourceLocation, oldSchemaTableName, schema + "." + sourceTable);
+
+        assertUpdate("CALL system.register_table(CURRENT_SCHEMA, '%s', '%s')".formatted(clonedTable, cloneTableLocation.toUri()));
+
+        // cloned table without any changes
+        assertQuery("SELECT * FROM " + clonedTable, sourceTableValues);
+
+        // update on cloned table
+        @Language("SQL") String expectedValuesAfterUpdate = """
+                VALUES
+                (1, 'A', TIMESTAMP '2024-01-01'),
+                (2, 'updated', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'updated', TIMESTAMP '2024-02-02')
+        """;
+        assertUpdate("UPDATE " + clonedTable + " SET v = 'updated' WHERE id IN (2, 4)", 2);
+        assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterUpdate);
+
+        // merge on cloned table, including insert,update,delete
+        String mergeSql = """
+                MERGE INTO %s t
+                USING (VALUES (1, 'yyy', TIMESTAMP '2025-01-01'), (2, 'merged', TIMESTAMP '2025-02-02'), (5, 'kkk', TIMESTAMP '2025-03-03')) AS s(id, v, part)
+                ON (t.id = s.id)
+                WHEN MATCHED AND s.v = 'yyy' THEN DELETE
+                WHEN MATCHED THEN UPDATE SET v = s.v
+                WHEN NOT MATCHED THEN INSERT (id, v, part) VALUES(s.id, s.v, s.part)
+                """.formatted(clonedTable);
+
+        @Language("SQL") String expectedValuesAfterMerge = """
+                VALUES
+                (2, 'merged', TIMESTAMP '2024-01-01'),
+                (3, 'C', TIMESTAMP '2024-02-02'),
+                (4, 'updated', TIMESTAMP '2024-02-02'),
+                (5, 'kkk', TIMESTAMP '2025-03-03')
+                """;
+
+        assertUpdate(mergeSql, 3);
+        assertQuery("SELECT * FROM " + clonedTable, expectedValuesAfterMerge);
+
+        // source table not change
+        assertQuery("SELECT * FROM " + sourceTable, sourceTableValues);
+    }
+
+    public static void updateClonedTableDeletionVectorPathPrefixAndSource(Path location, String newPrefix, String oldSchemaTableName, String newSchemaTableName)
+            throws IOException
+    {
+        String oldPrefix = "s3://test-bucket/tiny/clone_merge_deletion_vector_source";
+        Pattern pattern = Pattern.compile("(?<=\"(pathOrInlineDv|path)\":\")" + Pattern.quote(oldPrefix));
+
+        Pattern patternForSchemaTableName = Pattern.compile("(?<=\"source\":\")" + Pattern.quote(oldSchemaTableName));
+
+        try (Stream<Path> stream = Files.walk(location)) {
+            stream.filter(file -> !Files.isDirectory(file))
+                    .filter(file -> file.getFileName().toString().endsWith(".json"))
+                    .forEach(file -> {
+                        try {
+                            String content = Files.readString(file);
+                            String newContent = pattern.matcher(content).replaceAll(newPrefix);
+                            newContent = patternForSchemaTableName.matcher(newContent).replaceAll("spark_catalog." + newSchemaTableName);
+
+                            if (!content.equals(newContent)) {
+                                Files.write(file, newContent.getBytes(StandardCharsets.UTF_8), StandardOpenOption.TRUNCATE_EXISTING);
+                            }
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+        }
     }
 
     private static MetadataEntry loadMetadataEntry(long entryNumber, Path tableLocation)

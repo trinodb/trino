@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -116,7 +115,7 @@ public class EventDrivenTaskSourceFactory
             PlanFragment fragment,
             Map<PlanFragmentId, Exchange> sourceExchanges,
             FaultTolerantPartitioningScheme sourcePartitioningScheme,
-            LongConsumer getSplitTimeRecorder,
+            SplitSourceMetricsRecorder metricsRecorder,
             Map<PlanNodeId, OutputDataSizeEstimate> outputDataSizeEstimates)
     {
         ImmutableSetMultimap.Builder<PlanNodeId, PlanFragmentId> remoteSources = ImmutableSetMultimap.builder();
@@ -144,7 +143,7 @@ public class EventDrivenTaskSourceFactory
                 splitBatchSize,
                 standardSplitSizeInBytes,
                 sourcePartitioningScheme,
-                getSplitTimeRecorder);
+                metricsRecorder);
     }
 
     private SplitAssigner createSplitAssigner(

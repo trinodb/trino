@@ -21,9 +21,11 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
 import java.util.List;
+import java.util.Optional;
 
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public final class BigQuerySessionProperties
         implements SessionPropertiesProvider
@@ -33,6 +35,7 @@ public final class BigQuerySessionProperties
     private static final String QUERY_RESULTS_CACHE_ENABLED = "query_results_cache_enabled";
     private static final String CREATE_DISPOSITION_TYPE = "create_disposition_type";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
+    private static final String MAX_PARALLELISM = "max_parallelism";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -66,6 +69,11 @@ public final class BigQuerySessionProperties
                         "Dereference push down for STRUCT type",
                         config.isProjectionPushdownEnabled(),
                         false))
+                .add(integerProperty(
+                        MAX_PARALLELISM,
+                        "The max number of partitions to split the data into.",
+                        config.getMaxParallelism().orElse(null),
+                        false))
                 .build();
     }
 
@@ -98,5 +106,10 @@ public final class BigQuerySessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static Optional<Integer> getMaxParallelism(ConnectorSession session)
+    {
+        return Optional.ofNullable(session.getProperty(MAX_PARALLELISM, Integer.class));
     }
 }

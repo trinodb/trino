@@ -19,6 +19,7 @@ import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -43,6 +44,7 @@ public class NodeRepresentation
     private final List<PlanNodeStatsEstimate> estimatedStats;
     private final List<PlanCostEstimate> estimatedCost;
     private final Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost;
+    private final Metrics splitSourceMetrics;
 
     private final ImmutableList.Builder<String> details = ImmutableList.builder();
 
@@ -56,6 +58,7 @@ public class NodeRepresentation
             List<PlanNodeStatsEstimate> estimatedStats,
             List<PlanCostEstimate> estimatedCost,
             Optional<PlanNodeStatsAndCostSummary> reorderJoinStatsAndCost,
+            Metrics splitSourceMetrics,
             List<PlanNodeId> children,
             // This is used in the case of adaptive plan node
             List<PlanNodeId> initialChildren)
@@ -69,6 +72,7 @@ public class NodeRepresentation
         this.estimatedStats = requireNonNull(estimatedStats, "estimatedStats is null");
         this.estimatedCost = requireNonNull(estimatedCost, "estimatedCost is null");
         this.reorderJoinStatsAndCost = requireNonNull(reorderJoinStatsAndCost, "reorderJoinStatsAndCost is null");
+        this.splitSourceMetrics = requireNonNull(splitSourceMetrics, "splitSourceMetrics is null");
         this.children = requireNonNull(children, "children is null");
         this.initialChildren = requireNonNull(initialChildren, "initialChildren is null");
 
@@ -144,6 +148,11 @@ public class NodeRepresentation
     public Optional<PlanNodeStatsAndCostSummary> getReorderJoinStatsAndCost()
     {
         return reorderJoinStatsAndCost;
+    }
+
+    public Metrics getSplitSourceMetrics()
+    {
+        return splitSourceMetrics;
     }
 
     public List<PlanNodeStatsAndCostSummary> getEstimates()

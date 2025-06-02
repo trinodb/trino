@@ -215,9 +215,9 @@ public class AllOrNoneValueSet
         if (!getType().equals(other.getType())) {
             throw new IllegalArgumentException(format("Mismatched types: %s vs %s", getType(), other.getType()));
         }
-        if (!(other instanceof AllOrNoneValueSet)) {
+        if (!(other instanceof AllOrNoneValueSet allOrNoneValueSet)) {
             throw new IllegalArgumentException(format("ValueSet is not a AllOrNoneValueSet: %s", other.getClass()));
         }
-        return (AllOrNoneValueSet) other;
+        return allOrNoneValueSet;
     }
 }

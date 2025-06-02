@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
+import java.util.Map;
 import java.util.Set;
 
 import static io.trino.operator.RetryPolicy.TASK;
@@ -48,7 +49,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        ImmutableMap<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
+        Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
                 .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
                 .buildOrThrow();
 

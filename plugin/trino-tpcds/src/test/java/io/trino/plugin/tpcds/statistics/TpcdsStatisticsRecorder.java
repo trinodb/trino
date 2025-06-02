@@ -17,6 +17,8 @@ package io.trino.plugin.tpcds.statistics;
 import com.google.common.collect.ImmutableList;
 import io.trino.tpcds.Table;
 
+import java.util.List;
+
 import static io.trino.plugin.tpcds.TpcdsMetadata.schemaNameToScaleFactor;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -30,7 +32,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class TpcdsStatisticsRecorder
 {
-    private static final ImmutableList<String> SUPPORTED_SCHEMAS = ImmutableList.of("tiny", "sf1");
+    private static final List<String> SUPPORTED_SCHEMAS = ImmutableList.of("tiny", "sf1");
 
     public static void main(String[] args)
     {

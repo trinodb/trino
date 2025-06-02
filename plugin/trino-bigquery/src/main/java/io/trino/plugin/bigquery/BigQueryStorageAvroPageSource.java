@@ -159,6 +159,9 @@ public class BigQueryStorageAvroPageSource
     public SourcePage getNextSourcePage()
     {
         checkState(pageBuilder.isEmpty(), "PageBuilder is not empty at the beginning of a new page");
+        if (!nextResponse.isDone()) {
+            return null;
+        }
         ReadRowsResponse response;
         try {
             response = getFutureValue(nextResponse);
@@ -276,8 +279,8 @@ public class BigQueryStorageAvroPageSource
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
         else if (type instanceof VarbinaryType) {
-            if (value instanceof ByteBuffer) {
-                type.writeSlice(output, Slices.wrappedHeapBuffer((ByteBuffer) value));
+            if (value instanceof ByteBuffer bytes) {
+                type.writeSlice(output, Slices.wrappedHeapBuffer(bytes));
             }
             else {
                 output.appendNull();

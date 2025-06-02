@@ -78,8 +78,8 @@ public class Constant
     {
         // String and Char literals can be wrapped as Slice multiple times thus
         // generating different toString representations that can be checked for equality in tests' assertions.
-        if (value instanceof Slice) {
-            return "Slice[hash=" + value.hashCode() + ",length=" + ((Slice) value).length() + "]::" + getType();
+        if (value instanceof Slice slice) {
+            return "Slice[hash=" + value.hashCode() + ",length=" + slice.length() + "]::" + getType();
         }
         return value + "::" + getType();
     }

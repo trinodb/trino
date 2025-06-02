@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.opa;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.plugin.base.security.TestingSystemAccessControlContext;
@@ -72,7 +71,7 @@ public final class QueryRunnerHelper
     {
         MaterializedResult result = runner.execute(session, query);
         List<String> columnNames = result.getColumnNames();
-        ImmutableMap<String, ImmutableSet.Builder<String>> columnarBuilders = columnNames
+        Map<String, ImmutableSet.Builder<String>> columnarBuilders = columnNames
                 .stream()
                 .map(columName -> Map.entry(columName, ImmutableSet.<String>builder()))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));

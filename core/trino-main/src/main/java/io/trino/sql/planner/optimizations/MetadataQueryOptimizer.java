@@ -36,6 +36,7 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
@@ -99,6 +100,15 @@ public class MetadataQueryOptimizer
         }
 
         @Override
+        public PlanNode visitDistinctLimit(DistinctLimitNode node, RewriteContext<Void> context)
+        {
+            return findTableScan(node.getSource())
+                    .flatMap(this::optimize)
+                    .map(values -> SimplePlanRewriter.rewriteWith(new Replacer(values), node))
+                    .orElseGet(() -> context.defaultRewrite(node));
+        }
+
+        @Override
         public PlanNode visitAggregation(AggregationNode node, RewriteContext<Void> context)
         {
             // supported functions are only MIN/MAX/APPROX_DISTINCT or distinct aggregates
@@ -108,20 +118,20 @@ public class MetadataQueryOptimizer
                 }
             }
 
-            Optional<TableScanNode> result = findTableScan(node.getSource());
-            if (result.isEmpty()) {
-                return context.defaultRewrite(node);
-            }
+            return findTableScan(node.getSource())
+                    .flatMap(this::optimize)
+                    .map(values -> SimplePlanRewriter.rewriteWith(new Replacer(values), node))
+                    .orElseGet(() -> context.defaultRewrite(node));
+        }
 
-            // verify all outputs of table scan are partition keys
-            TableScanNode tableScan = result.get();
-
+        private Optional<ValuesNode> optimize(TableScanNode tableScan)
+        {
             ImmutableMap.Builder<Symbol, Type> typesBuilder = ImmutableMap.builder();
             ImmutableMap.Builder<Symbol, ColumnHandle> columnBuilder = ImmutableMap.builder();
 
             List<Symbol> inputs = tableScan.getOutputSymbols();
             if (inputs.isEmpty()) {
-                return context.defaultRewrite(node);
+                return Optional.empty();
             }
             for (Symbol symbol : inputs) {
                 ColumnHandle column = tableScan.getAssignments().get(symbol);
@@ -138,13 +148,13 @@ public class MetadataQueryOptimizer
             // with a Values node
             TableProperties layout = plannerContext.getMetadata().getTableProperties(session, tableScan.getTable());
             if (layout.getDiscretePredicates().isEmpty()) {
-                return context.defaultRewrite(node);
+                return Optional.empty();
             }
             DiscretePredicates predicates = layout.getDiscretePredicates().get();
 
             // the optimization is only valid if the aggregation node only relies on partition keys
             if (!predicates.getColumns().containsAll(columns.values())) {
-                return context.defaultRewrite(node);
+                return Optional.empty();
             }
 
             ImmutableList.Builder<Expression> rowsBuilder = ImmutableList.builder();
@@ -160,7 +170,7 @@ public class MetadataQueryOptimizer
                         NullableValue value = entries.get(column);
                         if (value == null) {
                             // partition key does not have a single value, so bail out to be safe
-                            return context.defaultRewrite(node);
+                            return Optional.empty();
                         }
                         rowBuilder.add(new Constant(type, value.getValue()));
                     }
@@ -169,8 +179,7 @@ public class MetadataQueryOptimizer
             }
 
             // replace the tablescan node with a values node
-            ValuesNode valuesNode = new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build());
-            return SimplePlanRewriter.rewriteWith(new Replacer(valuesNode), node);
+            return Optional.of(new ValuesNode(idAllocator.getNextId(), inputs, rowsBuilder.build()));
         }
 
         private Optional<TableScanNode> findTableScan(PlanNode source)

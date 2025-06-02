@@ -1087,10 +1087,10 @@ public final class TestHiveFileFormats
                                 .describedAs("Wrong value for column " + testColumn.name())
                                 .isEqualTo(expectedTimestamp);
                     }
-                    else if (type instanceof CharType) {
+                    else if (type instanceof CharType charType) {
                         assertThat(actualValue)
                                 .describedAs("Wrong value for column " + testColumn.name())
-                                .isEqualTo(padSpaces((String) expectedValue, (CharType) type));
+                                .isEqualTo(padSpaces((String) expectedValue, charType));
                     }
                     else if (type instanceof VarcharType) {
                         assertThat(actualValue)

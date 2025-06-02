@@ -91,7 +91,7 @@ public final class OptionsPrinter
             return null;
         }
 
-        if (value instanceof String && ((String) value).isBlank()) {
+        if (value instanceof String string && string.isBlank()) {
             return null;
         }
 

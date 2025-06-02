@@ -111,8 +111,8 @@ public class RowPatternToIrRewriter
             return zeroOrOne(quantifier.isGreedy());
         }
 
-        if (quantifier instanceof RangeQuantifier) {
-            Range range = analysis.getRange((RangeQuantifier) quantifier);
+        if (quantifier instanceof RangeQuantifier rangeQuantifier) {
+            Range range = analysis.getRange(rangeQuantifier);
             return range(range.getAtLeast(), range.getAtMost(), quantifier.isGreedy());
         }
 

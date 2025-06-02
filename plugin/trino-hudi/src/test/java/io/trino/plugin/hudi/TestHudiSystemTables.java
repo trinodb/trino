@@ -44,4 +44,18 @@ public class TestHudiSystemTables
         assertQueryFails("SELECT timestamp, action, state FROM tests.\"non_existing$timeline\"",
                 ".*Table 'hudi.tests.\"non_existing\\$timeline\"' does not exist");
     }
+
+    @Test
+    public void testDataTable()
+    {
+        assertQueryFails("SELECT * FROM tests.\"hudi_cow_pt_tbl$data\"",
+                ".*Table 'hudi.tests.\"hudi_cow_pt_tbl\\$data\"' does not exist");
+    }
+
+    @Test
+    public void testInvalidTable()
+    {
+        assertQueryFails("SELECT * FROM tests.\"hudi_cow_pt_tbl$invalid\"",
+                ".*Table 'hudi.tests.\"hudi_cow_pt_tbl\\$invalid\"' does not exist");
+    }
 }

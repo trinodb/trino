@@ -38,7 +38,7 @@ connection-password=secret
 
 The `connection-url` defines the connection information and parameters to pass
 to the MySQL JDBC driver. The supported parameters for the URL are
-available in the [MySQL Developer Guide](https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html).
+available in the [MySQL Developer Guide](https://dev.mysql.com/doc/connector-j/en/connector-j-reference-configuration-properties.html).
 
 For example, the following `connection-url` allows you to require encrypted
 connections to the MySQL server:
@@ -104,6 +104,37 @@ creates a catalog named `sales` using the configured connector.
 
 The connector supports {doc}`/admin/fault-tolerant-execution` of query
 processing. Read and write operations are both supported with any retry policy.
+
+## Table properties
+
+Table property usage example:
+
+```
+CREATE TABLE person (
+  id INT NOT NULL,
+  name VARCHAR,
+  age INT,
+  birthday DATE 
+)
+WITH (
+  primary_key = ARRAY['id']
+);
+```
+
+The following are supported MySQL table properties: 
+
+:::{list-table}
+:widths: 30, 10, 60
+:header-rows: 1
+
+* - Property name
+  - Required
+  - Description
+* - `primary_key`
+  - No
+  - The primary key of the table, can choose multi columns as the table primary key.
+    All key columns must be defined as `NOT NULL`.
+:::
 
 (mysql-type-mapping)=
 ## Type mapping
@@ -444,7 +475,7 @@ ANALYZE TABLE table_name;
 :::{note}
 MySQL and Trino may use statistics information in different ways. For this
 reason, the accuracy of table and column statistics returned by the MySQL
-connector might be lower than than that of others connectors.
+connector might be lower than that of others connectors.
 :::
 
 **Improving statistics accuracy**

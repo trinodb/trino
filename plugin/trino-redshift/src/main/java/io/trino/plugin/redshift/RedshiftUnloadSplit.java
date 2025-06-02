@@ -13,10 +13,7 @@
  */
 package io.trino.plugin.redshift;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSplit;
-
-import java.util.Map;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -31,12 +28,6 @@ public record RedshiftUnloadSplit(String path, long length)
     public RedshiftUnloadSplit
     {
         requireNonNull(path, "path is null");
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of("path", path);
     }
 
     @Override

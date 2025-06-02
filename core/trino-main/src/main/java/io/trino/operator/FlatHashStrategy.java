@@ -24,7 +24,7 @@ public interface FlatHashStrategy
 
     int getTotalVariableWidth(Block[] blocks, int position);
 
-    void readFlat(byte[] fixedChunk, int fixedOffset, byte[] variableChunk, BlockBuilder[] blockBuilders);
+    void readFlat(byte[] fixedChunk, int fixedOffset, byte[] variableChunk, int variableOffset, BlockBuilder[] blockBuilders);
 
     void writeFlat(Block[] blocks, int position, byte[] fixedChunk, int fixedOffset, byte[] variableChunk, int variableOffset);
 
@@ -32,12 +32,13 @@ public interface FlatHashStrategy
             byte[] leftFixedChunk,
             int leftFixedOffset,
             byte[] leftVariableChunk,
+            int leftVariableOffset,
             Block[] rightBlocks,
             int rightPosition);
 
     long hash(Block[] blocks, int position);
 
-    long hash(byte[] fixedChunk, int fixedOffset, byte[] variableChunk);
+    long hash(byte[] fixedChunk, int fixedOffset, byte[] variableChunk, int variableOffset);
 
     void hashBlocksBatched(Block[] blocks, long[] hashes, int offset, int length);
 }

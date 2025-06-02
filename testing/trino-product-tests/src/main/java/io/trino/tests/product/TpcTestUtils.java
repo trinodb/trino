@@ -143,10 +143,10 @@ public final class TpcTestUtils
             for (int j = 0; j < expectedValues.length; j++) {
                 String expectedValue = expectedValues[j];
                 Object resultValue = resultRow.get(j);
-                if (resultValue instanceof Double) {
+                if (resultValue instanceof Double doubleValue) {
                     expectedValue = trimIfNeeded(expectedValue);
                     BigDecimal expectedDecimal = new BigDecimal(expectedValue);
-                    BigDecimal resultDecimal = BigDecimal.valueOf((Double) resultValue);
+                    BigDecimal resultDecimal = BigDecimal.valueOf(doubleValue);
                     resultDecimal = resultDecimal.setScale(expectedDecimal.scale(), RoundingMode.HALF_DOWN);
 
                     assertThat(expectedDecimal).isCloseTo(resultDecimal, DOUBLE_COMPARISON_ACCURACY);

@@ -248,7 +248,7 @@ public class ImplementTableFunctionSource
         // Remap the symbol mapping: replace the row number symbol with the corresponding marker symbol.
         // In the new map, every source symbol is associated with the corresponding marker symbol.
         // Null value of the marker indicates that the source value should be ignored by the table function.
-        ImmutableMap<Symbol, Symbol> markerSymbols = rowNumberSymbols.entrySet().stream()
+        Map<Symbol, Symbol> markerSymbols = rowNumberSymbols.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> marked.symbolToMarker().get(entry.getValue())));
 
         // Use the final row number symbol for ordering the combined sources.

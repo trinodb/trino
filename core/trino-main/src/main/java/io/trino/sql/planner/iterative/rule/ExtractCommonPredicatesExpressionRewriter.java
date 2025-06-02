@@ -66,15 +66,15 @@ public final class ExtractCommonPredicatesExpressionRewriter
                             .map(subExpression -> treeRewriter.rewrite(subExpression, NodeContext.NOT_ROOT_NODE))
                             .collect(toImmutableList()));
 
-            if (!(expression instanceof Logical)) {
+            if (!(expression instanceof Logical logical)) {
                 return expression;
             }
 
-            Expression simplified = extractCommonPredicates((Logical) expression);
+            Expression simplified = extractCommonPredicates(logical);
 
             // Prefer AND LogicalBinaryExpression at the root if possible
-            if (context.isRootNode() && simplified instanceof Logical && ((Logical) simplified).operator() == OR) {
-                return distributeIfPossible((Logical) simplified);
+            if (context.isRootNode() && simplified instanceof Logical value && value.operator() == OR) {
+                return distributeIfPossible(value);
             }
 
             return simplified;
@@ -109,8 +109,8 @@ public final class ExtractCommonPredicatesExpressionRewriter
         private static List<List<Expression>> getSubPredicates(Logical expression)
         {
             return extractPredicates(expression.operator(), expression).stream()
-                    .map(predicate -> predicate instanceof Logical ?
-                            extractPredicates((Logical) predicate) : ImmutableList.of(predicate))
+                    .map(predicate -> predicate instanceof Logical logical ?
+                            extractPredicates(logical) : ImmutableList.of(predicate))
                     .collect(toImmutableList());
         }
 

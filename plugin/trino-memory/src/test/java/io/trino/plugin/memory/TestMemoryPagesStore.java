@@ -133,6 +133,15 @@ public class TestMemoryPagesStore
                 .hasMessageMatching("Memory limit.*");
     }
 
+    @Test
+    public void testTruncate()
+    {
+        createTable(0L, 0L);
+        insertToTable(0L, createOneMegaBytePage(), 0L);
+        truncateTable(0L, 0L);
+        insertToTable(0L, createOneMegaBytePage(), 0L);
+    }
+
     private void insertToTable(long tableId, Long... activeTableIds)
     {
         insertToTable(tableId, createPage(), activeTableIds);
@@ -159,6 +168,16 @@ public class TestMemoryPagesStore
         pageSink.finish();
     }
 
+    private void truncateTable(long tableId, Long... activeTableIds)
+    {
+        ConnectorPageSink pageSink = pageSinkProvider.createPageSink(
+                MemoryTransactionHandle.INSTANCE,
+                SESSION,
+                createOverwriteMemoryInsertTableHandle(tableId, activeTableIds),
+                TESTING_PAGE_SINK_ID);
+        pageSink.finish();
+    }
+
     private static ConnectorOutputTableHandle createMemoryOutputTableHandle(long tableId, Long... activeTableIds)
     {
         return new MemoryOutputTableHandle(tableId, ImmutableSet.copyOf(activeTableIds));
@@ -167,6 +186,11 @@ public class TestMemoryPagesStore
     private static ConnectorInsertTableHandle createMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
     {
         return new MemoryInsertTableHandle(tableId, InsertMode.APPEND, ImmutableSet.copyOf(activeTableIds));
+    }
+
+    private static ConnectorInsertTableHandle createOverwriteMemoryInsertTableHandle(long tableId, Long[] activeTableIds)
+    {
+        return new MemoryInsertTableHandle(tableId, InsertMode.OVERWRITE, ImmutableSet.copyOf(activeTableIds));
     }
 
     private static Page createPage()

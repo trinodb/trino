@@ -110,11 +110,11 @@ public final class ProtocolUtil
 
                 yield dataType.getArguments().stream()
                         .map(parameter -> {
-                            if (parameter instanceof NumericParameter) {
-                                return ((NumericParameter) parameter).getValue();
+                            if (parameter instanceof NumericParameter numericParameter) {
+                                return numericParameter.getValue();
                             }
-                            if (parameter instanceof TypeParameter) {
-                                return formatType(((TypeParameter) parameter).getValue(), supportsParametricDateTime);
+                            if (parameter instanceof TypeParameter typeParameter) {
+                                return formatType(typeParameter.getValue(), supportsParametricDateTime);
                             }
                             throw new IllegalArgumentException("Unsupported parameter type: " + parameter.getClass().getName());
                         })

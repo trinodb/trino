@@ -29,7 +29,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.StandardErrorCode.INVALID_PRIVILEGE;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 
-public class PrivilegeUtilities
+public final class PrivilegeUtilities
 {
     private PrivilegeUtilities() {}
 

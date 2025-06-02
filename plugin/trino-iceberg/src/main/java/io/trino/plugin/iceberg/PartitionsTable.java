@@ -117,7 +117,7 @@ public class PartitionsTable
             this.columnMetricTypes = ImmutableList.of();
         }
 
-        ImmutableList<ColumnMetadata> columnMetadata = columnMetadataBuilder.build();
+        List<ColumnMetadata> columnMetadata = columnMetadataBuilder.build();
         this.resultTypes = columnMetadata.stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());
@@ -274,26 +274,22 @@ public class PartitionsTable
 
             // add column level metrics
             dataColumnType.ifPresent(dataColumnType -> {
-                try {
-                    row.add(buildRowValue(dataColumnType, fields -> {
-                        for (int i = 0; i < columnMetricTypes.size(); i++) {
-                            Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
-                            Object min = icebergStatistics.minValues().get(fieldId);
-                            Object max = icebergStatistics.maxValues().get(fieldId);
-                            Long nullCount = icebergStatistics.nullCounts().get(fieldId);
-                            Long nanCount = icebergStatistics.nanCounts().get(fieldId);
-                            if (min == null && max == null && nullCount == null) {
-                                throw new MissingColumnMetricsException();
-                            }
-
-                            RowType columnMetricType = columnMetricTypes.get(i);
+                row.add(buildRowValue(dataColumnType, fields -> {
+                    for (int i = 0; i < columnMetricTypes.size(); i++) {
+                        Integer fieldId = nonPartitionPrimitiveColumns.get(i).fieldId();
+                        Object min = icebergStatistics.minValues().get(fieldId);
+                        Object max = icebergStatistics.maxValues().get(fieldId);
+                        Long nullCount = icebergStatistics.nullCounts().get(fieldId);
+                        Long nanCount = icebergStatistics.nanCounts().get(fieldId);
+                        RowType columnMetricType = columnMetricTypes.get(i);
+                        if (min == null && max == null && nullCount == null) {
+                            fields.get(i).appendNull();
+                        }
+                        else {
                             columnMetricType.writeObject(fields.get(i), getColumnMetricBlock(columnMetricType, min, max, nullCount, nanCount));
                         }
-                    }));
-                }
-                catch (MissingColumnMetricsException _) {
-                    row.add(null);
-                }
+                    }
+                }));
             });
 
             records.add(row);
@@ -301,10 +297,6 @@ public class PartitionsTable
 
         return new InMemoryRecordSet(resultTypes, records.build()).cursor();
     }
-
-    private static class MissingColumnMetricsException
-            extends Exception
-    {}
 
     private List<Type> partitionTypes()
     {

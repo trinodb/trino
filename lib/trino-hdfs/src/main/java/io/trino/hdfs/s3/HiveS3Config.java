@@ -72,7 +72,7 @@ public class HiveS3Config
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
     private boolean s3StreamingUploadEnabled = true;
-    private DataSize s3StreamingPartSize = DataSize.of(16, MEGABYTE);
+    private DataSize s3StreamingPartSize = DataSize.of(32, MEGABYTE);
     private String s3proxyHost;
     private Integer s3proxyPort = -1;
     private TrinoS3Protocol s3ProxyProtocol = TrinoS3Protocol.HTTPS;

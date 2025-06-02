@@ -24,7 +24,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
 import io.airlift.units.MinDuration;
 import io.airlift.units.ThreadCount;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -68,7 +68,7 @@ public class DeltaLakeConfig
     private int domainCompactionThreshold = 1000;
     private int maxOutstandingSplits = 1_000;
     private int maxSplitsPerSecond = Integer.MAX_VALUE;
-    private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
+    private DataSize maxSplitSize = DataSize.of(128, MEGABYTE);
     private double minimumAssignedSplitWeight = 0.05;
     private int maxPartitionsPerWriter = 100;
     private boolean unsafeWritesEnabled;
@@ -81,7 +81,7 @@ public class DeltaLakeConfig
     private boolean tableStatisticsEnabled = true;
     private boolean extendedStatisticsEnabled = true;
     private boolean collectExtendedStatisticsOnWrite = true;
-    private HiveCompressionCodec compressionCodec = HiveCompressionCodec.ZSTD;
+    private HiveCompressionOption compressionCodec = HiveCompressionOption.ZSTD;
     private long perTransactionMetastoreCacheMaximumSize = 1000;
     private boolean storeTableMetadataEnabled;
     private int storeTableMetadataThreads = 5;
@@ -97,6 +97,7 @@ public class DeltaLakeConfig
     private boolean deletionVectorsEnabled;
     private boolean deltaLogFileSystemCacheDisabled;
     private int metadataParallelism = 8;
+    private int checkpointProcessingParallelism = 4;
 
     public Duration getMetadataCacheTtl()
     {
@@ -378,14 +379,14 @@ public class DeltaLakeConfig
     }
 
     @NotNull
-    public HiveCompressionCodec getCompressionCodec()
+    public HiveCompressionOption getCompressionCodec()
     {
         return compressionCodec;
     }
 
     @Config("delta.compression-codec")
     @ConfigDescription("Compression codec to use when writing new data files")
-    public DeltaLakeConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
+    public DeltaLakeConfig setCompressionCodec(HiveCompressionOption compressionCodec)
     {
         this.compressionCodec = compressionCodec;
         return this;
@@ -598,6 +599,20 @@ public class DeltaLakeConfig
     public DeltaLakeConfig setMetadataParallelism(int metadataParallelism)
     {
         this.metadataParallelism = metadataParallelism;
+        return this;
+    }
+
+    @Min(1)
+    public int getCheckpointProcessingParallelism()
+    {
+        return checkpointProcessingParallelism;
+    }
+
+    @ConfigDescription("Limits per table scan checkpoint files processing parallelism")
+    @Config("delta.checkpoint-processing.parallelism")
+    public DeltaLakeConfig setCheckpointProcessingParallelism(int checkpointProcessingParallelism)
+    {
+        this.checkpointProcessingParallelism = checkpointProcessingParallelism;
         return this;
     }
 }

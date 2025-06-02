@@ -30,6 +30,7 @@ import io.trino.operator.OutputFactory;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Mergeable;
 import io.trino.spi.Page;
+import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -284,7 +285,8 @@ public class PartitionedOutputOperator
     public void finish()
     {
         if (!finished) {
-            pagePartitioner.prepareForRelease(operatorContext);
+            Metrics finalMetrics = pagePartitioner.prepareForRelease(operatorContext);
+            operatorContext.setLatestMetrics(finalMetrics);
             pagePartitionerPool.release(pagePartitioner);
             finished = true;
         }
@@ -350,6 +352,7 @@ public class PartitionedOutputOperator
                 rebalancer.rebalance();
             }
         }
+        operatorContext.setLatestMetrics(pagePartitioner.getMetrics());
     }
 
     @Override

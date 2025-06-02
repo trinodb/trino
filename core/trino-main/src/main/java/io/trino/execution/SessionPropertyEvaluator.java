@@ -14,6 +14,8 @@
 package io.trino.execution;
 
 import com.google.inject.Inject;
+import info.debatty.java.stringsimilarity.JaroWinkler;
+import info.debatty.java.stringsimilarity.interfaces.StringSimilarity;
 import io.trino.Session;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
@@ -28,7 +30,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.Parameter;
 import io.trino.sql.tree.QualifiedName;
-import me.xdrop.fuzzywuzzy.FuzzySearch;
 
 import java.util.List;
 import java.util.Map;
@@ -44,11 +45,13 @@ import static io.trino.metadata.SessionPropertyManager.serializeSessionProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
-import static java.util.Comparator.comparingInt;
+import static java.util.Comparator.comparingDouble;
 import static java.util.Objects.requireNonNull;
 
 public class SessionPropertyEvaluator
 {
+    private static final StringSimilarity SIMILARITY = new JaroWinkler();
+
     private final PlannerContext plannerContext;
     private final AccessControl accessControl;
     private final SessionPropertyManager sessionPropertyManager;
@@ -120,20 +123,20 @@ public class SessionPropertyEvaluator
     {
         return candidates.stream()
                 .filter(property -> !property.isHidden())
-                .map(candidate -> new Match(candidate, FuzzySearch.ratio(candidate.getName(), propertyName)))
-                .filter(match -> match.ratio() > 75)
-                .sorted(comparingInt(Match::ratio).reversed())
+                .map(candidate -> new Match(candidate, SIMILARITY.similarity(candidate.getName(), propertyName)))
+                .filter(match -> match.ratio() > 0.85)
+                .sorted(comparingDouble(Match::ratio).reversed())
                 .limit(count)
                 .map(Match::metadata)
                 .collect(toImmutableList());
     }
 
-    private record Match(PropertyMetadata<?> metadata, int ratio)
+    private record Match(PropertyMetadata<?> metadata, double ratio)
     {
         public Match
         {
             requireNonNull(metadata, "metadata is null");
-            verify(ratio >= 0 && ratio < 100, "ratio must be in the [0, 100) range");
+            verify(ratio >= 0.0 && ratio <= 1.0, "ratio must be in the [0, 1.0] range");
         }
     }
 

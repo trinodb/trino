@@ -323,6 +323,18 @@ public abstract class BaseSqlServerConnectorTest
                     .matches("VALUES " +
                             "(CAST('collation' AS varchar(25)))")
                     .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE 'collation'"))
+                    .matches("VALUES " +
+                            "(CAST('collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE '%no_collation%'"))
+                    .matches("VALUES " +
+                            "(CAST('no_collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE collate_column LIKE '%no_collation%'  ESCAPE '$'"))
+                    .matches("VALUES " +
+                            "(CAST('no_collation' AS varchar(25)))")
+                    .isNotFullyPushedDown(FilterNode.class);
         }
     }
 

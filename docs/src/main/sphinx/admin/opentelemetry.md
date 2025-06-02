@@ -43,6 +43,10 @@ is accessible from the coordinator and all workers of the cluster. The preceding
 example uses a observability platform deployment available by
 HTTP at the host `observe.example.com`, port `4317`.
 
+Use the `tracing.exporter.protocol` property to configure the protocol for exporting traces. 
+Defaults to the gRPC protocol with the `grpc` value. Set the value to `http/protobuf` for 
+exporting traces using protocol buffers with HTTP transport.
+
 ## Example use
 
 The following steps provide a simple demo setup to run the open source

@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.planner.iterative.Rule;
@@ -35,7 +34,7 @@ public class ReplaceWindowWithRowNumber
 
     private final Pattern<WindowNode> pattern;
 
-    public ReplaceWindowWithRowNumber(Metadata metadata)
+    public ReplaceWindowWithRowNumber()
     {
         this.pattern = window()
                 .matching(window -> {

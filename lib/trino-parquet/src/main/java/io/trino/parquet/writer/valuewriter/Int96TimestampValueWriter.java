@@ -49,7 +49,7 @@ public class Int96TimestampValueWriter
         super(parquetType, valuesWriter);
         requireNonNull(type, "type is null");
         checkArgument(
-                type instanceof TimestampType && ((TimestampType) type).getPrecision() <= 9,
+                type instanceof TimestampType timestampType && timestampType.getPrecision() <= 9,
                 "type %s is not a TimestampType with precision <= 9",
                 type);
         this.timestampType = (TimestampType) type;

@@ -1076,20 +1076,20 @@ public final class StateCompiler
         Object value = null;
 
         for (Annotation annotation : method.getAnnotations()) {
-            if (annotation instanceof InitialLongValue) {
+            if (annotation instanceof InitialLongValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == long.class, "%s does not return a long, but is annotated with @InitialLongValue", method.getName());
-                value = ((InitialLongValue) annotation).value();
+                value = initialValue.value();
             }
-            else if (annotation instanceof InitialDoubleValue) {
+            else if (annotation instanceof InitialDoubleValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == double.class, "%s does not return a double, but is annotated with @InitialDoubleValue", method.getName());
-                value = ((InitialDoubleValue) annotation).value();
+                value = initialValue.value();
             }
-            else if (annotation instanceof InitialBooleanValue) {
+            else if (annotation instanceof InitialBooleanValue initialValue) {
                 checkArgument(value == null, "%s has multiple initialValue annotations", method.getName());
                 checkArgument(method.getReturnType() == boolean.class, "%s does not return a boolean, but is annotated with @InitialBooleanValue", method.getName());
-                value = ((InitialBooleanValue) annotation).value();
+                value = initialValue.value();
             }
         }
 

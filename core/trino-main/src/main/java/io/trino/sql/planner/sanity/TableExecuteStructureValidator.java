@@ -16,6 +16,7 @@ package io.trino.sql.planner.sanity;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -37,7 +38,9 @@ public class TableExecuteStructureValidator
             PlannerContext plannerContext,
             WarningCollector warningCollector)
     {
-        Optional<PlanNode> tableExecuteNode = searchFrom(planNode)
+        PlanNode currentPlan = AdaptivePlanner.getCurrentPlan(planNode); // resolve potential adaptive plan nodes
+
+        Optional<PlanNode> tableExecuteNode = searchFrom(currentPlan)
                 .where(node -> node instanceof TableExecuteNode)
                 .findFirst();
 
@@ -46,7 +49,7 @@ public class TableExecuteStructureValidator
             return;
         }
 
-        searchFrom(planNode)
+        searchFrom(currentPlan)
                 .findAll()
                 .forEach(node -> {
                     if (!isAllowedNode(node)) {

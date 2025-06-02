@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryArrowBufferAllocator
 {
     private static final Logger log = Logger.get(BigQueryArrowBufferAllocator.class);
-    private static final long NO_RESERVATION = 0;
+    private static final long INITIAL_RESERVATION = 4096;
 
     private final long maximumAllocationPerWorkerThread;
     private final BigQueryArrowAllocatorStats stats;
@@ -48,7 +48,7 @@ public class BigQueryArrowBufferAllocator
         return rootAllocator.newChildAllocator(
                 split.streamName(),
                 new RetryingAllocationListener(split.streamName(), stats),
-                NO_RESERVATION,
+                INITIAL_RESERVATION,
                 maximumAllocationPerWorkerThread);
     }
 

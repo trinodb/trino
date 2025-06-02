@@ -43,7 +43,7 @@ There are two types of join distributions:
 - Partitioned: each node participating in the query builds a hash table from
   only a fraction of the data
 - Broadcast: each node participating in the query builds a hash table from all
-  of the data. The data is replicated to each node.
+  the data. The data is replicated to each node.
 
 Each type has advantages and disadvantages. Partitioned joins require
 redistributing both tables using a hash of the join key. These joins can be much

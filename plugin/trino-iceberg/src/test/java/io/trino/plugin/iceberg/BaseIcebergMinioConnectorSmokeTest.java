@@ -13,14 +13,19 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.minio.messages.Event;
 import io.trino.Session;
+import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
+import io.trino.metastore.HiveType;
+import io.trino.metastore.Table;
 import io.trino.plugin.hive.containers.Hive3MinioDataLake;
 import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.minio.MinioClient;
+import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -28,18 +33,25 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.metastore.PrincipalPrivileges.NO_PRIVILEGES;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
+import static io.trino.plugin.iceberg.catalog.AbstractIcebergTableOperations.ICEBERG_METASTORE_STORAGE_FORMAT;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -95,7 +107,7 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
                 .build();
     }
 
-    public ImmutableMap<String, String> getAdditionalIcebergProperties()
+    public Map<String, String> getAdditionalIcebergProperties()
     {
         return ImmutableMap.of();
     }
@@ -161,6 +173,48 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testHiveMetastoreTableParameter()
+    {
+        try (TestTable table = newTrinoTable("test_table_params", "(id int)")) {
+            String snapshotId = getTableParameterValue(table.getName(), "current-snapshot-id");
+            String snapshotTimestamp = getTableParameterValue(table.getName(), "current-snapshot-timestamp-ms");
+            assertThat(snapshotId).isNotNull();
+            assertThat(snapshotTimestamp).isNotNull();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertThat(getTableParameterValue(table.getName(), "current-snapshot-id")).isNotEqualTo(snapshotId);
+            assertThat(getTableParameterValue(table.getName(), "current-snapshot-timestamp-ms")).isNotEqualTo(snapshotTimestamp);
+        }
+    }
+
+    @Test
+    void testHiveMetastoreMaterializedParameter()
+    {
+        String mvName = "test_mv_params_" + randomNameSuffix();
+        try (TestTable table = newTrinoTable("test_mv_params", "(id int)")) {
+            assertUpdate("CREATE MATERIALIZED VIEW " + mvName + " AS SELECT * FROM " + table.getName());
+            String snapshotId = getTableParameterValue(mvName, "current-snapshot-id");
+            String snapshotTimestamp = getTableParameterValue(mvName, "current-snapshot-timestamp-ms");
+            assertThat(snapshotId).isNotNull();
+            assertThat(snapshotTimestamp).isNotNull();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+            assertUpdate("REFRESH MATERIALIZED VIEW " + mvName, 1);
+            assertThat(getTableParameterValue(mvName, "current-snapshot-id")).isNotEqualTo(snapshotId);
+            assertThat(getTableParameterValue(mvName, "current-snapshot-timestamp-ms")).isNotEqualTo(snapshotTimestamp);
+        }
+        finally {
+            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mvName);
+        }
+    }
+
+    private String getTableParameterValue(String tableName, String parameterKey)
+    {
+        String tableId = onMetastore("SELECT tbl_id FROM TBLS t INNER JOIN DBS db ON t.db_id = db.db_id WHERE db.name = '" + schemaName + "' and t.tbl_name = '" + tableName + "'");
+        return onMetastore("SELECT param_value FROM TABLE_PARAMS WHERE param_key = '" + parameterKey + "' AND tbl_id = " + tableId);
     }
 
     @Test
@@ -231,6 +285,25 @@ public abstract class BaseIcebergMinioConnectorSmokeTest
         assertUpdate("INSERT INTO " + tableName + " VALUES " + values, 12);
         assertQuery("SELECT * FROM " + tableName, "VALUES " + values);
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    protected AutoCloseable createSparkIcebergTable(String schema)
+    {
+        HiveMetastore metastore = getHiveMetastore(getQueryRunner());
+        // simulate iceberg table created by spark with lowercase table type
+        Table lowerCaseTableType = io.trino.metastore.Table.builder()
+                .setDatabaseName(schema)
+                .setTableName("lowercase_type_" + randomNameSuffix())
+                .setOwner(Optional.empty())
+                .setDataColumns(ImmutableList.of(new Column("id", HiveType.HIVE_STRING, Optional.empty(), ImmutableMap.of())))
+                .setTableType(EXTERNAL_TABLE.name())
+                .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
+                .setParameter("EXTERNAL", "TRUE")
+                .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(ENGLISH))
+                .build();
+        metastore.createTable(lowerCaseTableType, NO_PRIVILEGES);
+        return () -> metastore.dropTable(lowerCaseTableType.getDatabaseName(), lowerCaseTableType.getTableName(), true);
     }
 
     private String onMetastore(@Language("SQL") String sql)

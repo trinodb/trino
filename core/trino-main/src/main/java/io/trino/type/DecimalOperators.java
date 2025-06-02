@@ -637,6 +637,8 @@ public final class DecimalOperators
     @ScalarOperator(NEGATION)
     public static final class Negation
     {
+        private Negation() {}
+
         @LiteralParameters({"p", "s"})
         @SqlType("decimal(p, s)")
         public static long negate(@SqlType("decimal(p, s)") long arg)

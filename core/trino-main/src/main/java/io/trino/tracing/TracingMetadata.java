@@ -396,15 +396,6 @@ public class TracingMetadata
     }
 
     @Override
-    public void setSchemaAuthorization(Session session, CatalogSchemaName source, TrinoPrincipal principal)
-    {
-        Span span = startSpan("setSchemaAuthorization", source);
-        try (var _ = scopedSpan(span)) {
-            delegate.setSchemaAuthorization(session, source, principal);
-        }
-    }
-
-    @Override
     public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         Span span = startSpan("createTable", catalogName, tableMetadata);
@@ -527,15 +518,6 @@ public class TracingMetadata
         Span span = startSpan("dropNotNullConstraint", tableHandle);
         try (var _ = scopedSpan(span)) {
             delegate.dropNotNullConstraint(session, tableHandle, column);
-        }
-    }
-
-    @Override
-    public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
-    {
-        Span span = startSpan("setTableAuthorization", table);
-        try (var _ = scopedSpan(span)) {
-            delegate.setTableAuthorization(session, table, principal);
         }
     }
 
@@ -940,15 +922,6 @@ public class TracingMetadata
         Span span = startSpan("renameView", existingViewName);
         try (var _ = scopedSpan(span)) {
             delegate.renameView(session, existingViewName, newViewName);
-        }
-    }
-
-    @Override
-    public void setViewAuthorization(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
-    {
-        Span span = startSpan("setViewAuthorization", view);
-        try (var _ = scopedSpan(span)) {
-            delegate.setViewAuthorization(session, view, principal);
         }
     }
 
@@ -1548,6 +1521,15 @@ public class TracingMetadata
         Span span = startSpan("getInsertWriterScalingOptions", tableHandle);
         try (var _ = scopedSpan(span)) {
             return delegate.getInsertWriterScalingOptions(session, tableHandle);
+        }
+    }
+
+    @Override
+    public void setEntityAuthorization(Session session, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
+    {
+        Span span = startSpan("setEntityAuthorization", entityKindAndName.name().stream().collect(Collectors.joining(".")));
+        try (var ignored = scopedSpan(span)) {
+            delegate.setEntityAuthorization(session, entityKindAndName, principal);
         }
     }
 

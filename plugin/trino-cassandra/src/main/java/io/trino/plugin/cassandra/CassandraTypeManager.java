@@ -368,8 +368,8 @@ public class CassandraTypeManager
         }
 
         String value;
-        if (trinoNativeValue instanceof Slice) {
-            value = ((Slice) trinoNativeValue).toStringUtf8();
+        if (trinoNativeValue instanceof Slice slice) {
+            value = slice.toStringUtf8();
         }
         else {
             value = trinoNativeValue.toString();

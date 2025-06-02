@@ -82,11 +82,11 @@ public class ExpressionPatternBuilder
                 parameters.stream()
                         .map(parameter -> {
                             Object result = visit(parameter, Object.class);
-                            if (result instanceof String) {
-                                return new TypeParameterCapture((String) result);
+                            if (result instanceof String stringValue) {
+                                return new TypeParameterCapture(stringValue);
                             }
-                            if (result instanceof Long) {
-                                return new LongTypeParameter((Long) result);
+                            if (result instanceof Long longValue) {
+                                return new LongTypeParameter(longValue);
                             }
                             throw new UnsupportedOperationException(format("Unsupported parameter %s (%s) from %s", result, result.getClass(), parameter));
                         })

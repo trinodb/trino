@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.airlift.units.Duration;
 import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.iceberg.IcebergConfig;
@@ -34,6 +35,7 @@ import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.rest.HTTPClient;
 import org.apache.iceberg.rest.RESTSessionCatalog;
+import org.apache.iceberg.rest.RESTUtil;
 
 import java.net.URI;
 import java.util.Map;
@@ -42,6 +44,7 @@ import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.iceberg.CatalogProperties.AUTH_SESSION_TIMEOUT_MS;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.CREDENTIAL;
 import static org.apache.iceberg.rest.auth.OAuth2Properties.TOKEN;
 
@@ -56,6 +59,7 @@ public class TrinoIcebergRestCatalogFactory
     private final Optional<String> warehouse;
     private final boolean nestedNamespaceEnabled;
     private final SessionType sessionType;
+    private final Duration sessionTimeout;
     private final boolean vendedCredentialsEnabled;
     private final boolean viewEndpointsEnabled;
     private final SecurityProperties securityProperties;
@@ -89,6 +93,7 @@ public class TrinoIcebergRestCatalogFactory
         this.warehouse = restConfig.getWarehouse();
         this.nestedNamespaceEnabled = restConfig.isNestedNamespaceEnabled();
         this.sessionType = restConfig.getSessionType();
+        this.sessionTimeout = restConfig.getSessionTimeout();
         this.vendedCredentialsEnabled = restConfig.isVendedCredentialsEnabled();
         this.viewEndpointsEnabled = restConfig.isViewEndpointsEnabled();
         this.securityProperties = requireNonNull(securityProperties, "securityProperties is null");
@@ -119,6 +124,7 @@ public class TrinoIcebergRestCatalogFactory
             prefix.ifPresent(prefix -> properties.put("prefix", prefix));
             properties.put("view-endpoints-supported", Boolean.toString(viewEndpointsEnabled));
             properties.put("trino-version", trinoVersion);
+            properties.put(AUTH_SESSION_TIMEOUT_MS, String.valueOf(sessionTimeout.toMillis()));
             properties.putAll(securityProperties.get());
             properties.putAll(awsProperties.get());
 
@@ -127,7 +133,10 @@ public class TrinoIcebergRestCatalogFactory
             }
 
             RESTSessionCatalog icebergCatalogInstance = new RESTSessionCatalog(
-                    config -> HTTPClient.builder(config).uri(config.get(CatalogProperties.URI)).build(),
+                    config -> HTTPClient.builder(config)
+                            .uri(config.get(CatalogProperties.URI))
+                            .withHeaders(RESTUtil.configHeaders(config))
+                            .build(),
                     (context, config) -> {
                         ConnectorIdentity currentIdentity = (context.wrappedIdentity() != null)
                                 ? ((ConnectorIdentity) context.wrappedIdentity())

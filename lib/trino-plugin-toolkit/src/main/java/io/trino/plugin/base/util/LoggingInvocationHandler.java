@@ -91,8 +91,8 @@ public class LoggingInvocationHandler
 
     private static String formatArgument(Object arg)
     {
-        if (arg instanceof String) {
-            return "'" + ((String) arg).replace("'", "''") + "'";
+        if (arg instanceof String string) {
+            return "'" + string.replace("'", "''") + "'";
         }
         return String.valueOf(arg);
     }

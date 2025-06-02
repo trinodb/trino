@@ -20,6 +20,7 @@ import io.trino.spi.type.Type;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.operator.GroupByHash.selectGroupByHashMode;
 import static io.trino.operator.UpdateMemory.NOOP;
 import static java.util.Objects.requireNonNull;
 
@@ -30,7 +31,7 @@ public class GroupByHashPageIndexer
 
     public GroupByHashPageIndexer(List<Type> hashTypes, FlatHashStrategyCompiler hashStrategyCompiler)
     {
-        this(GroupByHash.createGroupByHash(hashTypes, false, 20, false, hashStrategyCompiler, NOOP));
+        this(GroupByHash.createGroupByHash(hashTypes, selectGroupByHashMode(false, false, hashTypes), 20, false, hashStrategyCompiler, NOOP));
     }
 
     public GroupByHashPageIndexer(GroupByHash hash)

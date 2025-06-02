@@ -16,7 +16,7 @@ package io.trino.operator.join;
 import io.trino.operator.OperatorInfo;
 import io.trino.operator.join.LookupJoinOperatorFactory.JoinType;
 
-import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.function.Supplier;
 
 import static io.trino.operator.join.JoinOperatorInfo.createJoinOperatorInfo;
@@ -43,7 +43,7 @@ public class JoinStatisticsCounter
     /**
      * Estimated number of positions in on the build side
      */
-    private Optional<Long> lookupSourcePositions = Optional.empty();
+    private OptionalLong lookupSourcePositions = OptionalLong.empty();
 
     public JoinStatisticsCounter(JoinType joinType)
     {
@@ -52,7 +52,7 @@ public class JoinStatisticsCounter
 
     public void updateLookupSourcePositions(long lookupSourcePositionsDelta)
     {
-        this.lookupSourcePositions = Optional.of(this.lookupSourcePositions.orElse(0L) + lookupSourcePositionsDelta);
+        this.lookupSourcePositions = OptionalLong.of(this.lookupSourcePositions.orElse(0L) + lookupSourcePositionsDelta);
     }
 
     public void recordProbe(int numSourcePositions)

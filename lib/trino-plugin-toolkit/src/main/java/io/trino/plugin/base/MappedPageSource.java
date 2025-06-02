@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.function.ObjLongConsumer;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 
 public class MappedPageSource
@@ -81,6 +82,8 @@ public class MappedPageSource
     private record MappedSourcePage(SourcePage sourcePage, int[] channels)
             implements SourcePage
     {
+        private static final long INSTANCE_SIZE = instanceSize(MappedSourcePage.class);
+
         private MappedSourcePage
         {
             requireNonNull(sourcePage, "sourcePage is null");
@@ -102,12 +105,17 @@ public class MappedPageSource
         @Override
         public long getRetainedSizeInBytes()
         {
-            return sourcePage.getRetainedSizeInBytes();
+            // channels array is not considered retained since it is shared by all instances created from
+            // the same outer MappedPageSource instance
+            return INSTANCE_SIZE + sourcePage.getRetainedSizeInBytes();
         }
 
         @Override
         public void retainedBytesForEachPart(ObjLongConsumer<Object> consumer)
         {
+            // channels array is not considered retained since it is shared by all instances created from
+            // the same outer MappedPageSource instance
+            consumer.accept(this, INSTANCE_SIZE);
             sourcePage.retainedBytesForEachPart(consumer);
         }
 

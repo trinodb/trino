@@ -131,16 +131,13 @@ public class PushMergeWriterUpdateIntoConnector
                         field);
 
                 // we don't support any expressions in update statements yet, only constants
-                if (connectorExpression.isEmpty() || !(connectorExpression.get() instanceof io.trino.spi.expression.Constant)) {
+                if (connectorExpression.isEmpty() || !(connectorExpression.get() instanceof io.trino.spi.expression.Constant constant)) {
                     return ImmutableMap.of();
                 }
-                assignments.put(columnHandles.get(columnName), (io.trino.spi.expression.Constant) connectorExpression.get());
+                assignments.put(columnHandles.get(columnName), constant);
             }
         }
-        else if (mergeRow instanceof Constant row) {
-            RowType type = (RowType) row.type();
-            SqlRow rowValue = (SqlRow) row.value();
-
+        else if (mergeRow instanceof Constant(RowType type, SqlRow rowValue)) {
             for (int i = 0; i < orderedColumnNames.size(); i++) {
                 Type fieldType = type.getFields().get(i).getType();
                 Object fieldValue = readNativeValue(fieldType, rowValue.getRawFieldBlock(i), rowValue.getRawIndex());

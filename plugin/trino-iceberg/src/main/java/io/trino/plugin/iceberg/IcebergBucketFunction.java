@@ -85,7 +85,7 @@ public class IcebergBucketFunction
                 .orElseThrow(() -> new IllegalArgumentException("Split does not contain partition values"));
 
         if (singleBucketFunction) {
-            long bucket = (long) requireNonNullElse(partitionValues.getFirst(), 0);
+            long bucket = (long) requireNonNullElse(partitionValues.getFirst(), 0L);
             checkArgument(0 <= bucket && bucket < bucketCount, "Bucket value out of range: %s (bucketCount: %s)", bucket, bucketCount);
             return (int) bucket;
         }
@@ -140,11 +140,11 @@ public class IcebergBucketFunction
                 return (long) hashCodeOperator.invoke(value);
             }
             catch (Throwable throwable) {
-                if (throwable instanceof Error) {
-                    throw (Error) throwable;
+                if (throwable instanceof Error error) {
+                    throw error;
                 }
-                if (throwable instanceof RuntimeException) {
-                    throw (RuntimeException) throwable;
+                if (throwable instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
                 }
                 throw new RuntimeException(throwable);
             }

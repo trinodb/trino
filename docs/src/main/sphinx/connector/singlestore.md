@@ -17,7 +17,7 @@ creating tables in an external SingleStore database.
 
 To connect to SingleStore, you need:
 
-- SingleStore version 7.1.4 or higher.
+- SingleStore version 7.8 or higher.
 - Network access from the Trino coordinator and workers to SingleStore. Port
   3306 is the default port.
 

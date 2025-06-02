@@ -35,7 +35,7 @@ import static com.google.common.collect.Collections2.orderedPermutations;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class IrRowPatternToProgramRewriter
+public final class IrRowPatternToProgramRewriter
 {
     private IrRowPatternToProgramRewriter() {}
 

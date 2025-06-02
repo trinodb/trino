@@ -16,7 +16,6 @@ package io.trino.plugin.redshift;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.operator.OperatorInfo;
-import io.trino.operator.SplitOperatorInfo;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
@@ -91,14 +90,16 @@ final class TestRedshiftUnload
                        SELECT nationkey, name FROM nation WHERE regionkey = 1
                        """,
                 queryStats -> {
-                    List<Map<String, String>> splitInfos =
+                    List<String> unloadedPaths =
                             queryStats.getOperatorSummaries()
                                     .stream()
                                     .filter(summary -> summary.getOperatorType().startsWith("TableScanOperator"))
-                                    .map(operatorStat -> ((SplitOperatorInfo) operatorStat.getInfo()).getSplitInfo())
+                                    .map(operatorStat -> operatorStat.getConnectorMetrics().getMetrics())
+                                    .flatMap(metrics -> metrics.keySet().stream())
+                                    .filter(key -> !key.startsWith("ParquetReader"))
                                     .collect(toImmutableList());
-                    splitInfos.forEach(splitInfo -> assertThat(splitInfo.get("path")).matches("%s/.*/.*/.*.parquet.*".formatted(S3_UNLOAD_ROOT)));
-                    String unloadedFilePath = splitInfos.getFirst().get("path");
+                    unloadedPaths.forEach(path -> assertThat(path).matches("%s/.*/.*/.*.parquet.*".formatted(S3_UNLOAD_ROOT)));
+                    String unloadedFilePath = unloadedPaths.getFirst();
                     assertThat(unloadedFilePath).matches("%s/.*/.*/.*.parquet.*".formatted(S3_UNLOAD_ROOT));
                     try (S3Client s3 = S3Client.builder()
                             .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create(AWS_ACCESS_KEY, AWS_SECRET_KEY)))

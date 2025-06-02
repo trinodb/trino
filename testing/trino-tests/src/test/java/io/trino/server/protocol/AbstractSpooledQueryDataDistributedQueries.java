@@ -32,6 +32,7 @@ import okhttp3.OkHttpClient;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.containers.localstack.LocalStackContainer.Service;
+import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -70,7 +71,7 @@ public abstract class AbstractSpooledQueryDataDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        localstack = closeAfterClass(new LocalStackContainer("s3-latest"));
+        localstack = closeAfterClass(new LocalStackContainer(DockerImageName.parse("localstack/localstack:s3-latest")));
         localstack.start();
 
         try (S3Client client = createS3Client(localstack)) {

@@ -120,7 +120,7 @@ public class WorkerDynamicCatalogManager
                                     Futures.submit(() -> {
                                         catalogs.computeIfAbsent(catalog.catalogHandle(), ignore -> {
                                             CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                                            log.debug("Added catalog: " + catalog.catalogHandle());
+                                            log.debug("Added catalog: %s", catalog.catalogHandle());
                                             return newCatalog;
                                         });
                                     }, executor))

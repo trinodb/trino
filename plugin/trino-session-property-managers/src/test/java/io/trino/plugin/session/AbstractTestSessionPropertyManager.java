@@ -57,7 +57,7 @@ public abstract class AbstractTestSessionPropertyManager
     public void testClientTagMatch()
             throws Exception
     {
-        ImmutableMap<String, String> systemProperties = ImmutableMap.of("PROPERTY", "VALUE");
+        Map<String, String> systemProperties = ImmutableMap.of("PROPERTY", "VALUE");
         SessionMatchSpec spec = new SessionMatchSpec(
                 Optional.empty(),
                 Optional.empty(),

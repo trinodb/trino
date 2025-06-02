@@ -13,7 +13,6 @@
  */
 package io.trino.metastore;
 
-import com.google.common.collect.ImmutableSet;
 import io.trino.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
@@ -71,7 +70,7 @@ public interface HiveMetastore
     /**
      * @param parameterValues is using ImmutableSet to mark that this api does not support filtering by null parameter value.
      */
-    List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues);
+    List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues);
 
     void createDatabase(Database database);
 
@@ -90,7 +89,7 @@ public interface HiveMetastore
      * alter one field of a table object previously acquired from getTable is
      * probably not what you want.
      */
-    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges);
+    void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext);
 
     void renameTable(String databaseName, String tableName, String newDatabaseName, String newTableName);
 

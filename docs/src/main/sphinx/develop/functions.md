@@ -260,7 +260,7 @@ public interface LongAndDoubleState
 ```
 
 As stated above, for simple `AccumulatorState` objects, it is sufficient to
-just to define the interface with the getters and setters, and the framework
+just define the interface with the getters and setters, and the framework
 will generate the implementation for you.
 
 An in-depth look at the various annotations relevant to writing an aggregation

@@ -18,7 +18,7 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.plugin.singlestore.TestingSingleStoreServer.LATEST_TESTED_TAG;
+import static io.trino.plugin.singlestore.TestingSingleStoreServer.LATEST_TESTED_VERSION;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,7 +30,7 @@ final class TestSingleStoreLatestTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        singleStoreServer = closeAfterClass(new TestingSingleStoreServer(LATEST_TESTED_TAG));
+        singleStoreServer = closeAfterClass(new TestingSingleStoreServer(LATEST_TESTED_VERSION));
         return SingleStoreQueryRunner.builder(singleStoreServer).build();
     }
 

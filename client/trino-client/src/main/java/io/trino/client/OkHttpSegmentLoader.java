@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -56,6 +57,7 @@ public class OkHttpSegmentLoader
         Request request = new Request.Builder()
                 .url(segment.getDataUri().toString())
                 .headers(toHeaders(segment.getHeaders()))
+                .addHeader(ACCEPT_ENCODING, "identity")
                 .build();
 
         Response response = callFactory.newCall(request).execute();

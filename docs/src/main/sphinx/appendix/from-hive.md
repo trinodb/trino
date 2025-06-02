@@ -4,7 +4,7 @@ Trino uses ANSI SQL syntax and semantics, whereas Hive uses a language similar
 to SQL called HiveQL which is loosely modeled after MySQL (which itself has many
 differences from ANSI SQL).
 
-## Use subscript for accessing a dynamic index of an array instead of a udf
+## Use subscript for accessing a dynamic index of an array instead of an udf
 
 The subscript operator in SQL supports full expressions, unlike Hive (which only supports constants). Therefore you can write queries like:
 

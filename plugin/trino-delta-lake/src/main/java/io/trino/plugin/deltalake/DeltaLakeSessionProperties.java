@@ -18,7 +18,7 @@ import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
@@ -208,10 +208,10 @@ public final class DeltaLakeSessionProperties
                 enumProperty(
                         COMPRESSION_CODEC,
                         "Compression codec to use when writing new data files",
-                        HiveCompressionCodec.class,
+                        HiveCompressionOption.class,
                         deltaLakeConfig.getCompressionCodec(),
                         value -> {
-                            if (value == HiveCompressionCodec.LZ4) {
+                            if (value == HiveCompressionOption.LZ4) {
                                 // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, "Unsupported codec: LZ4");
                             }
@@ -335,9 +335,9 @@ public final class DeltaLakeSessionProperties
         return session.getProperty(EXTENDED_STATISTICS_COLLECT_ON_WRITE, Boolean.class);
     }
 
-    public static HiveCompressionCodec getCompressionCodec(ConnectorSession session)
+    public static HiveCompressionOption getCompressionCodec(ConnectorSession session)
     {
-        return session.getProperty(COMPRESSION_CODEC, HiveCompressionCodec.class);
+        return session.getProperty(COMPRESSION_CODEC, HiveCompressionOption.class);
     }
 
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)

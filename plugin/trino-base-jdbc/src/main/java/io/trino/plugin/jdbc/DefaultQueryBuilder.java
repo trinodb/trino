@@ -129,9 +129,13 @@ public class DefaultQueryBuilder
         String query = format(
                 // The subquery aliases (`l` and `r`) are needed by some databases, but are not needed for expressions
                 // The joinConditions and output columns are aliased to use unique names.
-                "SELECT %s, %s FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
-                formatProjectionAliases(client, leftProjections.values()),
-                formatProjectionAliases(client, rightProjections.values()),
+                "SELECT %s FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
+                formatProjectionAliases(
+                        client,
+                        ImmutableList.<String>builder()
+                                .addAll(leftProjections.values())
+                                .addAll(rightProjections.values())
+                                .build()),
                 formatProjections(client, leftProjections),
                 leftSource.query(),
                 formatJoinType(joinType),
@@ -344,6 +348,9 @@ public class DefaultQueryBuilder
 
     protected String formatProjections(JdbcClient client, Map<JdbcColumnHandle, String> projections)
     {
+        if (projections.isEmpty()) {
+            return "1 x";
+        }
         return projections.entrySet().stream()
                 .map(entry -> format("%s AS %s", client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
                 .collect(joining(", "));
@@ -400,11 +407,11 @@ public class DefaultQueryBuilder
 
     protected String getFrom(JdbcClient client, JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
     {
-        if (baseRelation instanceof JdbcNamedRelationHandle) {
-            return " FROM " + getRelation(client, ((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());
+        if (baseRelation instanceof JdbcNamedRelationHandle jdbcNamedRelationHandle) {
+            return " FROM " + getRelation(client, jdbcNamedRelationHandle.getRemoteTableName());
         }
-        if (baseRelation instanceof JdbcQueryRelationHandle) {
-            PreparedQuery preparedQuery = ((JdbcQueryRelationHandle) baseRelation).getPreparedQuery();
+        if (baseRelation instanceof JdbcQueryRelationHandle jdbcQueryRelationHandle) {
+            PreparedQuery preparedQuery = jdbcQueryRelationHandle.getPreparedQuery();
             preparedQuery.parameters().forEach(accumulator);
             return " FROM (" + preparedQuery.query() + ") o";
         }

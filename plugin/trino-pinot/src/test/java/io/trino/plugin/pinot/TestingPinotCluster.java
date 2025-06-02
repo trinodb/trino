@@ -205,7 +205,7 @@ public class TestingPinotCluster
                 .build();
         doWithRetries(() -> {
             List<String> schemas = httpClient.execute(request, createJsonResponseHandler(LIST_JSON_CODEC));
-            checkState(schemas.contains(tableName), format("Schema for '%s' not found", tableName));
+            checkState(schemas.contains(tableName), "Schema for '%s' not found", tableName);
             return null;
         }, 10);
     }

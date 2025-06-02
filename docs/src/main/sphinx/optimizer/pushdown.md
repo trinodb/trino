@@ -113,7 +113,7 @@ Fragment 1 [SOURCE]
         regionkey_0 := regionkey:bigint:int8
 ```
 
-A number of factors can prevent a push down:
+A number of factors can prevent a push-down:
 
 - adding a condition to the query
 - using a different aggregate function that cannot be pushed down into the connector

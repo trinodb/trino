@@ -40,6 +40,7 @@ import java.util.Properties;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
+import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class SnowflakeClientModule
@@ -53,6 +54,7 @@ public class SnowflakeClientModule
                 binder,
                 "snowflake",
                 ImmutableMultimap.of("java.base", "java.nio"));
+        verifyConnectorUnsafeAllowed(binder, "snowflake");
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SnowflakeClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(SnowflakeConfig.class);
         configBinder(binder).bindConfig(TypeHandlingJdbcConfig.class);

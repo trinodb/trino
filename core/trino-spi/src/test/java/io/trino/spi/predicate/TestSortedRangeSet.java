@@ -119,7 +119,7 @@ public class TestSortedRangeSet
                 Range.range(BIGINT, 2L, true, 4L, true),
                 Range.range(BIGINT, 4L, false, 5L, true));
 
-        ImmutableList<Range> normalizedResult = ImmutableList.of(
+        List<Range> normalizedResult = ImmutableList.of(
                 Range.equal(BIGINT, 0L),
                 Range.range(BIGINT, 2L, true, 5L, true),
                 Range.range(BIGINT, 9L, true, 11L, false));
@@ -159,7 +159,7 @@ public class TestSortedRangeSet
                 Range.range(BIGINT, 1L, false, 2L, false),
                 Range.range(BIGINT, 9L, false, 11L, false));
 
-        ImmutableList<Range> normalizedResult = ImmutableList.of(
+        List<Range> normalizedResult = ImmutableList.of(
                 Range.lessThanOrEqual(BIGINT, 0L),
                 Range.range(BIGINT, 1L, false, 6L, false),
                 Range.greaterThan(BIGINT, 9L));

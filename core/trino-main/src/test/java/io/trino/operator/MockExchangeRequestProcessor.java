@@ -28,7 +28,6 @@ import io.airlift.units.DataSize;
 import io.trino.execution.buffer.BufferResult;
 import io.trino.execution.buffer.PageSerializer;
 import io.trino.execution.buffer.PagesSerdeFactory;
-import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.server.InternalHeaders;
 import io.trino.spi.Page;
 
@@ -47,7 +46,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
+import static io.trino.execution.buffer.TestingPagesSerdes.createTestingPagesSerdeFactory;
 import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
 import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
@@ -61,7 +62,7 @@ public class MockExchangeRequestProcessor
 {
     private static final String TASK_INSTANCE_ID = "task-instance-id";
 
-    private final PagesSerdeFactory serdeFactory = new TestingPagesSerdeFactory();
+    private final PagesSerdeFactory serdeFactory = createTestingPagesSerdeFactory(LZ4);
 
     private final LoadingCache<URI, MockBuffer> buffers = buildNonEvictableCache(CacheBuilder.newBuilder(), CacheLoader.from(location -> new MockBuffer(location, serdeFactory.createSerializer(Optional.empty()))));
 

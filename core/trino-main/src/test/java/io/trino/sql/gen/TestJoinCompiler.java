@@ -185,7 +185,7 @@ public class TestJoinCompiler
             extraUnusedChannel.add(BlockAssertions.createBooleanSequenceBlock(15, 25));
 
             OptionalInt hashChannel = OptionalInt.empty();
-            ImmutableList<ObjectArrayList<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
+            List<ObjectArrayList<Block>> channels = ImmutableList.of(extraChannel, varcharChannel, longChannel, doubleChannel, booleanChannel, extraUnusedChannel);
             ObjectArrayList<Block> precomputedHash = new ObjectArrayList<>();
             if (hashEnabled) {
                 for (int i = 0; i < 3; i++) {

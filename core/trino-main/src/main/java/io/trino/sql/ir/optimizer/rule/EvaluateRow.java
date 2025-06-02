@@ -37,7 +37,7 @@ public class EvaluateRow
     @Override
     public Optional<Expression> apply(Expression expression, Session session, Map<Symbol, Expression> bindings)
     {
-        if (!(expression instanceof Row(List<Expression> fields)) || !fields.stream().allMatch(Constant.class::isInstance)) {
+        if (!(expression instanceof Row(List<Expression> fields, _)) || !fields.stream().allMatch(Constant.class::isInstance)) {
             return Optional.empty();
         }
 

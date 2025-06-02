@@ -146,10 +146,11 @@ public class KafkaPageSink
             throw new UncheckedIOException("Failed to close row encoders", e);
         }
 
-        checkArgument(producerCallback.getWrittenBytes() == expectedWrittenBytes,
-                format("Actual written bytes: '%s' not equal to expected written bytes: '%s'",
-                        producerCallback.getWrittenBytes(),
-                        expectedWrittenBytes));
+        checkArgument(
+                producerCallback.getWrittenBytes() == expectedWrittenBytes,
+                "Actual written bytes: '%s' not equal to expected written bytes: '%s'",
+                producerCallback.getWrittenBytes(),
+                expectedWrittenBytes);
 
         if (producerCallback.getErrorCount() > 0) {
             throw new TrinoException(KAFKA_PRODUCER_ERROR, format("%d producer record(s) failed to send", producerCallback.getErrorCount()));

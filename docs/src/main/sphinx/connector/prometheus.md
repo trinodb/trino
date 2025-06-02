@@ -99,7 +99,7 @@ The `prometheus.query.chunk.size.duration` and `prometheus.max.query.range.durat
 too much data coming back from Prometheus. The `prometheus.max.query.range.duration` is the item of
 particular interest.
 
-On a Prometheus instance that has been running for awhile and depending
+On a Prometheus instance that has been running for a while and depending
 on data retention settings, `21d` might be far too much. Perhaps `1h` might be a more reasonable setting.
 In the case of `1h` it might be then useful to set `prometheus.query.chunk.size.duration` to `10m`, dividing the
 query window into 6 queries each of which can be handled in a Trino split.

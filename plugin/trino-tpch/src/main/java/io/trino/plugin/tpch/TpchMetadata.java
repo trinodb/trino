@@ -365,15 +365,15 @@ public class TpchMetadata
 
     private static double toDouble(Object value, Type columnType)
     {
-        if (value instanceof String && columnType.equals(DATE)) {
-            return LocalDate.parse((CharSequence) value).toEpochDay();
+        if (value instanceof String string && columnType.equals(DATE)) {
+            return LocalDate.parse(string).toEpochDay();
         }
-        if (value instanceof Number) {
+        if (value instanceof Number number) {
             if (columnType.equals(BIGINT) || columnType.equals(INTEGER) || columnType.equals(DATE)) {
-                return ((Number) value).longValue();
+                return number.longValue();
             }
             if (columnType.equals(DOUBLE) || columnType instanceof DecimalType) {
-                return ((Number) value).doubleValue();
+                return number.doubleValue();
             }
         }
         throw new IllegalArgumentException("unsupported column type " + columnType);

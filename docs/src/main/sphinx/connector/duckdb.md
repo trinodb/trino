@@ -44,7 +44,7 @@ When using the connector on a Trino cluster the path must be consistent on all
 nodes and point to a shared storage to ensure that all nodes operate on the same
 database.
 
-Using a in-memory DuckDB database `jdbc:duckdb:` is not supported.
+Using an in-memory DuckDB database `jdbc:duckdb:` is not supported.
 
 Refer to the DuckDB documentation for tips on [securing DuckDB](
 https://duckdb.org/docs/operations_manual/securing_duckdb/overview). Note that

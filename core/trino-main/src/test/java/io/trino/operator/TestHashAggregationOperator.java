@@ -695,7 +695,7 @@ public class TestHashAggregationOperator
         TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
 
         List<Integer> hashChannels = Ints.asList(1);
-        ImmutableList<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, VARCHAR, BIGINT);
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(false, hashChannels, types);
         List<Page> input = rowPagesBuilder
                 .addSequencePage(10, 100, 0, 100, 0)
@@ -831,7 +831,7 @@ public class TestHashAggregationOperator
         assertOperatorEquals(operatorFactory, operator2Input, operator2Expected);
 
         // partial aggregation should be enabled again after enough data is processed
-        for (int i = 1; i <= 3; ++i) {
+        for (int i = 1; i <= 4; ++i) {
             List<Page> operatorInput = rowPagesBuilder(false, hashChannels, BIGINT)
                     .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8))
                     .build();
@@ -839,7 +839,7 @@ public class TestHashAggregationOperator
                     .addBlocksPage(createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8), createLongsBlock(0, 1, 2, 3, 4, 5, 6, 7, 8))
                     .build();
             assertOperatorEquals(operatorFactory, operatorInput, operatorExpected);
-            if (i <= 2) {
+            if (i <= 3) {
                 assertThat(partialAggregationController.isPartialAggregationDisabled()).isTrue();
             }
             else {

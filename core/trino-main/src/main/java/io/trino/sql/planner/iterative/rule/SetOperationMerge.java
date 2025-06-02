@@ -159,15 +159,18 @@ class SetOperationMerge
             return Optional.of(false);
         }
 
-        if (node instanceof IntersectNode) {
-            if (!((IntersectNode) node).isDistinct() && !((IntersectNode) child).isDistinct()) {
+        if (node instanceof IntersectNode intersectNode) {
+            if (!intersectNode.isDistinct() && !((IntersectNode) child).isDistinct()) {
                 return Optional.of(false);
             }
             return Optional.of(true);
         }
 
-        checkState(node instanceof ExceptNode, "unexpected node type: %s", node.getClass().getSimpleName());
-        if (((ExceptNode) node).isDistinct() && !((ExceptNode) child).isDistinct()) {
+        if (!(node instanceof ExceptNode exceptNode)) {
+            throw new IllegalArgumentException("unexpected node type: %s".formatted(node.getClass().getSimpleName()));
+        }
+
+        if (exceptNode.isDistinct() && !((ExceptNode) child).isDistinct()) {
             return Optional.empty();
         }
         return Optional.of(((ExceptNode) child).isDistinct());

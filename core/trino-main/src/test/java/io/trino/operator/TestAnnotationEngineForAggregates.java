@@ -1184,7 +1184,7 @@ public class TestAnnotationEngineForAggregates
         return PLANNER_CONTEXT.getFunctionResolver().resolveFunction(TEST_SESSION, name, fromTypeSignatures(dependency.getArgumentTypes()), new AllowAllAccessControl());
     }
 
-    private static BoundSignature builtinFunction(String name, Type returnType, ImmutableList<Type> argumentTypes)
+    private static BoundSignature builtinFunction(String name, Type returnType, List<Type> argumentTypes)
     {
         return new BoundSignature(builtinFunctionName(name), returnType, argumentTypes);
     }

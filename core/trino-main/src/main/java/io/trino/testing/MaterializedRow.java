@@ -57,26 +57,26 @@ public class MaterializedRow
 
     private static Object processValue(int precision, Object value)
     {
-        if (value instanceof Double) {
-            return new ApproximateDouble(((Double) value), precision);
+        if (value instanceof Double doubleValue) {
+            return new ApproximateDouble(doubleValue, precision);
         }
-        if (value instanceof Float) {
-            return new ApproximateFloat(((Float) value), precision);
+        if (value instanceof Float floatValue) {
+            return new ApproximateFloat(floatValue, precision);
         }
-        if (value instanceof List) {
-            return ((List<?>) value).stream()
+        if (value instanceof List<?> listValue) {
+            return listValue.stream()
                     .map(element -> processValue(precision, element))
                     .collect(toList());
         }
-        if (value instanceof Map) {
+        if (value instanceof Map<?, ?> mapValue) {
             Map<Object, Object> map = new HashMap<>();
-            for (Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            for (Entry<?, ?> entry : mapValue.entrySet()) {
                 map.put(processValue(precision, entry.getKey()), processValue(precision, entry.getValue()));
             }
             return map;
         }
-        if (value instanceof byte[]) {
-            return Bytes.fromBytes((byte[]) value);
+        if (value instanceof byte[] bytes) {
+            return Bytes.fromBytes(bytes);
         }
         return value;
     }
@@ -106,23 +106,23 @@ public class MaterializedRow
 
     private static Object processField(Object value)
     {
-        if (value instanceof ApproximateNumeric) {
-            return ((ApproximateNumeric) value).getValue();
+        if (value instanceof ApproximateNumeric approximateNumeric) {
+            return approximateNumeric.getValue();
         }
-        if (value instanceof List) {
-            return ((List<?>) value).stream()
+        if (value instanceof List<?> listValue) {
+            return listValue.stream()
                     .map(MaterializedRow::processField)
                     .collect(toList());
         }
-        if (value instanceof Map) {
+        if (value instanceof Map<?, ?> mapValue) {
             Map<Object, Object> map = new HashMap<>();
-            for (Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+            for (Entry<?, ?> entry : mapValue.entrySet()) {
                 map.put(processField(entry.getKey()), processField(entry.getValue()));
             }
             return map;
         }
-        if (value instanceof Bytes) {
-            return ((Bytes) value).getBytes();
+        if (value instanceof Bytes bytes) {
+            return bytes.getBytes();
         }
 
         return value;

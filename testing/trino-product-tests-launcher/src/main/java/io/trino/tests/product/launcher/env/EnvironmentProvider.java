@@ -50,7 +50,7 @@ public abstract class EnvironmentProvider
         Environment.Builder builder = Environment.builder(name, printStream);
 
         // Environment is created by applying bases, environment definition and environment config to builder
-        ImmutableList<EnvironmentExtender> extenders = ImmutableList.<EnvironmentExtender>builder()
+        List<EnvironmentExtender> extenders = ImmutableList.<EnvironmentExtender>builder()
                 .addAll(bases)
                 .add(this)
                 .add(environmentConfig)

@@ -119,8 +119,8 @@ enum PageCodecMarker
             if (this == o) {
                 return true;
             }
-            if (o instanceof MarkerSet) {
-                return markers == ((MarkerSet) o).markers;
+            if (o instanceof MarkerSet that) {
+                return markers == that.markers;
             }
             return false;
         }

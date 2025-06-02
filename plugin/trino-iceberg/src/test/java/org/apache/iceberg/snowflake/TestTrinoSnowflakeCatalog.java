@@ -73,7 +73,6 @@ import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.S
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.SNOWFLAKE_USER;
 import static io.trino.plugin.iceberg.catalog.snowflake.TestingSnowflakeServer.TableType.ICEBERG;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
@@ -227,7 +226,8 @@ public class TestTrinoSnowflakeCatalog
                 false,
                 _ -> false,
                 newDirectExecutorService(),
-                directExecutor());
+                directExecutor(),
+                newDirectExecutorService());
         assertThat(icebergMetadata.schemaExists(SESSION, namespace)).as("icebergMetadata.schemaExists(namespace)")
                 .isTrue();
         assertThat(icebergMetadata.schemaExists(SESSION, schema)).as("icebergMetadata.schemaExists(schema)")
@@ -251,7 +251,7 @@ public class TestTrinoSnowflakeCatalog
                 () -> catalog.newCreateTableTransaction(
                                 SESSION,
                                 schemaTableName,
-                                new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                                new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get())),
                                 PartitionSpec.unpartitioned(),
                                 SortOrder.unsorted(),
                                 Optional.of(tableLocation),
@@ -269,10 +269,10 @@ public class TestTrinoSnowflakeCatalog
         String namespace = "test_create_sort_table_" + randomNameSuffix();
         String table = "tableName";
         SchemaTableName schemaTableName = new SchemaTableName(namespace, table);
-        Schema tableSchema = new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get()),
-                Types.NestedField.of(2, true, "col2", Types.StringType.get()),
-                Types.NestedField.of(3, true, "col3", Types.TimestampType.withZone()),
-                Types.NestedField.of(4, true, "col4", Types.StringType.get()));
+        Schema tableSchema = new Schema(Types.NestedField.optional(1, "col1", Types.LongType.get()),
+                Types.NestedField.optional(2, "col2", Types.StringType.get()),
+                Types.NestedField.optional(3, "col3", Types.TimestampType.withZone()),
+                Types.NestedField.optional(4, "col4", Types.StringType.get()));
 
         SortOrder sortOrder = SortOrder.builderFor(tableSchema)
                 .asc("col1")

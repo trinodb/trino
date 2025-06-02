@@ -194,8 +194,10 @@ public final class TypedKeyValueHeap
         int recordOffset = getRecordOffset(index);
 
         byte[] variableWidthChunk = EMPTY_CHUNK;
+        int variableWidthChunkOffset = 0;
         if (variableWidthData != null) {
             variableWidthChunk = variableWidthData.getChunk(fixedChunk, recordOffset);
+            variableWidthChunkOffset = getChunkOffset(fixedChunk, recordOffset);
         }
 
         if (keyBlockBuilder != null) {
@@ -204,12 +206,17 @@ public final class TypedKeyValueHeap
                         fixedChunk,
                         recordOffset + recordKeyOffset,
                         variableWidthChunk,
+                        variableWidthChunkOffset,
                         keyBlockBuilder);
             }
             catch (Throwable throwable) {
                 Throwables.throwIfUnchecked(throwable);
                 throw new RuntimeException(throwable);
             }
+        }
+        // advance past variable width key data
+        if (keyVariableWidth) {
+            variableWidthChunkOffset += keyType.getFlatVariableWidthLength(fixedChunk, recordOffset + recordKeyOffset);
         }
         if (fixedChunk[recordOffset + recordValueNullOffset] != 0) {
             valueBlockBuilder.appendNull();
@@ -220,6 +227,7 @@ public final class TypedKeyValueHeap
                         fixedChunk,
                         recordOffset + recordValueOffset,
                         variableWidthChunk,
+                        variableWidthChunkOffset,
                         valueBlockBuilder);
             }
             catch (Throwable throwable) {
@@ -260,13 +268,7 @@ public final class TypedKeyValueHeap
                 fixedChunk,
                 recordSize,
                 0,
-                positionCount,
-                (fixedSizeOffset, variableWidthChunk, variableWidthChunkOffset) -> {
-                    int keyVariableWidth = keyType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
-                    if (fixedChunk[fixedSizeOffset + recordValueNullOffset] == 0) {
-                        valueType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset + keyVariableWidth);
-                    }
-                });
+                positionCount);
     }
 
     private void set(int index, ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition)
@@ -368,9 +370,13 @@ public final class TypedKeyValueHeap
 
         byte[] leftVariableWidthChunk = EMPTY_CHUNK;
         byte[] rightVariableWidthChunk = EMPTY_CHUNK;
+        int leftVariableWidthChunkOffset = 0;
+        int rightVariableWidthChunkOffset = 0;
         if (keyVariableWidth) {
             leftVariableWidthChunk = variableWidthData.getChunk(fixedChunk, leftRecordOffset);
             rightVariableWidthChunk = variableWidthData.getChunk(fixedChunk, rightRecordOffset);
+            leftVariableWidthChunkOffset = getChunkOffset(fixedChunk, leftRecordOffset);
+            rightVariableWidthChunkOffset = getChunkOffset(fixedChunk, rightRecordOffset);
         }
 
         try {
@@ -378,9 +384,11 @@ public final class TypedKeyValueHeap
                     fixedChunk,
                     leftRecordOffset + recordKeyOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthChunkOffset,
                     fixedChunk,
                     rightRecordOffset + recordKeyOffset,
-                    rightVariableWidthChunk);
+                    rightVariableWidthChunk,
+                    rightVariableWidthChunkOffset);
             return (int) (min ? result : -result);
         }
         catch (Throwable throwable) {
@@ -394,8 +402,10 @@ public final class TypedKeyValueHeap
         byte[] leftFixedRecordChunk = fixedChunk;
         int leftRecordOffset = getRecordOffset(0);
         byte[] leftVariableWidthChunk = EMPTY_CHUNK;
+        int leftVariableWidthChunkOffset = 0;
         if (keyVariableWidth) {
             leftVariableWidthChunk = variableWidthData.getChunk(leftFixedRecordChunk, leftRecordOffset);
+            leftVariableWidthChunkOffset = getChunkOffset(leftFixedRecordChunk, leftRecordOffset);
         }
 
         try {
@@ -403,6 +413,7 @@ public final class TypedKeyValueHeap
                     leftFixedRecordChunk,
                     leftRecordOffset + recordKeyOffset,
                     leftVariableWidthChunk,
+                    leftVariableWidthChunkOffset,
                     right,
                     rightPosition);
             return min ? result > 0 : result < 0;

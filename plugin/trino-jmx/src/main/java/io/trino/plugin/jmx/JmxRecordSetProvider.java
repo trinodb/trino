@@ -37,6 +37,7 @@ import javax.management.ObjectName;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -65,7 +66,7 @@ public class JmxRecordSetProvider
     public List<Object> getLiveRow(String objectName, List<? extends ColumnHandle> columns, long entryTimestamp)
             throws JMException
     {
-        ImmutableMap<String, Optional<Object>> attributes = getAttributes(getColumnNames(columns), objectName);
+        Map<String, Optional<Object>> attributes = getAttributes(getColumnNames(columns), objectName);
         List<Object> row = new ArrayList<>();
 
         for (ColumnHandle column : columns) {
@@ -97,8 +98,8 @@ public class JmxRecordSetProvider
                         }
                     }
                     else if (javaType == long.class) {
-                        if (value instanceof Number) {
-                            row.add(((Number) value).longValue());
+                        if (value instanceof Number number) {
+                            row.add(number.longValue());
                         }
                         else {
                             // mbeans can lie about types
@@ -106,8 +107,8 @@ public class JmxRecordSetProvider
                         }
                     }
                     else if (javaType == double.class) {
-                        if (value instanceof Number) {
-                            row.add(((Number) value).doubleValue());
+                        if (value instanceof Number number) {
+                            row.add(number.doubleValue());
                         }
                         else {
                             // mbeans can lie about types
@@ -210,7 +211,7 @@ public class JmxRecordSetProvider
                 .collect(Collectors.toList());
     }
 
-    private ImmutableMap<String, Optional<Object>> getAttributes(Set<String> uniqueColumnNames, String name)
+    private Map<String, Optional<Object>> getAttributes(Set<String> uniqueColumnNames, String name)
             throws JMException
     {
         ObjectName objectName = new ObjectName(name);

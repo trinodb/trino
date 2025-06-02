@@ -41,7 +41,7 @@ The following table details all general configuration properties:
     to. This property is required.
   -
 * - `elasticsearch.port`
-  - Port to use to connecto to Elasticsearch.
+  - Port to use to connect to Elasticsearch.
   - `9200`
 * - `elasticsearch.default-schema-name`
   - The schema that contains all tables defined without a qualifying schema
@@ -126,7 +126,7 @@ to `PASSWORD`. Additionally the following options must be configured:
 * - Property name
   - Description
 * - `elasticsearch.auth.user`
-  - User name to use to connect to Elasticsearch.
+  - Username to use to connect to Elasticsearch.
 * - `elasticsearch.auth.password`
   - Password to use to connect to Elasticsearch.
 :::
@@ -167,7 +167,7 @@ The available configuration values are listed in the following table:
     to `true`.
 :::
 
-(elasticesearch-type-mapping)=
+(elasticsearch-type-mapping)=
 ## Type mapping
 
 Because Trino and Elasticsearch each support types that the other does not, this

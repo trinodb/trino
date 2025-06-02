@@ -27,7 +27,7 @@ import static io.trino.type.DateTimes.SECONDS_PER_MINUTE;
 
 @Description("Second of the minute of the given time")
 @ScalarFunction("second")
-public class ExtractSecond
+public final class ExtractSecond
 {
     private ExtractSecond() {}
 

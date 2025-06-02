@@ -53,7 +53,6 @@ public class OpenLineageHttpTransport
                 new HttpConfig(
                         this.url,
                         this.endpoint,
-                        null,
                         this.timeout,
                         this.tokenProvider,
                         this.urlParams,

@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.deltalake.metastore;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.metastore.Database;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.PrincipalPrivileges;
@@ -108,7 +109,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
     @Override
     public void replaceTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        delegate.replaceTable(table.getDatabaseName(), table.getTableName(), table, principalPrivileges);
+        delegate.replaceTable(table.getDatabaseName(), table.getTableName(), table, principalPrivileges, ImmutableMap.of());
     }
 
     @Override

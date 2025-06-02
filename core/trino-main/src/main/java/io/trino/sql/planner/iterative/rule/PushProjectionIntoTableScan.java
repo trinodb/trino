@@ -171,10 +171,10 @@ public class PushProjectionIntoTableScan
             for (int i = 0; i < connectorPartialProjections.size(); i++) {
                 ConnectorExpression inputConnectorExpression = connectorPartialProjections.get(i);
                 ConnectorExpression resultConnectorExpression = newConnectorPartialProjections.get(i);
-                if (!(resultConnectorExpression instanceof Variable)) {
+                if (!(resultConnectorExpression instanceof Variable variable)) {
                     continue;
                 }
-                String resultVariableName = ((Variable) resultConnectorExpression).getName();
+                String resultVariableName = variable.getName();
                 Expression inputExpression = ConnectorExpressionTranslator.translate(session, inputConnectorExpression, plannerContext, inputVariableMappings);
                 SymbolStatsEstimate symbolStatistics = scalarStatsCalculator.calculate(inputExpression, statistics, session);
                 builder.addSymbolStatistics(variableMappings.get(resultVariableName), symbolStatistics);

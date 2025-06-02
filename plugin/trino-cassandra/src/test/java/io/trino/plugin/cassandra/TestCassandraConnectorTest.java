@@ -1858,13 +1858,6 @@ public class TestCassandraConnectorTest
                 "VALUES ('CANADA', 'AMERICA')");
     }
 
-    @Test
-    public void testProtocolVersion()
-    {
-        assertQuery("SELECT native_protocol_version FROM system.local",
-                "VALUES 4");
-    }
-
     private void assertSelect(String tableName)
     {
         String sql = "SELECT " +

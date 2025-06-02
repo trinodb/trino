@@ -161,7 +161,7 @@ public class InCodeGenerator
             }
         }
         ImmutableListMultimap<Integer, BytecodeNode> hashBuckets = hashBucketsBuilder.build();
-        ImmutableSet<Object> constantValues = constantValuesBuilder.build();
+        Set<Object> constantValues = constantValuesBuilder.build();
 
         LabelNode end = new LabelNode("end");
         LabelNode match = new LabelNode("match");

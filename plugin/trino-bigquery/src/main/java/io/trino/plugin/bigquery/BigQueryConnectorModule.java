@@ -45,6 +45,7 @@ import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorAccessOpened;
+import static io.trino.plugin.base.JdkCompatibilityChecks.verifyConnectorUnsafeAllowed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -182,6 +183,7 @@ public class BigQueryConnectorModule
                     binder,
                     "bigquery",
                     ImmutableMultimap.of("java.base", "java.nio"));
+            verifyConnectorUnsafeAllowed(binder, "bigquery");
 
             configBinder(binder).bindConfig(BigQueryArrowConfig.class);
             binder.bind(BigQueryArrowBufferAllocator.class).in(Scopes.SINGLETON);

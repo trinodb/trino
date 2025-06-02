@@ -87,15 +87,15 @@ public final class Failures
 
         String type;
         HostAddress remoteHost = null;
-        if (throwable instanceof Failure) {
-            type = ((Failure) throwable).getFailureInfo().getType();
+        if (throwable instanceof Failure failure) {
+            type = failure.getFailureInfo().getType();
         }
         else {
             Class<?> clazz = throwable.getClass();
             type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
         }
-        if (throwable instanceof TrinoTransportException) {
-            remoteHost = ((TrinoTransportException) throwable).getRemoteHost();
+        if (throwable instanceof TrinoTransportException trinoTransportException) {
+            remoteHost = trinoTransportException.getRemoteHost();
         }
 
         if (seenFailures.contains(throwable)) {

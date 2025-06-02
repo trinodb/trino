@@ -77,8 +77,8 @@ public class TestExternalAuthorizerOAuth2RefreshToken
         keyStore.aliases().asIterator().forEachRemaining(alias -> {
             try {
                 Certificate certificate = keyStore.getCertificate(alias);
-                if (certificate instanceof X509Certificate) {
-                    certificatesBuilder.addTrustedCertificate((X509Certificate) certificate);
+                if (certificate instanceof X509Certificate x509Certificate) {
+                    certificatesBuilder.addTrustedCertificate(x509Certificate);
                 }
             }
             catch (KeyStoreException e) {

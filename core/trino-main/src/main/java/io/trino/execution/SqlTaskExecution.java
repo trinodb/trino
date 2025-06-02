@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,7 +32,6 @@ import io.trino.execution.buffer.BufferState;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.TaskHandle;
-import io.trino.metadata.Split;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.DriverFactory;
@@ -42,6 +40,7 @@ import io.trino.operator.PipelineContext;
 import io.trino.operator.TaskContext;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.tracing.TrinoAttributes;
@@ -409,6 +408,7 @@ public class SqlTaskExecution
         for (int i = 0; i < finishedFutures.size(); i++) {
             ListenableFuture<Void> finishedFuture = finishedFutures.get(i);
             DriverSplitRunner splitRunner = runners.get(i);
+            Optional<CatalogName> catalogName = splitRunner.getCatalogName();
 
             Futures.addCallback(finishedFuture, new FutureCallback<Object>()
             {
@@ -421,7 +421,7 @@ public class SqlTaskExecution
                             checkTaskCompletion();
                         }
 
-                        splitMonitor.splitCompletedEvent(taskId, getDriverStats());
+                        splitMonitor.splitCompletedEvent(taskId, getDriverStats(), catalogName);
                     }
                 }
 
@@ -437,7 +437,7 @@ public class SqlTaskExecution
                         }
 
                         // fire failed event with cause
-                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), cause);
+                        splitMonitor.splitFailedEvent(taskId, getDriverStats(), catalogName, cause);
                     }
                 }
 
@@ -815,7 +815,6 @@ public class SqlTaskExecution
     private static class DriverSplitRunner
             implements SplitRunner
     {
-        private static final Joiner.MapJoiner JOINER = Joiner.on(";").withKeyValueSeparator("=");
         private final DriverSplitRunnerFactory driverSplitRunnerFactory;
         private final DriverContext driverContext;
 
@@ -893,7 +892,7 @@ public class SqlTaskExecution
         @Override
         public String getInfo()
         {
-            return (partitionedSplit == null) ? "" : formatSplitInfo(partitionedSplit.getSplit());
+            return (partitionedSplit == null) ? "" : partitionedSplit.getSplit().toString();
         }
 
         @Override
@@ -910,9 +909,9 @@ public class SqlTaskExecution
             }
         }
 
-        private static String formatSplitInfo(Split split)
+        private Optional<CatalogName> getCatalogName()
         {
-            return split.getConnectorSplit().getClass().getSimpleName() + "{" + JOINER.join(split.getInfo()) + "}";
+            return partitionedSplit == null ? Optional.empty() : Optional.of(partitionedSplit.getSplit().getCatalogHandle().getCatalogName());
         }
     }
 

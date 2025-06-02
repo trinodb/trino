@@ -22,7 +22,7 @@ import java.util.stream.Stream;
 import static com.fasterxml.jackson.databind.node.JsonNodeType.ARRAY;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-public class PathEvaluationUtil
+public final class PathEvaluationUtil
 {
     private PathEvaluationUtil() {}
 

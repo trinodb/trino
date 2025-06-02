@@ -142,8 +142,8 @@ public class LdapAuthenticator
             }
         }
         log.debug(lastException, "Authentication failed for user [%s], %s", user, lastException.getMessage());
-        if (lastException instanceof AccessDeniedException) {
-            throw (AccessDeniedException) lastException;
+        if (lastException instanceof AccessDeniedException accessDeniedException) {
+            throw accessDeniedException;
         }
         throw new RuntimeException("Authentication error");
     }

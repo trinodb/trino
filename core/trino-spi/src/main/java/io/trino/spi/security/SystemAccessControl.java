@@ -14,6 +14,8 @@
 package io.trino.spi.security;
 
 import io.trino.spi.QueryId;
+import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -28,6 +30,7 @@ import io.trino.spi.type.Type;
 import java.security.Principal;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -80,13 +83,11 @@ import static io.trino.spi.security.AccessDeniedException.denyRevokeSchemaPrivil
 import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denySelectColumns;
 import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static io.trino.spi.security.AccessDeniedException.denySetEntityAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
-import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
-import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetTableProperties;
 import static io.trino.spi.security.AccessDeniedException.denySetUser;
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -271,10 +272,13 @@ public interface SystemAccessControl
      * Check if identity is allowed to change the specified schema's user/role.
      *
      * @throws AccessDeniedException if not allowed
+     *
+     * @deprecated {Use {@link #checkCanSetEntityAuthorization}
      */
+    @Deprecated(forRemoval = true)
     default void checkCanSetSchemaAuthorization(SystemSecurityContext context, CatalogSchemaName schema, TrinoPrincipal principal)
     {
-        denySetSchemaAuthorization(schema.toString(), principal);
+        denySetEntityAuthorization(new EntityKindAndName("SCHEMA", List.of(schema.getCatalogName(), schema.getSchemaName())), principal);
     }
 
     /**
@@ -481,10 +485,13 @@ public interface SystemAccessControl
      * Check if identity is allowed to change the specified table's user/role.
      *
      * @throws AccessDeniedException if not allowed
+     *
+     * @deprecated {Use {@link #checkCanSetEntityAuthorization}
      */
+    @Deprecated(forRemoval = true)
     default void checkCanSetTableAuthorization(SystemSecurityContext context, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
-        denySetTableAuthorization(table.toString(), principal);
+        denySetEntityAuthorization(new EntityKindAndName("TABLE", List.of(table.getCatalogName(), table.getSchemaTableName().getSchemaName(), table.getSchemaTableName().getTableName())), principal);
     }
 
     /**
@@ -571,10 +578,13 @@ public interface SystemAccessControl
      * Check if identity is allowed to change the specified view's user/role.
      *
      * @throws AccessDeniedException if not allowed
+     *
+     * @deprecated {Use {@link #checkCanSetEntityAuthorization}
      */
+    @Deprecated(forRemoval = true)
     default void checkCanSetViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
-        denySetViewAuthorization(view.toString(), principal);
+        denySetEntityAuthorization(new EntityKindAndName("VIEW", List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName())), principal);
     }
 
     /**
@@ -930,6 +940,34 @@ public interface SystemAccessControl
     default Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
     {
         return Optional.empty();
+    }
+
+    default void checkCanSetEntityAuthorization(SystemSecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal)
+    {
+        String kind = entityKindAndName.entityKind().toUpperCase(Locale.ENGLISH);
+        List<String> name = entityKindAndName.name();
+        switch (kind) {
+            case "SCHEMA":
+                if (name.size() != 2) {
+                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The schema name %s must have two elements".formatted(name));
+                }
+                checkCanSetSchemaAuthorization(context, new CatalogSchemaName(name.get(0), name.get(1)), principal);
+                break;
+            case "TABLE":
+                if (name.size() != 3) {
+                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The table name %s must have three elements".formatted(name));
+                }
+                checkCanSetTableAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
+                break;
+            case "VIEW":
+                if (name.size() != 3) {
+                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The view name %s must have three elements".formatted(name));
+                }
+                checkCanSetViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
+                break;
+            default:
+                denySetEntityAuthorization(new EntityKindAndName(kind, name), principal);
+        }
     }
 
     /**

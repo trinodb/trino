@@ -187,13 +187,13 @@ public class UnwrapCastInComparison
             Type sourceType = cast.expression().type();
             Type targetType = expression.right().type();
 
-            if (sourceType instanceof TimestampType && targetType == DATE) {
-                return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.expression(), (long) rightValue).orElse(expression);
+            if (sourceType instanceof TimestampType timestampType && targetType == DATE) {
+                return unwrapTimestampToDateCast(timestampType, operator, cast.expression(), (long) rightValue).orElse(expression);
             }
 
-            if (targetType instanceof TimestampWithTimeZoneType) {
+            if (targetType instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
                 // Note: two TIMESTAMP WITH TIME ZONE values differing in zone only (same instant) are considered equal.
-                rightValue = withTimeZone(((TimestampWithTimeZoneType) targetType), rightValue, session.getTimeZoneKey());
+                rightValue = withTimeZone(timestampWithTimeZoneType, rightValue, session.getTimeZoneKey());
             }
 
             if (!hasInjectiveImplicitCoercion(sourceType, targetType, rightValue)) {
@@ -409,8 +409,8 @@ public class UnwrapCastInComparison
                         (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
             }
 
-            if (source instanceof DecimalType) {
-                int precision = ((DecimalType) source).getPrecision();
+            if (source instanceof DecimalType decimalType) {
+                int precision = decimalType.getPrecision();
 
                 if (precision > 15 && target.equals(DOUBLE)) {
                     // decimal(p,s) with p > 15 doesn't fit in a double without loss

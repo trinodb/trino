@@ -62,7 +62,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.NON_TRANSACTIONAL_MERGE;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -105,15 +104,6 @@ public class TestPostgreSqlConnectorTest
         return PostgreSqlQueryRunner.builder(postgreSqlServer)
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .withProtocolSpooling("json")
-                .build();
-    }
-
-    @Override
-    protected Session getSession()
-    {
-        Session session = super.getSession();
-        return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), NON_TRANSACTIONAL_MERGE, "true")
                 .build();
     }
 
@@ -1112,7 +1102,7 @@ public class TestPostgreSqlConnectorTest
                                                 .equals(new PreparedQuery(
                                                         "SELECT \"id\", REVERSE(\"_pfgnrtd_3\") AS \"_pfgnrtd_4\" FROM (SELECT \"id\", REVERSE(\"_pfgnrtd_2\") AS \"_pfgnrtd_3\" FROM " +
                                                                 "(SELECT \"id\", REVERSE(\"_pfgnrtd_1\") AS \"_pfgnrtd_2\" FROM (SELECT \"id\", REVERSE(\"_pfgnrtd_0\") AS \"_pfgnrtd_1\" FROM " +
-                                                                "(SELECT \"id\", REVERSE(\"varchar_col\") AS \"_pfgnrtd_0\" FROM \"tpch\".\"%s\") o) o) o) o"
+                                                                "(SELECT \"id\", REVERSE(\"varchar_col\") AS \"_pfgnrtd_0\" FROM \"tpch\".\"tpch\".\"%s\") o) o) o) o"
                                                                         .formatted(table.getName()),
                                                         ImmutableList.of()));
                                     },
@@ -1176,7 +1166,7 @@ public class TestPostgreSqlConnectorTest
                                                         assertThat(jdbcTableHandle.isSynthetic()).isTrue();
                                                         return ((JdbcQueryRelationHandle) jdbcTableHandle.getRelationHandle()).getPreparedQuery()
                                                                 .equals(new PreparedQuery(
-                                                                        "SELECT \"id\", REVERSE(\"cola\") AS \"_pfgnrtd_0\", REVERSE(\"colb\") AS \"_pfgnrtd_1\" FROM \"tpch\".\"%s\"".formatted(table.getName()),
+                                                                        "SELECT \"id\", REVERSE(\"cola\") AS \"_pfgnrtd_0\", REVERSE(\"colb\") AS \"_pfgnrtd_1\" FROM \"tpch\".\"tpch\".\"%s\"".formatted(table.getName()),
                                                                         ImmutableList.of()));
                                                     },
                                                     TupleDomain.all(),

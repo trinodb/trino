@@ -32,7 +32,7 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.operator.WorkProcessorOperatorAdapter.createAdapterOperatorFactory;
 
-public class OperatorFactories
+public final class OperatorFactories
 {
     private OperatorFactories() {}
 
@@ -45,8 +45,7 @@ public class OperatorFactories
             List<Type> probeTypes,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
-            Optional<List<Integer>> probeOutputChannelsOptional,
-            TypeOperators typeOperators)
+            Optional<List<Integer>> probeOutputChannelsOptional)
     {
         List<Integer> probeOutputChannels = probeOutputChannelsOptional.orElseGet(() -> rangeList(probeTypes.size()));
         List<Type> probeOutputChannelTypes = probeOutputChannels.stream()
@@ -61,10 +60,7 @@ public class OperatorFactories
                 probeOutputChannelTypes,
                 lookupSourceFactory.getBuildOutputTypes(),
                 joinType,
-                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel, hasFilter),
-                typeOperators,
-                probeJoinChannel,
-                probeHashChannel));
+                new JoinProbe.JoinProbeFactory(probeOutputChannels, probeJoinChannel, probeHashChannel, hasFilter)));
     }
 
     public static OperatorFactory spillingJoin(

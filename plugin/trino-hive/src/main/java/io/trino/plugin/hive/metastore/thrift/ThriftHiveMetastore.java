@@ -434,7 +434,7 @@ public final class ThriftHiveMetastore
         if (acidWriteId.isPresent()) {
             modifiedTable.setWriteId(acidWriteId.getAsLong());
         }
-        alterTable(databaseName, tableName, modifiedTable);
+        alterTable(databaseName, tableName, modifiedTable, ImmutableMap.of());
 
         io.trino.metastore.Table table = fromMetastoreApiTable(modifiedTable);
         List<ColumnStatisticsObj> metastoreColumnStatistics = updatedStatistics.columnStatistics().entrySet().stream()
@@ -962,7 +962,7 @@ public final class ThriftHiveMetastore
     }
 
     @Override
-    public void alterTable(String databaseName, String tableName, Table table)
+    public void alterTable(String databaseName, String tableName, Table table, Map<String, String> environmentContext)
     {
         if (!Objects.equals(databaseName, table.getDbName())) {
             validateObjectName(table.getDbName());
@@ -980,7 +980,10 @@ public final class ThriftHiveMetastore
                             // This prevents Hive 3.x from collecting basic table stats at table creation time.
                             // These stats are not useful by themselves and can take a very long time to collect when creating an
                             // external table over a large data set.
-                            context.setProperties(ImmutableMap.of("DO_NOT_UPDATE_STATS", "true"));
+                            context.setProperties(ImmutableMap.<String, String>builder()
+                                    .put("DO_NOT_UPDATE_STATS", "true")
+                                    .putAll(environmentContext)
+                                    .buildOrThrow());
                             client.alterTableWithEnvironmentContext(databaseName, tableName, table, context);
                         }
                         return null;
@@ -1602,16 +1605,9 @@ public final class ThriftHiveMetastore
 
     private long acquireLock(String context, LockRequest lockRequest)
     {
+        LockResponse response = acquireLock(lockRequest);
+        long lockId = response.getLockid();
         try {
-            LockResponse response = retry()
-                    .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
-                    .run("acquireLock", stats.getAcquireLock().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            return metastoreClient.acquireLock(lockRequest);
-                        }
-                    }));
-
-            long lockId = response.getLockid();
             long waitStart = nanoTime();
             while (response.getState() == LockState.WAITING) {
                 if (Duration.nanosSince(waitStart).compareTo(maxWaitForLock) > 0) {
@@ -1635,6 +1631,25 @@ public final class ThriftHiveMetastore
             }
 
             return response.getLockid();
+        }
+        catch (TException e) {
+            throw unlockSuppressing(lockId, new TrinoException(HIVE_METASTORE_ERROR, e));
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    private LockResponse acquireLock(LockRequest lockRequest)
+    {
+        try {
+            return retry()
+                    .stopOn(NoSuchTxnException.class, TxnAbortedException.class, MetaException.class)
+                    .run("acquireLock", stats.getAcquireLock().wrap(() -> {
+                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
+                            return metastoreClient.acquireLock(lockRequest);
+                        }
+                    }));
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);

@@ -74,7 +74,7 @@ public final class EqualityDeleteUtils
         Parquet.DeleteWriteBuilder writerBuilder = Parquet.writeDeletes(fileIo.newOutputFile(deleteFileName))
                 .forTable(icebergTable)
                 .rowSchema(deleteRowSchema)
-                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .createWriterFunc(GenericParquetWriter::create)
                 .equalityFieldIds(equalityDeleteFieldIds)
                 .overwrite();
         if (partitionSpec.isPresent() && partitionData.isPresent()) {

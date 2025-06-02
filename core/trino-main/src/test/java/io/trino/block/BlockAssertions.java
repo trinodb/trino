@@ -170,8 +170,8 @@ public final class BlockAssertions
         if (type == VARCHAR) {
             return createRandomStringBlock(positionCount, nullRate, MAX_STRING_SIZE);
         }
-        if (type instanceof CharType) {
-            return createRandomCharsBlock((CharType) type, positionCount, nullRate);
+        if (type instanceof CharType charType) {
+            return createRandomCharsBlock(charType, positionCount, nullRate);
         }
         if (type == DOUBLE) {
             return createRandomDoublesBlock(positionCount, nullRate);
@@ -228,8 +228,8 @@ public final class BlockAssertions
         }
 
         // Builds the nested block of size offsets[positionCount].
-        if (type instanceof ArrayType) {
-            ValueBlock valuesBlock = createRandomBlockForType(((ArrayType) type).getElementType(), offsets[positionCount], nullRate);
+        if (type instanceof ArrayType arrayType) {
+            ValueBlock valuesBlock = createRandomBlockForType(arrayType.getElementType(), offsets[positionCount], nullRate);
             return fromElementBlock(positionCount, Optional.ofNullable(isNull), offsets, valuesBlock);
         }
         if (type instanceof MapType mapType) {

@@ -22,6 +22,9 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 
 import java.util.List;
@@ -178,7 +181,7 @@ public final class MergePages
             }
 
             // TODO: merge low cardinality blocks lazily
-            if (inputPage.getPositionCount() >= minRowCount || !isLoaded(inputPage) || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
+            if (inputPage.getPositionCount() >= minRowCount || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
                 if (pageBuilder.isEmpty()) {
                     return ofResult(inputPage);
                 }
@@ -205,17 +208,19 @@ public final class MergePages
         {
             pageBuilder.declarePositions(page.getPositionCount());
             for (int channel = 0; channel < types.size(); channel++) {
-                appendBlock(
-                        types.get(channel),
-                        page.getBlock(channel).getLoadedBlock(),
+                appendRawBlock(
+                        page.getBlock(channel),
                         pageBuilder.getBlockBuilder(channel));
             }
         }
 
-        private void appendBlock(Type type, Block block, BlockBuilder blockBuilder)
+        private void appendRawBlock(Block rawBlock, BlockBuilder blockBuilder)
         {
-            for (int position = 0; position < block.getPositionCount(); position++) {
-                type.appendTo(block, position, blockBuilder);
+            int length = rawBlock.getPositionCount();
+            switch (rawBlock) {
+                case RunLengthEncodedBlock rleBlock -> blockBuilder.appendRepeated(rleBlock.getValue(), 0, length);
+                case DictionaryBlock dictionaryBlock -> blockBuilder.appendPositions(dictionaryBlock.getDictionary(), dictionaryBlock.getRawIds(), dictionaryBlock.getRawIdsOffset(), length);
+                case ValueBlock valueBlock -> blockBuilder.appendRange(valueBlock, 0, length);
             }
         }
 
@@ -225,19 +230,6 @@ public final class MergePages
             pageBuilder.reset();
             memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
             return output;
-        }
-
-        private static boolean isLoaded(Page page)
-        {
-            // TODO: provide better heuristics there, e.g. check if last produced page was materialized
-            for (int channel = 0; channel < page.getChannelCount(); ++channel) {
-                Block block = page.getBlock(channel);
-                if (!block.isLoaded()) {
-                    return false;
-                }
-            }
-
-            return true;
         }
     }
 }

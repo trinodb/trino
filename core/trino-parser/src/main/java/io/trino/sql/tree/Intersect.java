@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 public class Intersect
@@ -27,20 +28,21 @@ public class Intersect
 {
     private final List<Relation> relations;
 
-    public Intersect(List<Relation> relations, boolean distinct)
+    public Intersect(List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
-        this(Optional.empty(), relations, distinct);
+        this(Optional.empty(), relations, distinct, corresponding);
     }
 
-    public Intersect(NodeLocation location, List<Relation> relations, boolean distinct)
+    public Intersect(NodeLocation location, List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
-        this(Optional.of(location), relations, distinct);
+        this(Optional.of(location), relations, distinct, corresponding);
     }
 
-    private Intersect(Optional<NodeLocation> location, List<Relation> relations, boolean distinct)
+    private Intersect(Optional<NodeLocation> location, List<Relation> relations, boolean distinct, Optional<Corresponding> corresponding)
     {
-        super(location, distinct);
+        super(location, distinct, corresponding);
         requireNonNull(relations, "relations is null");
+        checkArgument(relations.size() == 2, "relations must have 2 elements");
 
         this.relations = ImmutableList.copyOf(relations);
     }
@@ -69,6 +71,7 @@ public class Intersect
         return toStringHelper(this)
                 .add("relations", relations)
                 .add("distinct", isDistinct())
+                .add("corresponding", getCorresponding())
                 .toString();
     }
 
@@ -83,13 +86,14 @@ public class Intersect
         }
         Intersect o = (Intersect) obj;
         return Objects.equals(relations, o.relations) &&
-               isDistinct() == o.isDistinct();
+               isDistinct() == o.isDistinct() &&
+               Objects.equals(getCorresponding(), o.getCorresponding());
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relations, isDistinct());
+        return Objects.hash(relations, isDistinct(), getCorresponding());
     }
 
     @Override
@@ -99,6 +103,8 @@ public class Intersect
             return false;
         }
 
-        return this.isDistinct() == ((Intersect) other).isDistinct();
+        Intersect otherIntersect = (Intersect) other;
+        return this.isDistinct() == otherIntersect.isDistinct() &&
+                Objects.equals(getCorresponding(), otherIntersect.getCorresponding());
     }
 }

@@ -213,7 +213,7 @@ public class TestSimpleFormat
 
         // verify adding one more nesting level fails
         type = new ArrayType(type);
-        ImmutableList<Column> columns = ImmutableList.of(
+        List<Column> columns = ImmutableList.of(
                 new Column("a", BIGINT, 0),
                 new Column("b", type, 1),
                 new Column("c", BIGINT, 2));

@@ -171,7 +171,8 @@ public class CheckpointWriter
                         addEntryType,
                         addFileEntry,
                         entries.metadataEntry(),
-                        entries.protocolEntry(), partitionColumns,
+                        entries.protocolEntry(),
+                        partitionColumns,
                         partitionValuesParsedFieldTypes,
                         writeStatsAsJson,
                         writeStatsAsStruct));

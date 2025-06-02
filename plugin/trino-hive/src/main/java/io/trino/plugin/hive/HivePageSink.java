@@ -16,9 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.common.primitives.Ints;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -48,13 +46,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TOO_MANY_OPEN_PARTITIONS;
@@ -83,7 +80,6 @@ public class HivePageSink
     private final HiveWriterPagePartitioner pagePartitioner;
 
     private final int maxOpenWriters;
-    private final ListeningExecutorService writeVerificationExecutor;
 
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
@@ -93,7 +89,6 @@ public class HivePageSink
     private final long idleWriterMinFileSize;
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final List<Slice> partitionUpdates = new ArrayList<>();
-    private final List<Callable<Object>> verificationTasks = new ArrayList<>();
     private final List<Boolean> activeWriters = new ArrayList<>();
 
     private final boolean isMergeSink;
@@ -109,7 +104,6 @@ public class HivePageSink
             Optional<BucketInfo> bucketInfo,
             PageIndexerFactory pageIndexerFactory,
             int maxOpenWriters,
-            ListeningExecutorService writeVerificationExecutor,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ConnectorSession session)
     {
@@ -121,7 +115,6 @@ public class HivePageSink
 
         this.isTransactional = acidTransaction.isTransactional();
         this.maxOpenWriters = maxOpenWriters;
-        this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
         this.isMergeSink = acidTransaction.isMerge();
@@ -212,7 +205,7 @@ public class HivePageSink
                 .filter(Objects::nonNull)
                 .mapToLong(HiveWriter::getWrittenBytes)
                 .sum();
-        return Futures.immediateFuture(result);
+        return immediateFuture(result);
     }
 
     private ListenableFuture<Collection<Slice>> doInsertSinkFinish()
@@ -222,22 +215,7 @@ public class HivePageSink
         }
         writers.clear();
 
-        List<Slice> result = ImmutableList.copyOf(partitionUpdates);
-
-        if (verificationTasks.isEmpty()) {
-            return Futures.immediateFuture(result);
-        }
-
-        try {
-            List<ListenableFuture<?>> futures = writeVerificationExecutor.invokeAll(verificationTasks).stream()
-                    .map(future -> (ListenableFuture<?>) future)
-                    .collect(toList());
-            return Futures.transform(Futures.allAsList(futures), input -> result, directExecutor());
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
+        return immediateFuture(ImmutableList.copyOf(partitionUpdates));
     }
 
     @Override

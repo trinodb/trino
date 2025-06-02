@@ -129,7 +129,7 @@ applications for up to date information.
 The direct protocol transfers all data from the workers to the coordinator, and
 from there directly to the client.
 
-The direct protocol, also know as the `v1` protocol, has the following
+The direct protocol, also known as the `v1` protocol, has the following
 characteristics, compared to the spooling protocol:
 
 * Provides lower performance, specifically for queries that return more data.

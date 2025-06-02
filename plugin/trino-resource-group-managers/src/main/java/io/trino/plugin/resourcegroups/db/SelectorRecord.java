@@ -35,6 +35,8 @@ public class SelectorRecord
     private final long priority;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> userGroupRegex;
+    private final Optional<Pattern> originalUserRegex;
+    private final Optional<Pattern> authenticatedUserRegex;
     private final Optional<Pattern> sourceRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
@@ -45,6 +47,8 @@ public class SelectorRecord
             long priority,
             Optional<Pattern> userRegex,
             Optional<Pattern> userGroupRegex,
+            Optional<Pattern> originalUserRegex,
+            Optional<Pattern> authenticatedUserRegex,
             Optional<Pattern> sourceRegex,
             Optional<String> queryType,
             Optional<List<String>> clientTags,
@@ -54,6 +58,8 @@ public class SelectorRecord
         this.priority = priority;
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
+        this.originalUserRegex = requireNonNull(originalUserRegex, "originalUserRegex is null");
+        this.authenticatedUserRegex = requireNonNull(authenticatedUserRegex, "authenticatedUserRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = clientTags.map(ImmutableList::copyOf);
@@ -78,6 +84,16 @@ public class SelectorRecord
     public Optional<Pattern> getUserGroupRegex()
     {
         return userGroupRegex;
+    }
+
+    public Optional<Pattern> getOriginalUserRegex()
+    {
+        return originalUserRegex;
+    }
+
+    public Optional<Pattern> getAuthenticatedUserRegex()
+    {
+        return authenticatedUserRegex;
     }
 
     public Optional<Pattern> getSourceRegex()
@@ -115,6 +131,8 @@ public class SelectorRecord
                     resultSet.getLong("priority"),
                     Optional.ofNullable(resultSet.getString("user_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("user_group_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("original_user_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("authenticated_user_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("query_type")),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),

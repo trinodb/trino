@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class NestedLoopJoinPages
 {
-    private final ImmutableList<Page> pages;
+    private final List<Page> pages;
     private final DataSize estimatedSize;
 
     NestedLoopJoinPages(List<Page> pages, DataSize estimatedSize, OperatorContext operatorContext)

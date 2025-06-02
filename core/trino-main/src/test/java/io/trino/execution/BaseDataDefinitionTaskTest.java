@@ -214,7 +214,7 @@ public abstract class BaseDataDefinitionTaskTest
         return viewDefinition("SELECT 1", ImmutableList.of(new ViewColumn("test", BIGINT.getTypeId(), Optional.empty())));
     }
 
-    protected static ViewDefinition viewDefinition(String sql, ImmutableList<ViewColumn> columns)
+    protected static ViewDefinition viewDefinition(String sql, List<ViewColumn> columns)
     {
         return new ViewDefinition(
                 sql,

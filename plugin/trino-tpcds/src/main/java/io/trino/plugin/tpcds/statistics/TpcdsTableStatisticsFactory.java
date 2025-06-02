@@ -91,8 +91,8 @@ public class TpcdsTableStatisticsFactory
 
     private static double toDouble(Object value, Type type)
     {
-        if (value instanceof String && type.equals(DATE)) {
-            return LocalDate.parse((CharSequence) value).toEpochDay();
+        if (value instanceof String string && type.equals(DATE)) {
+            return LocalDate.parse(string).toEpochDay();
         }
         if (type.equals(BIGINT) || type.equals(INTEGER) || type.equals(DATE)) {
             return ((Number) value).doubleValue();

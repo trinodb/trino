@@ -75,7 +75,7 @@ public class DictionaryBuilder
 
     public long getSizeInBytes()
     {
-        return sliceOutput.size() + sizeOf(offsets);
+        return sliceOutput.size() + Integer.BYTES * (long) entryCount;
     }
 
     public long getRetainedSizeInBytes()

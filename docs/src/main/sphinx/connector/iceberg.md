@@ -114,7 +114,8 @@ implementation is used:
     in Iceberg version 0.11.0.
   - `true`
 * - `iceberg.max-partitions-per-writer`
-  - Maximum number of partitions handled per writer.
+  - Maximum number of partitions handled per writer. The equivalent catalog session property is
+    `max_partitions_per_writer`.
   - `100`
 * - `iceberg.target-max-file-size`
   - Target maximum size of written files; the actual size may be larger.
@@ -189,7 +190,7 @@ implementation is used:
     the new records.
   - `true`
 * - `iceberg.metadata-cache.enabled`
-  - Set to `false` to disable in-memory caching of metadata files on the 
+  - Set to `false` to disable in-memory caching of metadata files on the
     coordinator. This cache is not used when `fs.cache.enabled` is set to true.
   - `true`
 * - `iceberg.object-store-layout.enabled`
@@ -693,6 +694,52 @@ EXECUTE add_files(
     format => 'ORC');
 ```
 
+(iceberg-functions)=
+### Functions
+
+Functions are available in the `system` schema of each catalog. Functions can
+be called in a SQL statement. For example, the following code snippet
+displays how to execute the `system.bucket` function in an Iceberg catalog:
+
+```sql
+SELECT system.bucket('trino', 16);
+```
+
+(iceberg-bucket-function)=
+#### bucket
+
+This function exposes the [Iceberg bucket transform](https://iceberg.apache.org/spec/#bucket-transform-details)
+so that users can determine what bucket a particular value falls into. The
+function takes two arguments: the partition value and the number of buckets.
+
+The supported types for the 1st argument to this function are:
+
+* `TINYINT`
+* `SMALLINT`
+* `INTEGER`
+* `BIGINT`
+* `VARCHAR`
+* `VARBINARY`
+* `DATE`
+* `TIMESTAMP`
+* `TIMESTAMP WITH TIME ZONE`
+
+For example, if we wanted to see what bucket number a particular string would
+be assigned, we can execute:
+
+```sql
+SELECT system.bucket('trino', 16);
+```
+
+This function can be used in a `WHERE` clause to only operate on a particular
+bucket:
+
+```sql
+SELECT count(*)
+FROM customer
+WHERE system.bucket(custkey, 16) = 2;
+```
+
 (iceberg-data-management)=
 ### Data management
 
@@ -737,7 +784,7 @@ The {ref}`sql-schema-table-management` functionality includes support for:
 
 #### Schema evolution
 
-Iceberg supports schema evolution, with safe column add, drop, reorder, and
+Iceberg supports schema evolution, with safe column add, drop, and
 rename operations, including in nested structures.
 
 Iceberg supports updating column types only for widening operations:
@@ -758,10 +805,23 @@ EXECUTE <alter-table-execute>`.
 ```{include} optimize.fragment
 ```
 
+Use a `WHERE` clause with [metadata columns](iceberg-metadata-columns) to filter
+which files are optimized.
+
+```sql
+ALTER TABLE test_table EXECUTE optimize
+WHERE "$file_modified_time" > date_trunc('day', CURRENT_TIMESTAMP);
+```
+
 (iceberg-optimize-manifests)=
 ##### optimize_manifests
 
-Optimize table manifests to speed up planning.
+Rewrites manifest files to cluster them by partitioning columns.
+This can be used to optimize scan planning when there are many small manifest files
+or when there are partition filters in read queries but the manifest files are
+not grouped by partitions.
+The iceberg table property `commit.manifest.target-size-bytes` controls
+the maximum size of manifest files produced by this procedure.
 
 `optimize_manifests` can be run as follows:
 
@@ -909,7 +969,7 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `data_location`
   - Optionally specifies the file system location URI for the table's data files
 * - `extra_properties`
-  - Additional properties added to a Iceberg table. The properties are not used by Trino,
+  - Additional properties added to an Iceberg table. The properties are not used by Trino,
     and are available in the `$properties` metadata table.
     The properties are not included in the output of `SHOW CREATE TABLE` statements.
 :::
@@ -1318,8 +1378,8 @@ The output of the query has the following columns:
     values in the file.
 * - `nan_value_counts`
   - `map(INTEGER, BIGINT)`
-  - Mapping between the Iceberg column ID and its corresponding count of non-
-    numerical values in the file.
+  - Mapping between the Iceberg column ID and its corresponding count of 
+    non-numerical values in the file.
 * - `lower_bounds`
   - `map(INTEGER, BIGINT)`
   - Mapping between the Iceberg column ID and its corresponding lower bound in
@@ -1484,6 +1544,51 @@ Retrieve all records that belong to a specific file using
 SELECT *
 FROM example.web.page_views
 WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS TIMESTAMP WITH TIME ZONE)
+```
+
+(iceberg-system-tables)=
+#### System tables
+
+The connector exposes metadata tables in the system schema.
+
+##### `iceberg_tables` table
+
+The `iceberg_tables` table allows listing only Iceberg tables from a given catalog.
+The `SHOW TABLES` statement, `information_schema.tables`, and `jdbc.tables` will all
+return all tables that exist in the underlying metastore, even if the table cannot
+be handled in any way by the iceberg connector. This can happen if other connectors
+like Hive or Delta Lake, use the same metastore, catalog, and schema to store its tables.
+
+The table includes following columns:
+
+:::{list-table} iceberg_tables columns
+:widths: 30, 30, 40
+:header-rows: 1
+
+* - Name
+  - Type
+  - Description
+* - `table_schema`
+  - `VARCHAR`
+  - The name of the schema the table is in.
+* - `table_name`
+  - `VARCHAR`
+  - The name of the table.
+:::
+ 
+The following query lists Iceberg tables from all schemas in the `example` catalog.
+
+```sql
+SELECT * FROM example.system.iceberg_tables;
+```
+
+```text
+ table_schema | table_name  |
+--------------+-------------+
+ tpcds        | store_sales |
+ tpch         | nation      |
+ tpch         | region      |
+ tpch         | orders      |       
 ```
 
 #### DROP TABLE
@@ -1978,3 +2083,32 @@ The connector supports redirection from Iceberg tables to Hive tables with the
 
 The connector supports configuring and using [file system
 caching](/object-storage/file-system-cache).
+
+### Iceberg metadata caching
+
+The Iceberg connector supports caching metadata in coordinator memory. This
+metadata caching is enabled by default and can be disabled by setting the
+`iceberg.metadata-cache.enabled` configuration property to `false`.
+When `fs.cache.enabled` is set to `true`, metadata is cached on local disks
+using the [file system caching
+implementation](/object-storage/file-system-cache). If `fs.cache.enabled` is
+enabled, metadata caching in coordinator memory is deactivated.
+
+Additionally, you can use the following catalog configuration properties:
+
+:::{list-table} Memory metadata caching configuration properties :widths: 25, 75
+:header-rows: 1
+
+* - Property
+  - Description
+* - `fs.memory-cache.ttl`
+  - The maximum [duration](prop-type-duration) to keep files in the cache prior
+    to eviction. The minimum value of `0s` means that caching is effectively
+    turned off. Defaults to `1h`.
+* - `fs.memory-cache.max-size`
+  - The maximum total [data size](prop-type-data-size) of the cache. When
+    raising this value, keep in mind that the coordinator memory is used.
+    Defaults to `200MB`.
+* - `fs.memory-cache.max-content-length`
+  - The maximum file size that can be cached. Defaults to `15MB`.
+  :::

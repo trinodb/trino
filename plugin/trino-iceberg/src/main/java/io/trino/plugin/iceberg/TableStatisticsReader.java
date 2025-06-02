@@ -51,6 +51,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -63,7 +64,7 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
-import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimePathDomain;
+import static io.trino.plugin.iceberg.IcebergUtil.getFileModifiedTimeDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getModificationTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionDomain;
 import static io.trino.plugin.iceberg.IcebergUtil.getPathDomain;
@@ -92,6 +93,7 @@ public final class TableStatisticsReader
             IcebergTableHandle tableHandle,
             Set<IcebergColumnHandle> projectedColumns,
             Table icebergTable,
+            ExecutorService icebergPlanningExecutor,
             TrinoFileSystem fileSystem)
     {
         return makeTableStatistics(
@@ -102,6 +104,7 @@ public final class TableStatisticsReader
                 tableHandle.getUnenforcedPredicate(),
                 projectedColumns,
                 isExtendedStatisticsEnabled(session),
+                icebergPlanningExecutor,
                 fileSystem);
     }
 
@@ -114,6 +117,7 @@ public final class TableStatisticsReader
             TupleDomain<IcebergColumnHandle> unenforcedConstraint,
             Set<IcebergColumnHandle> projectedColumns,
             boolean extendedStatisticsEnabled,
+            ExecutorService icebergPlanningExecutor,
             TrinoFileSystem fileSystem)
     {
         if (snapshot.isEmpty()) {
@@ -145,7 +149,7 @@ public final class TableStatisticsReader
 
         Domain partitionDomain = getPartitionDomain(effectivePredicate);
         Domain pathDomain = getPathDomain(effectivePredicate);
-        Domain fileModifiedTimeDomain = getFileModifiedTimePathDomain(effectivePredicate);
+        Domain fileModifiedTimeDomain = getFileModifiedTimeDomain(effectivePredicate);
         Schema snapshotSchema = schemaFor(icebergTable, snapshotId);
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(effectivePredicate.filter((column, domain) -> !isMetadataColumnId(column.getId()))))
@@ -154,7 +158,8 @@ public final class TableStatisticsReader
                         columnIds.stream()
                                 .map(snapshotSchema::findColumnName)
                                 .filter(Objects::nonNull)
-                                .collect(toImmutableList()));
+                                .collect(toImmutableList()))
+                .planWith(icebergPlanningExecutor);
 
         IcebergStatistics.Builder icebergStatisticsBuilder = new IcebergStatistics.Builder(columns, typeManager);
         try (CloseableIterable<FileScanTask> fileScanTasks = tableScan.planFiles()) {

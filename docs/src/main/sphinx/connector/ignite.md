@@ -15,7 +15,7 @@ database from Trino.
 
 ## Requirements
 
-To connect to a Ignite server, you need:
+To connect to an Ignite server, you need:
 
 - Ignite version 2.9.0 or latter
 - Network access from the Trino coordinator and workers to the Ignite
@@ -26,7 +26,7 @@ To connect to a Ignite server, you need:
 
 The Ignite connector expose `public` schema by default.
 
-The connector can query a Ignite instance. Create a catalog properties file
+The connector can query an Ignite instance. Create a catalog properties file
 that specifies the Ignite connector by setting the `connector.name` to
 `ignite`.
 
@@ -95,7 +95,7 @@ WITH (
 The following are supported Ignite table properties from [https://ignite.apache.org/docs/latest/sql-reference/ddl](https://ignite.apache.org/docs/latest/sql-reference/ddl)
 
 :::{list-table}
-:widths: 30, 10, 100
+:widths: 30, 10, 60
 :header-rows: 1
 
 * - Property name
@@ -103,7 +103,7 @@ The following are supported Ignite table properties from [https://ignite.apache.
   - Description
 * - `primary_key`
   - No
-  - The primary key of the table, can chose multi columns as the table primary
+  - The primary key of the table, can choose multi columns as the table primary
     key. Table at least contains one column not in primary key.
 :::
 

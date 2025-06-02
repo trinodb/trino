@@ -632,9 +632,12 @@ public class PlanFragmenter
                 Metadata metadata,
                 Session session)
         {
+            if (partitionCount.isPresent()) {
+                this.partitionCount = partitionCount;
+            }
+
             if (partitioningHandle.isEmpty()) {
                 partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
                 return this;
             }
 
@@ -655,7 +658,6 @@ public class PlanFragmenter
 
             if (isCompatibleScaledWriterPartitioning(currentPartitioning, distribution)) {
                 this.partitioningHandle = Optional.of(distribution);
-                this.partitionCount = partitionCount;
                 return this;
             }
 
@@ -680,10 +682,9 @@ public class PlanFragmenter
         {
             ConnectorPartitioningHandle currentHandle = partitioningHandle.get().getConnectorHandle();
             ConnectorPartitioningHandle distributionHandle = distribution.getConnectorHandle();
-            if ((currentHandle instanceof SystemPartitioningHandle) &&
-                    (distributionHandle instanceof SystemPartitioningHandle)) {
-                return ((SystemPartitioningHandle) currentHandle).getPartitioning() ==
-                        ((SystemPartitioningHandle) distributionHandle).getPartitioning();
+            if ((currentHandle instanceof SystemPartitioningHandle currentPartitioningHandle) &&
+                    (distributionHandle instanceof SystemPartitioningHandle distributionPartitioningHandle)) {
+                return currentPartitioningHandle.getPartitioning() == distributionPartitioningHandle.getPartitioning();
             }
             return false;
         }

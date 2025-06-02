@@ -38,11 +38,11 @@ class SpooledSegmentIterator
     private final long rowsCount;
     private final SegmentLoader loader;
     private final QueryDataDecoder decoder;
+    private final Closer closer = Closer.create();
     private long currentRow;
     private boolean loaded;
     private boolean closed;
     private Iterator<List<Object>> iterator;
-    private Closer closer = Closer.create();
 
     public SpooledSegmentIterator(SpooledSegment spooledSegment, SegmentLoader loader, QueryDataDecoder decoder)
     {
@@ -62,7 +62,7 @@ class SpooledSegmentIterator
         checkState(iterator == null, "Iterator should be unloaded");
         try {
             InputStream stream = closer.register(loader.load(segment)); // close stream when exhausted
-            iterator = decoder.decode(stream, segment.getMetadata());
+            iterator = closer.register(decoder.decode(stream, segment.getMetadata()));
             loaded = true;
         }
         catch (IOException e) {
@@ -82,11 +82,6 @@ class SpooledSegmentIterator
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-    }
-
-    public long remaining()
-    {
-        return rowsCount - currentRow;
     }
 
     @Override

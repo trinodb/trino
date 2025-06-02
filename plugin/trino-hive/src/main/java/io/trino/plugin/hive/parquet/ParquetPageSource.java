@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.parquet;
 
-import io.trino.parquet.Column;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.reader.ParquetReader;
@@ -24,7 +23,6 @@ import io.trino.spi.metrics.Metrics;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.List;
 import java.util.OptionalLong;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
@@ -44,11 +42,6 @@ public class ParquetPageSource
     public ParquetPageSource(ParquetReader parquetReader)
     {
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
-    }
-
-    public List<Column> getColumnFields()
-    {
-        return parquetReader.getColumnFields();
     }
 
     @Override
@@ -126,8 +119,8 @@ public class ParquetPageSource
 
     static TrinoException handleException(ParquetDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof TrinoException) {
-            return (TrinoException) exception;
+        if (exception instanceof TrinoException trinoException) {
+            return trinoException;
         }
         if (exception instanceof ParquetCorruptionException) {
             return new TrinoException(HIVE_BAD_DATA, exception);

@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.stats.Distribution;
@@ -21,9 +22,11 @@ import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.stats.TDigest;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.metrics.Metrics;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 import org.junit.jupiter.api.Test;
 
@@ -37,7 +40,8 @@ public class TestStageStats
     private static final StageStats EXPECTED = new StageStats(
             new DateTime(0),
 
-            getTestDistribution(1),
+            ImmutableMap.of(new PlanNodeId("1"), getTestDistribution(1)),
+            ImmutableMap.of(new PlanNodeId("2"), new Metrics(ImmutableMap.of("metric", new LongCount(2)))),
 
             4,
             5,
@@ -131,7 +135,7 @@ public class TestStageStats
     {
         assertThat(actual.getSchedulingComplete().getMillis()).isEqualTo(0);
 
-        assertThat(actual.getGetSplitDistribution().getCount()).isEqualTo(1.0);
+        assertThat(actual.getGetSplitDistribution().get(new PlanNodeId("1")).getCount()).isEqualTo(1.0);
 
         assertThat(actual.getTotalTasks()).isEqualTo(4);
         assertThat(actual.getRunningTasks()).isEqualTo(5);

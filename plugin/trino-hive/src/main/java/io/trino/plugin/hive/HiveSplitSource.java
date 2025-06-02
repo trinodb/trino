@@ -263,7 +263,7 @@ class HiveSplitSource
                 throw new UnsupportedOperationException();
         }
 
-        ListenableFuture<ImmutableList<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {
+        ListenableFuture<List<HiveSplit>> future = queues.borrowBatchAsync(maxSize, internalSplits -> {
             ImmutableList.Builder<InternalHiveSplit> splitsToInsertBuilder = ImmutableList.builder();
             ImmutableList.Builder<HiveSplit> resultBuilder = ImmutableList.builder();
             int removedEstimatedSizeInBytes = 0;
@@ -415,8 +415,8 @@ class HiveSplitSource
 
     private static RuntimeException propagateTrinoException(Throwable throwable)
     {
-        if (throwable instanceof TrinoException) {
-            throw (TrinoException) throwable;
+        if (throwable instanceof TrinoException trinoException) {
+            throw trinoException;
         }
         if (throwable instanceof FileNotFoundException) {
             throw new TrinoException(HIVE_FILE_NOT_FOUND, throwable);

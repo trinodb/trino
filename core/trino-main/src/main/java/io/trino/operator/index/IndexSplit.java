@@ -18,7 +18,6 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.RecordSet;
 
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
@@ -42,12 +41,6 @@ public class IndexSplit
     public List<HostAddress> getAddresses()
     {
         throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return Map.of();
     }
 
     @Override

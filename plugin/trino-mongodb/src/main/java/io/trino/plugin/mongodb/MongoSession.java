@@ -972,11 +972,11 @@ public class MongoSession
                                 .collect(toList()));
             }
         }
-        else if (value instanceof Document) {
+        else if (value instanceof Document document) {
             List<TypeSignatureParameter> parameters = new ArrayList<>();
 
-            for (String key : ((Document) value).keySet()) {
-                Optional<TypeSignature> fieldType = guessFieldType(((Document) value).get(key));
+            for (String key : document.keySet()) {
+                Optional<TypeSignature> fieldType = guessFieldType(document.get(key));
                 if (fieldType.isPresent()) {
                     parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(key)), fieldType.get())));
                 }
@@ -985,11 +985,11 @@ public class MongoSession
                 typeSignature = new TypeSignature(StandardTypes.ROW, parameters);
             }
         }
-        else if (value instanceof DBRef) {
+        else if (value instanceof DBRef dbRef) {
             List<TypeSignatureParameter> parameters = new ArrayList<>();
 
-            TypeSignature idFieldType = guessFieldType(((DBRef) value).getId())
-                    .orElseThrow(() -> new UnsupportedOperationException("Unable to guess $id field type of DBRef from: " + ((DBRef) value).getId()));
+            TypeSignature idFieldType = guessFieldType(dbRef.getId())
+                    .orElseThrow(() -> new UnsupportedOperationException("Unable to guess $id field type of DBRef from: " + dbRef.getId()));
 
             parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(DATABASE_NAME)), VARCHAR.getTypeSignature())));
             parameters.add(TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName(COLLECTION_NAME)), VARCHAR.getTypeSignature())));

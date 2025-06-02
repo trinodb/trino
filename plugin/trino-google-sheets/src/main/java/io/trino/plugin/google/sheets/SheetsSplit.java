@@ -13,12 +13,10 @@
  */
 package io.trino.plugin.google.sheets;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
@@ -32,12 +30,6 @@ public record SheetsSplit(List<List<String>> values)
     public SheetsSplit
     {
         requireNonNull(values, "values is null");
-    }
-
-    @Override
-    public Map<String, String> getSplitInfo()
-    {
-        return ImmutableMap.of();
     }
 
     @Override

@@ -34,7 +34,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 public class OpenTracingCollector
         extends BaseTestContainer
 {
-    private static final int COLLECTOR_PORT = 4317;
+    private static final int COLLECTOR_PORT = 4318;
     private static final int HTTP_PORT = 16686;
 
     private final Path storageDirectory;
@@ -88,7 +88,7 @@ public class OpenTracingCollector
 
     public URI getExporterEndpoint()
     {
-        return URI.create("http://" + getMappedHostAndPortForExposedPort(COLLECTOR_PORT));
+        return URI.create("http://" + getMappedHostAndPortForExposedPort(COLLECTOR_PORT) + "/v1/traces");
     }
 
     public URI searchForQueryId(String queryId)

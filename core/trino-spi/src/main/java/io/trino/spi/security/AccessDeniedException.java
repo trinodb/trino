@@ -19,12 +19,15 @@ import io.trino.spi.function.FunctionKind;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.stream.Collectors.joining;
 
 public class AccessDeniedException
         extends TrinoException
@@ -171,11 +174,19 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
     }
 
+    /**
+     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal)}
+     */
+    @Deprecated(forRemoval = true)
     public static void denySetSchemaAuthorization(String schemaName, TrinoPrincipal principal)
     {
         denySetSchemaAuthorization(schemaName, principal, null);
     }
 
+    /**
+     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal, String)}
+     */
+    @Deprecated(forRemoval = true)
     public static void denySetSchemaAuthorization(String schemaName, TrinoPrincipal principal, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot set authorization for schema %s to %s%s", schemaName, principal, formatExtraInfo(extraInfo)));
@@ -331,11 +342,19 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot alter a column for table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    /**
+     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal)}
+     */
+    @Deprecated(forRemoval = true)
     public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal)
     {
         denySetTableAuthorization(tableName, principal, null);
     }
 
+    /**
+     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal, String)}
+     */
+    @Deprecated(forRemoval = true)
     public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot set authorization for table %s to %s%s", tableName, principal, formatExtraInfo(extraInfo)));
@@ -436,11 +455,19 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
+    /**
+     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal)}
+     */
+    @Deprecated(forRemoval = true)
     public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal)
     {
         denySetViewAuthorization(viewName, principal, null);
     }
 
+    /**
+     * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal, String)}
+     */
+    @Deprecated(forRemoval = true)
     public static void denySetViewAuthorization(String viewName, TrinoPrincipal principal, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot set authorization for view %s to %s%s", viewName, principal, formatExtraInfo(extraInfo)));
@@ -744,6 +771,22 @@ public class AccessDeniedException
     public static void denyShowCreateFunction(String functionName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot show create function for %s%s", functionName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denySetEntityAuthorization(EntityKindAndName entityKindAndName, TrinoPrincipal principal)
+    {
+        denySetEntityAuthorization(entityKindAndName, principal, null);
+    }
+
+    public static void denySetEntityAuthorization(EntityKindAndName entityKindAndName, TrinoPrincipal principal, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set authorization for %s %s to %s%s",
+                entityKindAndName.entityKind().toLowerCase(ENGLISH), entityNameString(entityKindAndName.name()), principal, formatExtraInfo(extraInfo)));
+    }
+
+    private static String entityNameString(List<String> name)
+    {
+        return name.stream().collect(joining("."));
     }
 
     private static Object formatExtraInfo(String extraInfo)

@@ -69,11 +69,6 @@ public class HiveWriter
         return fileWriter.getMemoryUsage();
     }
 
-    public long getRowCount()
-    {
-        return rowCount;
-    }
-
     public void append(Page dataPage)
     {
         // getRegionSizeInBytes for each row can be expensive; use getRetainedSizeInBytes for estimation

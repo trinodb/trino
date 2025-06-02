@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.kafka.utils.PropertiesUtils.readProperties;
 import static java.util.Objects.requireNonNull;
 
 public class KafkaEventPublisher
@@ -57,7 +58,7 @@ public class KafkaEventPublisher
         String completedTopic = config.getCompletedTopicName().orElse("");
         String splitCompletedTopic = config.getSplitCompletedTopicName().orElse("");
 
-        Map<String, String> configOverrides = config.getKafkaClientOverrides();
+        Map<String, String> configOverrides = readProperties(config.getResourceConfigFiles());
         LOG.info("Creating Kafka publisher (SSL=%s) for topics: %s/%s with excluded fields: %s and kafka config overrides: %s",
                 producerFactory instanceof SSLKafkaProducerFactory, createdTopic, completedTopic, config.getExcludedFields(), configOverrides);
         kafkaProducer = producerFactory.producer(configOverrides);

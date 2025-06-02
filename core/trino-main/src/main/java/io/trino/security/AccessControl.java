@@ -37,8 +37,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
-
 public interface AccessControl
 {
     /**
@@ -142,13 +140,6 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameSchema(SecurityContext context, CatalogSchemaName schemaName, String newSchemaName);
-
-    /**
-     * Check if identity is allowed to change the specified schema's user/role.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanSetSchemaAuthorization(SecurityContext context, CatalogSchemaName schemaName, TrinoPrincipal principal);
 
     /**
      * Check if identity is allowed to execute SHOW SCHEMAS in a catalog.
@@ -283,13 +274,6 @@ public interface AccessControl
     void checkCanAlterColumn(SecurityContext context, QualifiedObjectName tableName);
 
     /**
-     * Check if identity is allowed to change the specified table's user/role.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    void checkCanSetTableAuthorization(SecurityContext context, QualifiedObjectName tableName, TrinoPrincipal principal);
-
-    /**
      * Check if identity is allowed to rename a column in the specified table.
      *
      * @throws AccessDeniedException if not allowed
@@ -337,16 +321,6 @@ public interface AccessControl
      * @throws AccessDeniedException if not allowed
      */
     void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
-
-    /**
-     * Check if identity is allowed to change the specified view's user/role.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    default void checkCanSetViewAuthorization(SecurityContext context, QualifiedObjectName view, TrinoPrincipal principal)
-    {
-        denySetViewAuthorization(view.toString(), principal);
-    }
 
     /**
      * Check if identity is allowed to drop the specified view.
@@ -620,4 +594,11 @@ public interface AccessControl
     {
         return ImmutableMap.of();
     }
+
+    /**
+     * Check that the principal has the privileges to set the owner of the entity with the give name and ownedKind.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetEntityAuthorization(SecurityContext context, EntityKindAndName entityKindAndName, TrinoPrincipal principal);
 }

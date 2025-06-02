@@ -24,10 +24,10 @@ import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
+import io.trino.client.QueryData;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.client.StatementStats;
-import io.trino.client.TypedQueryData;
 import io.trino.execution.ExecutionFailureInfo;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.QueryState;
@@ -285,7 +285,7 @@ public class QueuedStatementResource
                 null,
                 nextUri,
                 null,
-                TypedQueryData.of(null),
+                QueryData.NULL,
                 StatementStats.builder()
                         .setState(state.toString())
                         .setQueued(state == QUEUED)

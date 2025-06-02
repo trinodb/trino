@@ -13,10 +13,10 @@
  */
 package io.trino.client.spooling;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Map;
+import java.util.Arrays;
+import java.util.Objects;
 
 import static java.lang.String.format;
 
@@ -25,13 +25,7 @@ public final class InlineSegment
 {
     private final byte[] data;
 
-    @JsonCreator
-    public InlineSegment(@JsonProperty("data") byte[] data, @JsonProperty("metadata") Map<String, Object> metadata)
-    {
-        this(data, new DataAttributes(metadata));
-    }
-
-    InlineSegment(byte[] data, DataAttributes metadata)
+    public InlineSegment(@JsonProperty("data") byte[] data, @JsonProperty("metadata") DataAttributes metadata)
     {
         super(metadata);
         this.data = data;
@@ -47,5 +41,22 @@ public final class InlineSegment
     public String toString()
     {
         return format("InlineSegment{offset=%d, rows=%d, size=%d}", getOffset(), getRowsCount(), getSegmentSize());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        InlineSegment segment = (InlineSegment) o;
+        return Arrays.equals(data, segment.data)
+                && Objects.equals(getMetadata(), segment.getMetadata());
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(getMetadata(), Arrays.hashCode(data));
     }
 }

@@ -208,7 +208,7 @@ public class PageFunctionCompiler
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
                 throw new TrinoException(QUERY_EXCEEDED_COMPILER_LIMIT,
-                        "Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.", e);
+                        "Failed to execute query; there may be too many columns used or expressions are too complex", e);
             }
             throw new TrinoException(COMPILER_ERROR, e);
         }
@@ -618,8 +618,8 @@ public class PageFunctionCompiler
     {
         TreeSet<Integer> channels = new TreeSet<>();
         for (RowExpression expression : Expressions.subExpressions(expressions)) {
-            if (expression instanceof InputReferenceExpression) {
-                channels.add(((InputReferenceExpression) expression).field());
+            if (expression instanceof InputReferenceExpression inputReferenceExpression) {
+                channels.add(inputReferenceExpression.field());
             }
         }
         return ImmutableList.copyOf(channels);

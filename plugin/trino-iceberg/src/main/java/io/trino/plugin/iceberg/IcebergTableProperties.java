@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
@@ -178,7 +177,7 @@ public class IcebergTableProperties
                         "Extra table properties",
                         new MapType(VARCHAR, VARCHAR, typeManager.getTypeOperators()),
                         Map.class,
-                        ImmutableMap.of(),
+                        null,
                         true, // currently not shown in SHOW CREATE TABLE
                         value -> {
                             Map<String, String> extraProperties = (Map<String, String>) value;

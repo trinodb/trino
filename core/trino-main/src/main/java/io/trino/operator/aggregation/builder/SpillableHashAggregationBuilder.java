@@ -325,6 +325,7 @@ public class SpillableHashAggregationBuilder
                 groupByTypes,
                 groupByChannels,
                 hashChannel,
+                true, // spillable
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 hashStrategyCompiler,

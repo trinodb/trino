@@ -16,7 +16,6 @@ package io.trino.plugin.deltalake.metastore.glue;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.deltalake.metastore.DeltaLakeTableOperations;
 import io.trino.plugin.hive.metastore.glue.GlueCache;
-import io.trino.plugin.hive.metastore.glue.GlueContext;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -37,18 +36,15 @@ public class DeltaLakeGlueMetastoreTableOperations
         implements DeltaLakeTableOperations
 {
     private final GlueClient glueClient;
-    private final GlueContext glueContext;
     private final GlueCache glueCache;
     private final GlueMetastoreStats stats;
 
     public DeltaLakeGlueMetastoreTableOperations(
             GlueClient glueClient,
-            GlueContext glueContext,
             GlueCache glueCache,
             GlueMetastoreStats stats)
     {
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
-        this.glueContext = requireNonNull(glueContext, "glueContext is null");
         this.glueCache = requireNonNull(glueCache, "glueCache is null");
         this.stats = requireNonNull(stats, "stats is null");
     }
@@ -70,7 +66,6 @@ public class DeltaLakeGlueMetastoreTableOperations
         String glueVersionId = currentTable.versionId();
 
         stats.getUpdateTable().call(() -> glueClient.updateTable(builder -> builder
-                .applyMutation(glueContext::configureClient)
                 .databaseName(schemaTableName.getSchemaName())
                 .tableInput(convertGlueTableToTableInput(currentTable, version, schemaString, tableComment))
                 .versionId(glueVersionId)));

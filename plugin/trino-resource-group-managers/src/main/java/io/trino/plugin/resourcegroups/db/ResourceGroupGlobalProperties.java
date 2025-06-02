@@ -56,11 +56,9 @@ public class ResourceGroupGlobalProperties
             return true;
         }
 
-        if (!(other instanceof ResourceGroupGlobalProperties)) {
+        if (!(other instanceof ResourceGroupGlobalProperties that)) {
             return false;
         }
-
-        ResourceGroupGlobalProperties that = (ResourceGroupGlobalProperties) other;
         return cpuQuotaPeriod.equals(that.cpuQuotaPeriod);
     }
 

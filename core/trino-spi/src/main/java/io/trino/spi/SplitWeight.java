@@ -55,10 +55,10 @@ public final class SplitWeight
     @Override
     public boolean equals(Object other)
     {
-        if (!(other instanceof SplitWeight)) {
+        if (!(other instanceof SplitWeight that)) {
             return false;
         }
-        return this.value == ((SplitWeight) other).value;
+        return this.value == that.value;
     }
 
     @Override

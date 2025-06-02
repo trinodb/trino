@@ -13,7 +13,7 @@ Default local concurrency for parallel operators, such as joins and aggregations
 This value should be adjusted up or down based on the query concurrency and worker
 resource utilization. Lower values are better for clusters that run many queries
 concurrently, because the cluster is already utilized by all the running
-queries, so adding more concurrency results in slow downs due to context
+queries, so adding more concurrency results in slow-downs due to context
 switching and other overhead. Higher values are better for clusters that only run
 one or a few queries at a time.
 

@@ -215,8 +215,8 @@ public final class BigQueryTypeManager
 
     public Field toField(String name, Type type, @Nullable String comment)
     {
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
+        if (type instanceof ArrayType arrayType) {
+            Type elementType = arrayType.getElementType();
             return toInnerField(name, elementType, true, comment);
         }
         return toInnerField(name, type, false, comment);
@@ -225,8 +225,8 @@ public final class BigQueryTypeManager
     private Field toInnerField(String name, Type type, boolean repeated, @Nullable String comment)
     {
         Field.Builder builder;
-        if (type instanceof RowType) {
-            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList((RowType) type)).setDescription(comment);
+        if (type instanceof RowType rowType) {
+            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList(rowType)).setDescription(comment);
         }
         else {
             builder = Field.newBuilder(name, toStandardSqlTypeName(type)).setDescription(comment);

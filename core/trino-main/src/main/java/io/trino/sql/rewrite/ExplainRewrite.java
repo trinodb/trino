@@ -19,6 +19,7 @@ import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.sql.SessionPropertyResolver;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
@@ -49,12 +50,14 @@ public final class ExplainRewrite
         implements StatementRewrite.Rewrite
 {
     private final QueryExplainerFactory queryExplainerFactory;
+    private final SessionPropertyResolver sessionPropertyResolver;
     private final QueryPreparer queryPreparer;
 
     @Inject
-    public ExplainRewrite(QueryExplainerFactory queryExplainerFactory, QueryPreparer queryPreparer)
+    public ExplainRewrite(QueryExplainerFactory queryExplainerFactory, SessionPropertyResolver sessionPropertyResolver, QueryPreparer queryPreparer)
     {
         this.queryExplainerFactory = requireNonNull(queryExplainerFactory, "queryExplainerFactory is null");
+        this.sessionPropertyResolver = requireNonNull(sessionPropertyResolver, "sessionPropertyResolver is null");
         this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
     }
 
@@ -68,13 +71,14 @@ public final class ExplainRewrite
             WarningCollector warningCollector,
             PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
-        return (Statement) new Visitor(session, queryPreparer, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, planOptimizersStatsCollector).process(node, null);
+        return (Statement) new Visitor(session, sessionPropertyResolver, queryPreparer, queryExplainerFactory.createQueryExplainer(analyzerFactory), warningCollector, planOptimizersStatsCollector).process(node, null);
     }
 
     private static final class Visitor
             extends AstVisitor<Node, Void>
     {
         private final Session session;
+        private final SessionPropertyResolver sessionPropertyResolver;
         private final QueryPreparer queryPreparer;
         private final QueryExplainer queryExplainer;
         private final WarningCollector warningCollector;
@@ -82,12 +86,14 @@ public final class ExplainRewrite
 
         public Visitor(
                 Session session,
+                SessionPropertyResolver sessionPropertyResolver,
                 QueryPreparer queryPreparer,
                 QueryExplainer queryExplainer,
                 WarningCollector warningCollector,
                 PlanOptimizersStatsCollector planOptimizersStatsCollector)
         {
             this.session = requireNonNull(session, "session is null");
+            this.sessionPropertyResolver = requireNonNull(sessionPropertyResolver, "sessionPropertyResolver is null");
             this.queryPreparer = requireNonNull(queryPreparer, "queryPreparer is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -109,8 +115,8 @@ public final class ExplainRewrite
             List<ExplainOption> options = node.getOptions();
 
             for (ExplainOption option : options) {
-                if (option instanceof ExplainType) {
-                    planType = ((ExplainType) option).getType();
+                if (option instanceof ExplainType explainType) {
+                    planType = explainType.getType();
                     // Use JSON as the default format for EXPLAIN (TYPE IO).
                     if (planType == IO) {
                         planFormat = JSON;
@@ -120,8 +126,8 @@ public final class ExplainRewrite
             }
 
             for (ExplainOption option : options) {
-                if (option instanceof ExplainFormat) {
-                    planFormat = ((ExplainFormat) option).getType();
+                if (option instanceof ExplainFormat explainFormat) {
+                    planFormat = explainFormat.getType();
                     break;
                 }
             }
@@ -133,16 +139,19 @@ public final class ExplainRewrite
                 throws IllegalArgumentException
         {
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, node.getStatement());
+            Session resolvedSession = sessionPropertyResolver
+                    .getSessionPropertiesApplier(preparedQuery)
+                    .apply(session);
 
             if (planType == VALIDATE) {
-                queryExplainer.validate(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
+                queryExplainer.validate(resolvedSession, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
                 return singleValueQuery("Valid", true);
             }
 
             String plan = switch (planFormat) {
-                case GRAPHVIZ -> queryExplainer.getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
-                case JSON -> queryExplainer.getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
-                case TEXT -> queryExplainer.getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
+                case GRAPHVIZ -> queryExplainer.getGraphvizPlan(resolvedSession, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
+                case JSON -> queryExplainer.getJsonPlan(resolvedSession, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
+                case TEXT -> queryExplainer.getPlan(resolvedSession, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector, planOptimizersStatsCollector);
             };
             return singleValueQuery("Query Plan", plan);
         }

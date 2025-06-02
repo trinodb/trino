@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.common.io.BaseEncoding;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
+import io.trino.client.CloseableIterator;
 import io.trino.client.Column;
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
@@ -33,6 +34,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -184,7 +186,7 @@ abstract class AbstractTrinoResultSet
                         return result;
                     })
                     .build();
-    protected final CancellableIterator<List<Object>> results;
+    protected final CloseableIterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
     private final ResultSetMetaData resultSetMetaData;
@@ -195,7 +197,7 @@ abstract class AbstractTrinoResultSet
 
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, CancellableIterator<List<Object>> results)
+    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, CloseableIterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
         requireNonNull(columns, "columns is null");
@@ -1840,7 +1842,12 @@ abstract class AbstractTrinoResultSet
             throws SQLException
     {
         if (closed.compareAndSet(false, true)) {
-            results.cancel();
+            try {
+                results.close();
+            }
+            catch (IOException e) {
+                throw new SQLException(e);
+            }
         }
     }
 

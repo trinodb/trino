@@ -61,7 +61,6 @@ public final class TestingPolarisCatalog
         polarisCatalog.waitingFor(new LogMessageWaitStrategy().withRegEx(".*Apache Polaris Server.* started.*"));
         polarisCatalog.withEnv("POLARIS_BOOTSTRAP_CREDENTIALS", "default-realm,root,s3cr3t");
         polarisCatalog.withEnv("polaris.realm-context.realms", "default-realm");
-        polarisCatalog.withCommand("java", "-jar", "polaris-quarkus-server-1.0.0-incubating-SNAPSHOT/quarkus-run.jar");
         polarisCatalog.start();
 
         token = getToken();

@@ -25,7 +25,7 @@ import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Day of the week of the given timestamp")
 @ScalarFunction(value = "day_of_week", alias = "dow")
-public class ExtractDayOfWeek
+public final class ExtractDayOfWeek
 {
     private ExtractDayOfWeek() {}
 

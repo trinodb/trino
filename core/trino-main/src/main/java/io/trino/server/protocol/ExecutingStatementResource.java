@@ -34,6 +34,7 @@ import jakarta.annotation.PreDestroy;
 import jakarta.ws.rs.BeanParam;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HEAD;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -159,6 +160,19 @@ public class ExecutingStatementResource
         asyncQueryResults(query, token, externalUriInfo, asyncResponse);
     }
 
+    @HEAD
+    @Path("{queryId}/{slug}/{token}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response heartbeat(@PathParam("queryId") QueryId queryId, @PathParam("slug") String slug, @PathParam("token") long token)
+    {
+        Query query = queries.get(queryId);
+        if (query != null && query.isSlugValid(slug, token)) {
+            queryManager.recordHeartbeat(queryId);
+            return Response.ok().build();
+        }
+        throw new NotFoundException("Query not found");
+    }
+
     protected Query getQuery(QueryId queryId, String slug, long token)
     {
         Query query = queries.get(queryId);
@@ -223,6 +237,10 @@ public class ExecutingStatementResource
         if (resultsResponse.resetAuthorizationUser()) {
             response.header(protocolHeaders.responseResetAuthorizationUser(), true);
         }
+
+        // add set original roles
+        resultsResponse.setOriginalRoles()
+                        .forEach(name -> response.header(protocolHeaders.responseOriginalRole(), name));
 
         // add set session properties
         resultsResponse.setSessionProperties()

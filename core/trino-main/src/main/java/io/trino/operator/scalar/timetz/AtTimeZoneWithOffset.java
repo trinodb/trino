@@ -32,7 +32,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 
 @ScalarFunction(value = "$at_timezone", hidden = true)
-public class AtTimeZoneWithOffset
+public final class AtTimeZoneWithOffset
 {
     private AtTimeZoneWithOffset() {}
 

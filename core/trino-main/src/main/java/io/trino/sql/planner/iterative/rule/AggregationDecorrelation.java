@@ -26,16 +26,16 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-class AggregationDecorrelation
+final class AggregationDecorrelation
 {
     private AggregationDecorrelation() {}
 
     public static boolean isDistinctOperator(PlanNode node)
     {
-        return node instanceof AggregationNode &&
-                ((AggregationNode) node).getAggregations().isEmpty() &&
-                ((AggregationNode) node).getGroupingSetCount() == 1 &&
-                ((AggregationNode) node).hasNonEmptyGroupingSet();
+        return node instanceof AggregationNode aggregationNode &&
+                aggregationNode.getAggregations().isEmpty() &&
+                aggregationNode.getGroupingSetCount() == 1 &&
+                aggregationNode.hasNonEmptyGroupingSet();
     }
 
     public static Map<Symbol, Aggregation> rewriteWithMasks(Map<Symbol, Aggregation> aggregations, Map<Symbol, Symbol> masks)

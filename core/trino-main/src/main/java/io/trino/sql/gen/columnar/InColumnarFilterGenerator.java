@@ -352,10 +352,10 @@ public class InColumnarFilterGenerator
             return false;
         }
         for (RowExpression expression : values) {
-            if (!(expression instanceof ConstantExpression)) {
+            if (!(expression instanceof ConstantExpression constantExpression)) {
                 throw new UnsupportedOperationException("IN clause columnar evaluation is supported only on input reference against constants");
             }
-            Object constant = ((ConstantExpression) expression).value();
+            Object constant = constantExpression.value();
             // NULL constants are skipped as they do not satisfy IN filter
             // NULL positions will need to be handled differently to allow IN filters to be composed (e.g. NOT IN)
             if (constant == null) {

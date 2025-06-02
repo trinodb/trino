@@ -34,6 +34,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -231,10 +232,10 @@ public class TestRowNumberOperator
 
             pages = stripRowNumberColumn(pages);
             MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-            ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
-            ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
-            ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
-            ImmutableSet<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
+            Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
+            Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
+            Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
+            Set<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
             assertThat(Sets.intersection(expectedPartition1Set, actualSet)).hasSize(4);
             assertThat(Sets.intersection(expectedPartition2Set, actualSet)).hasSize(4);
             assertThat(Sets.intersection(expectedPartition3Set, actualSet)).hasSize(2);
@@ -303,10 +304,10 @@ public class TestRowNumberOperator
 
             pages = stripRowNumberColumn(pages);
             MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-            ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
-            ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
-            ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
-            ImmutableSet<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
+            Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
+            Set<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
+            Set<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
+            Set<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
             assertThat(Sets.intersection(expectedPartition1Set, actualSet)).hasSize(3);
             assertThat(Sets.intersection(expectedPartition2Set, actualSet)).hasSize(3);
             assertThat(Sets.intersection(expectedPartition3Set, actualSet)).hasSize(2);
@@ -364,8 +365,8 @@ public class TestRowNumberOperator
         pages = stripRowNumberColumn(pages);
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
         assertThat(actual.getMaterializedRows()).hasSize(3);
-        ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
-        ImmutableSet<?> expectedRowsSet = ImmutableSet.copyOf(expectedRows.getMaterializedRows());
+        Set<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
+        Set<?> expectedRowsSet = ImmutableSet.copyOf(expectedRows.getMaterializedRows());
         assertThat(Sets.intersection(expectedRowsSet, actualSet)).hasSize(3);
     }
 

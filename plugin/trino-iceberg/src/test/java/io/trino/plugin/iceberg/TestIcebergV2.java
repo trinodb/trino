@@ -29,7 +29,9 @@ import io.trino.metastore.PrincipalPrivileges;
 import io.trino.metastore.Storage;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.TestingHivePlugin;
+import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -54,6 +56,7 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortField;
+import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
@@ -68,7 +71,6 @@ import org.apache.iceberg.mapping.MappingUtil;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
@@ -89,9 +91,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getMetadataFileAndUpdatedMillis;
+import static io.trino.plugin.iceberg.IcebergTestUtils.getTrinoCatalog;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTable;
 import static io.trino.plugin.iceberg.util.EqualityDeleteUtils.writeEqualityDeleteForTableWithSchema;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -122,6 +126,7 @@ public class TestIcebergV2
 {
     private HiveMetastore metastore;
     private TrinoFileSystemFactory fileSystemFactory;
+    private TrinoCatalog catalog;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -132,6 +137,8 @@ public class TestIcebergV2
                 .build();
 
         metastore = getHiveMetastore(queryRunner);
+        fileSystemFactory = getFileSystemFactory(queryRunner);
+        catalog = getTrinoCatalog(metastore, fileSystemFactory, "iceberg");
 
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data")));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
@@ -139,12 +146,6 @@ public class TestIcebergV2
                 .buildOrThrow());
 
         return queryRunner;
-    }
-
-    @BeforeAll
-    public void initFileSystemFactory()
-    {
-        fileSystemFactory = getFileSystemFactory(getDistributedQueryRunner());
     }
 
     @Test
@@ -231,7 +232,7 @@ public class TestIcebergV2
         FileIO fileIo = new ForwardingFileIo(fileSystemFactory.create(SESSION));
 
         PositionDeleteWriter<Record> writer = Parquet.writeDeletes(fileIo.newOutputFile("local:///delete_file_" + UUID.randomUUID()))
-                .createWriterFunc(GenericParquetWriter::buildWriter)
+                .createWriterFunc(GenericParquetWriter::create)
                 .forTable(icebergTable)
                 .overwrite()
                 .rowSchema(icebergTable.schema())
@@ -959,6 +960,7 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     ImmutableSet.of(),
                     true,
+                    newDirectExecutorService(),
                     fileSystemFactory.create(SESSION));
             assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
@@ -972,6 +974,7 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     ImmutableSet.of(),
                     true,
+                    newDirectExecutorService(),
                     fileSystemFactory.create(SESSION));
             assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
@@ -986,6 +989,7 @@ public class TestIcebergV2
                             Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
                     ImmutableSet.of(column),
                     true,
+                    newDirectExecutorService(),
                     fileSystemFactory.create(SESSION));
             assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
         }
@@ -1009,6 +1013,7 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     ImmutableSet.of(),
                     true,
+                    newDirectExecutorService(),
                     fileSystemFactory.create(SESSION));
             assertThat(withNoProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withNoProjectedColumns.getColumnStatistics()).isEmpty();
@@ -1022,6 +1027,7 @@ public class TestIcebergV2
                     TupleDomain.all(),
                     ImmutableSet.of(column),
                     true,
+                    newDirectExecutorService(),
                     fileSystemFactory.create(SESSION));
             assertThat(withProjectedColumns.getRowCount().getValue()).isEqualTo(4.0);
             assertThat(withProjectedColumns.getColumnStatistics()).containsOnlyKeys(column);
@@ -1042,6 +1048,7 @@ public class TestIcebergV2
                             Domain.singleValue(INTEGER, 10L))),
                     ImmutableSet.of(column),
                     true,
+                    newDirectExecutorService(),
                     fileSystemFactory.create(SESSION));
             assertThat(withPartitionFilterAndProjectedColumn.getRowCount().getValue()).isEqualTo(3.0);
             assertThat(withPartitionFilterAndProjectedColumn.getColumnStatistics()).containsOnlyKeys(column);
@@ -1396,7 +1403,7 @@ public class TestIcebergV2
     {
         testMapValueSchemaChange("PARQUET", "map(array[1], array[NULL])");
         testMapValueSchemaChange("ORC", "map(array[1], array[row(NULL)])");
-        testMapValueSchemaChange("AVRO", "NULL");
+        testMapValueSchemaChange("AVRO", "map(array[1], array[row(NULL)])");
     }
 
     private void testMapValueSchemaChange(String format, String expectedValue)
@@ -1473,6 +1480,41 @@ public class TestIcebergV2
             assertThat(metadataFiles.keySet()).containsAll(expectMetadataFiles);
         }
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testAnalyzeNoSnapshot()
+    {
+        String table = "test_analyze_no_snapshot" + randomNameSuffix();
+        SchemaTableName schemaTableName = new SchemaTableName("tpch", table);
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        schemaTableName,
+                        new Schema(Types.NestedField.of(1, true, "x", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        Optional.ofNullable(catalog.defaultTableLocation(SESSION, schemaTableName)),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        String expectedStats = """
+                VALUES
+                ('x', 0e0, 0e0, 1e0, NULL, NULL, NULL),
+                (NULL, NULL, NULL, NULL, 0e0, NULL, NULL)
+                """;
+
+        assertThat(query("SHOW STATS FOR " + table))
+                .skippingTypesCheck()
+                .matches(expectedStats);
+
+        assertUpdate("ANALYZE " + table);
+
+        assertThat(query("SHOW STATS FOR " + table))
+                .skippingTypesCheck()
+                .matches(expectedStats);
+
+        catalog.dropTable(SESSION, schemaTableName);
     }
 
     private void testHighlyNestedFieldPartitioningWithTimestampTransform(String partitioning, String partitionDirectoryRegex, Set<String> expectedPartitionDirectories)

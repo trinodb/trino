@@ -23,6 +23,7 @@ import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
+import io.trino.spi.metrics.Metrics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -61,7 +62,7 @@ public interface StageExecution
 
     void abort();
 
-    void recordGetSplitTime(long start);
+    void recordSplitSourceMetrics(PlanNodeId nodeId, Metrics metrics, long start);
 
     Optional<RemoteTask> scheduleTask(
             InternalNode node,

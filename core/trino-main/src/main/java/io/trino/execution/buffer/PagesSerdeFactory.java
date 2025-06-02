@@ -27,6 +27,7 @@ import javax.crypto.SecretKey;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.execution.buffer.CompressionCodec.LZ4;
 import static io.trino.execution.buffer.CompressionCodec.ZSTD;
 import static java.util.Objects.requireNonNull;
@@ -38,7 +39,8 @@ public class PagesSerdeFactory
     private final CompressionCodec compressionCodec;
     private final int blockSizeInBytes;
 
-    public PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec)
+    // created via PagesSerdes.create*
+    PagesSerdeFactory(BlockEncodingSerde blockEncodingSerde, CompressionCodec compressionCodec)
     {
         this(blockEncodingSerde, compressionCodec, SERIALIZED_PAGE_DEFAULT_BLOCK_SIZE_IN_BYTES);
     }
@@ -66,6 +68,7 @@ public class PagesSerdeFactory
         return new CompressingDecryptingPageDeserializer(
                 blockEncodingSerde,
                 createDecompressor(compressionCodec),
+                decompressorRetainedSize(compressionCodec),
                 encryptionKey,
                 blockSizeInBytes,
                 maxCompressedSize(blockSizeInBytes, compressionCodec));
@@ -95,6 +98,16 @@ public class PagesSerdeFactory
             case NONE -> OptionalInt.of(uncompressedSize);
             case LZ4 -> LZ4.maxCompressedLength(uncompressedSize);
             case ZSTD -> ZSTD.maxCompressedLength(uncompressedSize);
+        };
+    }
+
+    private static int decompressorRetainedSize(CompressionCodec compressionCodec)
+    {
+        // TODO: implement getRetainedSizeInBytes in Lz4Decompressor and ZstdDecompressor
+        return switch (compressionCodec) {
+            case NONE -> 0;
+            case LZ4 -> instanceSize(Lz4Decompressor.class);
+            case ZSTD -> instanceSize(ZstdDecompressor.class);
         };
     }
 }

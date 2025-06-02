@@ -26,7 +26,7 @@ import static io.trino.type.DateTimes.PICOSECONDS_PER_HOUR;
 
 @Description("Hour of the day of the given time")
 @ScalarFunction("hour")
-public class ExtractHour
+public final class ExtractHour
 {
     private ExtractHour() {}
 

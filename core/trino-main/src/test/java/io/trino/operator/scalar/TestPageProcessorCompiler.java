@@ -33,6 +33,7 @@ import io.trino.sql.relational.InputReferenceExpression;
 import io.trino.sql.relational.RowExpression;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterators.getOnlyElement;
@@ -64,7 +65,7 @@ public class TestPageProcessorCompiler
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction("concat", fromTypes(arrayType, arrayType));
         projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
-        ImmutableList<RowExpression> projections = projectionsBuilder.build();
+        List<RowExpression> projections = projectionsBuilder.build();
         PageProcessor pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
         PageProcessor pageProcessor2 = compiler.compilePageProcessor(Optional.empty(), projections).get();
         assertThat(pageProcessor != pageProcessor2).isTrue();

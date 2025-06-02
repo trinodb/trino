@@ -38,7 +38,6 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.http.apache.ApacheHttpClient;
-import software.amazon.awssdk.http.apache.ProxyConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 import software.amazon.awssdk.retries.api.BackoffStrategy;
@@ -65,7 +64,7 @@ import static io.trino.plugin.base.ClosingBinder.closingBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class GlueMetastoreModule
+public final class GlueMetastoreModule
         extends AbstractConfigurationAwareModule
 {
     @Override
@@ -75,8 +74,9 @@ public class GlueMetastoreModule
 
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
-        binder.bind(GlueContext.class).in(Scopes.SINGLETON);
+        binder.bind(GlueMetastoreStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
+        newExporter(binder).export(GlueMetastoreStats.class).withGeneratedName();
         newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
                 .setDefault()
                 .to(GlueHiveMetastoreFactory.class)
@@ -86,8 +86,21 @@ public class GlueMetastoreModule
         Multibinder<ExecutionInterceptor> executionInterceptorMultibinder = newSetBinder(binder, ExecutionInterceptor.class, ForGlueHiveMetastore.class);
         executionInterceptorMultibinder.addBinding().toProvider(TelemetryExecutionInterceptorProvider.class).in(Scopes.SINGLETON);
         executionInterceptorMultibinder.addBinding().to(GlueHiveExecutionInterceptor.class).in(Scopes.SINGLETON);
+        executionInterceptorMultibinder.addBinding().to(GlueCatalogIdInterceptor.class).in(Scopes.SINGLETON);
 
         closingBinder(binder).registerCloseable(GlueClient.class);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        return obj instanceof GlueMetastoreModule;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return getClass().hashCode();
     }
 
     @ProvidesIntoOptional(DEFAULT)
@@ -173,9 +186,7 @@ public class GlueMetastoreModule
         if (config.getGlueEndpointUrl().isPresent()) {
             checkArgument(config.getGlueRegion().isPresent(), "Glue region must be set when Glue endpoint URL is set");
             glue.region(Region.of(config.getGlueRegion().get()));
-            httpClient.proxyConfiguration(ProxyConfiguration.builder()
-                    .endpoint(URI.create(config.getGlueEndpointUrl().get()))
-                    .build());
+            glue.endpointOverride(URI.create(config.getGlueEndpointUrl().get()));
         }
         else if (config.getGlueRegion().isPresent()) {
             glue.region(Region.of(config.getGlueRegion().get()));

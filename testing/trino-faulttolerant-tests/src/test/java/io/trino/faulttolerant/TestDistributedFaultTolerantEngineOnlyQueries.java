@@ -25,6 +25,8 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.execution.scheduler.faulttolerant.EventDrivenFaultTolerantQueryScheduler.NO_FINAL_TASK_INFO_CHECK_INTERVAL;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -38,7 +40,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        ImmutableMap<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
+        Map<String, String> exchangeManagerProperties = ImmutableMap.<String, String>builder()
                 .put("exchange.base-directories", System.getProperty("java.io.tmpdir") + "/trino-local-file-system-exchange-manager")
                 .buildOrThrow();
 

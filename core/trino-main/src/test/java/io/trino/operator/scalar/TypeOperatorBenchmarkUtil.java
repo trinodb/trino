@@ -82,7 +82,7 @@ final class TypeOperatorBenchmarkUtil
         int positionCount = left.getPositionCount();
         long count = 0;
         for (int position = 0; position < positionCount; position++) {
-            if ((Boolean) equalOperator.invokeExact(left, position, right, position) == Boolean.TRUE) {
+            if (Boolean.TRUE.equals((Boolean) equalOperator.invokeExact(left, position, right, position))) {
                 count++;
             }
         }

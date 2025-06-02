@@ -103,16 +103,18 @@ public class RawRowEncoder
         // check that column mappings don't overlap and that there are no gaps
         int position = 0;
         for (ColumnMapping mapping : this.columnMappings) {
-            checkArgument(mapping.getStart() == position, format(
+            checkArgument(
+                    mapping.getStart() == position,
                     "Start mapping '%s' for column '%s' does not equal expected mapping '%s'",
                     mapping.getStart(),
                     mapping.getName(),
-                    position));
-            checkArgument(mapping.getEnd() > mapping.getStart(), format(
+                    position);
+            checkArgument(
+                    mapping.getEnd() > mapping.getStart(),
                     "End mapping '%s' for column '%s' is less than or equal to start '%s'",
                     mapping.getEnd(),
                     mapping.getName(),
-                    mapping.getStart()));
+                    mapping.getStart());
             position += mapping.getLength();
         }
 
@@ -206,12 +208,13 @@ public class RawRowEncoder
 
         private static void checkFieldTypeOneOf(FieldType declaredFieldType, String columnName, Type columnType, FieldType... allowedFieldTypes)
         {
-            checkArgument(Arrays.asList(allowedFieldTypes).contains(declaredFieldType),
-                    format("Wrong dataformat '%s' specified for column '%s'; %s type implies use of %s",
-                            declaredFieldType.name(),
-                            columnName,
-                            columnType,
-                            Joiner.on("/").join(allowedFieldTypes)));
+            checkArgument(
+                    Arrays.asList(allowedFieldTypes).contains(declaredFieldType),
+                    "Wrong dataformat '%s' specified for column '%s'; %s type implies use of %s",
+                    declaredFieldType.name(),
+                    columnName,
+                    columnType,
+                    Joiner.on("/").join(allowedFieldTypes));
         }
 
         public String getName()
@@ -296,12 +299,13 @@ public class RawRowEncoder
     protected void appendString(String value)
     {
         byte[] valueBytes = value.getBytes(StandardCharsets.UTF_8);
-        checkArgument(valueBytes.length == columnMappings.get(currentColumnIndex).getLength(), format(
+        checkArgument(
+                valueBytes.length == columnMappings.get(currentColumnIndex).getLength(),
                 "length '%s' of message '%s' for column '%s' does not equal expected length '%s'",
                 valueBytes.length,
                 value,
                 columnHandles.get(currentColumnIndex).getName(),
-                columnMappings.get(currentColumnIndex).getLength()));
+                columnMappings.get(currentColumnIndex).getLength());
         buffer.put(valueBytes, 0, valueBytes.length);
     }
 
@@ -309,11 +313,12 @@ public class RawRowEncoder
     protected void appendByteBuffer(ByteBuffer value)
     {
         byte[] valueBytes = getWrappedBytes(value);
-        checkArgument(valueBytes.length == columnMappings.get(currentColumnIndex).getLength(), format(
+        checkArgument(
+                valueBytes.length == columnMappings.get(currentColumnIndex).getLength(),
                 "length '%s' of message for column '%s' does not equal expected length '%s'",
                 valueBytes.length,
                 columnHandles.get(currentColumnIndex).getName(),
-                columnMappings.get(currentColumnIndex).getLength()));
+                columnMappings.get(currentColumnIndex).getLength());
         buffer.put(valueBytes, 0, valueBytes.length);
     }
 

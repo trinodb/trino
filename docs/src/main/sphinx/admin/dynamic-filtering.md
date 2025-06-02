@@ -223,10 +223,10 @@ is not enabled can be configured using configuration properties like
 
 The `dynamic-filtering.large.*` and `dynamic-filtering.small.*` limits are applied
 when dynamic filters are collected before build side is partitioned on join
-keys (when broadcast join is chosen or when fault tolerant execution is enabled). The
+keys (when broadcast join is chosen or when fault-tolerant execution is enabled). The
 `dynamic-filtering.large-partitioned.*` and `dynamic-filtering.small-partitioned.*`
 limits are applied when dynamic filters are collected after build side is partitioned
-on join keys (when partitioned join is chosen and fault tolerant execution is disabled).
+on join keys (when partitioned join is chosen and fault-tolerant execution is disabled).
 
 The properties based on `max-distinct-values-per-driver` and `max-size-per-driver`
 define thresholds for the size up to which dynamic filters are collected in a

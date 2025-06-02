@@ -50,7 +50,7 @@ The `LIKE` clause can be used to include all the column definitions from
 an existing table in the new table. Multiple `LIKE` clauses may be
 specified, which allows copying the columns from multiple tables.
 
-If `INCLUDING PROPERTIES` is specified, all of the table properties are
+If `INCLUDING PROPERTIES` is specified, all the table properties are
 copied to the new table. If the `WITH` clause specifies the same property
 name as one of the copied properties, the value from the `WITH` clause
 will be used. The default behavior is `EXCLUDING PROPERTIES`. The

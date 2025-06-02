@@ -48,7 +48,7 @@ The following table details all general configuration properties:
 * - `faker.default-limit`
   - Default number of rows in a table. Defaults to `1000`.
 * - `faker.locale`
-  - Default locale for generating character-based data, specified as a IETF BCP
+  - Default locale for generating character-based data, specified as an IETF BCP
     47 language tag string. Defaults to `en`.
 * - `faker.sequence-detection-enabled`
   - If true, when creating a table using existing data, columns with the number

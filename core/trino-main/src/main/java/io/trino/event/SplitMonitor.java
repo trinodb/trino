@@ -20,8 +20,7 @@ import io.airlift.log.Logger;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.execution.TaskId;
 import io.trino.operator.DriverStats;
-import io.trino.operator.OperatorStats;
-import io.trino.operator.SplitOperatorInfo;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 import io.trino.spi.eventlistener.SplitFailureInfo;
 import io.trino.spi.eventlistener.SplitStatistics;
@@ -47,17 +46,17 @@ public class SplitMonitor
         this.objectMapper = requireNonNull(objectMapper, "objectMapper is null");
     }
 
-    public void splitCompletedEvent(TaskId taskId, DriverStats driverStats)
+    public void splitCompletedEvent(TaskId taskId, DriverStats driverStats, Optional<CatalogName> catalogName)
     {
-        splitCompletedEvent(taskId, driverStats, null, null);
+        splitCompletedEvent(taskId, driverStats, catalogName, null, null);
     }
 
-    public void splitFailedEvent(TaskId taskId, DriverStats driverStats, Throwable cause)
+    public void splitFailedEvent(TaskId taskId, DriverStats driverStats, Optional<CatalogName> catalogName, Throwable cause)
     {
-        splitCompletedEvent(taskId, driverStats, cause.getClass().getName(), cause.getMessage());
+        splitCompletedEvent(taskId, driverStats, catalogName, cause.getClass().getName(), cause.getMessage());
     }
 
-    private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, @Nullable String failureType, @Nullable String failureMessage)
+    private void splitCompletedEvent(TaskId taskId, DriverStats driverStats, Optional<CatalogName> catalogName, @Nullable String failureType, @Nullable String failureMessage)
     {
         Duration queuedTime = ofMillis(driverStats.getQueuedTime().toMillis());
         Optional<Duration> queuedTimeIfSplitRan = Optional.empty();
@@ -76,20 +75,13 @@ public class SplitMonitor
             splitFailureMetadata = Optional.of(new SplitFailureInfo(failureType, failureMessage != null ? failureMessage : ""));
         }
 
-        Optional<String> splitCatalog = driverStats.getOperatorStats().stream()
-                .map(OperatorStats::getInfo)
-                .filter(SplitOperatorInfo.class::isInstance)
-                .map(SplitOperatorInfo.class::cast)
-                .map(info -> info.getCatalogHandle().getCatalogName().toString())
-                .findFirst();
-
         try {
             eventListenerManager.splitCompleted(
                     new SplitCompletedEvent(
                             taskId.getQueryId().toString(),
                             taskId.getStageId().toString(),
                             taskId.toString(),
-                            splitCatalog,
+                            catalogName.map(CatalogName::toString),
                             driverStats.getCreateTime().toDate().toInstant(),
                             Optional.ofNullable(driverStats.getStartTime()).map(startTime -> startTime.toDate().toInstant()),
                             Optional.ofNullable(driverStats.getEndTime()).map(endTime -> endTime.toDate().toInstant()),

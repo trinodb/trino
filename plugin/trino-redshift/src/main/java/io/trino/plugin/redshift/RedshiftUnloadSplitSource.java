@@ -25,6 +25,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
+import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -35,6 +36,8 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.metrics.Metrics;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -42,12 +45,14 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_FILESYSTEM_ERROR;
 import static io.trino.plugin.redshift.RedshiftErrorCode.REDSHIFT_S3_CROSS_REGION_UNSUPPORTED;
@@ -67,6 +72,7 @@ public class RedshiftUnloadSplitSource
     private final TrinoFileSystem fileSystem;
     private final CompletableFuture<Void> resultSetFuture;
 
+    private List<FileInfo> unloadedFilePaths = ImmutableList.of();
     private boolean finished;
 
     public RedshiftUnloadSplitSource(
@@ -120,7 +126,8 @@ public class RedshiftUnloadSplitSource
     {
         return resultSetFuture
                 .thenApply(_ -> {
-                    ConnectorSplitBatch connectorSplitBatch = new ConnectorSplitBatch(readUnloadedFilePaths().stream()
+                    unloadedFilePaths = readUnloadedFilePaths();
+                    ConnectorSplitBatch connectorSplitBatch = new ConnectorSplitBatch(unloadedFilePaths.stream()
                             .map(fileInfo -> (ConnectorSplit) new RedshiftUnloadSplit(fileInfo.path, fileInfo.size))
                             .collect(toImmutableList()), true);
                     finished = true;
@@ -138,6 +145,20 @@ public class RedshiftUnloadSplitSource
     public boolean isFinished()
     {
         return finished;
+    }
+
+    @Override
+    public Metrics getMetrics()
+    {
+        if (unloadedFilePaths.isEmpty()) {
+            return Metrics.EMPTY;
+        }
+
+        Map<String, Metric<?>> metrics = this.unloadedFilePaths.stream()
+                .collect(toImmutableMap(
+                        FileInfo::path,
+                        fileInfo -> new LongCount(fileInfo.size())));
+        return new Metrics(metrics);
     }
 
     private String buildRedshiftSelectSql(ConnectorSession session, Connection connection, JdbcTableHandle table, List<JdbcColumnHandle> columns)

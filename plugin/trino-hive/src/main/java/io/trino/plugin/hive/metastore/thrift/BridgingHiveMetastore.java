@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.hive.thrift.metastore.FieldSchema;
 import io.trino.metastore.AcidOperation;
 import io.trino.metastore.AcidTransactionOwner;
@@ -154,7 +153,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, ImmutableSet<String> parameterValues)
+    public List<String> getTableNamesWithParameters(String databaseName, String parameterKey, Set<String> parameterValues)
     {
         return delegate.getTableNamesWithParameters(databaseName, parameterKey, parameterValues);
     }
@@ -247,9 +246,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
+    public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges, Map<String, String> environmentContext)
     {
-        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges));
+        alterTable(databaseName, tableName, toMetastoreApiTable(newTable, principalPrivileges), environmentContext);
     }
 
     @Override
@@ -292,7 +291,7 @@ public class BridgingHiveMetastore
                 .setOwner(Optional.of(principal.getName()))
                 .build();
 
-        delegate.alterTable(databaseName, tableName, toMetastoreApiTable(newTable));
+        delegate.alterTable(databaseName, tableName, toMetastoreApiTable(newTable), ImmutableMap.of());
     }
 
     @Override
@@ -360,7 +359,12 @@ public class BridgingHiveMetastore
 
     private void alterTable(String databaseName, String tableName, io.trino.hive.thrift.metastore.Table table)
     {
-        delegate.alterTable(databaseName, tableName, table);
+        delegate.alterTable(databaseName, tableName, table, ImmutableMap.of());
+    }
+
+    private void alterTable(String databaseName, String tableName, io.trino.hive.thrift.metastore.Table table, Map<String, String> context)
+    {
+        delegate.alterTable(databaseName, tableName, table, context);
     }
 
     @Override

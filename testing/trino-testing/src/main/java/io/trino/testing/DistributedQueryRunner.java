@@ -583,18 +583,24 @@ public class DistributedQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
-        spansValid = concurrentQueries.incrementAndGet() == 1;
+        lock.readLock().lock();
         try {
-            spanExporter.reset();
-            return coordinator.getQueryExplainer().getLogicalPlan(
-                    session,
-                    coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
-                    ImmutableList.of(),
-                    WarningCollector.NOOP,
-                    createPlanOptimizersStatsCollector());
+            spansValid = concurrentQueries.incrementAndGet() == 1;
+            try {
+                spanExporter.reset();
+                return coordinator.getQueryExplainer().getLogicalPlan(
+                        session,
+                        coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
+                        ImmutableList.of(),
+                        WarningCollector.NOOP,
+                        createPlanOptimizersStatsCollector());
+            }
+            finally {
+                concurrentQueries.decrementAndGet();
+            }
         }
         finally {
-            concurrentQueries.decrementAndGet();
+            lock.readLock().unlock();
         }
     }
 
@@ -924,7 +930,10 @@ public class DistributedQueryRunner
                 OpenTracingCollector collector = new OpenTracingCollector();
                 collector.start();
                 extraCloseables.add(collector);
-                addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
+                addExtraProperties(Map.of(
+                        "tracing.enabled", "true",
+                        "tracing.exporter.endpoint", collector.getExporterEndpoint().toString(),
+                        "tracing.exporter.protocol", "http/protobuf"));
                 checkState(eventListeners.isEmpty(), "eventListeners already set");
                 setEventListener(new EventListener()
                 {
@@ -978,7 +987,7 @@ public class DistributedQueryRunner
                     .buildOrThrow();
         }
 
-        protected static ImmutableMap<String, String> addProperty(Map<String, String> extraProperties, String key, String value)
+        protected static Map<String, String> addProperty(Map<String, String> extraProperties, String key, String value)
         {
             return ImmutableMap.<String, String>builder()
                     .putAll(requireNonNull(extraProperties, "properties is null"))

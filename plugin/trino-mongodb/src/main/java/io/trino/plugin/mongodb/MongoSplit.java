@@ -16,13 +16,12 @@ package io.trino.plugin.mongodb;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Map;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
@@ -49,9 +48,11 @@ public class MongoSplit
     }
 
     @Override
-    public Map<String, String> getSplitInfo()
+    public String toString()
     {
-        return ImmutableMap.of("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")));
+        return toStringHelper(this)
+                .add("addresses", addresses.stream().map(HostAddress::toString).collect(joining(",")))
+                .toString();
     }
 
     @Override

@@ -57,7 +57,7 @@ import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.util.AstUtils.preOrder;
 
-public class PatternRecognitionAnalyzer
+public final class PatternRecognitionAnalyzer
 {
     private PatternRecognitionAnalyzer() {}
 

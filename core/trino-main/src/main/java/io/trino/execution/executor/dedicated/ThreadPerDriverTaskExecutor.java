@@ -239,7 +239,7 @@ public class ThreadPerDriverTaskExecutor
                         task.targetConcurrency()).indent(4));
             }
 
-            LOG.debug("\n" + builder);
+            LOG.debug("\n%s", builder);
         }
     }
 

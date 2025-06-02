@@ -22,6 +22,7 @@ import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.Array;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.AtTimeZone;
+import io.trino.sql.tree.AutoGroupBy;
 import io.trino.sql.tree.BetweenPredicate;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
@@ -1010,8 +1011,8 @@ public final class ExpressionFormatter
 
     private static String formatWindow(Window window)
     {
-        if (window instanceof WindowReference) {
-            return formatExpression(((WindowReference) window).getName());
+        if (window instanceof WindowReference windowReference) {
+            return formatExpression(windowReference.getName());
         }
 
         return formatWindowSpecification((WindowSpecification) window);
@@ -1130,6 +1131,9 @@ public final class ExpressionFormatter
                 else {
                     result = formatGroupingSet(columns);
                 }
+            }
+            else if (groupingElement instanceof AutoGroupBy) {
+                result = "AUTO";
             }
             else if (groupingElement instanceof GroupingSets groupingSets) {
                 String type = switch (groupingSets.getType()) {

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -27,14 +26,6 @@ public final class Explain
 {
     private final Statement statement;
     private final List<ExplainOption> options;
-
-    @Deprecated
-    public Explain(Statement statement, List<ExplainOption> options)
-    {
-        super(Optional.empty());
-        this.statement = requireNonNull(statement, "statement is null");
-        this.options = ImmutableList.copyOf(requireNonNull(options, "options is null"));
-    }
 
     public Explain(NodeLocation location, Statement statement, List<ExplainOption> options)
     {

@@ -301,7 +301,7 @@ public class FilterStatsCalculator
         @Override
         protected PlanNodeStatsEstimate visitIn(In node, Void context)
         {
-            ImmutableList<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
+            List<PlanNodeStatsEstimate> equalityEstimates = node.valueList().stream()
                     .map(inValue -> process(new Comparison(EQUAL, node.value(), inValue)))
                     .collect(toImmutableList());
 
