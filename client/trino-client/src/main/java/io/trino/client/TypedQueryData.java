@@ -13,12 +13,11 @@
  */
 package io.trino.client;
 
-import jakarta.annotation.Nullable;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Iterables.unmodifiableIterable;
 
 /**
  * Class represents QueryData of already typed values
@@ -27,27 +26,35 @@ import static com.google.common.collect.Iterables.unmodifiableIterable;
 public class TypedQueryData
         implements QueryData
 {
-    private final Iterable<List<Object>> iterable;
+    private final List<List<Object>> values;
+    private final long rowsCount;
 
-    private TypedQueryData(Iterable<List<Object>> values)
+    private TypedQueryData(List<List<Object>> values, long rowsCount)
     {
-        this.iterable = values == null ? null : unmodifiableIterable(values);
+        this.values = values == null ? null : ImmutableList.copyOf(values);
+        this.rowsCount = rowsCount;
     }
 
     public Iterable<List<Object>> getIterable()
     {
-        checkState(iterable != null, "cannot return a null iterable");
-        return iterable;
+        checkState(values != null, "cannot return a null iterable");
+        return values;
     }
 
-    public static QueryData of(@Nullable Iterable<List<Object>> values)
+    public static QueryData of(List<List<Object>> values)
     {
-        return new TypedQueryData(values);
+        return new TypedQueryData(values, values != null ? values.size() : 0);
     }
 
     @Override
     public boolean isNull()
     {
-        return iterable == null;
+        return values == null;
+    }
+
+    @Override
+    public long getRowsCount()
+    {
+        return rowsCount;
     }
 }
