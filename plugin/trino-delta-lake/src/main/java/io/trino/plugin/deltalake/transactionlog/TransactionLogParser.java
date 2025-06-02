@@ -256,7 +256,7 @@ public final class TransactionLogParser
                 format("Unable to parse value [%s] from column %s with type %s", valueString, column.baseColumnName(), column.baseType()));
     }
 
-    static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
+    public static Optional<LastCheckpoint> readLastCheckpoint(TrinoFileSystem fileSystem, String tableLocation)
     {
         return Failsafe.with(RetryPolicy.builder()
                         .withMaxRetries(5)

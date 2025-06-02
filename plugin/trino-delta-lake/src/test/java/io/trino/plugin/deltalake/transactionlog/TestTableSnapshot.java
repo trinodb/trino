@@ -27,6 +27,7 @@ import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
+import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -151,7 +152,8 @@ public class TestTableSnapshot
                 new FileFormatDataSourceStats(),
                 tracingFileSystemFactory,
                 new ParquetReaderConfig(),
-                executorService);
+                executorService,
+                new FileSystemTransactionLogReaderFactory(tracingFileSystemFactory));
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(SESSION, tableSnapshot);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot);
         tableSnapshot.setCachedMetadata(Optional.of(metadataEntry));

@@ -26,7 +26,6 @@ import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
-import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -56,6 +55,7 @@ import java.util.OptionalLong;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.createTable;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -94,14 +94,14 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 fileFormatDataSourceStats,
                 HDFS_FILE_SYSTEM_FACTORY,
                 new ParquetReaderConfig(),
-                newDirectExecutorService());
+                newDirectExecutorService(),
+                transactionLogReaderFactory);
 
         statistics = new CachingExtendedStatisticsAccess(new MetaDirStatisticsAccess(HDFS_FILE_SYSTEM_FACTORY, new JsonCodecFactory().jsonCodec(ExtendedStatistics.class)));
         tableStatisticsProvider = new FileBasedTableStatisticsProvider(
                 typeManager,
                 transactionLogAccess,
-                statistics,
-                transactionLogReaderFactory);
+                statistics);
     }
 
     private DeltaLakeTableHandle registerTable(String tableName)
@@ -115,7 +115,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, new FileSystemTransactionLogReader(tableLocation, HDFS_FILE_SYSTEM_FACTORY), schemaTableName, tableLocation, Optional.empty());
+            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, createTable(schemaTableName, tableLocation), Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -471,7 +471,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle), tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.empty());
+            tableSnapshot = transactionLogAccess.loadSnapshot(session, tableHandle, Optional.empty());
         }
         catch (IOException e) {
             throw new RuntimeException(e);

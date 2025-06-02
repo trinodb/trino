@@ -37,9 +37,7 @@ import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointWriterManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
-import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReader;
 import io.trino.plugin.deltalake.transactionlog.reader.FileSystemTransactionLogReaderFactory;
-import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
 import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.deltalake.transactionlog.writer.FileSystemTransactionLogWriterFactory;
 import io.trino.plugin.deltalake.transactionlog.writer.NoIsolationSynchronizer;
@@ -63,7 +61,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -197,17 +194,14 @@ public class TestDeltaLakeSplitManager
                 new FileFormatDataSourceStats(),
                 hdfsFileSystemFactory,
                 new ParquetReaderConfig(),
-                newDirectExecutorService())
+                newDirectExecutorService(),
+                new FileSystemTransactionLogReaderFactory(hdfsFileSystemFactory))
         {
             @Override
             public Stream<AddFileEntry> getActiveFiles(
                     ConnectorSession session,
-                    TransactionLogReader transactionLogReader,
-                    TableSnapshot tableSnapshot,
-                    MetadataEntry metadataEntry,
-                    ProtocolEntry protocolEntry,
-                    TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-                    Set<DeltaLakeColumnHandle> projectedColumns)
+                    DeltaLakeTableHandle tableHandle,
+                    TableSnapshot tableSnapshot)
             {
                 return addFileEntries.stream();
             }
@@ -248,7 +242,7 @@ public class TestDeltaLakeSplitManager
         ConnectorSession session = testingConnectorSessionWithConfig(deltaLakeConfig);
         DeltaLakeTransactionManager deltaLakeTransactionManager = new DeltaLakeTransactionManager(metadataFactory);
         deltaLakeTransactionManager.begin(transactionHandle);
-        deltaLakeTransactionManager.get(transactionHandle, session.getIdentity()).getSnapshot(session, new FileSystemTransactionLogReader(TABLE_PATH, hdfsFileSystemFactory), tableHandle.getSchemaTableName(), TABLE_PATH, Optional.empty());
+        deltaLakeTransactionManager.get(transactionHandle, session.getIdentity()).getSnapshot(session, tableHandle, Optional.empty());
         return new DeltaLakeSplitManager(
                 typeManager,
                 transactionLogAccess,
@@ -256,8 +250,7 @@ public class TestDeltaLakeSplitManager
                 deltaLakeConfig,
                 HDFS_FILE_SYSTEM_FACTORY,
                 deltaLakeTransactionManager,
-                new DefaultCachingHostAddressProvider(),
-                transactionLogReaderFactory);
+                new DefaultCachingHostAddressProvider());
     }
 
     private AddFileEntry addFileEntryOfSize(String path, long fileSize)

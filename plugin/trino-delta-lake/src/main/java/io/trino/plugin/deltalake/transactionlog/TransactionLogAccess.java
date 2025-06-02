@@ -36,13 +36,16 @@ import io.trino.plugin.base.metrics.FileFormatDataSourceStats;
 import io.trino.plugin.deltalake.DeltaLakeColumnHandle;
 import io.trino.plugin.deltalake.DeltaLakeColumnMetadata;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.DeltaLakeTableHandle;
 import io.trino.plugin.deltalake.ForDeltaLakeMetadata;
+import io.trino.plugin.deltalake.metastore.DeltaMetastoreTable;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot.MetadataAndProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.LastCheckpoint;
 import io.trino.plugin.deltalake.transactionlog.checkpoint.MetadataAndProtocolEntries;
 import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReader;
+import io.trino.plugin.deltalake.transactionlog.reader.TransactionLogReaderFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -116,6 +119,7 @@ public class TransactionLogAccess
     private final int domainCompactionThreshold;
     private final DataSize transactionLogMaxCachedFileSize;
     private final int checkpointProcessingParallelism;
+    private final TransactionLogReaderFactory transactionLogReaderFactory;
 
     private final Cache<TableLocation, TableSnapshot> tableSnapshots;
     private final Cache<TableVersion, DeltaLakeDataFileCacheEntry> activeDataFileCache;
@@ -128,7 +132,8 @@ public class TransactionLogAccess
             FileFormatDataSourceStats fileFormatDataSourceStats,
             TrinoFileSystemFactory fileSystemFactory,
             ParquetReaderConfig parquetReaderConfig,
-            @ForDeltaLakeMetadata ExecutorService executorService)
+            @ForDeltaLakeMetadata ExecutorService executorService,
+            TransactionLogReaderFactory transactionLogReaderFactory)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.checkpointSchemaManager = requireNonNull(checkpointSchemaManager, "checkpointSchemaManager is null");
@@ -140,6 +145,7 @@ public class TransactionLogAccess
         this.domainCompactionThreshold = deltaLakeConfig.getDomainCompactionThreshold();
         this.transactionLogMaxCachedFileSize = deltaLakeConfig.getTransactionLogMaxCachedFileSize();
         this.checkpointProcessingParallelism = deltaLakeConfig.getCheckpointProcessingParallelism();
+        this.transactionLogReaderFactory = requireNonNull(transactionLogReaderFactory, "transactionLogReaderFactory is null");
 
         tableSnapshots = EvictableCacheBuilder.newBuilder()
                 .weigher((Weigher<TableLocation, TableSnapshot>) (key, value) -> Ints.saturatedCast(key.getRetainedSizeInBytes() + value.getRetainedSizeInBytes()))
@@ -171,6 +177,27 @@ public class TransactionLogAccess
         return new CacheStatsMBean(tableSnapshots);
     }
 
+    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaMetastoreTable table, Optional<Long> endVersion)
+            throws IOException
+    {
+        return loadSnapshot(session, transactionLogReaderFactory.createReader(table), table.schemaTableName(), table.location(), endVersion);
+    }
+
+    public TableSnapshot loadSnapshot(ConnectorSession session, DeltaLakeTableHandle tableHandle, Optional<Long> endVersion)
+            throws IOException
+    {
+        return loadSnapshot(session, transactionLogReaderFactory.createReader(tableHandle), tableHandle.getSchemaTableName(), tableHandle.getLocation(), endVersion);
+    }
+
+    /**
+     * This method is public to support loading a snapshot directly from a table location.
+     * <p>
+     * Direct usage of this method is discouraged. Prefer using one of the higher-level alternatives:
+     * <ul>
+     *   <li>{@link #loadSnapshot(ConnectorSession, DeltaMetastoreTable, Optional)}</li>
+     *   <li>{@link #loadSnapshot(ConnectorSession, DeltaLakeTableHandle, Optional)}</li>
+     * </ul>
+     */
     public TableSnapshot loadSnapshot(ConnectorSession session, TransactionLogReader transactionLogReader, SchemaTableName table, String tableLocation, Optional<Long> endVersion)
             throws IOException
     {
@@ -340,23 +367,38 @@ public class TransactionLogAccess
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
     }
 
-    public Stream<AddFileEntry> getActiveFiles(
-            ConnectorSession session,
-            TransactionLogReader transactionLogReader,
-            TableSnapshot tableSnapshot,
-            MetadataEntry metadataEntry,
-            ProtocolEntry protocolEntry,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Set<DeltaLakeColumnHandle> projectedColumns)
+    public Stream<AddFileEntry> getActiveFiles(ConnectorSession session, DeltaLakeTableHandle tableHandle, TableSnapshot tableSnapshot)
     {
-        Set<String> baseColumnNames = projectedColumns.stream()
+        Set<String> baseColumnNames = tableHandle.getProjectedColumns().orElse(ImmutableSet.of()).stream()
                 .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
                 .map(DeltaLakeColumnHandle::columnName)
                 .collect(toImmutableSet());
-        return getActiveFiles(session, transactionLogReader, tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, baseColumnNames::contains);
+        return getActiveFiles(
+                session,
+                tableHandle,
+                tableSnapshot,
+                tableHandle.getEnforcedPartitionConstraint(),
+                baseColumnNames::contains);
     }
 
     public Stream<AddFileEntry> getActiveFiles(
+            ConnectorSession session,
+            DeltaLakeTableHandle tableHandle,
+            TableSnapshot tableSnapshot,
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Predicate<String> addStatsMinMaxColumnFilter)
+    {
+        return getActiveFiles(
+                session,
+                transactionLogReaderFactory.createReader(tableHandle),
+                tableSnapshot,
+                tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
+                partitionConstraint,
+                addStatsMinMaxColumnFilter);
+    }
+
+    private Stream<AddFileEntry> getActiveFiles(
             ConnectorSession session,
             TransactionLogReader transactionLogReader,
             TableSnapshot tableSnapshot,
@@ -659,7 +701,13 @@ public class TransactionLogAccess
         return result.build();
     }
 
-    private List<DeltaLakeTransactionLogEntry> getJsonEntries(ConnectorSession session, TransactionLogReader transactionLogReader, long startVersion, long endVersion, TableSnapshot tableSnapshot, TrinoFileSystem fileSystem)
+    private List<DeltaLakeTransactionLogEntry> getJsonEntries(
+            ConnectorSession session,
+            TransactionLogReader transactionLogReader,
+            long startVersion,
+            long endVersion,
+            TableSnapshot tableSnapshot,
+            TrinoFileSystem fileSystem)
             throws IOException
     {
         Optional<Long> lastCheckpointVersion = tableSnapshot.getLastCheckpointVersion();
