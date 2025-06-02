@@ -19,6 +19,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.client.CloseableLimitingIterator.limit;
 import static java.util.Collections.emptyIterator;
 
 /**
@@ -54,7 +55,7 @@ public interface ResultRows
         }
     };
 
-    static ResultRows wrapIterator(CloseableIterator<List<Object>> iterator)
+    static ResultRows wrapIterator(CloseableIterator<List<Object>> iterator, long maxRows)
     {
         return new ResultRows() {
             private volatile boolean fetched;
@@ -71,7 +72,7 @@ public interface ResultRows
             {
                 verify(!fetched, "Iterator already fetched");
                 fetched = true;
-                return iterator;
+                return limit(iterator, maxRows);
             }
 
             @Override

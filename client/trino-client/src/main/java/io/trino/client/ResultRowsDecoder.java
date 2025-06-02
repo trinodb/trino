@@ -82,13 +82,13 @@ public class ResultRowsDecoder
         if (data instanceof TypedQueryData) {
             TypedQueryData rawData = (TypedQueryData) data;
             // RawQueryData is always typed
-            return wrapIterator(closeable(rawData.getIterable().iterator()));
+            return wrapIterator(closeable(rawData.getIterable().iterator()), rawData.getRowsCount());
         }
 
         if (data instanceof JsonQueryData) {
             JsonQueryData jsonData = (JsonQueryData) data;
             try {
-                return wrapIterator(JsonIterators.forJsonParser(jsonData.getJsonParser(), columns));
+                return wrapIterator(JsonIterators.forJsonParser(jsonData.getJsonParser(), columns), jsonData.getRowsCount());
             }
             catch (IOException e) {
                 throw new UncheckedIOException(e);
@@ -98,7 +98,7 @@ public class ResultRowsDecoder
         if (data instanceof EncodedQueryData) {
             EncodedQueryData encodedData = (EncodedQueryData) data;
             setEncoding(columns, encodedData.getEncoding());
-            return wrapIterator(new SegmentsIterator(loader, decoder, encodedData.getSegments()));
+            return wrapIterator(new SegmentsIterator(loader, decoder, encodedData.getSegments()), encodedData.getRowsCount());
         }
 
         throw new UnsupportedOperationException("Unsupported data type: " + data.getClass().getName());
