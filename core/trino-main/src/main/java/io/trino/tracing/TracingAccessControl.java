@@ -414,6 +414,15 @@ public class TracingAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName)
+    {
+        Span span = startSpan("checkCanRefreshView");
+        try (var _ = scopedSpan(span)) {
+            delegate.checkCanRefreshView(context, viewName);
+        }
+    }
+
+    @Override
     public void checkCanDropView(SecurityContext context, QualifiedObjectName viewName)
     {
         Span span = startSpan("checkCanDropView");
