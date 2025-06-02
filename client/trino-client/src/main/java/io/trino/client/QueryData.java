@@ -20,6 +20,21 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
  */
 public interface QueryData
 {
+    QueryData NULL = new QueryData()
+    {
+        @Override
+        public boolean isNull()
+        {
+            return true;
+        }
+
+        @Override
+        public long getRowsCount()
+        {
+            return 0;
+        }
+    };
+
     @JsonIgnore
     boolean isNull();
 

@@ -50,7 +50,7 @@ class TestResultRowsDecoder
             throws Exception
     {
         try (ResultRowsDecoder decoder = new ResultRowsDecoder()) {
-            assertThat(decoder.toRows(fromQueryData(TypedQueryData.of(null))))
+            assertThat(decoder.toRows(fromQueryData(QueryData.NULL)))
                     .isEmpty();
         }
     }

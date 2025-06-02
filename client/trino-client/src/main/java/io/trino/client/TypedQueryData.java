@@ -17,8 +17,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
-
 /**
  * Class represents QueryData of already typed values
  *
@@ -31,13 +29,12 @@ public class TypedQueryData
 
     private TypedQueryData(List<List<Object>> values, long rowsCount)
     {
-        this.values = values == null ? null : ImmutableList.copyOf(values);
+        this.values = ImmutableList.copyOf(values);
         this.rowsCount = rowsCount;
     }
 
     public Iterable<List<Object>> getIterable()
     {
-        checkState(values != null, "cannot return a null iterable");
         return values;
     }
 
@@ -49,7 +46,7 @@ public class TypedQueryData
     @Override
     public boolean isNull()
     {
-        return values == null;
+        return false;
     }
 
     @Override

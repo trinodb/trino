@@ -65,7 +65,7 @@ public class TestQueryDataSerialization
     public void testNullDataSerialization()
     {
         assertThat(serialize(null)).doesNotContain("data");
-        assertThat(serialize(TypedQueryData.of(null))).doesNotContain("data");
+        assertThat(serialize(QueryData.NULL)).doesNotContain("data");
     }
 
     @Test
