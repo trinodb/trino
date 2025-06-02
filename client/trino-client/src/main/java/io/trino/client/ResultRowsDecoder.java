@@ -65,7 +65,7 @@ public class ResultRowsDecoder
 
     public ResultRows toRows(QueryResults results)
     {
-        if (results == null || results.getData() == null) {
+        if (results == null || results.getData() == null || results.getData().isNull()) {
             return NULL_ROWS;
         }
 
@@ -81,18 +81,12 @@ public class ResultRowsDecoder
         verify(columns != null && !columns.isEmpty(), "Columns must be set when decoding data");
         if (data instanceof TypedQueryData) {
             TypedQueryData rawData = (TypedQueryData) data;
-            if (rawData.isNull()) {
-                return NULL_ROWS; // for backward compatibility instead of null
-            }
             // RawQueryData is always typed
             return wrapIterator(closeable(rawData.getIterable().iterator()));
         }
 
         if (data instanceof JsonQueryData) {
             JsonQueryData jsonData = (JsonQueryData) data;
-            if (jsonData.isNull()) {
-                return NULL_ROWS;
-            }
             try {
                 return wrapIterator(JsonIterators.forJsonParser(jsonData.getJsonParser(), columns));
             }
