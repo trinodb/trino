@@ -40,6 +40,7 @@ import io.trino.sql.tree.NodeLocation;
 import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
+import io.trino.sql.tree.RefreshView;
 import io.trino.sql.tree.ShowBranches;
 import io.trino.sql.tree.ShowCatalogs;
 import io.trino.sql.tree.ShowColumns;
@@ -567,6 +568,14 @@ public class TestSqlFormatter
         assertThat(formatSql(
                 new Comment(new NodeLocation(1, 1), Comment.Type.COLUMN, QualifiedName.of("test", "a"), Optional.of("攻殻機動隊"))))
                 .isEqualTo("COMMENT ON COLUMN test.a IS '攻殻機動隊'");
+    }
+
+    @Test
+    public void testRefreshView()
+    {
+        assertThat(formatSql(
+                new RefreshView(new NodeLocation(1, 1), QualifiedName.of("catalog", "schema", "view"))))
+                .isEqualTo("ALTER VIEW catalog.schema.view REFRESH");
     }
 
     @Test

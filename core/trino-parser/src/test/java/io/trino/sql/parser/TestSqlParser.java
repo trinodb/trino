@@ -166,6 +166,7 @@ import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
+import io.trino.sql.tree.RefreshView;
 import io.trino.sql.tree.Relation;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
@@ -3749,6 +3750,15 @@ public class TestSqlParser
                         location(1, 1),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "a", false))),
                         QualifiedName.of(ImmutableList.of(new Identifier(location(1, 24), "b", false)))));
+    }
+
+    @Test
+    public void testRefreshView()
+    {
+        assertThat(statement("ALTER VIEW a REFRESH"))
+                .isEqualTo(new RefreshView(
+                        location(1, 1),
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 12), "a", false)))));
     }
 
     @Test
