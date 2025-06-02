@@ -323,6 +323,13 @@ public interface AccessControl
     void checkCanRenameView(SecurityContext context, QualifiedObjectName viewName, QualifiedObjectName newViewName);
 
     /**
+     * Check if identity is allowed to refresh the specified view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanRefreshView(SecurityContext context, QualifiedObjectName viewName);
+
+    /**
      * Check if identity is allowed to drop the specified view.
      *
      * @throws AccessDeniedException if not allowed

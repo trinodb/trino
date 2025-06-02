@@ -231,6 +231,9 @@ public class AllowAllSystemAccessControl
     public void checkCanDropView(SystemSecurityContext context, CatalogSchemaTableName view) {}
 
     @Override
+    public void checkCanRefreshView(SystemSecurityContext context, CatalogSchemaTableName view) {}
+
+    @Override
     public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns) {}
 
     @Override
