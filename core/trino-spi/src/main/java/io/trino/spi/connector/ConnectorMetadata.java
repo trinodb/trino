@@ -914,6 +914,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Refreshes an existing view definition.
+     */
+    default void refreshView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition viewDefinition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support refreshing view definition");
+    }
+
+    /**
      * Drop the specified view.
      */
     default void dropView(ConnectorSession session, SchemaTableName viewName)

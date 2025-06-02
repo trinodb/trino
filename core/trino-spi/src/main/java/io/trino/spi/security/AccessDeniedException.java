@@ -455,6 +455,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyRefreshView(String viewName)
+    {
+        denyRefreshView(viewName, null);
+    }
+
+    public static void denyRefreshView(String viewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot refresh view %s%s", viewName, formatExtraInfo(extraInfo)));
+    }
+
     /**
      * @deprecated Use {@link #denySetEntityAuthorization(EntityKindAndName, TrinoPrincipal)}
      */

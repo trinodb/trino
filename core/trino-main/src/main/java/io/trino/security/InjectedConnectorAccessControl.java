@@ -280,6 +280,13 @@ public class InjectedConnectorAccessControl
     }
 
     @Override
+    public void checkCanRefreshView(ConnectorSecurityContext context, SchemaTableName viewName)
+    {
+        checkArgument(context == null, "context must be null");
+        accessControl.checkCanRefreshView(securityContext, getQualifiedObjectName(viewName));
+    }
+
+    @Override
     public void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
         checkArgument(context == null, "context must be null");
