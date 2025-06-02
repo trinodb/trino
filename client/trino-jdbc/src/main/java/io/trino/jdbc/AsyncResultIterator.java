@@ -16,6 +16,7 @@ package io.trino.jdbc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.trino.client.CloseableIterator;
 import io.trino.client.QueryStatusInfo;
 import io.trino.client.StatementClient;
 
@@ -39,7 +40,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class AsyncResultIterator
         extends AbstractIterator<List<Object>>
-        implements CancellableIterator<List<Object>>
+        implements CloseableIterator<List<Object>>
 {
     private static final int BATCH_SIZE = 100;
     private static final int MAX_QUEUED_ROWS = 50_000;
@@ -105,7 +106,7 @@ public class AsyncResultIterator
     }
 
     @Override
-    public void cancel()
+    public void close()
     {
         synchronized (this) {
             if (cancelled) {
@@ -114,10 +115,10 @@ public class AsyncResultIterator
             cancelled = true;
         }
         future.cancel(true);
-        close();
+        internalClose();
     }
 
-    private void close()
+    private void internalClose()
     {
         // When thread interruption is mis-handled by underlying implementation of `client`, the thread which
         // is working for `future` may be blocked by `rowQueue.put` (`rowQueue` is full) and will never finish
@@ -167,7 +168,7 @@ public class AsyncResultIterator
 
     private void handleInterrupt(InterruptedException e)
     {
-        cancel();
+        internalClose();
         Thread.currentThread().interrupt();
         throw new RuntimeException(new SQLException("Interrupted", e));
     }
