@@ -104,7 +104,7 @@ public class RefreshViewTask
 
         Session viewSession = stateMachine.getSession();
         if (!viewDefinition.isRunAsInvoker()) {
-            checkArgument(viewDefinition.getRunAsIdentity().isEmpty(), "View owner detail is missing");
+            checkArgument(viewDefinition.getRunAsIdentity().isPresent(), "View owner detail is missing");
             viewSession = viewSession.createViewSession(viewDefinition.getCatalog(), viewDefinition.getSchema(), viewDefinition.getRunAsIdentity().get(), viewDefinition.getPath());
         }
 
