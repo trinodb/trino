@@ -81,7 +81,7 @@ public class TestQueryDataSerialization
     @Test
     public void testQueryDataSerialization()
     {
-        Iterable<List<Object>> values = ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L));
+        List<List<Object>> values = ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(5L));
         testRoundTrip(TypedQueryData.of(values), "[[1],[5]]");
     }
 

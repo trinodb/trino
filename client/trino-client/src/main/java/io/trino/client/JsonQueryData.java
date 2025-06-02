@@ -43,4 +43,10 @@ public class JsonQueryData
     {
         return node.isNull();
     }
+
+    @Override
+    public long getRowsCount()
+    {
+        return node.size();
+    }
 }

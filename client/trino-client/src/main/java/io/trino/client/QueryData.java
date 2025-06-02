@@ -22,4 +22,6 @@ public interface QueryData
 {
     @JsonIgnore
     boolean isNull();
+
+    long getRowsCount();
 }
