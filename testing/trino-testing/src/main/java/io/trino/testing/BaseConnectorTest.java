@@ -139,6 +139,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MULTI_STATEMENT_WRITES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NEGATIVE_DATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_NOT_NULL_CONSTRAINT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_REFRESH_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_FIELD;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_MATERIALIZED_VIEW;
@@ -986,6 +987,46 @@ public abstract class BaseConnectorTest
         assertUpdate("DROP VIEW " + testView);
         assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet())
                 .doesNotContain(testView);
+    }
+
+    @Test
+    public void testRefreshView()
+    {
+        if (!hasBehavior(SUPPORTS_REFRESH_VIEW)) {
+            if (hasBehavior(SUPPORTS_CREATE_VIEW)) {
+                try (TestView testView = new TestView(getQueryRunner()::execute, "test_view", " SELECT * FROM nation")) {
+                    assertQueryFails("ALTER VIEW %s REFRESH".formatted(testView.getName()), "This connector does not support refreshing view definition");
+                }
+            }
+            else {
+                assertQueryFails("CREATE VIEW sample_view AS SELECT * FROM nation", "This connector does not support creating views");
+            }
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE) && !hasBehavior(SUPPORTS_ADD_COLUMN)) {
+            throw new AssertionError("Cannot test ALTER VIEW REFRESH without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_table", "(id BIGINT, column_to_dropped BIGINT)", ImmutableList.of("1, 2"));
+                TestView view = new TestView(getQueryRunner()::execute, "test_view", " SELECT * FROM %s".formatted(table.getName()))) {
+            assertQuery("SELECT * FROM %s".formatted(view.getName()), "VALUES (1, 2)");
+
+            assertUpdate("ALTER TABLE %s ADD COLUMN new_column BIGINT".formatted(table.getName()));
+            assertQueryFails(
+                    "SELECT * FROM %s".formatted(view.getName()),
+                    ".*is stale or in invalid state: stored view column count \\(2\\) does not match column count derived from the view query analysis \\(3\\)");
+
+            assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+            assertQuery("SELECT * FROM %s".formatted(view.getName()), "VALUES (1, 2, null)");
+
+            assertUpdate("ALTER TABLE %s RENAME COLUMN new_column TO renamed_column".formatted(table.getName()));
+            assertQueryFails(
+                    "SELECT * FROM %s".formatted(view.getName()),
+                    ".*is stale or in invalid state: column \\[renamed_column] of type bigint projected from query view at position 2 has a different name from column \\[new_column] of type bigint stored in view definition");
+            assertUpdate("ALTER VIEW %s REFRESH".formatted(view.getName()));
+            assertQuery("SELECT * FROM %s".formatted(view.getName()), "VALUES (1, 2, null)");
+        }
     }
 
     @Test
