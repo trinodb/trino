@@ -174,3 +174,12 @@ FROM
     )
   )
 ;
+```
+
+The columns have the following names and types 
+
+| Column Name | Type                        |
+|-------------|-----------------------------|
+| timestamp   | timestamp(3) with time zone |
+| value       | double                      |
+| province    | varchar                     |
