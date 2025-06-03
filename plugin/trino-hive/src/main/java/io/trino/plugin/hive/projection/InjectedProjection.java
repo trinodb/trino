@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.hive.projection;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
@@ -25,10 +27,16 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.canConvertSqlTypeToSt
 import static io.trino.plugin.hive.metastore.MetastoreUtil.sqlScalarToString;
 import static java.util.Objects.requireNonNull;
 
-final class InjectedProjection
+public final class InjectedProjection
         implements Projection
 {
     private final String columnName;
+
+    @JsonCreator
+    public InjectedProjection(@JsonProperty("columnName") String columnName)
+    {
+        this.columnName = requireNonNull(columnName, "columnName is null");
+    }
 
     public InjectedProjection(String columnName, Type columnType)
     {
@@ -57,5 +65,11 @@ final class InjectedProjection
                     return stringValue;
                 })
                 .collect(toImmutableList());
+    }
+
+    @JsonProperty
+    public String getColumnName()
+    {
+        return columnName;
     }
 }

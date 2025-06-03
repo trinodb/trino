@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.connector.ConnectorTableExecuteHandle;
 
 import java.util.List;
@@ -47,7 +48,8 @@ public class HiveTableExecuteHandle
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
             @JsonProperty("transaction") AcidTransaction transaction,
-            @JsonProperty("retriesEnabled") boolean retriesEnabled)
+            @JsonProperty("retriesEnabled") boolean retriesEnabled,
+            @JsonProperty("partitionProjection") Optional<PartitionProjection> partitionProjection)
     {
         super(
                 schemaName,
@@ -59,7 +61,8 @@ public class HiveTableExecuteHandle
                 tableStorageFormat,
                 partitionStorageFormat,
                 transaction,
-                retriesEnabled);
+                retriesEnabled,
+                partitionProjection);
 
         // todo to be added soon
         verify(bucketInfo.isEmpty(), "bucketed tables not supported yet");
@@ -102,7 +105,8 @@ public class HiveTableExecuteHandle
                 getTableStorageFormat(),
                 getPartitionStorageFormat(),
                 getTransaction(),
-                isRetriesEnabled());
+                isRetriesEnabled(),
+                getPartitionProjection());
     }
 
     @Override
