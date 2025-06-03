@@ -104,6 +104,13 @@ public class SetAuthorizationTask
                     throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
                 }
             }
+            case "MATERIALIZED VIEW" -> {
+                QualifiedObjectName viewName = new QualifiedObjectName(name.get(0), name.get(1), name.get(2));
+                getRequiredCatalogHandle(metadata, session, statement, viewName.catalogName());
+                if (!metadata.isMaterializedView(session, viewName)) {
+                    throw semanticException(TABLE_NOT_FOUND, statement, "Materialized view '%s' does not exist", viewName);
+                }
+            }
         }
 
         TrinoPrincipal principal = createPrincipal(statement.getPrincipal());

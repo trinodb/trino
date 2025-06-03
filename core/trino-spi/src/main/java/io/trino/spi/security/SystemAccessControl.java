@@ -959,9 +959,9 @@ public interface SystemAccessControl
                 }
                 checkCanSetTableAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
                 break;
-            case "VIEW":
+            case "VIEW", "MATERIALIZED VIEW":
                 if (name.size() != 3) {
-                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The view name %s must have three elements".formatted(name));
+                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
                 }
                 checkCanSetViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
                 break;

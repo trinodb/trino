@@ -1413,7 +1413,7 @@ public class AccessControlManager
                 case "TABLE":
                     control.checkCanSetTableAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
                     break;
-                case "VIEW":
+                case "VIEW", "MATERIALIZED VIEW":
                     control.checkCanSetViewAuthorization(context, new SchemaTableName(name.get(1), name.get(2)), principal);
                     break;
                 default:

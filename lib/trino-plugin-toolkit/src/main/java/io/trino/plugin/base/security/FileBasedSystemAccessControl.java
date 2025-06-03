@@ -1100,7 +1100,7 @@ public class FileBasedSystemAccessControl
                 CatalogSchemaName schema = new CatalogSchemaName(name.get(0), name.get(1));
                 denied = !isSchemaOwner(context, schema) || !checkCanSetAuthorization(context, principal);
                 break;
-            case "TABLE", "VIEW":
+            case "TABLE", "VIEW", "MATERIALIZED VIEW":
                 CatalogSchemaTableName table = new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2));
                 denied = !checkTablePermission(context, table, OWNERSHIP) || !checkCanSetAuthorization(context, principal);
                 break;
