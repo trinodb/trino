@@ -14,7 +14,9 @@
 package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
+import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
 import org.apache.hudi.common.model.FileSlice;
@@ -28,6 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.hudi.util.TupleDomainUtils.hasSimpleNullCheck;
@@ -36,22 +39,22 @@ public class HudiPartitionStatsIndexSupport
         extends HudiColumnStatsIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
+    private final HoodieTableMetadata metadataTable;
 
-    public HudiPartitionStatsIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiPartitionStatsIndexSupport(HoodieTableMetaClient metaClient, ConnectorSession session, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, metaClient);
+        super(log, session, metaClient, metadataTable, regularColumnPredicates);
+        this.metadataTable = metadataTable;
     }
 
     @Override
-    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(HoodieTableMetadata metadataTable, Map<String, List<FileSlice>> inputFileSlices, TupleDomain<String> regularColumnPredicates)
+    public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(Map<String, List<FileSlice>> inputFileSlices, TupleDomain<String> regularColumnPredicates)
     {
         throw new UnsupportedOperationException("This method is not supported by " + getClass().getSimpleName());
     }
 
     public Optional<List<String>> prunePartitions(
-            List<String> allPartitions,
-            HoodieTableMetadata metadataTable,
-            TupleDomain<String> regularColumnPredicates)
+            List<String> allPartitions)
     {
         // Filter out predicates containing simple null checks (`IS NULL` or `IS NOT NULL`)
         TupleDomain<String> filteredRegularPredicates = regularColumnPredicates.filter((_, domain) -> !hasSimpleNullCheck(domain));
@@ -69,20 +72,24 @@ public class HudiPartitionStatsIndexSupport
                 .map(col -> new ColumnIndexID(col).asBase64EncodedString()).toList();
 
         // Map of partition stats keyed by partition name
-        Map<String, List<HoodieMetadataColumnStats>> statsByPartitionName = metadataTable.getRecordsByKeyPrefixes(
+        Map<String, Map<String, HoodieMetadataColumnStats>> statsByPartitionName = metadataTable.getRecordsByKeyPrefixes(
                         encodedTargetColumnNames,
                         HoodieTableMetadataUtil.PARTITION_NAME_PARTITION_STATS, true)
                 .collectAsList()
                 .stream()
                 .filter(f -> f.getData().getColumnStatMetadata().isPresent())
                 .map(f -> f.getData().getColumnStatMetadata().get())
-                .collect(Collectors.groupingBy(HoodieMetadataColumnStats::getFileName));
+                .collect(Collectors.groupingBy(
+                        HoodieMetadataColumnStats::getFileName,
+                        Collectors.toMap(
+                                HoodieMetadataColumnStats::getColumnName,
+                                Function.identity())));
 
         // For each partition, determine if it should be kept based on stats availability and predicate evaluation
         List<String> prunedPartitions = allPartitions.stream()
                 .filter(partition -> {
                     // Check if stats exist for this partition
-                    List<HoodieMetadataColumnStats> partitionStats = statsByPartitionName.get(partition);
+                    Map<String, HoodieMetadataColumnStats> partitionStats = statsByPartitionName.get(partition);
                     if (partitionStats == null) {
                         // Partition has no stats in the index, keep it
                         return true;

@@ -35,6 +35,7 @@ public class HudiPartitionInfoLoader
     private final AsyncQueue<ConnectorSplit> asyncQueue;
     private final Deque<String> partitionQueue;
     private final String commitTime;
+    private final boolean useIndex;
 
     private boolean isRunning;
 
@@ -43,7 +44,8 @@ public class HudiPartitionInfoLoader
             String commitTime,
             HudiSplitFactory hudiSplitFactory,
             AsyncQueue<ConnectorSplit> asyncQueue,
-            Deque<String> partitionQueue)
+            Deque<String> partitionQueue,
+            boolean useIndex)
     {
         this.hudiDirectoryLister = hudiDirectoryLister;
         this.commitTime = commitTime;
@@ -51,6 +53,7 @@ public class HudiPartitionInfoLoader
         this.asyncQueue = asyncQueue;
         this.partitionQueue = partitionQueue;
         this.isRunning = true;
+        this.useIndex = useIndex;
     }
 
     @Override
@@ -71,7 +74,7 @@ public class HudiPartitionInfoLoader
         partitionInfo.ifPresent(hudiPartitionInfo -> {
             if (hudiPartitionInfo.doesMatchPredicates() || partitionName.equals(NON_PARTITION)) {
                 List<HivePartitionKey> partitionKeys = hudiPartitionInfo.getHivePartitionKeys();
-                List<FileSlice> partitionFileSlices = hudiDirectoryLister.listStatus(hudiPartitionInfo, commitTime);
+                List<FileSlice> partitionFileSlices = hudiDirectoryLister.listStatus(hudiPartitionInfo, commitTime, useIndex);
                 partitionFileSlices.stream()
                         .flatMap(slice -> hudiSplitFactory.createSplits(partitionKeys, slice, commitTime).stream())
                         .map(asyncQueue::offer)

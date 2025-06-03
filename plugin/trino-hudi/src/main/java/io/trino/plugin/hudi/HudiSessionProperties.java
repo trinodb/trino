@@ -63,6 +63,7 @@ public class HudiSessionProperties
     static final String SECONDARY_INDEX_ENABLED = "secondary_index_enabled";
     static final String COLUMN_STATS_INDEX_ENABLED = "column_stats_index_enabled";
     static final String PARTITION_STATS_INDEX_ENABLED = "partition_stats_index_enabled";
+    static final String COLUMN_STATS_WAIT_TIMEOUT = "column_stats_wait_timeout";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -167,6 +168,11 @@ public class HudiSessionProperties
                         "Enable partition stats index for file skipping",
                         hudiConfig.isPartitionStatsIndexEnabled(),
                         true),
+                durationProperty(
+                        COLUMN_STATS_WAIT_TIMEOUT,
+                        "Maximum timeout to wait for loading column stats",
+                        hudiConfig.getColumnStatsWaitTimeout(),
+                        false),
                 durationProperty(
                         DYNAMIC_FILTERING_WAIT_TIMEOUT,
                         "Duration to wait for completion of dynamic filters during split generation",
@@ -274,5 +280,10 @@ public class HudiSessionProperties
     public static Duration getDynamicFilteringWaitTimeout(ConnectorSession session)
     {
         return session.getProperty(DYNAMIC_FILTERING_WAIT_TIMEOUT, Duration.class);
+    }
+
+    public static Duration getColumnStatusWaitTimeout(ConnectorSession session)
+    {
+        return session.getProperty(COLUMN_STATS_WAIT_TIMEOUT, Duration.class);
     }
 }

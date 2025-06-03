@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.units.Duration;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
+import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -39,9 +42,15 @@ import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
+import static io.trino.plugin.hudi.HudiSessionProperties.getColumnStatusWaitTimeout;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -56,40 +65,53 @@ public class HudiColumnStatsIndexSupport
         extends HudiBaseIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
+    private final CompletableFuture<Optional<Map<String, Map<String, HoodieMetadataColumnStats>>>> statsByFileNameFuture;
+    protected final TupleDomain<String> regularColumnPredicates;
+    private final List<String> regularColumns;
+    private final Duration columnStatsWaitTimeout;
 
-    public HudiColumnStatsIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiColumnStatsIndexSupport(ConnectorSession session, HoodieTableMetaClient metaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, metaClient);
+        this(log, session, metaClient, metadataTable, regularColumnPredicates);
     }
 
-    public HudiColumnStatsIndexSupport(Logger log, HoodieTableMetaClient metaClient)
+    public HudiColumnStatsIndexSupport(Logger log, ConnectorSession session, HoodieTableMetaClient metaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, metaClient);
+        this.columnStatsWaitTimeout = getColumnStatusWaitTimeout(session);
+        this.regularColumnPredicates = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
+        this.regularColumns = this.regularColumnPredicates
+                .getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
+        if (regularColumnPredicates.isAll() || !regularColumnPredicates.getDomains().isPresent()) {
+            this.statsByFileNameFuture = CompletableFuture.completedFuture(Optional.empty());
+        }
+        else {
+            // Get filter columns
+            List<String> encodedTargetColumnNames = regularColumns
+                    .stream()
+                    .map(col -> new ColumnIndexID(col).asBase64EncodedString()).collect(Collectors.toList());
+            statsByFileNameFuture = CompletableFuture.supplyAsync(() ->
+                    Optional.of(metadataTable.getRecordsByKeyPrefixes(encodedTargetColumnNames,
+                                    HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS, true)
+                            .collectAsList()
+                            .stream()
+                            .filter(f -> f.getData().getColumnStatMetadata().isPresent())
+                            .map(f -> f.getData().getColumnStatMetadata().get())
+                            .collect(Collectors.groupingBy(
+                                    HoodieMetadataColumnStats::getFileName,
+                                    Collectors.toMap(
+                                            HoodieMetadataColumnStats::getColumnName,
+                                            Function.identity())))));
+        }
     }
 
     @Override
     public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            HoodieTableMetadata metadataTable, Map<String, List<FileSlice>> inputFileSlices,
-            TupleDomain<String> regularColumnPredicates)
+            Map<String, List<FileSlice>> inputFileSlices, TupleDomain<String> regularColumnPredicates)
     {
         if (regularColumnPredicates.isAll() || !regularColumnPredicates.getDomains().isPresent()) {
             return inputFileSlices;
         }
-
-        List<String> regularColumns = regularColumnPredicates
-                .getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
-        // Get filter columns
-        List<String> encodedTargetColumnNames = regularColumns
-                .stream()
-                .map(col -> new ColumnIndexID(col).asBase64EncodedString()).collect(Collectors.toList());
-        Map<String, List<HoodieMetadataColumnStats>> statsByFileName = metadataTable.getRecordsByKeyPrefixes(
-                        encodedTargetColumnNames,
-                        HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS, true)
-                .collectAsList()
-                .stream()
-                .filter(f -> f.getData().getColumnStatMetadata().isPresent())
-                .map(f -> f.getData().getColumnStatMetadata().get())
-                .collect(Collectors.groupingBy(HoodieMetadataColumnStats::getFileName));
 
         // Prune files
         Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices
@@ -99,11 +121,29 @@ public class HudiColumnStatsIndexSupport
                         .toMap(entry -> entry.getKey(), entry -> entry
                                 .getValue()
                                 .stream()
-                                .filter(fileSlice -> shouldKeepFileSlice(fileSlice, statsByFileName, regularColumnPredicates, regularColumns))
+                                .filter(fileSlice -> !shouldSkipFileSlice(fileSlice))
                                 .collect(Collectors.toList())));
 
         this.printDebugMessage(candidateFileSlices, inputFileSlices);
         return candidateFileSlices;
+    }
+
+    @Override
+    public boolean shouldSkipFileSlice(FileSlice slice)
+    {
+        try {
+            // Wait up to 100 milliseconds for stats to be ready
+            Optional<Map<String, Map<String, HoodieMetadataColumnStats>>> statsOpt =
+                    statsByFileNameFuture.get(columnStatsWaitTimeout.toMillis(), TimeUnit.MILLISECONDS);
+
+            return statsOpt.map(fileIdStatsMap ->
+                    shouldSkipFileSlice(slice, fileIdStatsMap, regularColumnPredicates, regularColumns)
+            ).orElse(false);
+        }
+        catch (TimeoutException | InterruptedException | ExecutionException e) {
+            // Stats not ready within 100ms, skip making a decision
+            return false;
+        }
     }
 
     @Override
@@ -144,24 +184,24 @@ public class HudiColumnStatsIndexSupport
     }
 
     // TODO: Move helper functions below to TupleDomain/DomainUtils
-    private static boolean shouldKeepFileSlice(
+    private static boolean shouldSkipFileSlice(
             FileSlice fileSlice,
-            Map<String, List<HoodieMetadataColumnStats>> statsByFileName,
+            Map<String, Map<String, HoodieMetadataColumnStats>> statsByFileName,
             TupleDomain<String> regularColumnPredicates,
             List<String> regularColumns)
     {
         String fileSliceName = fileSlice.getBaseFile().map(BaseFile::getFileName).orElse("");
         // If no stats exist for this specific file, we cannot prune it.
         if (!statsByFileName.containsKey(fileSliceName)) {
-            return true;
+            return false;
         }
-        List<HoodieMetadataColumnStats> stats = statsByFileName.get(fileSliceName);
-        return evaluateStatisticPredicate(regularColumnPredicates, stats, regularColumns);
+        Map<String, HoodieMetadataColumnStats> stats = statsByFileName.get(fileSliceName);
+        return !evaluateStatisticPredicate(regularColumnPredicates, stats, regularColumns);
     }
 
     protected static boolean evaluateStatisticPredicate(
             TupleDomain<String> regularColumnPredicates,
-            List<HoodieMetadataColumnStats> stats,
+            Map<String, HoodieMetadataColumnStats> stats,
             List<String> regularColumns)
     {
         if (regularColumnPredicates.isNone() || !regularColumnPredicates.getDomains().isPresent()) {
@@ -169,8 +209,8 @@ public class HudiColumnStatsIndexSupport
         }
         for (String regularColumn : regularColumns) {
             Domain columnPredicate = regularColumnPredicates.getDomains().get().get(regularColumn);
-            Optional<HoodieMetadataColumnStats> currentColumnStats = stats
-                    .stream().filter(s -> s.getColumnName().equals(regularColumn)).findFirst();
+            Optional<HoodieMetadataColumnStats> currentColumnStats = stats.containsKey(regularColumn) ?
+                    Optional.of(stats.get(regularColumn)) : Optional.empty();
             if (currentColumnStats.isEmpty()) {
                 // No stats for column
             }

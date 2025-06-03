@@ -40,12 +40,17 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
+import org.apache.hudi.common.config.HoodieMetadataConfig;
+import org.apache.hudi.common.engine.HoodieEngineContext;
+import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
+import org.apache.hudi.metadata.HoodieTableMetadata;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -106,10 +111,23 @@ public class HudiSplitSource
         List<HiveColumnHandle> partitionColumnHandles = table.getPartitionColumns().stream()
                 .map(column -> partitionColumnHandleMap.get(column.getName())).collect(toList());
 
+        Optional<HoodieTableMetadata> tableMetadataOpt = Optional.empty();
+        if (enableMetadataTable) {
+            HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder()
+                    .enable(enableMetadataTable)
+                    .build();
+            HoodieEngineContext engineContext = new HoodieLocalEngineContext(metaClient.getStorage().getConf());
+            tableMetadataOpt = Optional.of(HoodieTableMetadata.create(
+                    engineContext,
+                    metaClient.getStorage(), metadataConfig, metaClient.getBasePath().toString(), true));
+        }
+
         HudiDirectoryLister hudiDirectoryLister = new HudiSnapshotDirectoryLister(
+                session,
                 tableHandle,
                 metaClient,
                 enableMetadataTable,
+                tableMetadataOpt,
                 metastore,
                 table,
                 partitionColumnHandles,
@@ -127,6 +145,7 @@ public class HudiSplitSource
                 partitions,
                 latestCommitTime,
                 enableMetadataTable,
+                tableMetadataOpt,
                 metaClient,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,

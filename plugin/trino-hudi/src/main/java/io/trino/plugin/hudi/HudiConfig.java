@@ -29,6 +29,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 @DefunctConfig({
@@ -57,6 +58,7 @@ public class HudiConfig
     private boolean isSecondaryIndexEnabled = true;
     private boolean isColumnStatsIndexEnabled = true;
     private boolean isPartitionStatsIndexEnabled = true;
+    private Duration columnStatsWaitTimeout = new Duration(100, MILLISECONDS);
 
     public List<String> getColumnsToHide()
     {
@@ -303,5 +305,19 @@ public class HudiConfig
     public Duration getDynamicFilteringWaitTimeout()
     {
         return dynamicFilteringWaitTimeout;
+    }
+
+    @Config("hudi.column-stats.wait-timeout")
+    @ConfigDescription("Maximum timeout to wait for loading column stats, e.g. 1000ms, 20s, 2m, 1h")
+    public HudiConfig setColumnStatsWaitTimeout(Duration columnStatusWaitTimeout)
+    {
+        this.columnStatsWaitTimeout = columnStatusWaitTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getColumnStatsWaitTimeout()
+    {
+        return columnStatsWaitTimeout;
     }
 }

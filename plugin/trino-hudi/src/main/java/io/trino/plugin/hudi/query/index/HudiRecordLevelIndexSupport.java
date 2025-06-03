@@ -15,6 +15,7 @@ package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
@@ -32,6 +33,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -45,59 +47,64 @@ public class HudiRecordLevelIndexSupport
 
     public static final String DEFAULT_COLUMN_VALUE_SEPARATOR = ":";
     public static final String DEFAULT_RECORD_KEY_PARTS_SEPARATOR = ",";
+    private final Optional<Set<String>> relevantFileIdsOption;
 
-    public HudiRecordLevelIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiRecordLevelIndexSupport(HoodieTableMetaClient metaClient, HoodieTableMetadata metadataTable, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, metaClient);
+        if (regularColumnPredicates.isAll()) {
+            this.relevantFileIdsOption = Optional.empty();
+        }
+        else {
+            Option<String[]> recordKeyFieldsOpt = metaClient.getTableConfig().getRecordKeyFields();
+            if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
+                // Should not happen since canApply checks for this, include for safety
+                throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
+            }
+            List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
+
+            TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
+            // Only extract the predicates relevant to the record key fields
+            TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularPredicatesTransformed, recordKeyFields);
+
+            // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
+            List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);
+
+            if (recordKeys.isEmpty()) {
+                // If key construction fails (e.g., incompatible predicates not caught by canApply, or placeholder issue)
+                log.warn("Could not construct record keys from predicates. Skipping record index pruning.");
+                this.relevantFileIdsOption = Optional.empty();
+                return;
+            }
+            log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
+
+            // Perform index lookup in metadataTable
+            // TODO: document here what this map is keyed by
+            Map<String, HoodieRecordGlobalLocation> recordIndex = metadataTable.readRecordIndex(recordKeys);
+            if (recordIndex.isEmpty()) {
+                log.debug("Record level index lookup returned no locations for the given keys.");
+                // Return all original fileSlices
+                this.relevantFileIdsOption = Optional.empty();
+                return;
+            }
+
+            // Collect fileIds for pruning
+            this.relevantFileIdsOption = Optional.of(recordIndex.values().stream()
+                    .map(HoodieRecordGlobalLocation::getFileId)
+                    .collect(Collectors.toSet()));
+        }
     }
 
     @Override
     public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            HoodieTableMetadata metadataTable,
             Map<String, List<FileSlice>> inputFileSlices,
             TupleDomain<String> regularColumnPredicates)
     {
         // Should not happen since canApply checks for this, include for safety
-        if (regularColumnPredicates.isAll()) {
+        if (regularColumnPredicates.isAll() || relevantFileIdsOption.isEmpty()) {
             log.debug("Predicates cover all data, skipping record level index lookup.");
             return inputFileSlices;
         }
-
-        Option<String[]> recordKeyFieldsOpt = metaClient.getTableConfig().getRecordKeyFields();
-        if (recordKeyFieldsOpt.isEmpty() || recordKeyFieldsOpt.get().length == 0) {
-            // Should not happen since canApply checks for this, include for safety
-            throw new TrinoException(HUDI_BAD_DATA, "Record key fields must be defined to use Record Level Index.");
-        }
-        List<String> recordKeyFields = Arrays.asList(recordKeyFieldsOpt.get());
-
-        // Only extract the predicates relevant to the record key fields
-        TupleDomain<String> filteredDomains = extractPredicatesForColumns(regularColumnPredicates, recordKeyFields);
-
-        // Construct the actual record keys based on the filtered predicates using Hudi's encoding scheme
-        List<String> recordKeys = constructRecordKeys(filteredDomains, recordKeyFields);
-
-        if (recordKeys.isEmpty()) {
-            // If key construction fails (e.g., incompatible predicates not caught by canApply, or placeholder issue)
-            log.warn("Could not construct record keys from predicates. Skipping record index pruning.");
-            return inputFileSlices;
-        }
-        log.debug(String.format("Constructed %d record keys for index lookup.", recordKeys.size()));
-
-        // Perform index lookup in metadataTable
-        // TODO: document here what this map is keyed by
-        Map<String, HoodieRecordGlobalLocation> recordIndex = metadataTable.readRecordIndex(recordKeys);
-        if (recordIndex.isEmpty()) {
-            log.debug("Record level index lookup returned no locations for the given keys.");
-            // Return all original fileSlices
-            return inputFileSlices;
-        }
-
-        // Collect fileIds for pruning
-        Set<String> relevantFileIds = recordIndex.values().stream()
-                .map(HoodieRecordGlobalLocation::getFileId)
-                .collect(Collectors.toSet());
-        log.debug(String.format("Record level index lookup identified %d relevant file IDs.", relevantFileIds.size()));
-
         // Prune fileSlices: Loop through each partition and filter for fileSlices that are in relevantFileIds
         // Note: This may return partitions with empty list of fileSlices
         Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices
@@ -107,7 +114,7 @@ public class HudiRecordLevelIndexSupport
                         Map.Entry::getKey,
                         entry -> entry.getValue()
                                 .stream()
-                                .filter(fileSlice -> relevantFileIds.contains(fileSlice.getFileId()))
+                                .filter(fileSlice -> relevantFileIdsOption.get().contains(fileSlice.getFileId()))
                                 .collect(Collectors.toList())));
 
         // Remove partitions where no files remain after filtering
@@ -115,6 +122,12 @@ public class HudiRecordLevelIndexSupport
 
         printDebugMessage(candidateFileSlices, inputFileSlices);
         return candidateFileSlices;
+    }
+
+    @Override
+    public boolean shouldSkipFileSlice(FileSlice slice)
+    {
+        return relevantFileIdsOption.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
     }
 
     /**

@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hudi.query;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.metastore.Column;
 import io.trino.metastore.HiveMetastore;
 import io.trino.metastore.Table;
@@ -21,13 +20,18 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HiveHudiPartitionInfo;
 import io.trino.plugin.hudi.partition.HudiPartitionInfo;
+import io.trino.plugin.hudi.query.index.HudiIndexSupport;
+import io.trino.plugin.hudi.query.index.IndexSupportFactory;
 import io.trino.plugin.hudi.storage.TrinoStorageConfiguration;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
+import org.apache.hudi.metadata.HoodieTableMetadata;
 
 import java.util.List;
 import java.util.Map;
@@ -43,11 +47,14 @@ public class HudiSnapshotDirectoryLister
     private final HoodieTableFileSystemView fileSystemView;
     private final List<Column> partitionColumns;
     private final Map<String, HudiPartitionInfo> allPartitionInfoMap;
+    private final Optional<HudiIndexSupport> indexSupportOpt;
 
     public HudiSnapshotDirectoryLister(
+            ConnectorSession session,
             HudiTableHandle tableHandle,
             HoodieTableMetaClient metaClient,
             boolean enableMetadataTable,
+            Optional<HoodieTableMetadata> tableMetadataOpt,
             HiveMetastore hiveMetastore,
             Table hiveTable,
             List<HiveColumnHandle> partitionColumnHandles,
@@ -74,14 +81,17 @@ public class HudiSnapshotDirectoryLister
                                 tableHandle.getPartitionPredicates(),
                                 hiveTable,
                                 hiveMetastore)));
+        TupleDomain<HiveColumnHandle> regularPredicates = tableHandle.getRegularPredicates();
+        this.indexSupportOpt = enableMetadataTable & tableMetadataOpt.isPresent() ?
+                IndexSupportFactory.createIndexSupport(metaClient, tableMetadataOpt.get(), regularPredicates, session) : Optional.empty();
     }
 
     @Override
-    public List<FileSlice> listStatus(HudiPartitionInfo partitionInfo, String commitTime)
+    public List<FileSlice> listStatus(HudiPartitionInfo partitionInfo, String commitTime, boolean useIndex)
     {
-        ImmutableList<FileSlice> collect = fileSystemView.getLatestFileSlicesBeforeOrOn(partitionInfo.getRelativePartitionPath(), commitTime, false)
+        return fileSystemView.getLatestFileSlicesBeforeOrOn(partitionInfo.getRelativePartitionPath(), commitTime, false)
+                .filter(slice -> useIndex ? indexSupportOpt.map(hudiIndexSupport -> !hudiIndexSupport.shouldSkipFileSlice(slice)).orElse(true) : true)
                 .collect(toImmutableList());
-        return collect;
     }
 
     @Override

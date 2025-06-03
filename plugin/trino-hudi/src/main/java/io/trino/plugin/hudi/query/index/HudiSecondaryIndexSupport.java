@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
+import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.common.model.FileSlice;
@@ -36,15 +37,60 @@ public class HudiSecondaryIndexSupport
         extends HudiBaseIndexSupport
 {
     private static final Logger log = Logger.get(HudiSecondaryIndexSupport.class);
+    private final Optional<Set<String>> relevantFileIdsOption;
+    private final HoodieTableMetadata tableMetadata;
 
-    public HudiSecondaryIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiSecondaryIndexSupport(HoodieTableMetaClient metaClient, HoodieTableMetadata tableMetadata, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, metaClient);
+        TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
+        this.tableMetadata = tableMetadata;
+        if (regularColumnPredicates.isAll() || metaClient.getIndexMetadata().isEmpty()) {
+            this.relevantFileIdsOption = Optional.empty();
+        }
+        else {
+            Optional<Map.Entry<String, HoodieIndexDefinition>> firstApplicableIndex = findFirstApplicableSecondaryIndex(regularPredicatesTransformed);
+            if (firstApplicableIndex.isEmpty()) {
+                log.debug("No secondary index definition found matching the query's referenced columns.");
+                this.relevantFileIdsOption = Optional.empty();
+                return;
+            }
+
+            Map.Entry<String, HoodieIndexDefinition> applicableIndexEntry = firstApplicableIndex.get();
+            String indexName = applicableIndexEntry.getKey();
+            // `indexedColumns` should only contain one element as secondary indices only support one column
+            List<String> indexedColumns = applicableIndexEntry.getValue().getSourceFields();
+            log.debug(String.format("Using secondary index '%s' on columns %s for pruning.", indexName, indexedColumns));
+
+            TupleDomain<String> indexPredicates = extractPredicatesForColumns(regularPredicatesTransformed, indexedColumns);
+
+            List<String> secondaryKeys = constructRecordKeys(indexPredicates, indexedColumns);
+            if (secondaryKeys.isEmpty()) {
+                log.warn(String.format("Could not construct secondary keys for index '%s' from predicates. Skipping pruning.", indexName));
+                this.relevantFileIdsOption = Optional.empty();
+                return;
+            }
+            log.debug(String.format("Constructed %d secondary keys for index lookup.", secondaryKeys.size()));
+
+            // Perform index lookup in metadataTable
+            // TODO: document here what this map is keyed by
+            Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = tableMetadata.readSecondaryIndex(secondaryKeys, indexName);
+            if (recordKeyLocationsMap.isEmpty()) {
+                log.debug("Secondary index lookup returned no locations for the given keys.");
+                // Return all original fileSlices
+                this.relevantFileIdsOption = Optional.empty();
+                return;
+            }
+
+            // Collect fileIds for pruning
+            this.relevantFileIdsOption = Optional.of(recordKeyLocationsMap.values().stream()
+                    .map(HoodieRecordGlobalLocation::getFileId)
+                    .collect(Collectors.toSet()));
+        }
     }
 
     @Override
     public Map<String, List<FileSlice>> lookupCandidateFilesInMetadataTable(
-            HoodieTableMetadata metadataTable,
             Map<String, List<FileSlice>> inputFileSlices,
             TupleDomain<String> regularColumnPredicates)
     {
@@ -75,7 +121,7 @@ public class HudiSecondaryIndexSupport
 
         // Perform index lookup in metadataTable
         // TODO: document here what this map is keyed by
-        Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = metadataTable.readSecondaryIndex(secondaryKeys, indexName);
+        Map<String, HoodieRecordGlobalLocation> recordKeyLocationsMap = tableMetadata.readSecondaryIndex(secondaryKeys, indexName);
         if (recordKeyLocationsMap.isEmpty()) {
             log.debug("Secondary index lookup returned no locations for the given keys.");
             // Return all original fileSlices
@@ -103,6 +149,12 @@ public class HudiSecondaryIndexSupport
 
         printDebugMessage(candidateFileSlices, inputFileSlices);
         return candidateFileSlices;
+    }
+
+    @Override
+    public boolean shouldSkipFileSlice(FileSlice slice)
+    {
+        return relevantFileIdsOption.map(fileIds -> !fileIds.contains(slice.getFileId())).orElse(false);
     }
 
     /**
