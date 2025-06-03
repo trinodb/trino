@@ -3557,6 +3557,29 @@ public class TestSqlParser
     }
 
     @Test
+    public void testAlterMaterializedViewSetAuthorization()
+    {
+        assertThat(statement("ALTER MATERIALIZED VIEW foo.bar.baz SET AUTHORIZATION qux")).isEqualTo(
+                new SetAuthorizationStatement(
+                        location(1, 1),
+                        "MATERIALIZED VIEW",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "foo", false), new Identifier(location(1, 29), "bar", false), new Identifier(location(1, 33), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier(location(1, 55), "qux", false))));
+        assertThat(statement("ALTER MATERIALIZED VIEW foo.bar.baz SET AUTHORIZATION USER qux")).isEqualTo(
+                new SetAuthorizationStatement(
+                        location(1, 1),
+                        "MATERIALIZED VIEW",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "foo", false), new Identifier(location(1, 29), "bar", false), new Identifier(location(1, 33), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier(location(1, 60), "qux", false))));
+        assertThat(statement("ALTER MATERIALIZED VIEW foo.bar.baz SET AUTHORIZATION ROLE qux")).isEqualTo(
+                new SetAuthorizationStatement(
+                        location(1, 1),
+                        "MATERIALIZED VIEW",
+                        QualifiedName.of(ImmutableList.of(new Identifier(location(1, 25), "foo", false), new Identifier(location(1, 29), "bar", false), new Identifier(location(1, 33), "baz", false))),
+                        new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier(location(1, 60), "qux", false))));
+    }
+
+    @Test
     public void testTableExecute()
     {
         Table table = new Table(location(1, 7), QualifiedName.of(ImmutableList.of(new Identifier(location(1, 13), "foo", false))));
