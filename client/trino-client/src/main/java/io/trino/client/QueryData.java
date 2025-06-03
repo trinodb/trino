@@ -38,5 +38,6 @@ public interface QueryData
     @JsonIgnore
     boolean isNull();
 
+    @JsonIgnore
     long getRowsCount();
 }
