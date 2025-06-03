@@ -60,11 +60,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
-import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.HttpStatusCodes.shouldRetry;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.TrinoJsonCodec.jsonCodec;
-import static io.trino.client.UserAgentBuilder.createUserAgent;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_BAD_METHOD;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -82,7 +80,6 @@ class StatementClientV1
     private static final TrinoJsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private static final Splitter COLLECTION_HEADER_SPLITTER = Splitter.on('=').limit(2).trimResults();
-    private static final String USER_AGENT_VALUE = createUserAgent(StatementClientV1.class.getSimpleName());
     private final Call.Factory httpCallFactory;
     private final String query;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
@@ -381,9 +378,7 @@ class StatementClientV1
 
     private Request.Builder prepareRequest(HttpUrl url)
     {
-        Request.Builder builder = new Request.Builder()
-                .addHeader(USER_AGENT, USER_AGENT_VALUE)
-                .url(url);
+        Request.Builder builder = new Request.Builder().url(url);
         user.ifPresent(requestUser -> builder.addHeader(TRINO_HEADERS.requestUser(), requestUser));
         originalUser.ifPresent(originalUser -> builder.addHeader(TRINO_HEADERS.requestOriginalUser(), originalUser));
         if (compressionDisabled) {
