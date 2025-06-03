@@ -351,6 +351,14 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.checkCanSetMaterializedViewAuthorization(context, viewName, principal);
+        }
+    }
+
+    @Override
     public void checkCanSetMaterializedViewProperties(ConnectorSecurityContext context, SchemaTableName materializedViewName, Map<String, Optional<Object>> properties)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

@@ -22,6 +22,7 @@ import io.trino.grammar.sql.SqlBaseParser;
 import io.trino.grammar.sql.SqlBaseParser.CorrespondingContext;
 import io.trino.grammar.sql.SqlBaseParser.CreateCatalogContext;
 import io.trino.grammar.sql.SqlBaseParser.DropCatalogContext;
+import io.trino.grammar.sql.SqlBaseParser.OwnedEntityKindContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
@@ -321,6 +322,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -511,9 +513,13 @@ class AstBuilder
     @Override
     public Node visitSetAuthorization(SqlBaseParser.SetAuthorizationContext context)
     {
+        OwnedEntityKindContext ownedEntityKindContext = context.ownedEntityKind();
+        String ownedEntityKind = IntStream.range(0, ownedEntityKindContext.getChildCount())
+                .mapToObj(i -> ownedEntityKindContext.getChild(i).getText())
+                .reduce("", (a, b) -> String.format("%s %s", a, b).trim());
         return new SetAuthorizationStatement(
                 getLocation(context),
-                context.ownedEntityKind().getText().toUpperCase(ENGLISH),
+                ownedEntityKind.toUpperCase(ENGLISH),
                 getQualifiedName(context.qualifiedName()),
                 getPrincipalSpecification(context.principal()));
     }

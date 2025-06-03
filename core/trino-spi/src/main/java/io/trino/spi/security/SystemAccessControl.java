@@ -588,6 +588,19 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to change the specified materialized view's user/role.
+     *
+     * @throws AccessDeniedException if not allowed
+     *
+     * @deprecated {Use {@link #checkCanSetEntityAuthorization}
+     */
+    @Deprecated(forRemoval = true)
+    default void checkCanSetMaterializedViewAuthorization(SystemSecurityContext context, CatalogSchemaTableName view, TrinoPrincipal principal)
+    {
+        denySetEntityAuthorization(new EntityKindAndName("MATERIALIZED VIEW", List.of(view.getCatalogName(), view.getSchemaTableName().getSchemaName(), view.getSchemaTableName().getTableName())), principal);
+    }
+
+    /**
      * Check if identity is allowed to drop the specified view in a catalog.
      *
      * @throws AccessDeniedException if not allowed
@@ -961,9 +974,15 @@ public interface SystemAccessControl
                 break;
             case "VIEW":
                 if (name.size() != 3) {
-                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The view name %s must have three elements".formatted(name));
+                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
                 }
                 checkCanSetViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
+                break;
+            case "MATERIALIZED VIEW":
+                if (name.size() != 3) {
+                    throw new TrinoException(StandardErrorCode.INVALID_ARGUMENTS, "The %s name %s must have three elements".formatted(kind.toLowerCase(Locale.ROOT), name));
+                }
+                checkCanSetMaterializedViewAuthorization(context, new CatalogSchemaTableName(name.get(0), name.get(1), name.get(2)), principal);
                 break;
             default:
                 denySetEntityAuthorization(new EntityKindAndName(kind, name), principal);
