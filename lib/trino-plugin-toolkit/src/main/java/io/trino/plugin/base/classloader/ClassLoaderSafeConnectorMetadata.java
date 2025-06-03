@@ -1170,6 +1170,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void setMaterializedViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            delegate.setMaterializedViewAuthorization(session, viewName, principal);
+        }
+    }
+
+    @Override
     public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
