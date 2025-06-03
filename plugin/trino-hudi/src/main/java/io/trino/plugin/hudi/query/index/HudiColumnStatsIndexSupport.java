@@ -18,6 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
+import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
@@ -27,6 +28,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
+import org.apache.hudi.common.config.HoodieMetadataConfig;
+import org.apache.hudi.common.engine.HoodieEngineContext;
+import org.apache.hudi.common.engine.HoodieLocalEngineContext;
 import org.apache.hudi.common.model.BaseFile;
 import org.apache.hudi.common.model.FileSlice;
 import org.apache.hudi.common.model.HoodieIndexDefinition;
@@ -36,6 +40,8 @@ import org.apache.hudi.common.util.hash.ColumnIndexID;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.HoodieTableMetadataUtil;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,15 +62,43 @@ public class HudiColumnStatsIndexSupport
         extends HudiBaseIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
+    private final Map<String, List<HoodieMetadataColumnStats>> statsByFileName;
+    private final TupleDomain<String> regularColumnPredicates;
 
-    public HudiColumnStatsIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiColumnStatsIndexSupport(HoodieTableMetaClient metaClient, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, metaClient);
+        this(log, metaClient, regularColumnPredicates);
     }
 
-    public HudiColumnStatsIndexSupport(Logger log, HoodieTableMetaClient metaClient)
+    public HudiColumnStatsIndexSupport(Logger log, HoodieTableMetaClient metaClient, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
         super(log, metaClient);
+        HoodieMetadataConfig metadataConfig = HoodieMetadataConfig.newBuilder().enable(true).build();
+        HoodieEngineContext engineContext = new HoodieLocalEngineContext(metaClient.getStorage().getConf());
+        HoodieTableMetadata metadataTable = HoodieTableMetadata.create(
+                engineContext,
+                metaClient.getStorage(), metadataConfig, metaClient.getBasePath().toString(), true);
+
+        TupleDomain<String> regularPredicatesTransformed = regularColumnPredicates.transformKeys(HiveColumnHandle::getName);
+
+        List<String> regularColumns = regularPredicatesTransformed
+                .getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
+        // Get filter columns
+        List<String> encodedTargetColumnNames = regularColumns
+                .stream()
+                .map(col -> new ColumnIndexID(col).asBase64EncodedString()).collect(Collectors.toList());
+        Instant start = Instant.now();
+        statsByFileName = metadataTable.getRecordsByKeyPrefixes(
+                        encodedTargetColumnNames,
+                        HoodieTableMetadataUtil.PARTITION_NAME_COLUMN_STATS, true)
+                .collectAsList()
+                .stream()
+                .filter(f -> f.getData().getColumnStatMetadata().isPresent())
+                .map(f -> f.getData().getColumnStatMetadata().get())
+                .collect(Collectors.groupingBy(HoodieMetadataColumnStats::getFileName));
+        long timeTaken = Duration.between(start, Instant.now()).toMillis();
+        log.info("Retrieved column stats for %s files in %s ms", statsByFileName.size(), timeTaken);
+        this.regularColumnPredicates = regularPredicatesTransformed;
     }
 
     @Override
@@ -91,6 +125,8 @@ public class HudiColumnStatsIndexSupport
                 .map(f -> f.getData().getColumnStatMetadata().get())
                 .collect(Collectors.groupingBy(HoodieMetadataColumnStats::getFileName));
 
+        Instant start = Instant.now();
+        log.info("Started pruning files");
         // Prune files
         Map<String, List<FileSlice>> candidateFileSlices = inputFileSlices
                 .entrySet()
@@ -101,9 +137,18 @@ public class HudiColumnStatsIndexSupport
                                 .stream()
                                 .filter(fileSlice -> shouldKeepFileSlice(fileSlice, statsByFileName, regularColumnPredicates, regularColumns))
                                 .collect(Collectors.toList())));
+        long timeTaken = Duration.between(start, Instant.now()).toMillis();
+        log.info("Complete files pruning in %s ms", timeTaken);
 
         this.printDebugMessage(candidateFileSlices, inputFileSlices);
         return candidateFileSlices;
+    }
+
+    @Override
+    public boolean shouldKeepFileSlice(FileSlice slice) {
+        List<String> regularColumns = regularColumnPredicates
+                .getDomains().get().entrySet().stream().map(Map.Entry::getKey).collect(Collectors.toList());
+        return shouldKeepFileSlice(slice, statsByFileName, regularColumnPredicates, regularColumns);
     }
 
     @Override

@@ -59,7 +59,7 @@ public class IndexSupportFactory
         List<StrategyProvider> strategyProviders = List.of(
                 new StrategyProvider(() -> isRecordLevelIndexEnabled(session), () -> new HudiRecordLevelIndexSupport(metaClient)),
                 new StrategyProvider(() -> isSecondaryIndexEnabled(session), () -> new HudiSecondaryIndexSupport(metaClient)),
-                new StrategyProvider(() -> isColumnStatsIndexEnabled(session), () -> new HudiColumnStatsIndexSupport(metaClient)),
+                new StrategyProvider(() -> isColumnStatsIndexEnabled(session), () -> new HudiColumnStatsIndexSupport(metaClient, tupleDomain)),
                 new StrategyProvider(() -> isNoOpIndexEnabled(session), () -> new HudiNoOpIndexSupport(metaClient)));
 
         TupleDomain<String> transformedTupleDomain = tupleDomain.transformKeys(HiveColumnHandle::getName);
@@ -92,7 +92,7 @@ public class IndexSupportFactory
             HoodieTableMetaClient metaClient, TupleDomain<HiveColumnHandle> tupleDomain, ConnectorSession session)
     {
         StrategyProvider partitionStatsStrategy = new StrategyProvider(
-                () -> isPartitionStatsIndexEnabled(session), () -> new HudiPartitionStatsIndexSupport(metaClient));
+                () -> isPartitionStatsIndexEnabled(session), () -> new HudiPartitionStatsIndexSupport(metaClient, tupleDomain));
 
         TupleDomain<String> transformedTupleDomain = tupleDomain.transformKeys(HiveColumnHandle::getName);
         if (partitionStatsStrategy.isEnabled() && partitionStatsStrategy.getStrategy().canApply(transformedTupleDomain)) {

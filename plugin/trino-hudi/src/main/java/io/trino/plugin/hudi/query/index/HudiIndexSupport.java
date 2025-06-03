@@ -28,4 +28,6 @@ public interface HudiIndexSupport
             TupleDomain<String> regularColumnPredicates);
 
     boolean canApply(TupleDomain<String> tupleDomain);
+
+    default boolean shouldKeepFileSlice(FileSlice slice) {return true;}
 }

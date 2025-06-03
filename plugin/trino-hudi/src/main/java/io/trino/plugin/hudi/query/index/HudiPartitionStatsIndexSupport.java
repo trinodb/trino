@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi.query.index;
 
 import io.airlift.log.Logger;
+import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hudi.util.TupleDomainUtils;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.hudi.avro.model.HoodieMetadataColumnStats;
@@ -37,9 +38,9 @@ public class HudiPartitionStatsIndexSupport
 {
     private static final Logger log = Logger.get(HudiColumnStatsIndexSupport.class);
 
-    public HudiPartitionStatsIndexSupport(HoodieTableMetaClient metaClient)
+    public HudiPartitionStatsIndexSupport(HoodieTableMetaClient metaClient, TupleDomain<HiveColumnHandle> regularColumnPredicates)
     {
-        super(log, metaClient);
+        super(log, metaClient, regularColumnPredicates);
     }
 
     @Override
