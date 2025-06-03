@@ -24,6 +24,10 @@
     src="https://img.shields.io/badge/Trino%3A%20The%20Definitive%20Guide-download-brightgreen"
     alt="Trino: The Definitive Guide book download"
   /></a>
+  <a href="https://deepwiki.com/trinodb/trino" style="text-decoration: none"><img 
+    src="https://deepwiki.com/badge.svg" 
+    alt="Ask DeepWiki"
+  /></a>
 </p>
 
 ## Development
@@ -38,6 +42,8 @@ Learn about development for all Trino organization projects:
 Further information in the [development section of the
 website](https://trino.io/development) includes different roles, like
 contributors, reviewers, and maintainers, related processes, and other aspects.
+
+See [DeepWiki](https://deepwiki.com/trinodb/trino) for an in-depth look at the code base.
 
 See [the Trino developer guide](https://trino.io/docs/current/develop.html) for
 information about the SPI, implementing connectors and other plugins plugins,
