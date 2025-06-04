@@ -54,6 +54,7 @@ public class FileSystemExchangeManager
     private final int exchangeFileListingParallelism;
     private final long exchangeSourceHandleTargetDataSizeInBytes;
     private final ExecutorService executor;
+    private final boolean skipDeletes;
 
     @Inject
     public FileSystemExchangeManager(
@@ -76,6 +77,7 @@ public class FileSystemExchangeManager
         this.exchangeFileListingParallelism = fileSystemExchangeConfig.getExchangeFileListingParallelism();
         this.exchangeSourceHandleTargetDataSizeInBytes = fileSystemExchangeConfig.getExchangeSourceHandleTargetDataSize().toBytes();
         this.executor = newCachedThreadPool(daemonThreadsNamed("exchange-source-handles-creation-%s"));
+        this.skipDeletes = fileSystemExchangeConfig.isSkipDeletes();
     }
 
     @Override
@@ -97,7 +99,8 @@ public class FileSystemExchangeManager
                 preserveOrderWithinPartition,
                 exchangeFileListingParallelism,
                 exchangeSourceHandleTargetDataSizeInBytes,
-                executor);
+                executor,
+                skipDeletes);
     }
 
     @Override
@@ -113,7 +116,8 @@ public class FileSystemExchangeManager
                 maxPageStorageSizeInBytes,
                 exchangeSinkBufferPoolMinSize,
                 exchangeSinkBuffersPerPartition,
-                exchangeSinkMaxFileSizeInBytes);
+                exchangeSinkMaxFileSizeInBytes,
+                skipDeletes);
     }
 
     @Override

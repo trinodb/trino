@@ -75,6 +75,7 @@ public class FileSystemExchangeSink
     private final int maxPageStorageSizeInBytes;
     private final long maxFileSizeInBytes;
     private final BufferPool bufferPool;
+    private final boolean skipDeletes;
 
     private final Map<Integer, BufferedStorageWriter> writersMap = new ConcurrentHashMap<>();
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -89,7 +90,8 @@ public class FileSystemExchangeSink
             int maxPageStorageSizeInBytes,
             int exchangeSinkBufferPoolMinSize,
             int exchangeSinkBuffersPerPartition,
-            long maxFileSizeInBytes)
+            long maxFileSizeInBytes,
+            boolean skipDeletes)
     {
         checkArgument(maxPageStorageSizeInBytes <= maxFileSizeInBytes,
                 format("maxPageStorageSizeInBytes %s exceeded maxFileSizeInBytes %s", succinctBytes(maxPageStorageSizeInBytes), succinctBytes(maxFileSizeInBytes)));
@@ -101,8 +103,8 @@ public class FileSystemExchangeSink
         this.preserveOrderWithinPartition = preserveOrderWithinPartition;
         this.maxPageStorageSizeInBytes = maxPageStorageSizeInBytes;
         this.maxFileSizeInBytes = maxFileSizeInBytes;
-        // buffer pooling to overlap computation and I/O
         this.bufferPool = new BufferPool(stats, max(outputPartitionCount * exchangeSinkBuffersPerPartition, exchangeSinkBufferPoolMinSize), exchangeStorage.getWriteBufferSize());
+        this.skipDeletes = skipDeletes;
     }
 
     @Override
@@ -208,7 +210,11 @@ public class FileSystemExchangeSink
         ListenableFuture<Void> abortFuture = asVoid(Futures.allAsList(
                 writersMap.values().stream().map(BufferedStorageWriter::abort).collect(toImmutableList())));
         addSuccessCallback(abortFuture, this::destroy);
-
+        
+        if (skipDeletes) {
+            return stats.getExchangeSinkAbort().record(toCompletableFuture(abortFuture));
+        }
+        
         return stats.getExchangeSinkAbort().record(toCompletableFuture(Futures.transformAsync(
                 abortFuture,
                 ignored -> exchangeStorage.deleteRecursively(ImmutableList.of(outputDirectory)),

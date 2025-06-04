@@ -84,6 +84,7 @@ public class FileSystemExchange
     private final int fileListingParallelism;
     private final long exchangeSourceHandleTargetDataSizeInBytes;
     private final ExecutorService executor;
+    private final boolean skipDeletes;
 
     private final Map<Integer, URI> outputDirectories = new ConcurrentHashMap<>();
 
@@ -108,7 +109,8 @@ public class FileSystemExchange
             boolean preserveOrderWithinPartition,
             int fileListingParallelism,
             long exchangeSourceHandleTargetDataSizeInBytes,
-            ExecutorService executor)
+            ExecutorService executor,
+            boolean skipDeletes)
     {
         List<URI> directories = new ArrayList<>(requireNonNull(baseDirectories, "baseDirectories is null"));
         Collections.shuffle(directories);
@@ -129,6 +131,7 @@ public class FileSystemExchange
         this.fileListingParallelism = fileListingParallelism;
         this.exchangeSourceHandleTargetDataSizeInBytes = exchangeSourceHandleTargetDataSizeInBytes;
         this.executor = requireNonNull(executor, "executor is null");
+        this.skipDeletes = skipDeletes;
     }
 
     @Override
@@ -326,13 +329,15 @@ public class FileSystemExchange
     @Override
     public void close()
     {
-        ImmutableList<URI> toDelete;
-        synchronized (this) {
-            toDelete = allSinks.stream()
-                    .map(this::getTaskOutputDirectory)
-                    .collect(toImmutableList());
+        if (!skipDeletes) {
+            ImmutableList<URI> toDelete;
+            synchronized (this) {
+                toDelete = allSinks.stream()
+                        .map(this::getTaskOutputDirectory)
+                        .collect(toImmutableList());
+            }
+            stats.getCloseExchange().record(exchangeStorage.deleteRecursively(toDelete));
         }
-        stats.getCloseExchange().record(exchangeStorage.deleteRecursively(toDelete));
         exchangeSpan.end();
     }
 

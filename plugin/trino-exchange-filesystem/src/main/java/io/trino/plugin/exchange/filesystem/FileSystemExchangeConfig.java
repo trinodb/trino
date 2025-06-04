@@ -46,6 +46,7 @@ public class FileSystemExchangeConfig
     private int maxOutputPartitionCount = 50;
     private int exchangeFileListingParallelism = 50;
     private DataSize exchangeSourceHandleTargetDataSize = DataSize.of(256, MEGABYTE);
+    private boolean skipDeletes = false;
 
     @NotNull
     @NotEmpty(message = "At least one base directory needs to be configured")
@@ -191,6 +192,19 @@ public class FileSystemExchangeConfig
     public FileSystemExchangeConfig setExchangeSourceHandleTargetDataSize(DataSize exchangeSourceHandleTargetDataSize)
     {
         this.exchangeSourceHandleTargetDataSize = exchangeSourceHandleTargetDataSize;
+        return this;
+    }
+
+    public boolean isSkipDeletes()
+    {
+        return skipDeletes;
+    }
+
+    @Config("exchange.skip-deletes")
+    @ConfigDescription("Skip recursive deletes during exchange cleanup operations")
+    public FileSystemExchangeConfig setSkipDeletes(boolean skipDeletes)
+    {
+        this.skipDeletes = skipDeletes;
         return this;
     }
 }
